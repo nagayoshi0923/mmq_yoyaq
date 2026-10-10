@@ -1,3 +1,12 @@
+## 2026-10-11 / チャットの自動お知らせをすべて灰色の 1 行にし、カードを流さない（fix/chat-system-lines-only、staging 向け PR・未取り込み）
+
+- 社長決定: **グループチャットには自動のカードを流さない**。吹き出しは人の発言と写真だけ、自動のお知らせはすべて灰色の小さな 1 行。行動が要るものだけ末尾に小さなリンクを 1 つ（既存の `?tab=`／`?sheet=`）。今後チャットにカードを足さない。詳細は方針書 `docs/product-spec/グループページ刷新_2026-10.md` の末尾「チャットにはカードを流さない」。
+- 対象: 候補日の追加・未回答の人に知らせる・店舗の確定／却下／取消・事前配役アンケート・事前読み込み・店舗からのお知らせ・個別お知らせ（引き継ぎの依頼は宛先本人だけに「› 確認する」）・次の貸切のお誘い・配役。DB の文面・種類は変えていない。
+- 配役の操作カード（決め方・希望・確定）はチャットから外し、`CharacterAssignmentCards.tsx` は削除（操作は #1035 の「いまの状態」の箱と全画面シートへ移った）。チャットは状態の 1 行だけ: 主催者「配役の決め方を選んでください › 選ぶ」（`?sheet=casting-method`）、自分たちで決める・未選択の人「やりたいキャラクターを選んでください › 選ぶ」（`?sheet=casting-pick`）、確定「配役が確定しました › 概要」（`?tab=overview#casting`）。#1035 の「未回答の人に知らせる」の種類（事前配役アンケート・キャラクター）も 1 行にし、名前が挙がった本人に「› 回答する」「› 選ぶ」。
+- 名称は「事前配役アンケート」（社長決定。既存文の一括置換は別作業）。
+- 「日程がそろった」はチャットのお知らせが存在しない（ベル・メール・プッシュのみ）ので対象外。
+- 確認: 手元で 375px の主催者・メンバー・ゲスト（`shots/fix_chatlines_*.png`）。
+
 ## 2026-10-11 / 概要タブに「配役」欄・配役の操作を「いまの状態」の箱と全画面シートに（feat/overview-survey-section、staging 向け PR・未取り込み）
 
 - 社長要望と修正: 配役（決め方の選択・自分たちで決める・事前配役アンケート）の操作の入口は「いまの状態」の箱（チャットタブの 1 行、マイページのカードも同じ段階）だけ。概要タブの「配役」欄（`#casting`、日程と場所の次）は状態の確認と主催者の「変更する」の入口。見本 `StatusBox.dc.html` ④-a〜④-d・`Casting.dc.html`。お客様向けの名称は「事前配役アンケート」（新しく書いた文だけ。既存の「公演前アンケート」の置換は別担当）。
@@ -5,7 +14,7 @@
 - 全画面シート `?sheet=casting-method|casting-pick|casting-confirm`（`groupPage/casting/CastingScreen.tsx`）。保存は既存の RPC（private_group_set_character_method・member_action の character_preference・private_group_confirm_characters）のまま。③ は重なりを琥珀色で警告、全員分・重なりなし・必要人数そろいまで押せない（DB と同じ規則）。
 - DB（migration 20261011170000 と同名 rollback、staging 適用済み・本番未適用）: `private_group_casting_status(group, member, guest_token)` を追加（参加中の本人だけ。決め方・確定済みか〈チャットの配役カードと同じ判定〉・アンケートの回答済み／対象人数・自分の回答の有無・未回答の名前は主催者だけ。回答の中身は返さない）。`private_group_chat_action` の remind_unanswered に kind（dates／survey／casting）。survey は未回答、casting は未選択の人に絞り、灰色 1 行（date_answer_reminder＋kind）。チャット側は文面の切り替え 1 か所だけ変更（`groupChatMessages.noticeLineText`）。
 - structure: staging.json は staging の実物で更新。今回の 2 関数のほか、web_push_outbox／web_push_subscriptions の auth.users への外部キーが「NOT VALID」に変わっている（毎晩の本番→staging の写し `scripts/mirror-prod-to-staging.sh` が auth 参照の外部キーを NOT VALID で作り直すため。2026-10-10 21:27Z の実行で発生）。これを入れないと Drift check (staging) が落ちる。
-- 未対応: チャットの配役カード（CharacterAssignmentCards）は残したまま（灰色 1 行化は別担当）。回答画面の見た目（見本 SurveySheet.dc.html）は別 PR。
+- 未対応: チャットの配役カードは #1034 で灰色 1 行にし部品を削除済み。回答画面の見た目（見本 SurveySheet.dc.html）は別 PR。
 - 確認: 手元 DB で主催者・メンバー（customer2）・ゲスト（手元で作った一時の印）の 3 視点を 375px で撮影（作業メモの `shots/g7_survey_*.png`）。必要人数（5 人）に満たない試験データのため、確定後の表示は手元 DB に確定のお知らせを入れて確認。
 
 ## 2026-10-11 / 候補日の追加・編集を 1 枚のスクロールにし、保存ボタンを常に見える位置に（fix/candidate-dates-editor-ux、staging 向け PR・未取り込み）

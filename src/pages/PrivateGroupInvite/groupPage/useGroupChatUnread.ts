@@ -19,7 +19,7 @@ function usePageVisible(): boolean {
   return visible
 }
 
-export function useGroupChatUnread(myMemberId: string | null, messages: PrivateGroupMessage[], loading: boolean, chat: PrivateGroupChatState, chatVisible: boolean, group?: Pick<PrivateGroup, 'candidate_dates' | 'status'> | null): number {
+export function useGroupChatUnread(myMemberId: string | null, messages: PrivateGroupMessage[], loading: boolean, chat: PrivateGroupChatState, chatVisible: boolean, group?: Pick<PrivateGroup, 'candidate_dates' | 'status'> | null, userId: string | null = null): number {
   const pageVisible = usePageVisible()
   const lastRead = chat.state.my_last_read_at
   const latest = messages.length > 0 ? messages[messages.length - 1].created_at : null
@@ -34,11 +34,16 @@ export function useGroupChatUnread(myMemberId: string | null, messages: PrivateG
     if (!chatVisible || !pageVisible || !latest) return
     if (new Date(latest).getTime() > new Date(lastRead).getTime()) markRead(latest)
   }, [loading, loaded, lastRead, latest, chatVisible, pageVisible, markRead])
-  // 灰色の 1 行の自動お知らせ（参加した・候補日の追加など）は数えない（チャットと同じ見分け方。名前は使わない）
+  // 自動のお知らせはすべて灰色の 1 行。そのうち店舗からの返事・自分に行動が要るもの（notable）だけ数える
+  // （参加した・回答済みの候補日の追加などは数えない。チャットと同じ見分け方。名前は使わない）
   const isLine = useMemo(() => {
-    const lineOf = noticeLineResolver({ getMemberName: () => '', current: group?.candidate_dates ?? null, status: group?.status, myMemberId })
-    return (m: PrivateGroupMessage) => !m.deleted_at && lineOf(m) !== null
-  }, [group?.candidate_dates, group?.status, myMemberId])
+    const lineOf = noticeLineResolver({ getMemberName: () => '', current: group?.candidate_dates ?? null, status: group?.status, myMemberId, userId })
+    return (m: PrivateGroupMessage) => {
+      if (m.deleted_at) return false
+      const line = lineOf(m)
+      return line !== null && (line.hidden || !line.notable)
+    }
+  }, [group?.candidate_dates, group?.status, myMemberId, userId])
   return chatVisible ? 0 : countUnread(messages, myMemberId, lastRead, isLine)
 }
 

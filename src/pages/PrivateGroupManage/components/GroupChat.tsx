@@ -1,7 +1,7 @@
 /**
  * 貸切グループのチャット（グループページ刷新 段階 2: X の DM グループ並みに）。
- * 発言（返信・リアクション・既読の人数・写真・ピン留め・削除）、入力中の表示、自動のお知らせ（灰色の 1 行）、
- * 行動が要るお知らせのカード、配役・アンケートのカード。部品は ./chat/ に分けている。
+ * 発言（返信・リアクション・既読の人数・写真・ピン留め・削除）、入力中の表示。
+ * 自動のお知らせはすべて灰色の 1 行（カードを流さない。2026-10-11）。配役の操作は全画面シート（#1035）。部品は ./chat/ に分けている。
  */
 import { usePrivateGroupSnapshot } from '@/hooks/usePrivateGroupSnapshot'
 import { usePrivateGroupMessages } from '@/hooks/usePrivateGroupMessages'
@@ -16,22 +16,21 @@ import { deleteGroupMessage, privateGroupChatAction, sendGroupPhotos } from '@/l
 import { getErrorMessage } from '@/lib/errorFields'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import { Sentry } from '@/lib/sentry'
+import { isPastPerformanceDate } from '@/lib/surveyCompletion'
 import { toast } from 'sonner'
 import type { PrivateGroupMember, PrivateGroupMessage } from '@/types'
 import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/SurveyResponseForm'
-import { formatJstDateJa, getJstParts, formatJstTime } from '@/utils/jstDate'
+import { getJstParts, formatJstTime } from '@/utils/jstDate'
 import { ConfirmDialog } from '@/components/patterns/modal'
-import { chunkChatEntries, closedHandoverRequestIds, formatChatDate, groupMessagesByDate, markDeletedCandidates, noticeLineResolver, parseSystemMessage } from './groupChatMessages'
+import { castingLine, chunkChatEntries, closedHandoverRequestIds, surveyLine, formatChatDate, groupMessagesByDate, isNoticeForMe, noticeLineResolver, parseSystemMessage } from './groupChatMessages'
 import { SystemNoticeLine } from './SystemNoticeLine'
-import { SIMPLE_SYSTEM_MESSAGE_ACTIONS, SystemNoticeCard } from './SystemNoticeCard'
 import { ChatBubble } from './chat/ChatBubble'
 import { ChatComposer } from './chat/ChatComposer'
 import { MessageActionSheet } from './chat/MessageActionSheet'
 import { PhotoViewer, type ViewerPhoto } from './chat/PhotoViewer'
 import { jumpToMessage, savePhoto } from './chat/chatDom'
 import { PinnedBar } from './chat/PinnedBar'
-import { SpecialNoticeCard, SPECIAL_NOTICE_ACTIONS } from './chat/SpecialNoticeCard'
-import { CharacterAssignmentCards, type CharacterData } from './chat/CharacterAssignmentCards'
 import { useTypingPresence } from './chat/useTypingPresence'
 import { ChatVisibleContext, MESSAGE_SENT_EVENT, type MessageSentDetail } from './chat/chatVisibility'
 import { useGroupPhotoUrls } from './chat/useGroupPhotoUrls'
@@ -44,17 +43,20 @@ interface GroupChatProps {
   members: PrivateGroupMember[]
   fullHeight?: boolean
   onGoToSchedule?: () => void
+  /** 概要タブへ（店舗の確定・取消のお知らせの「概要を見る」） */
+  onGoToOverview?: () => void
+  /** 概要タブの「配役」欄へ（?tab=overview#casting）。配役の操作はそこで行う */
+  onGoToCasting?: () => void
+  /** 配役の全画面シートを開く（?sheet=casting-method / casting-pick、#1035） */
+  onOpenCastingSheet?: (sheet: 'casting-method' | 'casting-pick') => void
   scenarioId?: string
   organizationId?: string
   performanceDate?: string
   needsCharAssignmentChoice?: boolean
-  onCharAssignmentMethodSelected?: (method: 'survey' | 'self') => void | Promise<void>
   charAssignmentMethod?: string | null
-  characters?: CharacterData[]
+  /** 作品の登場人物（配役の状態の 1 行を出すかの判定だけに使う） */
+  characters?: ReadonlyArray<{ id: string; name: string }>
   isOrganizer?: boolean
-  onCharAssignmentConfirmed?: () => void
-  onResetCharAssignmentMethod?: () => void | Promise<void>
-  scenarioPlayerCount?: number | null
   /** アンケートを別の画面で開く（招待ページ）。渡さない場合はチャットの上の枠で開く */
   onOpenSurvey?: () => void
   /** 主催者の引き継ぎ確認画面を開く（依頼 id を渡す） */
@@ -72,7 +74,7 @@ interface GroupChatProps {
 /** 下端からこの距離以内なら、新しい発言が来たら下まで動かす */
 const STICK_TO_BOTTOM_PX = 160
 
-export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate, needsCharAssignmentChoice, onCharAssignmentMethodSelected, charAssignmentMethod, characters = [], isOrganizer = false, onCharAssignmentConfirmed, onResetCharAssignmentMethod, scenarioPlayerCount, onOpenSurvey, onOpenHandover, messagesSource, chatStateSource, onOpenPins, channelKey }: GroupChatProps) {
+export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoToSchedule, onGoToOverview, onGoToCasting, onOpenCastingSheet, scenarioId, organizationId, performanceDate, needsCharAssignmentChoice, charAssignmentMethod, characters = [], isOrganizer = false, onOpenSurvey, onOpenHandover, messagesSource, chatStateSource, onOpenPins, channelKey }: GroupChatProps) {
   const { user } = useAuth()
   const ownMessages = usePrivateGroupMessages(groupId, currentMemberId, { enabled: !messagesSource })
   const { messages, loading, error: messagesError, refetch: refetchMessages } = messagesSource ?? ownMessages
@@ -95,17 +97,8 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
   const [surveyAvailable, setSurveyAvailable] = useState(false)
   const [chatEnabled, setChatEnabled] = useState(true)
   const [chatGuestAllowed, setChatGuestAllowed] = useState(true)
-  const [systemMsgTitles, setSystemMsgTitles] = useState<{
-    candidate_dates_added: string
-    pre_reading_notice: string
-    survey_notice: string
-    performance_cancelled: string
-  }>({
-    candidate_dates_added: '候補日程が追加されました',
-    pre_reading_notice: '事前読み込みについて',
-    survey_notice: 'アンケートのご協力のお願い',
-    performance_cancelled: '公演中止のお知らせ',
-  })
+  // 組織が決めた「事前読み込み」のお知らせの見出し（ほかの見出しは 1 行の決まった文にした）
+  const [preReadingTitle, setPreReadingTitle] = useState('事前読み込みについて')
   const isGuest = !user
 
   // 組織のチャット設定を取得
@@ -117,12 +110,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
         const d = data as Record<string, unknown>
         setChatEnabled((d.chat_enabled as boolean | undefined) ?? true)
         setChatGuestAllowed((d.chat_guest_allowed as boolean | undefined) ?? true)
-        setSystemMsgTitles(prev => ({
-          candidate_dates_added: (d.system_msg_candidate_dates_added_title as string) || prev.candidate_dates_added,
-          pre_reading_notice:    (d.system_msg_pre_reading_notice_title as string)    || prev.pre_reading_notice,
-          survey_notice:         (d.system_msg_survey_notice_title as string)         || prev.survey_notice,
-          performance_cancelled: (d.system_msg_performance_cancelled_title as string) || prev.performance_cancelled,
-        }))
+        setPreReadingTitle(prev => (d.system_msg_pre_reading_notice_title as string) || prev)
       }
     })()
   }, [organizationId])
@@ -289,9 +277,6 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
 
   const formatTime = (dateStr: string) => formatJstTime(dateStr)
   const formatDate = (dateStr: string) => formatChatDate(dateStr)
-  const formatDateTime = (dateStr: string) => `${formatDate(dateStr)} ${formatTime(dateStr)}`
-  // 候補日を見やすい形式に整形
-  const formatCandidateDate = (dateStr: string, timeSlot: string) => `${formatJstDateJa(dateStr, true)} ${timeSlot}`
 
   if (loading) {
     return (
@@ -309,9 +294,34 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
   // ゲストユーザーの場合はcurrentMemberIdを使用、ログインユーザーの場合はuser_idで検索
   const memberIdFromUser = user ? members.find(m => m.user_id === user.id)?.id : null
   const effectiveMemberId = currentMemberId || memberIdFromUser
-  // 自動のお知らせは灰色の 1 行にまとめる（行動が要るものだけカードで残す。グループページ刷新 段階 1）
+  // 自動のお知らせはすべて灰色の 1 行（チャットにカードを流さない。2026-10-11 社長決定）。吹き出しは人の発言と写真だけ
   const currentCandidates = chatGroup?.candidate_dates ?? null
-  const lineOf = noticeLineResolver({ getMemberName, current: currentCandidates, status: chatGroup?.status, myMemberId: effectiveMemberId ?? null })
+  const resolveLine = noticeLineResolver({
+    getMemberName, current: currentCandidates, status: chatGroup?.status, myMemberId: effectiveMemberId ?? null,
+    userId: user?.id ?? null, closedHandoverIds: closedHandoverIds, charAssignmentMethod, preReadingTitle,
+  })
+  const lineOf = (msg: PrivateGroupMessage) => {
+    const system = parseSystemMessage(msg.message)
+    // 診断: currentMemberId では宛先と一致しないがフォールバックで表示できた個別お知らせを 1 回だけ記録（#278）
+    if (system?.action === 'individual_notice' && system.target_member_id !== currentMemberId && !noticeFallbackLoggedRef.current
+      && isNoticeForMe(system, effectiveMemberId ?? null, user?.id ?? null)) {
+      noticeFallbackLoggedRef.current = true
+      Sentry.captureMessage('individual_notice: currentMemberId未解決のためフォールバック表示', {
+        level: 'warning',
+        tags: { feature: 'group-chat' },
+        extra: { groupId, currentMemberId, memberIdFromUser, hasUser: !!user },
+      })
+    }
+    return resolveLine(msg)
+  }
+  const canOpenSurvey = Boolean(scenarioId && organizationId && currentMemberId)
+  const lineHandlers = { onGoToSchedule, onGoToOverview, onGoToCasting, onOpenCastingSheet, onOpenSurvey: canOpenSurvey ? openSurvey : undefined, onOpenHandover }
+  const myPreference = effectiveMemberId ? (chatGroup?.character_assignments as Record<string, string> | null | undefined)?.[effectiveMemberId] : null
+  const casting = castingLine({
+    isOrganizer, needsMethodChoice: effectiveNeedsCharAssignmentChoice, method: charAssignmentMethod, hasCharacters: characters.length > 0,
+    confirmed: currentAssignmentConfirmed, myPreference, isMember: Boolean(effectiveMemberId),
+  })
+  const survey = surveyLine({ canOpen: canOpenSurvey, method: charAssignmentMethod, available: surveyAvailable, past: isPastPerformanceDate(performanceDate), deadlineText })
   const typing = typingText(typingNames)
   const menuMessage = menuFor ? messageById.get(menuFor.id) ?? null : null
 
@@ -352,50 +362,9 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
               <div key={groupIndex} className="space-y-1">
                 <p className="text-center text-xs text-muted-foreground pt-2">{formatDate(group.date)}</p>
                 {chunkChatEntries(group.messages, lineOf).map((entry) => {
-                  if (entry.kind === 'line') return <SystemNoticeLine key={entry.key} texts={entry.texts} />
+                  if (entry.kind === 'line') return <SystemNoticeLine key={entry.key} lines={entry.lines} handlers={lineHandlers} />
                   const msg = entry.message
                   const isOwnMessage = msg.member_id === effectiveMemberId
-                  const systemMsg = parseSystemMessage(msg.message)
-
-                  // 表示だけのお知らせ（候補日追加・日程確定・事前読み込み・アンケート・作成・参加・申込・却下・取消・スタッフ）
-                  if (systemMsg && SIMPLE_SYSTEM_MESSAGE_ACTIONS.has(systemMsg.action)) {
-                    return (
-                      <SystemNoticeCard
-                        key={msg.id}
-                        systemMsg={systemMsg}
-                        msg={msg}
-                        systemMsgTitles={systemMsgTitles}
-                        getMemberName={getMemberName}
-                        formatDateTime={formatDateTime}
-                        formatCandidateDate={formatCandidateDate}
-                        onGoToSchedule={onGoToSchedule}
-                        canOpenSurvey={Boolean(scenarioId && organizationId && currentMemberId)}
-                        onOpenSurvey={openSurvey}
-                        candidateDates={systemMsg.action === 'candidate_dates_added' ? markDeletedCandidates(systemMsg.dates, currentCandidates) : undefined}
-                      />
-                    )
-                  }
-                  // 個別のお知らせ・配役方法・配役の確定
-                  if (systemMsg && SPECIAL_NOTICE_ACTIONS.has(systemMsg.action)) {
-                    return (
-                      <SpecialNoticeCard
-                        key={msg.id}
-                        msg={msg}
-                        systemMsg={systemMsg}
-                        groupId={groupId}
-                        currentMemberId={currentMemberId}
-                        effectiveMemberId={effectiveMemberId}
-                        memberIdFromUser={memberIdFromUser}
-                        userId={user?.id ?? null}
-                        members={members}
-                        closedHandoverIds={closedHandoverIds}
-                        charAssignmentMethod={charAssignmentMethod}
-                        formatDateTime={formatDateTime}
-                        onOpenHandover={onOpenHandover}
-                        noticeFallbackLoggedRef={noticeFallbackLoggedRef}
-                      />
-                    )
-                  }
 
                   // 参加者の発言
                   const sender = members.find(m => m.id === msg.member_id)
@@ -422,30 +391,9 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
               </div>
             ))
           )}
-          <CharacterAssignmentCards
-            groupId={groupId}
-            currentMemberId={currentMemberId}
-            members={members}
-            characterAssignments={chatGroup?.character_assignments as Record<string, string> | null | undefined}
-            refreshGroup={refreshGroup}
-            refetchMessages={refetchMessages}
-            effectiveNeedsCharAssignmentChoice={effectiveNeedsCharAssignmentChoice}
-            isOrganizer={isOrganizer}
-            onCharAssignmentMethodSelected={onCharAssignmentMethodSelected}
-            onResetCharAssignmentMethod={onResetCharAssignmentMethod}
-            onCharAssignmentConfirmed={onCharAssignmentConfirmed}
-            charAssignmentMethod={charAssignmentMethod}
-            characters={characters}
-            scenarioId={scenarioId}
-            organizationId={organizationId}
-            performanceDate={performanceDate}
-            scenarioPlayerCount={scenarioPlayerCount}
-            currentAssignmentConfirmed={currentAssignmentConfirmed}
-            deadlineText={deadlineText}
-            surveyAvailable={surveyAvailable}
-            surveyNoticeTitle={systemMsgTitles.survey_notice}
-            openSurvey={openSurvey}
-          />
+          {/* 配役の操作はいまの状態の箱から開く全画面シート（#1035）。チャットには状態の灰色 1 行と事前配役アンケートのお願いだけ */}
+          {casting && <SystemNoticeLine lines={[casting]} handlers={lineHandlers} />}
+          {survey && <SystemNoticeLine lines={[survey]} handlers={lineHandlers} />}
           {typing && <p className="text-center text-xs text-muted-foreground mt-3" data-testid="chat-typing">{typing}</p>}
           </div>
         </div>

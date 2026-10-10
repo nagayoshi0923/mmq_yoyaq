@@ -160,6 +160,14 @@ export function PrivateGroupInvite() {
     return next
   }, { replace: true })
 
+  // 概要タブの「配役」欄へ（?tab=overview#casting。配役の操作はチャットではなくそこで行う）
+  const goToCasting = () => {
+    const next = new URLSearchParams(location.search)
+    next.set('tab', 'overview')
+    navigate({ search: `?${next.toString()}`, hash: 'casting' }, { replace: true })
+    window.setTimeout(() => document.getElementById('casting')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }
+
   // 主催者向け機能
   const [copied, setCopied] = useState(false)
 
@@ -641,35 +649,18 @@ export function PrivateGroupInvite() {
         onOpenPins={() => setChatListSheet('pins')}
         channelKey={group.invite_code}
         onGoToSchedule={() => setActiveTab('dates')}
+        onGoToOverview={() => setActiveTab('overview')}
+        onGoToCasting={goToCasting}
+        onOpenCastingSheet={sheet => openSheet(sheet)}
         onOpenSurvey={() => setActiveTab('survey')}
         onOpenHandover={requestId => openSheet('handover', { request: requestId })}
         scenarioId={group.scenario_master_id || undefined}
         organizationId={group.organization_id || undefined}
         performanceDate={group.confirmed_performance?.date}
         needsCharAssignmentChoice={needsCharAssignmentChoice}
-        onCharAssignmentMethodSelected={async (method) => {
-          const { error } = await privateGroupRpcApi.setCharacterMethod({
-            p_group_id: group.id, p_method: method,
-            p_expected_method: group.character_assignment_method || null,
-            p_expected_assignments: group.character_assignments || {},
-          })
-          if (error) throw error
-          await refetch()
-        }}
         charAssignmentMethod={charAssignmentMethod}
         characters={scenarioCharacters}
         isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
-        onCharAssignmentConfirmed={() => refetch()}
-        onResetCharAssignmentMethod={async () => {
-          const { error } = await privateGroupRpcApi.setCharacterMethod({
-            p_group_id: group.id, p_method: null,
-            p_expected_method: group.character_assignment_method || null,
-            p_expected_assignments: group.character_assignments || {},
-          })
-          if (error) throw error
-          await refetch()
-        }}
-        scenarioPlayerCount={scenarioMax}
       />
     )
     return (
