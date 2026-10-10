@@ -1,4 +1,15 @@
-## 2026-10-10 / 貸切グループページ刷新 段階 1 骨格と日程の回答表（feat/group-page-phase1、staging 向け PR・未取り込み）
+## 2026-10-10 / 貸切グループページ刷新 段階 2 チャット強化と写真（feat/group-page-phase2、staging 向け PR・未取り込み）
+
+- 方針書 docs/product-spec/グループページ刷新_2026-10.md の「段階 2」。見本 GroupChat.dc.html・GroupChatMenus.dc.html（通知の届き方は段階 3）。
+- GroupChat.tsx（992 行）を chat/ に分割し、既読の人数（人数だけ）・返信（引用 30 文字）・リアクション（5 種＋40 種、1 人 1 種類）・写真（10 枚まで、端末で長辺 2,000px・JPEG 0.85 に縮小）・拡大と保存・長押しメニュー・ピン留め（主催者）・削除（自分の発言、写真の実体も消す）・入力中（Realtime broadcast、DB に書かない）を足した。
+- 既読は DB（private_group_read_states）に置き換え、スマホと PC でそろう。段階 1 の localStorage の未読は廃止。
+- 「未回答の人に知らせる」は主催者だけ、灰色の 1 行（system: date_answer_reminder）に直した。
+- ⋮ メニュー: メンバー・招待リンク／写真の一覧／ピン留めの一覧／操作。
+- 写真: 非公開バケット private-group-photos（Storage ポリシー無し）。表示とアップロード先は /api/private-group-photos が参加者本人を RPC で確かめてから署名付き URL（1 時間）で出す。スタッフ・未参加者は 403 を手元で確認。
+- DB: migration 20261010100000（staging 適用済み・本番未適用）。structure（staging.json・期待構造）を更新。
+- 既知（本件の範囲外）: ゲストで global_settings の読み取りが 401、会員で scenarioApi.getById が 400 の記録がコンソールに出る（段階 1 以前から）。
+
+## 2026-10-10 / 貸切グループページ刷新 段階 1 骨格と日程の回答表（feat/group-page-phase1、#1013 staging 取り込み済み）
 
 - 方針書 docs/product-spec/グループページ刷新_2026-10.md（段階 1〜4 の正本）。社長承認の見本 GroupDates.dc.html（スマホ）・GroupPC.dc.html（PC）に合わせた。
 - 参加中の人のグループページを「見出し → いまの状態の箱 → タブ（概要／日程／メンバー／チャット）」に作り直した。PC は同じ並びを左に、チャットを右列に。右上のアイコン 3 つ・日程/招待シート・右パネルは廃止。招待リンクを開いただけの人の参加画面は従来どおり。

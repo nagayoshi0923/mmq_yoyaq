@@ -24,7 +24,9 @@ export function GroupStatusBox({ view, onAction, compact = false, onOpenDetail }
         className={`w-full text-left px-3 py-1.5 flex items-center gap-2 border-b ${tone.card} ${tone.header}`}
         data-testid="group-status-bar"
       >
-        <span className={`text-xs truncate flex-1 ${tone.sub}`}>{view.oneLine}</span>
+        <span className={`text-xs truncate flex-1 ${tone.sub}`}>
+          {view.oneLine.startsWith(view.chip) ? <><b className="font-bold">{view.chip}</b>{view.oneLine.slice(view.chip.length)}</> : view.oneLine}
+        </span>
         <span className={`text-xs whitespace-nowrap ${tone.sub}`}>詳しく ›</span>
       </button>
     )

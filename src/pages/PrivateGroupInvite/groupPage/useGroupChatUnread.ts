@@ -1,44 +1,39 @@
 /**
- * チャットの未読数（タブの赤丸）。最後にチャットを見た時刻をこの端末に覚えておき、それより新しい自分以外の発言・お知らせを数える。
- * 端末をまたいだ既読の同期は段階 3（プッシュ通知）で扱う。
+ * チャットの未読数（タブの赤丸）と既読の書き込み（グループページ刷新 段階 2）。
+ * 「最後に読んだ時刻」はグループごとに DB に 1 行（private_group_read_states）。スマホと PC で既読がそろう。
+ * チャットが見えている間（スマホはチャットタブ、PC は右列）に新しい発言が届いたら、その時刻まで読んだことにする（連打抑制は usePrivateGroupChatState）。
  */
 import { useEffect, useState } from 'react'
 import type { PrivateGroupMessage } from '@/types'
+import type { PrivateGroupChatState } from '@/hooks/usePrivateGroupChatState'
 import { countUnread } from './groupPageModel'
 
-const keyOf = (groupId: string) => `mmq_group_chat_seen_${groupId}`
-
-function readSeen(groupId: string): string | null {
-  try {
-    return window.localStorage.getItem(keyOf(groupId))
-  } catch {
-    return null
-  }
+function usePageVisible(): boolean {
+  const [visible, setVisible] = useState(() => typeof document === 'undefined' || document.visibilityState === 'visible')
+  useEffect(() => {
+    const onChange = () => setVisible(document.visibilityState === 'visible')
+    document.addEventListener('visibilitychange', onChange)
+    return () => document.removeEventListener('visibilitychange', onChange)
+  }, [])
+  return visible
 }
 
-function writeSeen(groupId: string, value: string) {
-  try {
-    window.localStorage.setItem(keyOf(groupId), value)
-  } catch {
-    // 保存できない端末では毎回 0 から数える
-  }
-}
-
-export function useGroupChatUnread(groupId: string | null, myMemberId: string | null, messages: PrivateGroupMessage[], loading: boolean, chatVisible: boolean): number {
-  const [lastSeen, setLastSeen] = useState<string | null>(() => (groupId ? readSeen(groupId) : null))
+export function useGroupChatUnread(myMemberId: string | null, messages: PrivateGroupMessage[], loading: boolean, chat: PrivateGroupChatState, chatVisible: boolean): number {
+  const pageVisible = usePageVisible()
+  const lastRead = chat.state.my_last_read_at
+  const latest = messages.length > 0 ? messages[messages.length - 1].created_at : null
+  const { markRead, loaded } = chat
   useEffect(() => {
-    setLastSeen(groupId ? readSeen(groupId) : null)
-  }, [groupId])
-  useEffect(() => {
-    if (!groupId || loading) return
-    // 見ている間、または初めて開いたときは、いま届いている分まで見たことにする
-    if (!chatVisible && lastSeen !== null) return
-    const latest = messages.length > 0 ? messages[messages.length - 1].created_at : new Date().toISOString()
-    if (lastSeen !== null && new Date(latest).getTime() <= new Date(lastSeen).getTime()) return
-    writeSeen(groupId, latest)
-    setLastSeen(latest)
-  }, [groupId, messages, loading, chatVisible, lastSeen])
-  return chatVisible ? 0 : countUnread(messages, myMemberId, lastSeen)
+    if (loading || !loaded) return
+    // 初めて開いた（まだ記録が無い）ときは、いま届いている分まで読んだことにする
+    if (!lastRead) {
+      markRead(latest ?? new Date().toISOString())
+      return
+    }
+    if (!chatVisible || !pageVisible || !latest) return
+    if (new Date(latest).getTime() > new Date(lastRead).getTime()) markRead(latest)
+  }, [loading, loaded, lastRead, latest, chatVisible, pageVisible, markRead])
+  return chatVisible ? 0 : countUnread(messages, myMemberId, lastRead)
 }
 
 /** PC 幅（lg = 1024px 以上）か。PC ではチャットが右列に常に見えるので既読にする */

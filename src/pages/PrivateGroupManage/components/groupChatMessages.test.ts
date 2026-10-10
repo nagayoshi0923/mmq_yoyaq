@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chunkChatEntries, closedHandoverRequestIds, formatChatDate, groupMessagesByDate, markDeletedCandidates, noticeLineText, parseSystemMessage } from './groupChatMessages'
+import { chunkChatEntries, closedHandoverRequestIds, formatChatDate, groupMessagesByDate, markDeletedCandidates, noticeLineResolver, noticeLineText, parseSystemMessage } from './groupChatMessages'
 import type { PrivateGroupMessage } from '@/types'
 import type { SystemMessage } from './groupChatMessages'
 
@@ -71,5 +71,14 @@ describe('自動のお知らせの 1 行（グループページ刷新 段階 1�
     const m = (id: string, message: string) => ({ id, group_id: 'g', member_id: null, message, created_at: '2026-10-10T00:00:00Z' }) as never
     const entries = chunkChatEntries([m('1', 'a'), m('2', 'b'), m('3', 'c'), m('4', 'd')], msg => ((msg as { message: string }).message === 'c' ? null : (msg as { message: string }).message))
     expect(entries.map(e => (e.kind === 'line' ? e.texts.join('+') : 'msg'))).toEqual(['a+b', 'msg', 'd'])
+  })
+  it('未回答の人に知らせる は灰色の 1 行（段階 2）', () => {
+    expect(noticeLineText({ type: 'system', action: 'date_answer_reminder', names: ['二郎', '三郎'] }, 'org', ctx)).toBe('いちこさんから 二郎さん、三郎さん へ: 日程の回答をお願いします')
+  })
+  it('削除した発言は「メッセージを削除しました」の 1 行（段階 2）', () => {
+    const lineOf = noticeLineResolver({ getMemberName: () => 'x', current: null, status: 'gathering', myMemberId: 'me' })
+    const deleted = { id: '1', group_id: 'g', member_id: 'a', message: '', created_at: '2026-10-10T00:00:00Z', deleted_at: '2026-10-10T01:00:00Z' } as PrivateGroupMessage
+    expect(lineOf(deleted)).toBe('メッセージを削除しました')
+    expect(lineOf({ ...deleted, deleted_at: null, message: 'やあ' })).toBeNull()
   })
 })

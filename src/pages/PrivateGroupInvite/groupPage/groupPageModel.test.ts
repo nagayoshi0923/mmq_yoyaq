@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PrivateGroup } from '@/types'
-import { buildAnswerTable, buildGroupStatus, countUnread, defaultGroupTab, nextResponse, parseGroupTab, remindUnansweredText, rowTally, unansweredMembers, type GroupStatusInput } from './groupPageModel'
+import { buildAnswerTable, buildGroupStatus, countUnread, defaultGroupTab, nextResponse, parseGroupTab, rowTally, unansweredMembers, type GroupStatusInput } from './groupPageModel'
 
 const member = (id: string, extra: Record<string, unknown> = {}) => ({ id, group_id: 'g', user_id: `u-${id}`, guest_name: null, guest_email: null, guest_phone: null, is_organizer: false, status: 'joined', joined_at: null, created_at: '2026-10-01', users: { id: `u-${id}`, email: `${id}@x`, nickname: id }, ...extra })
 const cand = (id: string, date: string, start: string, responses: Array<[string, 'ok' | 'maybe' | 'ng']>, extra: Record<string, unknown> = {}) => ({
@@ -62,9 +62,6 @@ describe('回答表', () => {
     expect(nextResponse('ok')).toBe('maybe')
     expect(nextResponse('maybe')).toBe('ng')
     expect(nextResponse('ng')).toBe('ok')
-  })
-  it('未回答の人へのお知らせ文', () => {
-    expect(remindUnansweredText(['二郎', '三郎'])).toContain('二郎さん、三郎さん 日程の回答をお願いします')
   })
 })
 

@@ -1,37 +1,41 @@
+/**
+ * 貸切グループのチャット（グループページ刷新 段階 2: X の DM グループ並みに）。
+ * 発言（返信・リアクション・既読の人数・写真・ピン留め・削除）、入力中の表示、自動のお知らせ（灰色の 1 行）、
+ * 行動が要るお知らせのカード、配役・アンケートのカード。部品は ./chat/ に分けている。
+ */
 import { usePrivateGroupSnapshot } from '@/hooks/usePrivateGroupSnapshot'
 import { usePrivateGroupMessages } from '@/hooks/usePrivateGroupMessages'
+import { usePrivateGroupChatState, type PrivateGroupChatState } from '@/hooks/usePrivateGroupChatState'
 import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Send, Loader2, CheckCircle2, X, ClipboardList, Users, AlertTriangle } from 'lucide-react'
-import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
+import { Loader2, ClipboardList, X } from 'lucide-react'
 import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
+import { deleteGroupMessage, privateGroupChatAction, sendGroupPhotos } from '@/lib/privateGroupChat'
+import { getErrorMessage } from '@/lib/errorFields'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
-import { isPastPerformanceDate } from '@/lib/surveyCompletion'
-import { Sentry } from '@/lib/sentry'
 import { toast } from 'sonner'
-import type { PrivateGroupMember } from '@/types'
+import type { PrivateGroupMember, PrivateGroupMessage } from '@/types'
 import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/SurveyResponseForm'
 import { formatJstDateJa, getJstParts, formatJstTime } from '@/utils/jstDate'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import { chunkChatEntries, closedHandoverRequestIds, formatChatDate, groupMessagesByDate, markDeletedCandidates, noticeLineResolver, parseSystemMessage } from './groupChatMessages'
 import { SystemNoticeLine } from './SystemNoticeLine'
 import { SIMPLE_SYSTEM_MESSAGE_ACTIONS, SystemNoticeCard } from './SystemNoticeCard'
-import { renderMessageWithLinks } from './renderMessageWithLinks'
-
-interface CharacterData {
-  id: string
-  name: string
-  gender?: string
-  image_url?: string
-  image_position?: string
-  image_scale?: number | null
-}
+import { ChatBubble } from './chat/ChatBubble'
+import { ChatComposer } from './chat/ChatComposer'
+import { MessageActionSheet } from './chat/MessageActionSheet'
+import { PhotoViewer, type ViewerPhoto } from './chat/PhotoViewer'
+import { jumpToMessage, savePhoto } from './chat/chatDom'
+import { PinnedBar } from './chat/PinnedBar'
+import { SpecialNoticeCard, SPECIAL_NOTICE_ACTIONS } from './chat/SpecialNoticeCard'
+import { CharacterAssignmentCards, type CharacterData } from './chat/CharacterAssignmentCards'
+import { useTypingPresence } from './chat/useTypingPresence'
+import { useGroupPhotoUrls } from './chat/useGroupPhotoUrls'
+import { resizePhoto } from './chat/photoResize'
+import { groupReactions, pinnedMessages, quoteText, readCountFor, typingText } from './chat/chatModel'
 
 interface GroupChatProps {
   groupId: string
@@ -56,32 +60,33 @@ interface GroupChatProps {
   onOpenHandover?: (requestId: string) => void
   /** 親（グループページ）が読んでいるメッセージ。渡されたらここでは読まない（未読数と二重に読まないため） */
   messagesSource?: ReturnType<typeof usePrivateGroupMessages>
+  /** 親が読んでいる既読・リアクション（未読数と共用） */
+  chatStateSource?: PrivateGroupChatState
+  /** ピン留めの一覧を開く（⋮ メニューと同じ） */
+  onOpenPins?: () => void
 }
 
+/** 下端からこの距離以内なら、新しい発言が来たら下まで動かす */
+const STICK_TO_BOTTOM_PX = 160
 
-export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate, needsCharAssignmentChoice, onCharAssignmentMethodSelected, charAssignmentMethod, characters = [], isOrganizer = false, onCharAssignmentConfirmed, onResetCharAssignmentMethod, scenarioPlayerCount, onOpenSurvey, onOpenHandover, messagesSource }: GroupChatProps) {
+export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate, needsCharAssignmentChoice, onCharAssignmentMethodSelected, charAssignmentMethod, characters = [], isOrganizer = false, onCharAssignmentConfirmed, onResetCharAssignmentMethod, scenarioPlayerCount, onOpenSurvey, onOpenHandover, messagesSource, chatStateSource, onOpenPins }: GroupChatProps) {
   const { user } = useAuth()
   const ownMessages = usePrivateGroupMessages(groupId, currentMemberId, { enabled: !messagesSource })
   const { messages, loading, error: messagesError, refetch: refetchMessages } = messagesSource ?? ownMessages
-  const [newMessage, setNewMessage] = useState('')
-  const [sending, setSending] = useState(false)
+  const ownChatState = usePrivateGroupChatState(groupId, currentMemberId, { enabled: !chatStateSource })
+  const chatState = chatStateSource ?? ownChatState
   const { group: chatGroup, refetch: refreshGroup } = usePrivateGroupSnapshot(groupId, null, currentMemberId, 5000)
   const members = useMemo(() => chatGroup?.members || [], [chatGroup?.members])
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   // 個別お知らせのフォールバック表示を検知したら1回だけ診断ログを送る（#278）
   const noticeFallbackLoggedRef = useRef(false)
   const [showSurveyDialog, setShowSurveyDialog] = useState(false)
   // チャットの上の小さな枠で回答できないという報告があったため（2026-10-05）、招待ページではアンケートだけの画面で開く
   const openSurvey = useCallback(() => { if (onOpenSurvey) onOpenSurvey(); else setShowSurveyDialog(true) }, [onOpenSurvey])
-  // 配役方法変更の確認ダイアログ（アンケート回答カード/キャラクター選択カードの両方から起動）
-  const [showResetCharAssignmentConfirm, setShowResetCharAssignmentConfirm] = useState(false)
-  const [charPreferences, setCharPreferences] = useState<Record<string, string>>({})
-  const [charSaving, setCharSaving] = useState(false)
-  const [methodSaving, setMethodSaving] = useState(false)
-  const [charConfirmStep, setCharConfirmStep] = useState(false)
-  const [charDecisions, setCharDecisions] = useState<Record<string, string>>({})
-  const [charConfirmExpected, setCharConfirmExpected] = useState<Record<string, string>>({})
-  const [charSubmitting, setCharSubmitting] = useState(false)
+  const [replyTo, setReplyTo] = useState<PrivateGroupMessage | null>(null)
+  const [menuFor, setMenuFor] = useState<PrivateGroupMessage | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<PrivateGroupMessage | null>(null)
+  const [viewer, setViewer] = useState<{ photos: ViewerPhoto[]; index: number } | null>(null)
   const [deadlineText, setDeadlineText] = useState<string | null>(null)
   // アンケートが有効で、質問か外部の回答先があるか（配役方法に関わらず回答できるようにする。#911）
   const [surveyAvailable, setSurveyAvailable] = useState(false)
@@ -159,91 +164,6 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
   })
   const effectiveNeedsCharAssignmentChoice = needsCharAssignmentChoice || (hasPreReadingNotice && !charAssignmentMethod)
 
-  // デバッグログ
-  logger.log('📋 GroupChat: props', { groupId, currentMemberId, scenarioId, organizationId, performanceDate })
-
-  const fetchMembers = useCallback(() => refreshGroup(true), [refreshGroup])
-  useEffect(() => {
-    setCharPreferences((chatGroup?.character_assignments || {}) as Record<string, string>)
-  }, [chatGroup])
-
-  const handleSelectCharPreference = useCallback(async (charId: string) => {
-    if (!currentMemberId) return
-    setCharPreferences(prev => ({ ...prev, [currentMemberId]: charId }))
-    setCharSaving(true)
-    try {
-      const { error } = await privateGroupMemberAction(groupId, currentMemberId, 'character_preference', { characterId: charId })
-      if (error) throw error
-    } catch (err) {
-      logger.error('キャラクター選択エラー:', err)
-      toast.error('保存に失敗しました')
-    } finally {
-      await refreshGroup()
-      setCharSaving(false)
-    }
-  }, [currentMemberId, groupId, refreshGroup])
-
-  const handleGoToCharConfirm = useCallback(async () => {
-    // 取得できないときに空の配役で上書きしない。
-    const latestSnapshot = await refreshGroup()
-    if (!latestSnapshot) {
-      toast.error('配役情報を取得できませんでした。再読み込みしてください')
-      return
-    }
-    const latest = (latestSnapshot.group.character_assignments || {}) as Record<string, string>
-    setCharPreferences(latest)
-    setCharDecisions({ ...latest })
-    setCharConfirmExpected({ ...latest })
-    setCharConfirmStep(true)
-  }, [refreshGroup])
-
-  const handleCharConfirmAndSend = useCallback(async () => {
-    setCharSubmitting(true)
-    try {
-      const activeMembers = members.filter(m => (m.status as string) === 'active' || m.status === 'joined')
-      const assignments = Object.fromEntries(activeMembers.map(m => [m.id, charDecisions[m.id]]))
-      const { error } = await privateGroupRpcApi.confirmCharacters({
-        p_group_id: groupId,
-        p_assignments: assignments,
-        p_expected_assignments: charConfirmExpected,
-      })
-      if (error) throw error
-      await refreshGroup()
-      toast.success('配役を確定しました')
-      setCharConfirmStep(false)
-      onCharAssignmentConfirmed?.()
-    } catch (err) {
-      logger.error('配役確定エラー:', err)
-      toast.error('配役の確定に失敗しました。希望や参加者が変更されていないか確認してください')
-    } finally {
-      setCharSubmitting(false)
-    }
-  }, [members, charDecisions, charConfirmExpected, groupId, onCharAssignmentConfirmed, refreshGroup])
-
-  const selectCharacterMethod = async (method: 'survey' | 'self') => {
-    if (methodSaving) return
-    setMethodSaving(true)
-    try {
-      await onCharAssignmentMethodSelected?.(method)
-      setCharConfirmStep(false)
-      await Promise.all([refreshGroup(), refetchMessages()])
-    } catch (error) {
-      logger.error('配役方法の変更エラー:', error)
-      toast.error('配役方法を保存できませんでした。最新の状態を確認してください')
-    } finally { setMethodSaving(false) }
-  }
-
-  const resetCharacterMethod = async () => {
-    try {
-      await onResetCharAssignmentMethod?.()
-      setCharConfirmStep(false)
-      await Promise.all([refreshGroup(), refetchMessages()])
-    } catch (error) {
-      toast.error('配役方法を変更できませんでした。最新の状態を確認してください')
-      throw error
-    }
-  }
-
   // 過去の配役通知は履歴に残し、最後に方法を選び直した後の確定だけを現在の状態とする。
   let currentAssignmentConfirmed = false
   for (const message of messages) {
@@ -260,66 +180,112 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
     if (member) {
       return member.guest_name || member.users?.email?.split('@')[0] || 'メンバー'
     }
-    // メンバーが見つからないが、currentMemberIdと一致する場合は「あなた」と表示しない（自分のメッセージは右側に表示されるため）
-    // ただしメンバー情報がまだ取得できていない可能性があるので「メンバー」と表示
+    // メンバー情報がまだ取得できていない可能性があるので「メンバー」と表示
     if (memberId === currentMemberId) {
       return 'メンバー'
     }
     return '退出したメンバー'
   }, [members, currentMemberId])
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+  const myName = useMemo(() => members.find(m => m.id === currentMemberId)?.guest_name || 'メンバー', [members, currentMemberId])
+  const { typingNames, notifyTyping, notifyStopped } = useTypingPresence(groupId, currentMemberId, myName, Boolean(currentMemberId) && chatEnabled)
+  const { urlOf } = useGroupPhotoUrls(groupId, currentMemberId, messages)
+  const reactionsByMessage = useMemo(() => groupReactions(chatState.state.reactions), [chatState.state.reactions])
+  const messageById = useMemo(() => new Map(messages.map(m => [m.id, m])), [messages])
+  const pinned = useMemo(() => pinnedMessages(messages), [messages])
 
+  // 下の方を見ているときは、新しい発言・写真の読み込み・ピン留めの帯などで高さが変わっても下に付けておく。
+  // 上を読み返しているときは動かさない（自分が送ったときは下へ）
+  const stickToBottom = useRef(true)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const scrollToEnd = useCallback(() => {
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [])
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    const el = scrollRef.current
+    const content = contentRef.current
+    if (!el || !content || typeof ResizeObserver === 'undefined') return
+    const onScroll = () => { stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_TO_BOTTOM_PX }
+    const observer = new ResizeObserver(() => { if (stickToBottom.current) scrollToEnd() })
+    el.addEventListener('scroll', onScroll, { passive: true })
+    observer.observe(content)
+    observer.observe(el)
+    return () => { el.removeEventListener('scroll', onScroll); observer.disconnect() }
+  }, [scrollToEnd, loading])
+  const lastCount = useRef(0)
+  useEffect(() => {
+    const grew = messages.length > lastCount.current
+    lastCount.current = messages.length
+    if (grew && (stickToBottom.current || messages[messages.length - 1]?.member_id === currentMemberId)) {
+      stickToBottom.current = true
+      scrollToEnd()
+    }
+  }, [messages, currentMemberId, scrollToEnd])
 
-  const handleSend = async () => {
-    if (!newMessage.trim() || !currentMemberId || sending) return
-
-    if (newMessage.trim().length > 5000) { toast.error('メッセージは5000文字以内で入力してください'); return }
-    setSending(true)
+  const handleSend = async (text: string, files: File[]): Promise<boolean> => {
+    if (!currentMemberId) return false
     try {
-      const { error } = await privateGroupMemberAction(groupId, currentMemberId, 'message', { message: newMessage.trim() })
-
-      if (error) throw error
-      setNewMessage('')
+      if (files.length > 0) {
+        const photos = []
+        for (const file of files) photos.push(await resizePhoto(file))
+        await sendGroupPhotos({ groupId, memberId: currentMemberId, photos, caption: text, replyTo: replyTo?.id ?? null })
+      } else {
+        await privateGroupChatAction(groupId, currentMemberId, 'message', { message: text, reply_to: replyTo?.id ?? null })
+      }
+      setReplyTo(null)
+      notifyStopped()
       await refetchMessages()
-      
-      // メッセージ送信後、メンバー一覧を再取得して最新状態に
-      fetchMembers()
+      void refreshGroup(true)
+      return true
     } catch (err) {
       logger.error('Failed to send message', err)
-      toast.error('メッセージを送信できませんでした。入力内容を確認して再度お試しください')
+      toast.error(files.length > 0 ? `写真を送信できませんでした${getErrorMessage(err) ? `（${getErrorMessage(err)}）` : ''}` : 'メッセージを送信できませんでした。入力内容を確認して再度お試しください')
+      return false
+    }
+  }
+
+  const togglePin = async (msg: PrivateGroupMessage) => {
+    if (!currentMemberId) return
+    try {
+      await privateGroupChatAction(groupId, currentMemberId, 'pin', { message_id: msg.id, pinned: !msg.pinned_at })
+      toast.success(msg.pinned_at ? 'ピン留めを外しました' : 'ピン留めしました')
+      await refetchMessages()
+    } catch (err) {
+      toast.error(getErrorMessage(err) || 'ピン留めできませんでした')
+    }
+  }
+
+  const react = (messageId: string, emoji: string) => {
+    void chatState.react(messageId, emoji).catch(err => toast.error(getErrorMessage(err) || 'リアクションできませんでした'))
+  }
+
+  const photosOf = (msg: PrivateGroupMessage): ViewerPhoto[] => (msg.photos ?? []).map(p => ({ url: urlOf(msg.id, p.position), label: getMemberName(msg.member_id) }))
+
+  const saveMessagePhotos = async (msg: PrivateGroupMessage) => {
+    const photos = photosOf(msg)
+    for (const [i, p] of photos.entries()) if (p.url) await savePhoto(p.url, `photo-${i + 1}.jpg`)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || !currentMemberId) return
+    try {
+      await deleteGroupMessage(groupId, currentMemberId, deleteTarget.id)
+      if (replyTo?.id === deleteTarget.id) setReplyTo(null)
+      await refetchMessages()
+      toast.success('メッセージを削除しました')
+    } catch (err) {
+      toast.error(getErrorMessage(err) || '削除できませんでした')
     } finally {
-      setSending(false)
+      setDeleteTarget(null)
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
-  }
-
-  const formatTime = (dateStr: string) => {
-    return formatJstTime(dateStr)
-  }
-
+  const formatTime = (dateStr: string) => formatJstTime(dateStr)
   const formatDate = (dateStr: string) => formatChatDate(dateStr)
-
-  const formatDateTime = (dateStr: string) => {
-    return `${formatDate(dateStr)} ${formatTime(dateStr)}`
-  }
-
-  // システムメッセージかどうか判定（DB/クライアントで string または object のどちらでも来うる）
+  const formatDateTime = (dateStr: string) => `${formatDate(dateStr)} ${formatTime(dateStr)}`
   // 候補日を見やすい形式に整形
-  const formatCandidateDate = (dateStr: string, timeSlot: string) => {
-    return `${formatJstDateJa(dateStr, true)} ${timeSlot}`
-  }
+  const formatCandidateDate = (dateStr: string, timeSlot: string) => `${formatJstDateJa(dateStr, true)} ${timeSlot}`
 
   if (loading) {
     return (
@@ -335,18 +301,28 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
   // 主催者の引き継ぎ依頼のうち、成立・お断り・取り消し・期限切れの記録が出たもの（個別お知らせの「確認する」を消す）
   const closedHandoverIds = closedHandoverRequestIds(messages)
   // ゲストユーザーの場合はcurrentMemberIdを使用、ログインユーザーの場合はuser_idで検索
-  // currentMemberIdを優先し、なければmembersから検索
   const memberIdFromUser = user ? members.find(m => m.user_id === user.id)?.id : null
   const effectiveMemberId = currentMemberId || memberIdFromUser
   // 自動のお知らせは灰色の 1 行にまとめる（行動が要るものだけカードで残す。グループページ刷新 段階 1）
   const currentCandidates = chatGroup?.candidate_dates ?? null
   const lineOf = noticeLineResolver({ getMemberName, current: currentCandidates, status: chatGroup?.status, myMemberId: effectiveMemberId ?? null })
+  const typing = typingText(typingNames)
+  const menuMessage = menuFor ? messageById.get(menuFor.id) ?? null : null
 
   return (
     <>
     <Card className={`flex flex-col ${fullHeight ? 'flex-1 h-full border-0 shadow-none' : 'h-[500px]'}`}>
       <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <PinnedBar
+          pinned={pinned}
+          nameOf={getMemberName}
+          canUnpin={isOrganizer}
+          onJump={id => jumpToMessage(id)}
+          onUnpin={id => { const m = messageById.get(id); if (m) void togglePin(m) }}
+          onOpenList={onOpenPins}
+        />
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 bg-muted/40" data-testid="chat-scroll">
+          <div ref={contentRef}>
           {/* 未ログイン閲覧の警告（#275: 未ログインでもページは正常表示されるが個別お知らせだけ消えるため） */}
           {!user && !currentMemberId && (
             <div className="flex justify-center">
@@ -363,16 +339,12 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
           ) : messages.length === 0 ? (
             <div className="text-center text-muted-foreground text-sm py-8">
               まだメッセージがありません。<br />
-              最初のメッセージを送信してみましょう！
+              最初のメッセージを送信してみましょう
             </div>
           ) : (
             messageGroups.map((group, groupIndex) => (
-              <div key={groupIndex} className="space-y-2">
-                <div className="flex justify-center">
-                  <span className="text-xs text-muted-foreground bg-gray-100 px-3 py-1 rounded-full">
-                    {formatDate(group.date)}
-                  </span>
-                </div>
+              <div key={groupIndex} className="space-y-1">
+                <p className="text-center text-xs text-muted-foreground pt-2">{formatDate(group.date)}</p>
                 {chunkChatEntries(group.messages, lineOf).map((entry) => {
                   if (entry.kind === 'line') return <SystemNoticeLine key={entry.key} texts={entry.texts} />
                   const msg = entry.message
@@ -397,540 +369,110 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
                       />
                     )
                   }
-
-                  // システムメッセージ（個別お知らせ）- 対象者本人のみに表示
-                  if (systemMsg && systemMsg.action === 'individual_notice') {
-                    // 対象本人か判定（#275/#278）:
-                    // - member_id 一致（prop の currentMemberId が未解決でも user_id から引き直した effectiveMemberId で補完）
-                    // - または通知に埋め込まれた target_user_id とログインユーザーの一致（メンバー行の再作成後も届く）
-                    const isTargetByMember = !!effectiveMemberId && systemMsg.target_member_id === effectiveMemberId
-                    const isTargetByUser = !!user && !!systemMsg.target_user_id && systemMsg.target_user_id === user.id
-                    if (!isTargetByMember && !isTargetByUser) {
-                      return null
-                    }
-                    // 診断: currentMemberId prop では不一致だがフォールバックで表示できた場合を記録（#278）
-                    if (systemMsg.target_member_id !== currentMemberId && !noticeFallbackLoggedRef.current) {
-                      noticeFallbackLoggedRef.current = true
-                      Sentry.captureMessage('individual_notice: currentMemberId未解決のためフォールバック表示', {
-                        level: 'warning',
-                        tags: { feature: 'group-chat' },
-                        extra: { groupId, currentMemberId, memberIdFromUser, hasUser: !!user },
-                      })
-                    }
-                    const currentMember = members.find(m => m.id === effectiveMemberId)
-                    const nickname = currentMember?.guest_name || 'あなた'
+                  // 個別のお知らせ・配役方法・配役の確定
+                  if (systemMsg && SPECIAL_NOTICE_ACTIONS.has(systemMsg.action)) {
                     return (
-                      <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 w-full max-w-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center">
-                              <span className="text-white text-xs font-bold">!</span>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-indigo-800">
-                                {systemMsg.handover_request_id && systemMsg.title ? systemMsg.title : `${nickname}さんへのお知らせ`}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDateTime(msg.created_at)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="bg-white rounded-lg p-3 mt-2 border border-indigo-100 overflow-hidden">
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap break-all">
-                              {renderMessageWithLinks(systemMsg.message || '')}
-                            </p>
-                            {systemMsg.handover_request_id && (
-                              closedHandoverIds.has(systemMsg.handover_request_id) ? (
-                                <p className="text-xs text-muted-foreground mt-2">この依頼は終わっています</p>
-                              ) : onOpenHandover ? (
-                                <Button type="button" size="sm" className="w-full mt-3 bg-purple-600 hover:bg-purple-700 text-white" onClick={() => onOpenHandover(systemMsg.handover_request_id!)} data-testid="handover-open">
-                                  確認する
-                                </Button>
-                              ) : null
-                            )}
-                          </div>
-                          <p className="text-xs text-indigo-400 mt-2 text-center">
-                            🔒 このお知らせはあなただけに表示されています
-                          </p>
-                        </div>
-                      </div>
+                      <SpecialNoticeCard
+                        key={msg.id}
+                        msg={msg}
+                        systemMsg={systemMsg}
+                        groupId={groupId}
+                        currentMemberId={currentMemberId}
+                        effectiveMemberId={effectiveMemberId}
+                        memberIdFromUser={memberIdFromUser}
+                        userId={user?.id ?? null}
+                        members={members}
+                        closedHandoverIds={closedHandoverIds}
+                        charAssignmentMethod={charAssignmentMethod}
+                        formatDateTime={formatDateTime}
+                        onOpenHandover={onOpenHandover}
+                        noticeFallbackLoggedRef={noticeFallbackLoggedRef}
+                      />
                     )
                   }
 
-                  // 配役方法選択
-                  if (systemMsg && systemMsg.action === 'character_method_selected') {
-                    return (
-                      <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
-                              <Users className="w-3.5 h-3.5 text-white" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-purple-800">
-                                {systemMsg.title || '配役方法が選択されました'}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDateTime(msg.created_at)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="bg-white rounded-lg p-3 border border-purple-100">
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {systemMsg.body}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  // キャラクター配役確定（方法がリセットされている場合は非表示）
-                  if (systemMsg && systemMsg.action === 'character_assignment') {
-                    if (!charAssignmentMethod) return null
-                    return (
-                      <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-purple-800">
-                                {systemMsg.title || 'キャラクター配役が確定しました'}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDateTime(msg.created_at)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="bg-white rounded-lg p-3 border border-purple-100">
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {systemMsg.body}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  // 通常のメッセージ
+                  // 参加者の発言
+                  const sender = members.find(m => m.id === msg.member_id)
+                  const replied = msg.reply_to_message_id ? messageById.get(msg.reply_to_message_id) : null
                   return (
-                    <div
+                    <ChatBubble
                       key={msg.id}
-                      className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-[75%] ${
-                          isOwnMessage ? 'order-1' : ''
-                        }`}
-                      >
-                        {!isOwnMessage && (
-                          <div className="text-xs text-muted-foreground mb-1">
-                            {getMemberName(msg.member_id)}
-                          </div>
-                        )}
-                        <div
-                          className={`px-3 py-2 rounded-2xl ${
-                            isOwnMessage
-                              ? 'bg-purple-600 text-white rounded-br-sm'
-                              : 'bg-gray-100 text-gray-900 rounded-bl-sm'
-                          }`}
-                        >
-                          <p className="text-sm whitespace-pre-wrap break-words">
-                            {msg.message}
-                          </p>
-                        </div>
-                        <div
-                          className={`text-xs text-muted-foreground mt-0.5 ${
-                            isOwnMessage ? 'text-right' : ''
-                          }`}
-                        >
-                          {formatTime(msg.created_at)}
-                        </div>
-                      </div>
-                    </div>
+                      msg={msg}
+                      isOwn={isOwnMessage}
+                      name={getMemberName(msg.member_id)}
+                      isGuest={Boolean(sender && !sender.user_id)}
+                      time={formatTime(msg.created_at)}
+                      quote={msg.reply_to_message_id ? quoteText(replied ? getMemberName(replied.member_id) : 'メッセージ', replied) : null}
+                      onQuoteClick={replied ? () => jumpToMessage(replied.id) : undefined}
+                      reactions={reactionsByMessage.get(msg.id) ?? []}
+                      readCount={isOwnMessage ? readCountFor(msg.created_at, chatState.state.read_times) : null}
+                      urlOf={urlOf}
+                      onOpenPhoto={position => setViewer({ photos: photosOf(msg), index: Math.max(0, (msg.photos ?? []).findIndex(p => p.position === position)) })}
+                      onOpenMenu={() => setMenuFor(msg)}
+                      onToggleReaction={emoji => react(msg.id, emoji)}
+                    />
                   )
                 })}
               </div>
             ))
           )}
-          {/* 配役方法の選択カード（主催者のみ） */}
-          {effectiveNeedsCharAssignmentChoice && isOrganizer && onCharAssignmentMethodSelected && (
-            <div className="flex justify-center my-4">
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
-                    <Users className="w-3.5 h-3.5 text-white" />
-                  </div>
-                  <span className="font-semibold text-sm">キャラクターの配役方法</span>
-                </div>
-                <p className="text-sm text-muted-foreground mb-3">
-                  キャラクターの配役をどのように決めますか？
-                </p>
-                <div className="space-y-2">
-                  <Button
-                    variant="outline"
-                    className="w-full h-auto py-3 flex flex-col items-start gap-0.5 border-purple-200 hover:bg-purple-100"
-                    disabled={methodSaving}
-                    onClick={() => void selectCharacterMethod('survey')}
-                  >
-                    <span className="font-medium text-sm">アンケートで希望を伝える</span>
-                    <span className="text-[10px] text-muted-foreground">スタッフが決定します</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full h-auto py-3 flex flex-col items-start gap-0.5 border-purple-200 hover:bg-purple-100"
-                    disabled={methodSaving}
-                    onClick={() => void selectCharacterMethod('self')}
-                  >
-                    <span className="font-medium text-sm">自分たちで決める</span>
-                    <span className="text-[10px] text-muted-foreground">参加者同士で選択します</span>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 配役方法=survey: アンケート回答カード */}
-          {charAssignmentMethod === 'survey' && scenarioId && organizationId && currentMemberId && (
-            <div className="flex justify-center my-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 w-full max-w-sm">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                      <ClipboardList className="w-3.5 h-3.5 text-white" />
-                    </div>
-                    <span className="font-semibold text-sm text-blue-800">{systemMsgTitles.survey_notice}</span>
-                  </div>
-                  {isOrganizer && onResetCharAssignmentMethod && (
-                    <button
-                      onClick={() => setShowResetCharAssignmentConfirm(true)}
-                      className="text-xs text-purple-600 underline hover:text-purple-800"
-                    >
-                      方法変更
-                    </button>
-                  )}
-                </div>
-                <div className="bg-white rounded-lg p-3 border border-blue-100 space-y-3">
-                  <p className="text-sm text-gray-700">
-                    キャラクター選択のため、アンケートへのご回答をお願いいたします。
-                  </p>
-                  {deadlineText && (
-                    <p className="text-xs text-blue-600 font-medium">回答期限: {deadlineText}</p>
-                  )}
-                  <Button
-                    onClick={openSurvey}
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                    size="sm"
-                  >
-                    <ClipboardList className="w-4 h-4 mr-2" />
-                    アンケートに回答する
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 配役方法が「アンケート」以外・未選択: アンケート回答カード（配役以外の質問にも答えられるように。#911） */}
-          {/* 公演日を過ぎたら回答できないので出さない（#915） */}
-          {charAssignmentMethod !== 'survey' && surveyAvailable && !isPastPerformanceDate(performanceDate) && scenarioId && organizationId && currentMemberId && (
-            <div className="flex justify-center my-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 w-full max-w-sm">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                    <ClipboardList className="w-3.5 h-3.5 text-white" />
-                  </div>
-                  <span className="font-semibold text-sm text-blue-800">{systemMsgTitles.survey_notice}</span>
-                </div>
-                <div className="bg-white rounded-lg p-3 border border-blue-100 space-y-3">
-                  <p className="text-sm text-foreground">
-                    公演前アンケートへのご回答をお願いいたします。
-                  </p>
-                  {deadlineText && (
-                    <p className="text-xs text-blue-600 font-medium">回答期限: {deadlineText}</p>
-                  )}
-                  <Button
-                    onClick={openSurvey}
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                    size="sm"
-                  >
-                    <ClipboardList className="w-4 h-4 mr-2" />
-                    アンケートに回答する
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 配役方法=self: インラインキャラクター選択（確定済みメッセージがあれば非表示） */}
-          {charAssignmentMethod === 'self' && characters.length > 0 && !currentAssignmentConfirmed && (() => {
-            const activeMembers = members.filter(m => (m.status as string) === 'active' || m.status === 'joined')
-            const charNameById = (id: string | undefined) => id ? characters.find(c => c.id === id)?.name : null
-            const allPreferred = activeMembers.every(m => charPreferences[m.id])
-            const myPreference = currentMemberId ? charPreferences[currentMemberId] : undefined
-
-            // 主催者の確定ステップ
-            if (charConfirmStep && isOrganizer) {
-              const decisionDupes = (() => {
-                const chosen = activeMembers.map(m => charDecisions[m.id]).filter(Boolean)
-                return [...new Set(chosen.filter((v, i) => chosen.indexOf(v) !== i))]
-              })()
-              const allDecided = activeMembers.every(m => charDecisions[m.id])
-              logger.log('🎭 確定ステップ表示中:', { allDecided, decisionDupes, charDecisions, activeMemberIds: activeMembers.map(m=>m.id) })
-
-              return (
-                <div className="flex justify-center my-4">
-                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
-                        <Users className="w-3.5 h-3.5 text-white" />
-                      </div>
-                      <span className="font-semibold text-sm">配役の確定</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">希望を参考に配役を決定してください</p>
-
-                    {activeMembers.map(m => {
-                      const prefCharName = charNameById(charPreferences[m.id])
-                      return (
-                        <div key={m.id} className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">
-                              {m.guest_name || '参加者'}
-                              {m.id === currentMemberId && <span className="text-xs text-purple-600 ml-1">（あなた）</span>}
-                            </span>
-                            {prefCharName && (
-                              <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
-                                希望: {prefCharName}
-                              </Badge>
-                            )}
-                          </div>
-                          <Select
-                            value={charDecisions[m.id] || 'none'}
-                            onValueChange={(v) => v !== 'none' && setCharDecisions(prev => ({ ...prev, [m.id]: v }))}
-                          >
-                            <SelectTrigger className="w-full h-8 text-sm">
-                              <SelectValue placeholder="配役を選択" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none" disabled>配役を選択</SelectItem>
-                              {characters.map(char => (
-                                <SelectItem key={char.id} value={char.id}>
-                                  {char.name}
-                                  {char.gender && ` (${char.gender === 'male' ? '男性' : char.gender === 'female' ? '女性' : char.gender === 'any' ? '性別自由' : 'その他'})`}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )
-                    })}
-
-                    {decisionDupes.length > 0 && (
-                      <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                        <span>{decisionDupes.map(id => charNameById(id)).filter(Boolean).join('、')} が複数人に割り当てられています</span>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCharConfirmStep(false)}
-                        className="flex-1"
-                      >
-                        戻る
-                      </Button>
-                      {allDecided && decisionDupes.length === 0 ? (
-                        <Button
-                          size="sm"
-                          onClick={handleCharConfirmAndSend}
-                          disabled={charSubmitting}
-                          className="flex-1 bg-purple-600 hover:bg-purple-700"
-                        >
-                          {charSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : '配役を確定'}
-                        </Button>
-                      ) : (
-                        <Button size="sm" disabled className="flex-1">
-                          {!allDecided ? '全員選択してください' : '被り解消してください'}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )
-            }
-
-            // 通常の希望選択ステップ
-            return (
-              <div className="flex justify-center my-4">
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
-                      <Users className="w-3.5 h-3.5 text-white" />
-                    </div>
-                    <span className="font-semibold text-sm">キャラクター選択</span>
-                    {isOrganizer && onResetCharAssignmentMethod && (
-                      <button
-                      onClick={() => setShowResetCharAssignmentConfirm(true)}
-                      className="text-xs text-purple-600 underline hover:text-purple-800"
-                    >
-                      方法変更
-                    </button>
-                    )}
-                    <Badge variant="outline" className={`ml-auto text-[10px] ${myPreference ? 'bg-green-100 text-green-700 border-green-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
-                      {myPreference ? '希望済' : '未回答'}
-                    </Badge>
-                  </div>
-
-                  {/* キャラクター一覧: 画像 + 誰が選んだか表示 */}
-                  <div className="space-y-2">
-                    {characters.map(char => {
-                      const selectedBy = activeMembers.filter(m => charPreferences[m.id] === char.id)
-                      const isMyChoice = myPreference === char.id
-                      return (
-                        <button
-                          key={char.id}
-                          onClick={() => handleSelectCharPreference(char.id)}
-                          disabled={charSaving}
-                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg border text-left transition-colors ${
-                            isMyChoice
-                              ? 'bg-purple-100 border-purple-300'
-                              : 'bg-white border-gray-200 hover:bg-gray-50'
-                          }`}
-                        >
-                          {/* キャラクター画像 */}
-                          {char.image_url ? (
-                            <div className="w-[60px] h-[60px] rounded-lg overflow-hidden shrink-0 bg-gray-100">
-                              <img
-                                src={char.image_url}
-                                alt={char.name}
-                                className="w-full h-full object-cover"
-                                style={{
-                                  objectPosition: char.image_position
-                                    ? `${char.image_position.split(' ')[0]}% ${char.image_position.split(' ')[1]}%`
-                                    : '50% 30%',
-                                  transform: char.image_scale ? `scale(${char.image_scale / 100})` : undefined,
-                                }}
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-[60px] h-[60px] rounded-lg bg-gray-200 shrink-0 flex items-center justify-center">
-                              <Users className="w-5 h-5 text-gray-400" />
-                            </div>
-                          )}
-                          {/* 名前 + 選択者 */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              {isMyChoice && <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0" />}
-                              <span className="text-sm font-medium truncate">
-                                {char.name}
-                              </span>
-                              {char.gender && (
-                                <span className="text-[10px] text-muted-foreground shrink-0">
-                                  ({char.gender === 'male' ? '男' : char.gender === 'female' ? '女' : char.gender === 'any' ? '自由' : char.gender})
-                                </span>
-                              )}
-                            </div>
-                            {selectedBy.length > 0 ? (
-                              <p className="text-xs text-purple-700 mt-0.5 truncate">
-                                {selectedBy.map(m => m.id === currentMemberId ? 'あなた' : (m.guest_name || '参加者')).join(', ')}
-                              </p>
-                            ) : (
-                              <p className="text-xs text-gray-400 mt-0.5">未選択</p>
-                            )}
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  {charSaving && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1 justify-center">
-                      <Loader2 className="w-3 h-3 animate-spin" /> 保存中...
-                    </p>
-                  )}
-
-                  {deadlineText && (
-                    <p className="text-xs text-center text-purple-600 font-medium">回答期限: {deadlineText}</p>
-                  )}
-
-                  {/* 参加人数の進捗 */}
-                  {(() => {
-                    const preferredCount = activeMembers.filter(m => charPreferences[m.id]).length
-                    const requiredCount = scenarioPlayerCount || characters.length
-                    const memberShortage = activeMembers.length < requiredCount
-                    return (
-                      <>
-                        <p className="text-xs text-center text-muted-foreground">
-                          {preferredCount}/{activeMembers.length}人が回答済み{isOrganizer && '（全員揃わなくても確定できます）'}
-                        </p>
-                        {memberShortage && (
-                          <div className="flex items-start gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
-                            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                            <span>参加メンバー（{activeMembers.length}人）がシナリオの必要人数（{requiredCount}人）に足りません。全員揃ってから配役を確定してください。</span>
-                          </div>
-                        )}
-                      </>
-                    )
-                  })()}
-
-                  {/* 主催者は確定ボタン表示（メンバー不足時は無効） */}
-                  {isOrganizer && (
-                    <Button
-                      size="sm"
-                      onClick={handleGoToCharConfirm}
-                      disabled={activeMembers.length < (scenarioPlayerCount || characters.length)}
-                      className="w-full bg-purple-600 hover:bg-purple-700"
-                    >
-                      配役を確定する
-                    </Button>
-                  )}
-                  {allPreferred && !isOrganizer && (
-                    <p className="text-xs text-center text-green-600 bg-green-50 rounded p-1.5">
-                      全員の希望が揃いました。主催者が配役を確定します。
-                    </p>
-                  )}
-                </div>
-              </div>
-            )
-          })()}
-          <div ref={messagesEndRef} />
-        </div>
-
-        <div className="border-t p-3">
-          {sendBlockMessage && (
-            <p className="text-xs text-muted-foreground mb-2 px-1">{sendBlockMessage}</p>
-          )}
-          <div className="flex gap-2">
-            <Input
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={sendDisabled ? '送信できません' : 'メッセージを入力...'}
-              disabled={!currentMemberId || sending || sendDisabled}
-              className="flex-1"
-            />
-            <Button
-              onClick={handleSend}
-              disabled={!newMessage.trim() || !currentMemberId || sending || sendDisabled}
-              size="icon"
-              className="bg-purple-600 hover:bg-purple-700"
-              aria-label="送信"
-              title="送信"
-            >
-              {sending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-            </Button>
+          <CharacterAssignmentCards
+            groupId={groupId}
+            currentMemberId={currentMemberId}
+            members={members}
+            characterAssignments={chatGroup?.character_assignments as Record<string, string> | null | undefined}
+            refreshGroup={refreshGroup}
+            refetchMessages={refetchMessages}
+            effectiveNeedsCharAssignmentChoice={effectiveNeedsCharAssignmentChoice}
+            isOrganizer={isOrganizer}
+            onCharAssignmentMethodSelected={onCharAssignmentMethodSelected}
+            onResetCharAssignmentMethod={onResetCharAssignmentMethod}
+            onCharAssignmentConfirmed={onCharAssignmentConfirmed}
+            charAssignmentMethod={charAssignmentMethod}
+            characters={characters}
+            scenarioId={scenarioId}
+            organizationId={organizationId}
+            performanceDate={performanceDate}
+            scenarioPlayerCount={scenarioPlayerCount}
+            currentAssignmentConfirmed={currentAssignmentConfirmed}
+            deadlineText={deadlineText}
+            surveyAvailable={surveyAvailable}
+            surveyNoticeTitle={systemMsgTitles.survey_notice}
+            openSurvey={openSurvey}
+          />
+          {typing && <p className="text-center text-xs text-muted-foreground mt-3" data-testid="chat-typing">{typing}</p>}
           </div>
         </div>
-      </CardContent>
 
+        <ChatComposer
+          disabled={!currentMemberId || sendDisabled}
+          blockMessage={sendBlockMessage}
+          replyQuote={replyTo ? quoteText(getMemberName(replyTo.member_id), replyTo) : null}
+          onCancelReply={() => setReplyTo(null)}
+          onSend={handleSend}
+          onTyping={notifyTyping}
+        />
+      </CardContent>
     </Card>
+
+      {menuMessage && (
+        <MessageActionSheet
+          myReaction={(reactionsByMessage.get(menuMessage.id) ?? []).find(r => r.mine)?.emoji ?? null}
+          canPin={isOrganizer}
+          pinned={Boolean(menuMessage.pinned_at)}
+          hasText={Boolean(menuMessage.message)}
+          hasPhotos={(menuMessage.photos?.length ?? 0) > 0}
+          canDelete={menuMessage.member_id === effectiveMemberId}
+          onReact={emoji => react(menuMessage.id, emoji)}
+          onReply={() => setReplyTo(menuMessage)}
+          onCopy={() => void navigator.clipboard?.writeText(menuMessage.message).then(() => toast.success('コピーしました'), () => toast.error('コピーできませんでした'))}
+          onTogglePin={() => void togglePin(menuMessage)}
+          onSavePhotos={() => void saveMessagePhotos(menuMessage)}
+          onDelete={() => setDeleteTarget(menuMessage)}
+          onClose={() => setMenuFor(null)}
+        />
+      )}
+      {viewer && <PhotoViewer photos={viewer.photos} startIndex={viewer.index} onClose={() => setViewer(null)} />}
 
       {/* アンケート回答ダイアログ */}
       {showSurveyDialog && (
@@ -980,12 +522,13 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
       )}
 
       <ConfirmDialog
-        open={showResetCharAssignmentConfirm}
-        onOpenChange={setShowResetCharAssignmentConfirm}
-        title="配役方法を変更しますか？"
-        message="配役方法を変更すると、現在送信されている回答が無効になります。よろしいですか？"
-        confirmLabel="変更する"
-        onConfirm={resetCharacterMethod}
+        open={Boolean(deleteTarget)}
+        onOpenChange={open => { if (!open) setDeleteTarget(null) }}
+        title="このメッセージを削除しますか？"
+        message={(deleteTarget?.photos?.length ?? 0) > 0 ? '写真も消え、元に戻せません。チャットには「メッセージを削除しました」と表示されます。' : '元に戻せません。チャットには「メッセージを削除しました」と表示されます。'}
+        confirmLabel="削除する"
+        variant="danger"
+        onConfirm={confirmDelete}
       />
     </>
   )

@@ -2,16 +2,18 @@
  * 参加中の人のグループページを組み立てる（刷新 段階 1）。読み取り結果から回答表・いまの状態を作り、
  * 見出し・状態の箱・タブ・各タブの中身・チャットを GroupMemberPage に渡す。
  */
-import { useMemo, type ReactNode } from 'react'
-import { MoreVertical } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import type { NavigateFunction } from 'react-router-dom'
-import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
+import { privateGroupChatAction } from '@/lib/privateGroupChat'
 import { getErrorMessage } from '@/lib/errorFields'
 import { toJstYmd } from '@/utils/jstDate'
 import type { DateResponse, PrivateGroup } from '@/types'
 import type { PrivateGroupHandoverSummary, PrivateGroupLinkedReservation } from '@/lib/privateGroupRead'
 import type { usePrivateGroupMessages } from '@/hooks/usePrivateGroupMessages'
+import type { PrivateGroupChatState } from '@/hooks/usePrivateGroupChatState'
+import { pinnedMessages } from '@/pages/PrivateGroupManage/components/chat/chatModel'
+import { jumpToMessage } from '@/pages/PrivateGroupManage/components/chat/chatDom'
 import { PrivateBookingActionsMenu } from '@/pages/MyPage/components/PrivateBookingCards/PrivateBookingActionsMenu'
 import type { PrivateBookingActions } from '@/pages/MyPage/components/PrivateBookingCards/usePrivateBookingActions'
 import type { PrivateBookingPhase } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingMenu'
@@ -23,7 +25,9 @@ import { GroupDatesTab } from './GroupDatesTab'
 import { GroupOverviewTab } from './GroupOverviewTab'
 import { GroupMembersTab } from './GroupMembersTab'
 import { useGroupChatUnread, useIsDesktop } from './useGroupChatUnread'
-import { buildAnswerTable, buildGroupStatus, defaultGroupTab, remindUnansweredText, type GroupTab, type StatusAction } from './groupPageModel'
+import { buildAnswerTable, buildGroupStatus, defaultGroupTab, type GroupTab, type StatusAction } from './groupPageModel'
+import { GroupHeaderMenu } from './GroupHeaderMenu'
+import { GroupPhotosSheet, GroupPinsSheet } from './GroupChatListSheets'
 
 interface GroupMemberScreenProps {
   group: PrivateGroup
@@ -47,6 +51,11 @@ interface GroupMemberScreenProps {
   /** ?sheet=dates（候補日の追加・編集を開いている） */
   dateEditorOpen: boolean
   chatMessages: ReturnType<typeof usePrivateGroupMessages>
+  /** 既読・リアクション（GroupChat と共用） */
+  chatState: PrivateGroupChatState
+  /** ⋮ から開く一覧（写真・ピン留め）。index.tsx が持ち、チャットの上のピン留めからも開く */
+  listSheet: 'photos' | 'pins' | null
+  setListSheet: (sheet: 'photos' | 'pins' | null) => void
   bookingActions: PrivateBookingActions
   bookingSummary: ReactNode
   chat: ReactNode
@@ -67,7 +76,7 @@ interface GroupMemberScreenProps {
 export function GroupMemberScreen(props: GroupMemberScreenProps) {
   const {
     group, scenario, playerRange, isLoggedIn, existingMemberId, isOrganizer, organizerName, memberCount, inviteMemberCap, linkedReservation, handover,
-    bookingPhase, canMutateSchedule, survey, preferredStoreNames, copied, tabParam, dateEditorOpen, chatMessages, bookingActions, bookingSummary, chat,
+    bookingPhase, canMutateSchedule, survey, preferredStoreNames, copied, tabParam, dateEditorOpen, chatMessages, chatState, listSheet, setListSheet, bookingActions, bookingSummary, chat,
     navigate, setTab, openSheet, closeSheet, openBooking, openStoreEdit, copyInvite, shareLine, getInviteUrl, refetch, submitDateResponses, formatDateJaMd,
   } = props
 
@@ -76,7 +85,10 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
   const activeTab: GroupTab = dateEditorOpen ? 'dates' : tabParam ?? fallbackTab
   const desktopTab: GroupTab = fallbackTab
   const isDesktop = useIsDesktop()
-  const unread = useGroupChatUnread(group.id, existingMemberId, chatMessages.messages, chatMessages.loading, activeTab === 'chat' || isDesktop)
+  const unread = useGroupChatUnread(existingMemberId, chatMessages.messages, chatMessages.loading, chatState, activeTab === 'chat' || isDesktop)
+  const pinned = useMemo(() => pinnedMessages(chatMessages.messages), [chatMessages.messages])
+  const [actionsOpen, setActionsOpen] = useState(false)
+  const nameOf = (memberId: string | null) => group.members?.find(m => m.id === memberId)?.guest_name || (memberId ? 'メンバー' : '退出したメンバー')
 
   const status = useMemo(() => buildGroupStatus({
     status: group.status,
@@ -140,31 +152,48 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
     }
   }
 
-  const onRemind = async (names: string[]) => {
-    const { error } = await privateGroupMemberAction(group.id, existingMemberId, 'message', { message: remindUnansweredText(names) })
-    if (error) {
-      toast.error('お知らせを送れませんでした')
+  // 未回答の人に知らせる（主催者だけ）。チャットには灰色の 1 行のお知らせとして入る
+  const onRemind = async (memberIds: string[]) => {
+    try {
+      await privateGroupChatAction(group.id, existingMemberId, 'remind_unanswered', { member_ids: memberIds })
+    } catch (err) {
+      toast.error(getErrorMessage(err) || 'お知らせを送れませんでした')
       return
     }
     toast.success('チャットにお知らせしました')
     await chatMessages.refetch()
   }
 
+  // ピン留めの一覧から発言へ（スマホはチャットタブに切り替えてから動かす）
+  const jumpFromList = (messageId: string) => {
+    if (!isDesktop) setTab('chat')
+    window.setTimeout(() => jumpToMessage(messageId), 250)
+  }
+
   const openScenario = scenario ? () => navigate(`/scenario/${scenario.slug || scenario.id}`) : undefined
-  const menuButton = (onClick?: () => void) => (
-    <button type="button" onClick={onClick} className="w-9 h-9 shrink-0 flex items-center justify-center rounded-md border border-zinc-300 bg-background hover:bg-muted" aria-label="グループの操作" title="グループの操作" data-testid="group-settings">
-      <MoreVertical className="w-4 h-4" aria-hidden="true" />
-    </button>
-  )
-  const menu = isOrganizer ? (
-    <PrivateBookingActionsMenu
-      target={bookingActions.target}
-      actions={bookingActions}
-      nav={{ edit_dates: () => openSheet('dates'), edit_store: openStoreEdit, view_survey: () => setTab('survey') }}
-      trigger={menuButton()}
+  const menu = (
+    <GroupHeaderMenu
+      memberCount={memberCount}
+      pinnedCount={pinned.length}
+      onMembers={() => setTab('members')}
+      onPhotos={() => setListSheet('photos')}
+      onPins={() => setListSheet('pins')}
+      onActions={() => {
+        if (!isOrganizer) return openSheet('settings')
+        bookingActions.preparePolicy()
+        setActionsOpen(true)
+      }}
+      actionsMenu={isOrganizer ? (
+        <PrivateBookingActionsMenu
+          target={bookingActions.target}
+          actions={bookingActions}
+          nav={{ edit_dates: () => openSheet('dates'), edit_store: openStoreEdit, view_survey: () => setTab('survey') }}
+          trigger={<span className="block w-9 h-9" aria-hidden="true" />}
+          open={actionsOpen}
+          onOpenChange={setActionsOpen}
+        />
+      ) : undefined}
     />
-  ) : (
-    menuButton(() => openSheet('settings'))
   )
 
   const header = (
@@ -179,6 +208,7 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
   )
 
   return (
+    <>
     <GroupMemberPage
       header={header}
       status={status}
@@ -236,5 +266,8 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
         ),
       }}
     />
+    {listSheet === 'photos' && <GroupPhotosSheet groupId={group.id} memberId={existingMemberId} nameOf={nameOf} onClose={() => setListSheet(null)} />}
+    {listSheet === 'pins' && <GroupPinsSheet pinned={pinned} nameOf={nameOf} onJump={jumpFromList} onClose={() => setListSheet(null)} />}
+    </>
   )
 }

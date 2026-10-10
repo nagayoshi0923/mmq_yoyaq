@@ -120,8 +120,13 @@ EXCEPTION WHEN invalid_text_representation THEN RETURN NULL;
 END $$;
 REVOKE ALL ON FUNCTION public.private_group_message_payload(text) FROM PUBLIC,anon,authenticated;
 
-CREATE OR REPLACE FUNCTION public.private_group_read_messages(p_group_id uuid,p_member_id uuid DEFAULT NULL,p_guest_token text DEFAULT NULL,p_before_created_at timestamptz DEFAULT NULL,p_before_id uuid DEFAULT NULL,p_limit integer DEFAULT 100)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+-- 段階 2（20261010100000）で 返信先・削除・ピン留め・写真の枚数と縦横 を足した
+CREATE OR REPLACE FUNCTION public.private_group_read_messages(p_group_id uuid, p_member_id uuid DEFAULT NULL::uuid, p_guest_token text DEFAULT NULL::text, p_before_created_at timestamp with time zone DEFAULT NULL::timestamp with time zone, p_before_id uuid DEFAULT NULL::uuid, p_limit integer DEFAULT 100)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
 DECLARE access_level text; own_members uuid[];
 BEGIN
  access_level:=public.authorize_private_group_read(p_group_id,p_member_id,p_guest_token);
@@ -138,14 +143,18 @@ BEGIN
   RAISE EXCEPTION '履歴の取得条件が正しくありません' USING ERRCODE='22023';
  END IF;
  RETURN COALESCE((SELECT jsonb_agg(to_jsonb(m) ORDER BY m.created_at,m.id) FROM (
-  SELECT id,group_id,member_id,message,created_at,sender_type FROM public.private_group_messages m
+  SELECT id,group_id,member_id,CASE WHEN deleted_at IS NULL THEN message ELSE '' END AS message,created_at,sender_type,
+   reply_to_message_id,deleted_at,pinned_at,
+   CASE WHEN deleted_at IS NULL THEN (SELECT jsonb_agg(jsonb_build_object('position',p.position,'width',p.width,'height',p.height) ORDER BY p.position)
+     FROM public.private_group_message_photos p WHERE p.message_id=m.id) END AS photos
+  FROM public.private_group_messages m
   WHERE group_id=p_group_id
    AND (access_level='staff' OR coalesce(public.private_group_message_payload(m.message)->>'action','')<>'individual_notice'
     OR public.private_group_message_payload(m.message)->>'target_member_id'=ANY(own_members::text[])
     OR (auth.uid() IS NOT NULL AND public.private_group_message_payload(m.message)->>'target_user_id'=auth.uid()::text))
    AND (p_before_created_at IS NULL OR (created_at,id)<(p_before_created_at,p_before_id)) ORDER BY created_at DESC,id DESC LIMIT p_limit
  ) m),'[]'::jsonb);
-END $$;
+END $function$;
 REVOKE ALL ON FUNCTION public.private_group_read_messages(uuid,uuid,text,timestamptz,uuid,integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.private_group_read_messages(uuid,uuid,text,timestamptz,uuid,integer) TO anon,authenticated,service_role;
 
