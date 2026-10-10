@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-09T11:22:46.606Z",
-  "table_count": 149,
-  "function_count": 400,
-  "digest": "1e1f5625ef57fc9e8564094a469b04fab14f5141d34b91a068d08505f9bb9694"
+  "captured_at": "2026-10-10T03:28:48.950Z",
+  "table_count": 152,
+  "function_count": 404,
+  "digest": "b528be97f51180a3e5638ab90c125a2e0712d172e73cddd85fb3d23e4a59c18c"
  },
  "tables": {
   "staff": {
@@ -13503,6 +13503,30 @@
      "type": "text",
      "default": null,
      "not_null": false
+    },
+    {
+     "name": "reply_to_message_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "deleted_at",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "pinned_at",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "pinned_by_member_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
     }
    ],
    "indexes": [
@@ -13517,6 +13541,10 @@
     {
      "def": "CREATE INDEX idx_private_group_messages_member_id ON public.private_group_messages USING btree (member_id)",
      "name": "idx_private_group_messages_member_id"
+    },
+    {
+     "def": "CREATE INDEX idx_private_group_messages_pinned ON public.private_group_messages USING btree (group_id, pinned_at DESC) WHERE (pinned_at IS NOT NULL)",
+     "name": "idx_private_group_messages_pinned"
     },
     {
      "def": "CREATE UNIQUE INDEX private_group_messages_pkey ON public.private_group_messages USING btree (id)",
@@ -13592,9 +13620,19 @@
      "type": "f"
     },
     {
+     "def": "FOREIGN KEY (pinned_by_member_id) REFERENCES private_group_members(id) ON DELETE SET NULL",
+     "name": "private_group_messages_pinned_by_member_id_fkey",
+     "type": "f"
+    },
+    {
      "def": "PRIMARY KEY (id)",
      "name": "private_group_messages_pkey",
      "type": "p"
+    },
+    {
+     "def": "FOREIGN KEY (reply_to_message_id) REFERENCES private_group_messages(id) ON DELETE SET NULL",
+     "name": "private_group_messages_reply_to_message_id_fkey",
+     "type": "f"
     }
    ]
   },
@@ -15064,7 +15102,7 @@
      "type": "p"
     },
     {
-     "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+     "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE NOT VALID",
      "name": "user_notification_views_user_id_fkey",
      "type": "f"
     }
@@ -16986,6 +17024,64 @@
     {
      "def": "PRIMARY KEY (member_id)",
      "name": "private_group_members_pii_pkey",
+     "type": "p"
+    }
+   ]
+  },
+  "private_group_read_states": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "group_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "member_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "last_read_at",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE INDEX idx_private_group_read_states_member ON public.private_group_read_states USING btree (member_id)",
+     "name": "idx_private_group_read_states_member"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_read_states_pkey ON public.private_group_read_states USING btree (group_id, member_id)",
+     "name": "private_group_read_states_pkey"
+    }
+   ],
+   "policies": [],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+     "name": "private_group_read_states_group_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+     "name": "private_group_read_states_member_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (group_id, member_id)",
+     "name": "private_group_read_states_pkey",
      "type": "p"
     }
    ]
@@ -19918,6 +20014,121 @@
     }
    ]
   },
+  "private_group_message_photos": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "message_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "position",
+     "type": "smallint",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "group_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "organization_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "storage_path",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "width",
+     "type": "integer",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "height",
+     "type": "integer",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE INDEX idx_private_group_message_photos_group ON public.private_group_message_photos USING btree (group_id, created_at DESC)",
+     "name": "idx_private_group_message_photos_group"
+    },
+    {
+     "def": "CREATE INDEX idx_private_group_message_photos_org ON public.private_group_message_photos USING btree (organization_id)",
+     "name": "idx_private_group_message_photos_org"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_message_photos_pkey ON public.private_group_message_photos USING btree (message_id, \"position\")",
+     "name": "private_group_message_photos_pkey"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_message_photos_storage_path_key ON public.private_group_message_photos USING btree (storage_path)",
+     "name": "private_group_message_photos_storage_path_key"
+    }
+   ],
+   "policies": [],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+     "name": "private_group_message_photos_group_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "CHECK (((height IS NULL) OR ((height >= 1) AND (height <= 10000))))",
+     "name": "private_group_message_photos_height_check",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (message_id) REFERENCES private_group_messages(id) ON DELETE CASCADE",
+     "name": "private_group_message_photos_message_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+     "name": "private_group_message_photos_organization_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (message_id, \"position\")",
+     "name": "private_group_message_photos_pkey",
+     "type": "p"
+    },
+    {
+     "def": "CHECK (((\"position\" >= 1) AND (\"position\" <= 10)))",
+     "name": "private_group_message_photos_position_check",
+     "type": "c"
+    },
+    {
+     "def": "UNIQUE (storage_path)",
+     "name": "private_group_message_photos_storage_path_key",
+     "type": "u"
+    },
+    {
+     "def": "CHECK (((width IS NULL) OR ((width >= 1) AND (width <= 10000))))",
+     "name": "private_group_message_photos_width_check",
+     "type": "c"
+    }
+   ]
+  },
   "cancellation_billing_settings": {
    "rls": true,
    "columns": [
@@ -21883,6 +22094,84 @@
      "def": "FOREIGN KEY (to_member_id) REFERENCES private_group_members(id) ON DELETE SET NULL",
      "name": "private_group_handover_requests_to_member_id_fkey",
      "type": "f"
+    }
+   ]
+  },
+  "private_group_message_reactions": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "message_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "member_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "group_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "emoji",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE INDEX idx_private_group_message_reactions_group ON public.private_group_message_reactions USING btree (group_id)",
+     "name": "idx_private_group_message_reactions_group"
+    },
+    {
+     "def": "CREATE INDEX idx_private_group_message_reactions_member ON public.private_group_message_reactions USING btree (member_id)",
+     "name": "idx_private_group_message_reactions_member"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_message_reactions_pkey ON public.private_group_message_reactions USING btree (message_id, member_id)",
+     "name": "private_group_message_reactions_pkey"
+    }
+   ],
+   "policies": [],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "CHECK (((char_length(emoji) >= 1) AND (char_length(emoji) <= 16)))",
+     "name": "private_group_message_reactions_emoji_check",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+     "name": "private_group_message_reactions_group_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+     "name": "private_group_message_reactions_member_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (message_id) REFERENCES private_group_messages(id) ON DELETE CASCADE",
+     "name": "private_group_message_reactions_message_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (message_id, member_id)",
+     "name": "private_group_message_reactions_pkey",
+     "type": "p"
     }
    ]
   },
@@ -26148,6 +26437,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_message_is_system(p_message text)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "boolean",
+   "body_md5": "7d4a763d29549cf7f6ee4febc5d0f8d5",
+   "language": "sql",
+   "security_definer": false
+  },
   "private_group_handover_cancel(p_request_id uuid)": {
    "acl": [
     "authenticated=X/postgres",
@@ -26306,6 +26605,16 @@
    "returns": "text",
    "body_md5": "7668ad3c7f5a6cc368f040a26d199517",
    "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_member_display_name(p_member_id uuid)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "text",
+   "body_md5": "8f2d75aa95fded898fcf4388c9de3087",
+   "language": "sql",
    "security_definer": true
   },
   "save_guest_access_pin(p_member_id uuid, p_pin text)": {
@@ -27381,6 +27690,18 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_chat_state(p_group_id uuid, p_member_id uuid, p_guest_token text)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "4a702e2ef5e328b8f1d69e8288b2d231",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "apply_scenario_slot_start_times(p_hours jsonb, p_times jsonb, p_weekend boolean)": {
    "acl": [
     "postgres=X/postgres"
@@ -27887,6 +28208,18 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_chat_action(p_group_id uuid, p_member_id uuid, p_action text, p_payload jsonb, p_guest_token text)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "109434dd52c5ddef2b9e909253e7490d",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "replace_staff_assignments_atomic(p_organization_id uuid, p_staff_id uuid, p_assignments jsonb, p_expected jsonb)": {
    "acl": [
     "postgres=X/postgres",
@@ -28343,7 +28676,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "b377251d3f19197c7208a3d614fd3749",
+   "body_md5": "a1e3853820a4a4dcd754b43640ba02be",
    "language": "plpgsql",
    "security_definer": true
   },

@@ -104,8 +104,8 @@ async function apiFetch<T>(path: string, options?: ApiFetchOptions): Promise<T> 
 export const apiClient = {
   get: <T>(path: string, options?: { allowAnon?: boolean }) =>
     apiFetch<T>(path, options),
-  post: <T>(path: string, body: unknown) =>
-    apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+  post: <T>(path: string, body: unknown, options?: { allowAnon?: boolean }) =>
+    apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body), ...options }),
   patch: <T>(path: string, body: unknown) =>
     apiFetch<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),

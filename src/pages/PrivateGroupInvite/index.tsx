@@ -30,6 +30,7 @@ import { useGroupBookingActions } from './useGroupBookingActions'
 import { BookingSummaryBox } from './components/BookingSummaryBox'
 import { HandoverScreen } from './components/HandoverScreen'
 import { usePrivateGroupMessages } from '@/hooks/usePrivateGroupMessages'
+import { usePrivateGroupChatState } from '@/hooks/usePrivateGroupChatState'
 import { GroupMemberScreen } from './groupPage/GroupMemberScreen'
 import { parseGroupTab, type GroupTab } from './groupPage/groupPageModel'
 
@@ -266,6 +267,9 @@ export function PrivateGroupInvite() {
 
   // チャットのメッセージ（未読数の赤丸と GroupChat で共用。二重に読まない）
   const chatMessages = usePrivateGroupMessages(group?.id ?? '', existingMemberId, { enabled: Boolean(group?.id && existingMemberId) })
+  // 既読・リアクション（段階 2。未読数と GroupChat で共用）と、⋮ から開く写真・ピン留めの一覧
+  const chatState = usePrivateGroupChatState(group?.id ?? '', existingMemberId, { enabled: Boolean(group?.id && existingMemberId) })
+  const [chatListSheet, setChatListSheet] = useState<'photos' | 'pins' | null>(null)
 
   // 料金計算
   const perPersonPrice = useMemo(() => {
@@ -609,6 +613,8 @@ export function PrivateGroupInvite() {
         members={group.members || []}
         fullHeight={true}
         messagesSource={chatMessages}
+        chatStateSource={chatState}
+        onOpenPins={() => setChatListSheet('pins')}
         onGoToSchedule={() => setActiveTab('dates')}
         onOpenSurvey={() => setActiveTab('survey')}
         onOpenHandover={requestId => openSheet('handover', { request: requestId })}
@@ -663,6 +669,9 @@ export function PrivateGroupInvite() {
           tabParam={tabParam === 'survey' ? null : tabParam}
           dateEditorOpen={activeSheet === 'dates' && Boolean(isOrganizer) && canMutateScheduleBeforeStoreReply}
           chatMessages={chatMessages}
+          chatState={chatState}
+          listSheet={chatListSheet}
+          setListSheet={setChatListSheet}
           bookingActions={bookingActions}
           bookingSummary={bookingSummary}
           chat={chat}

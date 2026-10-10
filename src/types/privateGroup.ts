@@ -123,6 +123,14 @@ export interface PrivateGroupMessage {
   member_id: string | null  // NULLの場合は退出したメンバー
   message: string
   created_at: string
+  /** 返信先の発言（グループページ刷新 段階 2） */
+  reply_to_message_id?: string | null
+  /** 本人が削除した時刻（本文は空で返る） */
+  deleted_at?: string | null
+  /** 主催者がピン留めした時刻 */
+  pinned_at?: string | null
+  /** 写真（並び順と縦横。表示用 URL は /api/private-group-photos で別に取る） */
+  photos?: Array<{ position: number; width: number | null; height: number | null }> | null
   // JOIN時の拡張フィールド
   member?: PrivateGroupMember
 }

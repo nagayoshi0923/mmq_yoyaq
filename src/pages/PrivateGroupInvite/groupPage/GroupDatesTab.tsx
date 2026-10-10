@@ -24,7 +24,8 @@ interface GroupDatesTabProps {
   onOpenEditor: () => void
   onCloseEditor: () => void
   onDatesChanged: () => unknown
-  onRemind: (names: string[]) => Promise<void>
+  /** 未回答の人に知らせる（主催者だけ。チャットに灰色の 1 行のお知らせが入る） */
+  onRemind: (memberIds: string[]) => Promise<void>
   preferredStoreNames: string[]
   onEditStore: () => void
   formatDateJaMd: (dateStr: string) => string
@@ -46,7 +47,7 @@ export function GroupDatesTab(props: GroupDatesTabProps) {
     if (reminding || unanswered.length === 0) return
     setReminding(true)
     try {
-      await onRemind(unanswered.map(c => c.name))
+      await onRemind(unanswered.map(c => c.memberId))
     } finally {
       setReminding(false)
     }
@@ -78,7 +79,7 @@ export function GroupDatesTab(props: GroupDatesTabProps) {
                 {editorOpen ? '候補日の編集を閉じる' : table.rows.length > 0 ? '候補日を追加・編集' : '候補日を追加'}
               </Button>
             )}
-            {isMember && unanswered.length > 0 && (
+            {isMember && isOrganizer && unanswered.length > 0 && (
               <Button type="button" variant="outline" size="sm" className="h-auto py-1.5 px-2.5 text-xs rounded-md bg-background border-zinc-300" onClick={() => void remind()} disabled={reminding} data-testid="remind-unanswered">
                 {reminding ? '送信中…' : '未回答の人に知らせる'}
               </Button>

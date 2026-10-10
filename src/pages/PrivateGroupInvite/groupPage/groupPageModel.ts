@@ -188,10 +188,6 @@ export function unansweredMembers(table: AnswerTable): AnswerColumn[] {
   return table.columns.filter(c => !c.isMe && !c.answeredAll)
 }
 
-/** 「未回答の人に知らせる」でチャットに入れる 1 行 */
-export function remindUnansweredText(names: string[]): string {
-  return `${names.map(n => `${n}さん`).join('、')} 日程の回答をお願いします（日程タブの表で、自分の列を押すと回答できます）`
-}
 
 // ─── いまの状態の箱 ─────────────────────────────────────
 
@@ -361,11 +357,11 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
 
 /** 最後に見た時刻より新しい、自分以外の発言・お知らせの数。見た記録が無ければ 0（初回に大きな数を出さない） */
 export function countUnread(
-  messages: ReadonlyArray<{ created_at: string; member_id: string | null }>,
+  messages: ReadonlyArray<{ created_at: string; member_id: string | null; deleted_at?: string | null }>,
   myMemberId: string | null,
   lastSeenAt: string | null,
 ): number {
   if (!lastSeenAt) return 0
   const seen = new Date(lastSeenAt).getTime()
-  return messages.filter(m => m.member_id !== myMemberId && new Date(m.created_at).getTime() > seen).length
+  return messages.filter(m => m.member_id !== myMemberId && !m.deleted_at && new Date(m.created_at).getTime() > seen).length
 }

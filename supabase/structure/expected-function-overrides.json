@@ -733,5 +733,61 @@
     "body_md5": "fb16c1fa8ffbd39da8c8fe588b690243",
     "language": "plpgsql",
     "security_definer": true
+  },
+  "private_group_message_is_system(p_message text)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "boolean",
+    "body_md5": "7d4a763d29549cf7f6ee4febc5d0f8d5",
+    "language": "sql",
+    "security_definer": false
+  },
+  "private_group_member_display_name(p_member_id uuid)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "text",
+    "body_md5": "8f2d75aa95fded898fcf4388c9de3087",
+    "language": "sql",
+    "security_definer": true
+  },
+  "private_group_chat_state(p_group_id uuid, p_member_id uuid, p_guest_token text)": {
+    "acl": [
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "4a702e2ef5e328b8f1d69e8288b2d231",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_chat_action(p_group_id uuid, p_member_id uuid, p_action text, p_payload jsonb, p_guest_token text)": {
+    "acl": [
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "109434dd52c5ddef2b9e909253e7490d",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_read_messages(p_group_id uuid, p_member_id uuid, p_guest_token text, p_before_created_at timestamp with time zone, p_before_id uuid, p_limit integer)": {
+    "acl": [
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "a1e3853820a4a4dcd754b43640ba02be",
+    "language": "plpgsql",
+    "security_definer": true
   }
 }

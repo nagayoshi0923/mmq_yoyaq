@@ -6,7 +6,7 @@ import type { PrivateGroupMessage } from '@/types'
 
 export interface SystemMessage {
   type: 'system'
-  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'member_removed' | 'booking_requested' | 'booking_rejected' | 'booking_cancelled' | 'individual_notice' | 'performance_cancelled' | 'staff_message' | 'character_assignment' | 'character_method_selected' | 'organizer_handover'
+  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'member_removed' | 'booking_requested' | 'booking_rejected' | 'booking_cancelled' | 'individual_notice' | 'performance_cancelled' | 'staff_message' | 'character_assignment' | 'character_method_selected' | 'organizer_handover' | 'date_answer_reminder'
   count?: number
   dates?: Array<{ date: string; time_slot: string }>
   confirmedDate?: string
@@ -33,6 +33,8 @@ export interface SystemMessage {
   result?: string
   // 配役結果用
   assignments?: Record<string, string>
+  /** date_answer_reminder（未回答の人に知らせる）の宛先の名前 */
+  names?: string[]
 }
 
 /** 日付の見出し（今日・昨日・○月○日） */
@@ -182,6 +184,10 @@ export function noticeLineText(systemMsg: SystemMessage, authorMemberId: string 
       return systemMsg.title || '店舗に申し込みました'
     case 'organizer_handover':
       return systemMsg.title || '主催者の引き継ぎ'
+    case 'date_answer_reminder': {
+      const names = (systemMsg.names ?? []).map(n => `${n}さん`).join('、')
+      return `${ctx.getMemberName(authorMemberId)}さんから ${names || '未回答の人'} へ: 日程の回答をお願いします`
+    }
     case 'candidate_dates_added': {
       if (candidateNoticeNeedsAnswer(systemMsg.dates, ctx.current, ctx.myMemberId, ctx.answering)) return null
       const dates = markDeletedCandidates(systemMsg.dates, ctx.current)
@@ -226,6 +232,8 @@ export function noticeLineResolver(args: {
     answering: args.status === 'gathering' || args.status === 'date_adjusting',
   }
   return msg => {
+    // 本人が削除した発言は灰色の 1 行（段階 2）
+    if (msg.deleted_at) return 'メッセージを削除しました'
     const system = parseSystemMessage(msg.message)
     return system ? noticeLineText(system, msg.member_id, ctx) : null
   }
