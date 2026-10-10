@@ -36,3 +36,14 @@ describe('scenarioStoreHintText', () => {
   })
   it('食い違いが無ければ出さない', () => expect(scenarioStoreHintText(playable, ['baba'], stores)).toBeNull())
 })
+
+describe('逆算方式の補足', () => {
+  it('conflict の補足を理由に添え、標準からずらした枠に adjusted を付ける', () => {
+    const a = buildCandidateSlotAvailability([
+      { date: '2026-12-07', time_slot: 'morning', available: false, reason: 'conflict', start_time: null, end_time: null, detail: '空き 1 時間・必要 3 時間 30 分', adjusted: false },
+      { date: '2026-12-07', time_slot: 'evening', available: true, reason: null, start_time: '17:30', end_time: '21:00', detail: null, adjusted: true },
+    ])
+    expect(a.unavailableReasons['2026-12-07-午前']).toBe('他の公演と重なります（空き 1 時間・必要 3 時間 30 分）')
+    expect(availableSlotsForDate(a, '2026-12-07')).toEqual([{ key: 'evening', label: '夜', startTime: '17:30', endTime: '21:00', adjusted: true }])
+  })
+})
