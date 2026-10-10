@@ -9,7 +9,11 @@
  * - タブが非表示から表示に戻ったとき、または検知した時点で、途中の入力が無ければ読み込み直す
  * - 途中の入力があるページ（予約・確認・貸切申込・プロフィール登録・グループ／チャット等）、
  *   値の入った入力欄、開いているダイアログがあるときは、その場では読み込み直さず次の遷移まで待つ
+ * - スタッフ用の画面（管理画面 ADMIN_PATHS・シナリオマスタ・開発用ページ）は、
+ *   タブ復帰・操作なしでは読み込み直さず、画面遷移のときだけ切り替える
+ *   （スケジュール表を見ながら電話対応している最中に画面が変わらないように）
  */
+import { ADMIN_PATHS, parsePath } from '@/pages/adminDashboardRouting'
 
 /** その場では再読み込みしないページ（次の遷移まで待つ） */
 const IN_PROGRESS_PATH_PATTERNS: RegExp[] = [
@@ -28,6 +32,14 @@ const IN_PROGRESS_PATH_PATTERNS: RegExp[] = [
 const IDLE_MS = 10 * 1000
 
 const TEXT_INPUT_TYPES = new Set(['', 'text', 'email', 'tel', 'number', 'url', 'password', 'search', 'date', 'time', 'datetime-local'])
+
+/** スタッフ用の画面か（画面遷移のときだけ切り替える） */
+export function isStaffPath(pathname: string): boolean {
+  const { page, organizationSlug } = parsePath(pathname)
+  // /stores（組織なし）はお客様向けの店舗一覧
+  if (page === 'stores' && !organizationSlug) return false
+  return ADMIN_PATHS.includes(page) || page === 'scenarios-edit' || page.startsWith('scenario-master') || page.startsWith('dev-')
+}
 
 export function isInProgressPath(pathname: string): boolean {
   return IN_PROGRESS_PATH_PATTERNS.some((pattern) => pattern.test(pathname))
@@ -60,6 +72,7 @@ export function isUpdatePending(): boolean {
 }
 
 function canReloadInPlace(): boolean {
+  if (isStaffPath(window.location.pathname)) return false
   if (isInProgressPath(window.location.pathname)) return false
   if (hasUnsavedInput()) return false
   return Date.now() - lastInteractionAt >= IDLE_MS

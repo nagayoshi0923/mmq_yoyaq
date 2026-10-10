@@ -5,6 +5,7 @@ import {
   hasUnsavedInput,
   installSilentAppUpdate,
   isInProgressPath,
+  isStaffPath,
   isUpdatePending,
   markUpdateAvailable,
 } from './silentAppUpdate'
@@ -33,6 +34,22 @@ describe('isInProgressPath', () => {
     expect(isInProgressPath('/')).toBe(false)
     expect(isInProgressPath('/queens-waltz')).toBe(false)
     expect(isInProgressPath('/scenario')).toBe(false)
+  })
+})
+
+describe('isStaffPath', () => {
+  it('管理画面はスタッフ用', () => {
+    expect(isStaffPath('/queens-waltz/schedule')).toBe(true)
+    expect(isStaffPath('/schedule')).toBe(true)
+    expect(isStaffPath('/queens-waltz/dashboard')).toBe(true)
+    expect(isStaffPath('/queens-waltz/scenarios/edit/1')).toBe(true)
+    expect(isStaffPath('/admin/scenario-masters')).toBe(true)
+  })
+  it('お客様向けのページはスタッフ用ではない', () => {
+    expect(isStaffPath('/')).toBe(false)
+    expect(isStaffPath('/queens-waltz')).toBe(false)
+    expect(isStaffPath('/stores')).toBe(false)
+    expect(isStaffPath('/mypage')).toBe(false)
   })
 })
 
@@ -71,6 +88,15 @@ describe('自動切り替え', () => {
     window.history.replaceState(null, '', '/group/manage/1')
     markUpdateAvailable()
     expect(reload).not.toHaveBeenCalled()
+  })
+
+  it('スタッフ用の画面は入力が無くてもその場では読み込まず、タブに戻っても待ち、遷移で切り替える', () => {
+    window.history.replaceState(null, '', '/queens-waltz/schedule')
+    markUpdateAvailable()
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(reload).not.toHaveBeenCalled()
+    window.history.pushState({ usr: null, key: 'k', idx: 1 }, '', '/queens-waltz/reservations')
+    expect(assign).toHaveBeenCalledWith(`${window.location.origin}/queens-waltz/reservations`)
   })
 
   it('画面間で値を渡す遷移は通常どおり進める', () => {
