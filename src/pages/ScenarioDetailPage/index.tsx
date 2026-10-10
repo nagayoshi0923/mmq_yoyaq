@@ -151,10 +151,11 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     isNextMonthDisabled,
     isLoadingEvents,
     isAvailabilityReady,
+    slotAvailability,
+    monthDates: privateDates,
+    showMonthOf,
     setSelectedStoreIds,
     setSelectedTimeSlots,
-    checkTimeSlotAvailability,
-    generatePrivateDates,
     changeMonth,
     toggleTimeSlot,
     getTimeSlotsForDate
@@ -283,6 +284,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       afternoon: '午後',
       evening: '夜',
     }
+    // 空き状況（DB）がその日の分まで読めてから時刻を決める
+    showMonthOf(date)
+    if (!isAvailabilityReady || !slotAvailability.slotsByDate[date]) return
     const slots = getTimeSlotsForDate(date)
     const found = slots.find((s) => s.label === labelByKey[slotKey])
     setPrivateBookingUrlPending(null)
@@ -295,10 +299,12 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     selectedStoreIds,
     getTimeSlotsForDate,
     setSelectedTimeSlots,
+    showMonthOf,
+    isAvailabilityReady,
+    slotAvailability,
   ])
 
-  // generatePrivateDates の結果を安定化（インライン呼び出しだと毎レンダーで新配列が生まれ memo() が無効になる）
-  const privateDates = useMemo(() => generatePrivateDates(), [generatePrivateDates])
+
 
   // 貸切リクエスト完了時のハンドラ（選択状態をクリア）
   const handlePrivateBookingCompleteWithClear = useCallback(() => {
@@ -651,13 +657,11 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     currentMonth={currentMonth}
                     onMonthChange={changeMonth}
                     availableDates={privateDates}
-                    getTimeSlotsForDate={getTimeSlotsForDate}
+                    slotAvailability={slotAvailability}
                     selectedSlots={selectedTimeSlots}
                     onTimeSlotToggle={toggleTimeSlot}
-                    checkTimeSlotAvailability={checkTimeSlotAvailability}
                     maxSelections={MAX_SELECTIONS}
                     isCustomHoliday={isCustomHoliday}
-                    blockedSlots={scenario?.private_booking_blocked_slots}
                     isNextMonthDisabled={isNextMonthDisabled}
                     loading={isLoadingEvents}
                     deadlineDays={privateBookingDeadlineDays}
