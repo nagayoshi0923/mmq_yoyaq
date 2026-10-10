@@ -3,6 +3,7 @@ import App from './AppRoot.tsx'
 import './index.css'
 import { initSentry } from '@/lib/sentry'
 import { initVersionCheck, clearChunkReloadFlag, isChunkLoadError, forceReloadLatest } from '@/utils/lazyWithRetry'
+import { isPushServiceWorker } from '@/lib/webPushSupport'
 
 // パッシブイベントリスナーの警告を抑制
 // UIライブラリ（Radix UI等）がtouchstartにpassive: falseを使用するため
@@ -134,12 +135,15 @@ function showUpdateBanner(): void {
   })
 }
 
-// PWA プラグインは現在使用していないため、古い Service Worker が残っている場合は常に解除する。
+// PWA プラグインは現在使用していないため、古い Service Worker が残っている場合は解除する。
 // 古い SW がナビゲーションリクエストをキャッシュしていると、デプロイ後に古い HTML が返され、
 // バージョンチェックリロードと Supabase のトークンリフレッシュが競合してログインが切れる原因になる。
+// 例外: プッシュ通知だけの /sw.js（貸切グループ 段階 3）。画面のファイルを一切キャッシュしない（fetch を扱わない）ので残す。
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then((registrations) => {
     for (const registration of registrations) {
+      const script = registration.active?.scriptURL || registration.waiting?.scriptURL || registration.installing?.scriptURL || ''
+      if (isPushServiceWorker(script)) continue
       registration.unregister()
     }
   })

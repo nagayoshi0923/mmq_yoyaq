@@ -1902,6 +1902,10 @@
     "name": "guard_withdrawn_private_group_response"
    },
    {
+    "def": "CREATE CONSTRAINT TRIGGER private_group_on_date_response AFTER INSERT OR UPDATE OF response ON public.private_group_date_responses DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN ((new.response = 'ok'::text)) EXECUTE FUNCTION private_group_on_date_response()",
+    "name": "private_group_on_date_response"
+   },
+   {
     "def": "CREATE TRIGGER trigger_update_private_group_date_responses_updated_at BEFORE UPDATE ON public.private_group_date_responses FOR EACH ROW EXECUTE FUNCTION update_private_group_date_responses_updated_at()",
     "name": "trigger_update_private_group_date_responses_updated_at"
    }
@@ -1936,6 +1940,11 @@
     "def": "CHECK ((response = ANY (ARRAY['ok'::text, 'ng'::text, 'maybe'::text])))",
     "name": "private_group_date_responses_response_check",
     "type": "c"
+   },
+   {
+    "def": "TRIGGER DEFERRABLE INITIALLY DEFERRED",
+    "name": "private_group_on_date_response",
+    "type": "t"
    }
   ]
  },
@@ -2807,6 +2816,10 @@
    {
     "def": "CREATE TRIGGER guard_private_group_browser_write BEFORE INSERT OR DELETE OR UPDATE ON public.private_group_messages FOR EACH ROW EXECUTE FUNCTION guard_private_group_browser_write()",
     "name": "guard_private_group_browser_write"
+   },
+   {
+    "def": "CREATE CONSTRAINT TRIGGER web_push_on_group_message AFTER INSERT ON public.private_group_messages DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (((new.member_id IS NOT NULL) AND (new.deleted_at IS NULL))) EXECUTE FUNCTION web_push_on_group_message()",
+    "name": "web_push_on_group_message"
    }
   ],
   "constraints": [
@@ -2839,6 +2852,11 @@
     "def": "FOREIGN KEY (reply_to_message_id) REFERENCES private_group_messages(id) ON DELETE SET NULL",
     "name": "private_group_messages_reply_to_message_id_fkey",
     "type": "f"
+   },
+   {
+    "def": "TRIGGER DEFERRABLE INITIALLY DEFERRED",
+    "name": "web_push_on_group_message",
+    "type": "t"
    }
   ]
  },
@@ -3315,6 +3333,10 @@
    {
     "def": "CREATE TRIGGER customer_notice_on_handover_bell AFTER INSERT ON public.user_notifications FOR EACH ROW WHEN (((new.metadata ->> 'kind'::text) = 'private_group_handover'::text)) EXECUTE FUNCTION customer_notice_on_handover_bell()",
     "name": "customer_notice_on_handover_bell"
+   },
+   {
+    "def": "CREATE TRIGGER web_push_on_user_notification AFTER INSERT ON public.user_notifications FOR EACH ROW WHEN (((new.metadata ->> 'kind'::text) = ANY (ARRAY['private_confirmed'::text, 'private_rejected'::text, 'private_group_handover'::text, 'private_dates_aligned'::text]))) EXECUTE FUNCTION web_push_on_user_notification()",
+    "name": "web_push_on_user_notification"
    }
   ],
   "constraints": [
@@ -3687,6 +3709,406 @@
     "def": "CHECK (((width IS NULL) OR ((width >= 1) AND (width <= 10000))))",
     "name": "private_group_message_photos_width_check",
     "type": "c"
+   }
+  ]
+ },
+ "web_push_subscriptions": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "user_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "endpoint",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "p256dh",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "auth",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "user_agent",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "last_used_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_web_push_subscriptions_user ON public.web_push_subscriptions USING btree (user_id)",
+    "name": "idx_web_push_subscriptions_user"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX web_push_subscriptions_endpoint_key ON public.web_push_subscriptions USING btree (endpoint)",
+    "name": "web_push_subscriptions_endpoint_key"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX web_push_subscriptions_pkey ON public.web_push_subscriptions USING btree (id)",
+    "name": "web_push_subscriptions_pkey"
+   }
+  ],
+  "policies": [],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "CHECK ((auth ~ '^[A-Za-z0-9_-]{16,32}$'::text))",
+    "name": "web_push_subscriptions_auth_check",
+    "type": "c"
+   },
+   {
+    "def": "CHECK (((char_length(endpoint) <= 1024) AND (endpoint ~ '^https://(fcm\\.googleapis\\.com|android\\.googleapis\\.com|updates\\.push\\.services\\.mozilla\\.com|push\\.services\\.mozilla\\.com|web\\.push\\.apple\\.com|[a-z0-9-]+\\.push\\.apple\\.com|[a-z0-9.-]+\\.notify\\.windows\\.com)/'::text)))",
+    "name": "web_push_subscriptions_endpoint_check",
+    "type": "c"
+   },
+   {
+    "def": "UNIQUE (endpoint)",
+    "name": "web_push_subscriptions_endpoint_key",
+    "type": "u"
+   },
+   {
+    "def": "CHECK ((p256dh ~ '^[A-Za-z0-9_-]{80,100}$'::text))",
+    "name": "web_push_subscriptions_p256dh_check",
+    "type": "c"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "web_push_subscriptions_pkey",
+    "type": "p"
+   },
+   {
+    "def": "CHECK (((user_agent IS NULL) OR (char_length(user_agent) <= 300)))",
+    "name": "web_push_subscriptions_user_agent_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "name": "web_push_subscriptions_user_id_fkey",
+    "type": "f"
+   }
+  ]
+ },
+ "private_group_notification_settings": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "group_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "member_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "push_enabled",
+    "type": "boolean",
+    "default": "true",
+    "not_null": true
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_private_group_notification_settings_member ON public.private_group_notification_settings USING btree (member_id)",
+    "name": "idx_private_group_notification_settings_member"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_notification_settings_pkey ON public.private_group_notification_settings USING btree (group_id, member_id)",
+    "name": "private_group_notification_settings_pkey"
+   }
+  ],
+  "policies": [],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+    "name": "private_group_notification_settings_group_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+    "name": "private_group_notification_settings_member_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (group_id, member_id)",
+    "name": "private_group_notification_settings_pkey",
+    "type": "p"
+   }
+  ]
+ },
+ "web_push_outbox": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "user_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "group_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "member_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "kind",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "dedupe_key",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "message_count",
+    "type": "integer",
+    "default": "1",
+    "not_null": true
+   },
+   {
+    "name": "last_message_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "last_message_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "notification_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "title",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "body",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "url",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "tag",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "status",
+    "type": "text",
+    "default": "'pending'::text",
+    "not_null": true
+   },
+   {
+    "name": "send_after",
+    "type": "timestamp with time zone",
+    "default": "clock_timestamp()",
+    "not_null": true
+   },
+   {
+    "name": "claimed_until",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "attempt_count",
+    "type": "integer",
+    "default": "0",
+    "not_null": true
+   },
+   {
+    "name": "delivered_count",
+    "type": "integer",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "skip_reason",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "last_error",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "clock_timestamp()",
+    "not_null": true
+   },
+   {
+    "name": "sent_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_web_push_outbox_created ON public.web_push_outbox USING btree (created_at)",
+    "name": "idx_web_push_outbox_created"
+   },
+   {
+    "def": "CREATE INDEX idx_web_push_outbox_due ON public.web_push_outbox USING btree (send_after) WHERE (status = 'pending'::text)",
+    "name": "idx_web_push_outbox_due"
+   },
+   {
+    "def": "CREATE INDEX idx_web_push_outbox_group ON public.web_push_outbox USING btree (group_id)",
+    "name": "idx_web_push_outbox_group"
+   },
+   {
+    "def": "CREATE INDEX idx_web_push_outbox_member ON public.web_push_outbox USING btree (member_id)",
+    "name": "idx_web_push_outbox_member"
+   },
+   {
+    "def": "CREATE INDEX idx_web_push_outbox_notification ON public.web_push_outbox USING btree (notification_id)",
+    "name": "idx_web_push_outbox_notification"
+   },
+   {
+    "def": "CREATE INDEX idx_web_push_outbox_recipient ON public.web_push_outbox USING btree (user_id, group_id, kind, status)",
+    "name": "idx_web_push_outbox_recipient"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX web_push_outbox_dedupe_key_key ON public.web_push_outbox USING btree (dedupe_key)",
+    "name": "web_push_outbox_dedupe_key_key"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX web_push_outbox_pkey ON public.web_push_outbox USING btree (id)",
+    "name": "web_push_outbox_pkey"
+   }
+  ],
+  "policies": [],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "CHECK ((attempt_count >= 0))",
+    "name": "web_push_outbox_attempt_count_check",
+    "type": "c"
+   },
+   {
+    "def": "UNIQUE (dedupe_key)",
+    "name": "web_push_outbox_dedupe_key_key",
+    "type": "u"
+   },
+   {
+    "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+    "name": "web_push_outbox_group_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((kind = ANY (ARRAY['chat'::text, 'reply'::text, 'notice'::text])))",
+    "name": "web_push_outbox_kind_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+    "name": "web_push_outbox_member_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((message_count >= 1))",
+    "name": "web_push_outbox_message_count_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (notification_id) REFERENCES user_notifications(id) ON DELETE SET NULL",
+    "name": "web_push_outbox_notification_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "web_push_outbox_pkey",
+    "type": "p"
+   },
+   {
+    "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'skipped'::text, 'failed'::text])))",
+    "name": "web_push_outbox_status_check",
+    "type": "c"
+   },
+   {
+    "def": "CHECK ((url ~ '^/'::text))",
+    "name": "web_push_outbox_url_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "name": "web_push_outbox_user_id_fkey",
+    "type": "f"
    }
   ]
  }
