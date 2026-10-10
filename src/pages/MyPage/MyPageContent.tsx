@@ -10,7 +10,7 @@ import { EditPlayHistoryDialog } from './components/EditPlayHistoryDialog'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import { ReservationsTab, type ReservationsSubTab } from './components/ReservationsTab'
 import { buildPrivateBookingView, countActivePrivateBookings, isPrivateReservation } from './components/PrivateBookingCards/privateBookingModel'
-import { usePrivateSurveyStatusQuery } from './hooks/usePrivateSurveyStatusQuery'
+import { usePrivateCastingConfirmedQuery, usePrivateSurveyStatusQuery } from './hooks/usePrivateSurveyStatusQuery'
 import { useQuery } from '@tanstack/react-query'
 import { fetchAlbumCovers } from '@/lib/privateGroupChat'
 import { findAlbumCover, memoriesHref } from './utils/albumCovers'
@@ -452,9 +452,10 @@ export function MyPageContent({
     .sort((a, b) => new Date(b.requested_datetime).getTime() - new Date(a.requested_datetime).getTime())
 
   const { data: surveyPending } = usePrivateSurveyStatusQuery(privateGroups, todayYmd)
+  const { data: castingConfirmed } = usePrivateCastingConfirmedQuery(privateGroups, todayYmd)
   const privateView = useMemo(
-    () => buildPrivateBookingView({ groups: privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending: surveyPending ?? {}, todayYmd, stores }),
-    [privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending, todayYmd, stores],
+    () => buildPrivateBookingView({ groups: privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending: surveyPending ?? {}, castingConfirmed: castingConfirmed ?? {}, todayYmd, stores }),
+    [privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending, castingConfirmed, todayYmd, stores],
   )
 
   // タブのバッジの数字（意味は docs/product-spec/マイページ改修_2026-10.md「数字の意味」）

@@ -35,6 +35,8 @@ interface GroupOverviewTabProps {
   calendarEvent?: CalendarEventInput | null
   /** 申込内容（BookingSummaryBox の embedded。申込前は null） */
   bookingSummary: ReactNode
+  /** 「配役」欄（日程確定後。出さないときは null） */
+  casting?: ReactNode
   copied: boolean
   onCopyInvite: () => void
   onEditStore: (() => void) | null
@@ -47,7 +49,7 @@ interface GroupOverviewTabProps {
 export function GroupOverviewTab(props: GroupOverviewTabProps) {
   const {
     group, title, imageUrl, playerRange, scenarioData, scenarioUrl, table, phase, inviteCap, preferredStores, linkedReservation, calendarEvent = null,
-    bookingSummary, copied, onCopyInvite, onEditStore, onGoDates, onGoMembers, onInquiry, isCustomHoliday,
+    bookingSummary, casting = null, copied, onCopyInvite, onEditStore, onGoDates, onGoMembers, onInquiry, isCustomHoliday,
   } = props
   const info = scenarioData?.scenario ?? null
   const confirmed = group.confirmed_performance
@@ -86,6 +88,7 @@ export function GroupOverviewTab(props: GroupOverviewTabProps) {
         onEditStore={phase === 'pre_request' ? onEditStore : null}
         onGoDates={onGoDates}
       />
+      {casting}
       <MembersSummarySection table={table} inviteCap={inviteCap} copied={copied} onCopyInvite={onCopyInvite} onGoMembers={onGoMembers} />
       <PriceSection price={price} phase={phase} minPlayers={minPlayers} />
       <OverviewSection label="店舗とのやりとり" testId="overview-booking" title="店舗とのやりとり">

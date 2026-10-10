@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
 import { logger } from '@/utils/logger'
+import { readPrivateGroupCastingStatus } from '@/lib/privateGroupCastingStatus'
 import type { PrivateGroupSummary } from '../components/PrivateBookingCards/privateGroupSummary'
 
 interface SurveyReadResult {
@@ -40,6 +41,32 @@ export function usePrivateSurveyStatusQuery(groups: PrivateGroupSummary[], today
           return [g.id, false] as const
         }
         return [g.id, isSurveyPending(data as SurveyReadResult, now)] as const
+      }))
+      return Object.fromEntries(entries)
+    },
+  })
+}
+
+/**
+ * 確定した（公演日が今日以降の）貸切のうち、配役を「自分たちで決める」にしたものについて、配役が確定済みかを読む
+ * （確定はチャットのお知らせで決まるため、DB の private_group_casting_status に聞く）。
+ */
+export function usePrivateCastingConfirmedQuery(groups: PrivateGroupSummary[], todayYmd: string) {
+  const targets = groups.filter(g => g.status === 'confirmed' && g.my_member_id && g.schedule && g.schedule.date >= todayYmd && g.casting?.method === 'self')
+  const key = targets.map(g => `${g.id}:${g.my_member_id}`).sort()
+  return useQuery({
+    queryKey: ['mypage-private-casting-confirmed', key] as const,
+    enabled: targets.length > 0,
+    queryFn: async (): Promise<Record<string, boolean>> => {
+      const entries = await Promise.all(targets.map(async g => {
+        try {
+          const status = await readPrivateGroupCastingStatus(g.id, g.my_member_id!)
+          return [g.id, status.casting_confirmed === true] as const
+        } catch (error) {
+          // 読めないときは「確定済み」とみなし、要対応のカードにしない
+          logger.warn('配役の状況を取得できませんでした', { groupId: g.id, error })
+          return [g.id, true] as const
+        }
       }))
       return Object.fromEntries(entries)
     },

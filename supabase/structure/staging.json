@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-10T17:45:15.394Z",
+  "captured_at": "2026-10-10T22:45:24.056Z",
   "table_count": 156,
-  "function_count": 429,
-  "digest": "01ce657a2fe1d1d2c92f1bb6ae624e350ccb45512f0355a070a398358f5f63b5"
+  "function_count": 430,
+  "digest": "aec486802a617f95b531a2e008759bef6f3c6593f17fa5452d1e7752a46a907b"
  },
  "tables": {
   "staff": {
@@ -28520,6 +28520,18 @@
    "language": "sql",
    "security_definer": true
   },
+  "private_group_casting_status(p_group_id uuid, p_member_id uuid, p_guest_token text)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "5f9dd800bff67329056c153a05fb0e65",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "require_private_group_member(p_group_id uuid, p_member_id uuid, p_guest_token text)": {
    "acl": [
     "postgres=X/postgres",
@@ -28971,7 +28983,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "544c50449308f5086a225e85e1623b73",
+   "body_md5": "b255c5805c401fcefa623f8bcd3d08ce",
    "language": "plpgsql",
    "security_definer": true
   },

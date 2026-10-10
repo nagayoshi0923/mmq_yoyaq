@@ -74,6 +74,8 @@ describe('自動のお知らせの 1 行（グループページ刷新 段階 1�
   })
   it('未回答の人に知らせる は灰色の 1 行（段階 2）', () => {
     expect(noticeLineText({ type: 'system', action: 'date_answer_reminder', names: ['二郎', '三郎'] }, 'org', ctx)).toBe('いちこさんから 二郎さん、三郎さん へ: 日程の回答をお願いします')
+    expect(noticeLineText({ type: 'system', action: 'date_answer_reminder', kind: 'survey', names: ['三郎'] }, 'org', ctx)).toBe('いちこさんから 三郎さん へ: 事前配役アンケートの回答をお願いします')
+    expect(noticeLineText({ type: 'system', action: 'date_answer_reminder', kind: 'casting', names: ['三郎'] }, 'org', ctx)).toBe('いちこさんから 三郎さん へ: やりたいキャラクターを選んでください')
   })
   it('削除した発言は「メッセージを削除しました」の 1 行（段階 2）', () => {
     const lineOf = noticeLineResolver({ getMemberName: () => 'x', current: null, status: 'gathering', myMemberId: 'me' })

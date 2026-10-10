@@ -35,6 +35,8 @@ export interface SystemMessage {
   assignments?: Record<string, string>
   /** date_answer_reminder（未回答の人に知らせる）の宛先の名前 */
   names?: string[]
+  /** date_answer_reminder の内容（無い・dates は日程の回答、survey は事前配役アンケート、casting はやりたいキャラクター） */
+  kind?: 'dates' | 'survey' | 'casting'
   /** next_group_created（同じメンバーで次の貸切、段階 4）の新しいグループの招待コードと作品名 */
   inviteCode?: string
   scenarioTitle?: string
@@ -189,7 +191,9 @@ export function noticeLineText(systemMsg: SystemMessage, authorMemberId: string 
       return systemMsg.title || '主催者の引き継ぎ'
     case 'date_answer_reminder': {
       const names = (systemMsg.names ?? []).map(n => `${n}さん`).join('、')
-      return `${ctx.getMemberName(authorMemberId)}さんから ${names || '未回答の人'} へ: 日程の回答をお願いします`
+      const what = systemMsg.kind === 'survey' ? '事前配役アンケートの回答をお願いします'
+        : systemMsg.kind === 'casting' ? 'やりたいキャラクターを選んでください' : '日程の回答をお願いします'
+      return `${ctx.getMemberName(authorMemberId)}さんから ${names || '未回答の人'} へ: ${what}`
     }
     case 'candidate_dates_added': {
       if (candidateNoticeNeedsAnswer(systemMsg.dates, ctx.current, ctx.myMemberId, ctx.answering)) return null

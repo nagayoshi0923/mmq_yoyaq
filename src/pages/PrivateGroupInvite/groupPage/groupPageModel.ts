@@ -12,6 +12,7 @@ import {
   groupDescription,
   labelOf,
   toneOf,
+  type CastingProgress,
   type GroupDescriptionInput,
   type NextActionKind,
   type PrivateBookingTone,
@@ -248,6 +249,13 @@ export type StatusActionKind =
   | 'share_photos'
   | 'feedback'
   | 'next_group'
+  // 配役（日程確定後）: 決め方のシートを開く／その場で決め方を保存／キャラクターを選ぶ・確定のシートを開く／未選択の人に知らせる
+  | 'casting_method'
+  | 'casting_survey'
+  | 'casting_self'
+  | 'casting_pick'
+  | 'casting_confirm'
+  | 'casting_remind'
 
 export interface StatusAction {
   kind: StatusActionKind
@@ -271,6 +279,9 @@ export interface GroupStatusView {
   secondary: StatusAction[]
   /** チャットタブで出す 1 行版 */
   oneLine: string
+  /** チャットタブの 1 行を押したときの操作（無ければ概要・日程へ）と右端の文言 */
+  barAction?: StatusAction
+  barLabel?: string
 }
 
 export interface GroupStatusInput {
@@ -295,6 +306,8 @@ export interface GroupStatusInput {
   performance?: { date: string; start_time: string | null; store_name: string | null } | null
   /** 「同じメンバーで次の貸切」を出す（会員だけ） */
   canStartNext?: boolean
+  /** 配役の進み具合（確定後・キャラクターのいる作品だけ） */
+  casting?: CastingProgress | null
 }
 
 /** 確定後の状態名に合わせてグループの status を補う（予約の状態でグループ行の更新遅れを補う） */
@@ -325,6 +338,7 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
     surveyPending: input.surveyPending,
     transferPending: input.handover?.isRecipient === true,
     ended: input.ended === true,
+    casting: input.casting ?? null,
   })
   const requested = input.handover && !input.handover.isRecipient ? input.handover : null
   const chip = requested ? handoverWaitingLabel(requested) : labelOf(action, summary.schedule?.date)
@@ -333,7 +347,7 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
     ? `候補日 ${activeRows.length} 件のうち ${rowShortLabel(best)} が最も集まっています（${rowTally(best)}）。`
     : null
   const answeredSub = activeRows.length > 0 ? `${table.memberCount}人中 ${table.respondedCount}人が回答済み` : null
-  const description = groupDescription(summary, action)
+  const description = groupDescription(summary, action, input.casting ?? null)
   const invite: StatusAction = { kind: 'send_invite', label: '招待リンクを送る' }
 
   let sub: string | null = null
@@ -341,6 +355,9 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
   let primary: StatusAction | null = null
   let secondary: StatusAction[] = []
   let oneLine = chip
+  let barAction: StatusAction | undefined
+  let barLabel: string | undefined
+  const picked = input.casting ? `希望 ${input.casting.picked}/${input.casting.total}` : null
 
   switch (action) {
     case 'accept_transfer':
@@ -349,7 +366,33 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
     case 'answer_survey':
       primary = { kind: 'survey', label: 'アンケートに回答する' }
       oneLine = `${chip}・${description}`
+      barAction = primary
+      barLabel = '回答する ›'
       break
+    case 'choose_casting':
+      sub = input.performance ? performanceLabel(input.performance) : null
+      primary = { kind: 'casting_survey', label: '事前配役アンケートで希望を伝える' }
+      secondary = [{ kind: 'casting_self', label: '自分たちで決める' }]
+      barAction = { kind: 'casting_method', label: chip }
+      barLabel = '選ぶ ›'
+      break
+    case 'pick_character':
+      sub = input.casting ? `希望を出した人 ${input.casting.picked}/${input.casting.total}` : null
+      primary = { kind: 'casting_pick', label: 'キャラクターを選ぶ' }
+      oneLine = [chip, picked].filter(Boolean).join('・')
+      barAction = primary
+      barLabel = '選ぶ ›'
+      break
+    case 'confirm_casting': {
+      const all = input.casting ? input.casting.picked >= input.casting.total : false
+      sub = picked ? `${picked}${all ? ' そろいました' : ''}` : null
+      primary = { kind: 'casting_confirm', label: '配役を確定する' }
+      if (!all) secondary = [{ kind: 'casting_remind', label: '未回答の人に知らせる' }]
+      oneLine = [chip, picked].filter(Boolean).join('・')
+      barAction = primary
+      barLabel = '確定する ›'
+      break
+    }
     case 'pick_dates':
       if (input.canMutateSchedule) primary = { kind: 'add_dates', label: '候補日を追加' }
       secondary = [invite]
@@ -405,6 +448,8 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
     primary,
     secondary,
     oneLine,
+    barAction,
+    barLabel,
   }
 }
 
