@@ -1,10 +1,8 @@
-import { WithdrawCandidateButton } from './WithdrawCandidateButton'
 import { ConfirmedGroupSchedule } from './ConfirmedGroupSchedule'
 import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
-// 貸切グループ 非チャット表示（招待/参加フロー・進捗ステップ/タブ/参加費/PIN認証/ゲスト情報 等）
-// PrivateGroupInvite/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
+// 貸切グループ 招待リンクを開いただけの人の表示（参加フロー・参加費・PIN認証・ゲスト情報 等）
+// 参加中の人はグループページ刷新 段階 1 の GroupMemberScreen（groupPage/）で表示する
 import React, { useState } from 'react'
-import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
@@ -15,26 +13,17 @@ import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Calendar, Clock, Users, AlertCircle, Circle, HelpCircle, Loader2, Ticket, CreditCard, LogOut, MessageCircle, Check, UserPlus, Copy, Share2, ArrowLeft, X } from 'lucide-react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { GroupChat } from '@/pages/PrivateGroupManage/components/GroupChat'
-import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
-import { SurveyResponseForm } from './SurveyResponseForm'
+import { Users, AlertCircle, Loader2, Ticket, CreditCard, LogOut, ArrowLeft } from 'lucide-react'
 import { PinResetRequest } from './PinResetRequest'
-import { InviteProgressCard } from './InviteProgressCard'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import { formatJstDateJa } from '@/utils/jstDate'
 import type { NavigateFunction } from 'react-router-dom'
 import type { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInviteCode'
 import type { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import type { useAuth } from '@/contexts/AuthContext'
-import type { DateResponse } from '@/types'
-import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
 import { leaveStoreNotice, privateBookingPhase } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingMenu'
 
 type GroupType = NonNullable<ReturnType<typeof usePrivateGroupByInviteCode>['group']>
-type GroupMember = NonNullable<GroupType['members']>[number]
-type ResponseValue = DateResponse | null
 interface Coupon {
   id: string
   name: string
@@ -57,8 +46,6 @@ type ScenarioView = {
 interface GroupInviteViewProps {
   group: GroupType
   scenario: ScenarioView
-  joinedMembers: GroupMember[]
-  organizerMember: GroupMember | undefined
   organizerName: string
   memberCount: number
   inviteMemberCap: number | null
@@ -66,23 +53,9 @@ interface GroupInviteViewProps {
   user: ReturnType<typeof useAuth>['user']
   code: string | null
   existingMemberId: string | null
-  responses: Record<string, ResponseValue>
-  isOrganizer: boolean | null
-  isChatMode: string | boolean | null
   isScheduleConfirmedUi: boolean
-  allMembersResponded: boolean
-  canMutateScheduleBeforeStoreReply: boolean
-  bookingProgressReady: boolean
-  hasCharacters: boolean | undefined
-  needsCharAssignmentChoice: boolean
-  charAssignmentMethod: string | null
-  scenarioCharacters: any[]
-  scenarioMax: number | null
-  confirmedByName: ReturnType<typeof usePrivateGroupByInviteCode>['confirmedByName']
   actionLoading: boolean
-  copied: boolean
   error: string | null
-  activeTab: string
   showPinAuth: boolean
   guestName: string
   guestEmail: string
@@ -96,7 +69,6 @@ interface GroupInviteViewProps {
   perPersonPrice: number
   discountAmount: number
   finalAmount: number
-  setActiveTab: (tab: string) => void
   setExistingMemberId: React.Dispatch<React.SetStateAction<string | null>>
   setGuestName: React.Dispatch<React.SetStateAction<string>>
   setGuestEmail: React.Dispatch<React.SetStateAction<string>>
@@ -106,31 +78,21 @@ interface GroupInviteViewProps {
   navigate: NavigateFunction
   refetch: ReturnType<typeof usePrivateGroupByInviteCode>['refetch']
   leaveGroup: ReturnType<typeof usePrivateGroup>['leaveGroup']
-  formatDate: (dateStr: string) => string
-  getResponseIcon: (response: ResponseValue, type: DateResponse) => React.ReactNode
-  getInviteUrl: () => string
   openSheet: (name: string) => void
   closeSheet: () => void
   clearGuestSession: () => void
-  handleCancelGroup: () => void
   handlePinAuth: () => Promise<void>
-  handleCopyUrl: () => Promise<void>
-  handleRemoveMember: (memberId: string) => Promise<void>
-  handleResponseChange: (candidateDateId: string, response: DateResponse) => void
-  handleOpenBookingDialog: () => Promise<void>
   handleSubmit: (options?: { skipSuccessPage?: boolean }) => Promise<void>
 }
 
 export function GroupInviteView({
-  group, scenario, joinedMembers, organizerMember, organizerName, memberCount, inviteMemberCap, isGroupFull,
-  user, code, existingMemberId, responses, isOrganizer, isChatMode, isScheduleConfirmedUi, allMembersResponded,
-  canMutateScheduleBeforeStoreReply, bookingProgressReady, hasCharacters, needsCharAssignmentChoice, charAssignmentMethod,
-  scenarioCharacters, scenarioMax, confirmedByName, actionLoading, copied, error, activeTab, showPinAuth,
+  group, scenario, organizerName, memberCount, inviteMemberCap, isGroupFull,
+  user, code, existingMemberId, isScheduleConfirmedUi, actionLoading, error, showPinAuth,
   guestName, guestEmail, pinEmail, pinCode, pinError, couponLoading, coupons, selectedCoupon, selectedCouponId,
   perPersonPrice, discountAmount, finalAmount,
-  setActiveTab, setExistingMemberId, setGuestName, setGuestEmail, setPinEmail, setPinCode, setSelectedCouponId,
-  navigate, refetch, leaveGroup, formatDate, getResponseIcon, getInviteUrl, openSheet, closeSheet, clearGuestSession,
-  handleCancelGroup, handlePinAuth, handleCopyUrl, handleRemoveMember, handleResponseChange, handleOpenBookingDialog, handleSubmit,
+  setExistingMemberId, setGuestName, setGuestEmail, setPinEmail, setPinCode, setSelectedCouponId,
+  navigate, refetch, leaveGroup, openSheet, closeSheet, clearGuestSession,
+  handlePinAuth, handleSubmit,
 }: GroupInviteViewProps) {
   // 確認ダイアログ（グループから退出）
   const [showLeaveGroupConfirm, setShowLeaveGroupConfirm] = useState(false)
@@ -258,307 +220,6 @@ export function GroupInviteView({
               <span>{error}</span>
             </CardContent>
           </Card>
-        )}
-
-        {/* 進捗ステップ表示（参加済みメンバー向け、チャットモード時は非表示） */}
-        {existingMemberId && (group.status as string) !== 'cancelled' && !isChatMode && (
-          <InviteProgressCard group={group} joinedMembers={joinedMembers} allMembersResponded={allMembersResponded} bookingProgressReady={bookingProgressReady} hasCharacters={hasCharacters} isScheduleConfirmedUi={isScheduleConfirmedUi} confirmedByName={confirmedByName} setActiveTab={setActiveTab} />
-        )}
-
-        {/* 参加済みメンバー向けタブ */}
-        {existingMemberId && group.members && (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-            <TabsList className={`grid w-full mb-4 ${isOrganizer ? 'grid-cols-4' : 'grid-cols-3'}`}>
-              <TabsTrigger value="schedule" className="gap-1.5">
-                <Calendar className="w-4 h-4" />
-                日程
-              </TabsTrigger>
-              <TabsTrigger value="chat" className="gap-1.5">
-                <MessageCircle className="w-4 h-4" />
-                チャット
-              </TabsTrigger>
-              <TabsTrigger value="members" className="gap-1.5">
-                <Users className="w-4 h-4" />
-                メンバー
-              </TabsTrigger>
-              {isOrganizer && (
-                <TabsTrigger value="manage" className="gap-1.5">
-                  <UserPlus className="w-4 h-4" />
-                  管理
-                </TabsTrigger>
-              )}
-            </TabsList>
-
-            {/* 日程タブ */}
-            <TabsContent value="schedule">
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold">{group.confirmed_performance ? '申請時の候補日程（履歴）' : '参加可能な日時を選んでください'}</h3>
-                {group.candidate_dates?.map((cd, index) => {
-                  const dateResponses = cd.responses || []
-                  const okCount = dateResponses.filter(r => r.response === 'ok').length
-                  const maybeCount = dateResponses.filter(r => r.response === 'maybe').length
-                  const ngCount = dateResponses.filter(r => r.response === 'ng').length
-                  const totalMembers = joinedMembers.length
-                  const respondedCount = dateResponses.length
-                  const isRejected = cd.status === 'rejected'
-                  const showIcons = group.status === 'gathering' && !isRejected
-                  
-                  return (
-                    <Card key={cd.id} className={isRejected ? 'opacity-70 bg-gray-50' : ''}>
-                      <CardContent className="p-2.5 sm:p-3">
-                        <div className={`flex items-center gap-2 ${showIcons ? 'mb-1.5' : ''}`}>
-                          <div className="flex-1 min-w-0 leading-tight">
-                            <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                              {isRejected ? (
-                                <Badge variant="outline" className="h-5 px-1.5 py-0 text-[10px] bg-red-100 text-red-800 border-red-200">
-                                  却下
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="h-5 px-1.5 py-0 text-[10px] bg-purple-100 text-purple-800 border-purple-200">
-                                  {index + 1}
-                                </Badge>
-                              )}
-                              <Calendar className="w-3 h-3 text-muted-foreground shrink-0" />
-                              <span className={`font-medium ${isRejected ? 'line-through text-muted-foreground' : ''}`}>{formatDate(cd.date)}</span>
-                            </div>
-                            <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
-                              <Clock className="w-3 h-3 shrink-0" />
-                              <span className={isRejected ? 'line-through' : ''}>{candidateTimeSlotFromDb(cd.time_slot)} {cd.start_time} - {cd.end_time}</span>
-                            </div>
-                          </div>
-                          {isOrganizer && canMutateScheduleBeforeStoreReply && !isRejected && (
-                            <WithdrawCandidateButton groupId={group.id} candidate={cd} onWithdrawn={() => refetch()} />
-                          )}
-                          {/* 回答状況サマリー（却下された場合は非表示） */}
-                          {!isRejected && (
-                            <div className="text-right shrink-0">
-                              <div className="flex items-center justify-end gap-0.5 text-[10px]">
-                                <span className="text-green-600">○{okCount}</span>
-                                <span className="text-amber-600">△{maybeCount}</span>
-                                <span className="text-red-600">×{ngCount}</span>
-                              </div>
-                              <div className="text-[9px] text-muted-foreground leading-none mt-0.5">
-                                {respondedCount}/{totalMembers}人
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        {/* 回答ボタン（日程申込前かつ却下されていない場合のみ表示） */}
-                        {showIcons && (
-                          <div className="flex gap-2">
-                            <div onClick={() => handleResponseChange(cd.id, 'ok')}>
-                              {getResponseIcon(responses[cd.id], 'ok')}
-                            </div>
-                            <div onClick={() => handleResponseChange(cd.id, 'maybe')}>
-                              {getResponseIcon(responses[cd.id], 'maybe')}
-                            </div>
-                            <div onClick={() => handleResponseChange(cd.id, 'ng')}>
-                              {getResponseIcon(responses[cd.id], 'ng')}
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-                <div className="flex justify-center gap-6 mt-3 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
-                      <Circle className="w-2 h-2 text-white" />
-                    </div>
-                    参加可能
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center">
-                      <HelpCircle className="w-2 h-2 text-white" />
-                    </div>
-                    未定
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
-                      <X className="w-2 h-2 text-white" />
-                    </div>
-                    不可
-                  </div>
-                </div>
-                
-                {/* 回答更新ボタン（日程申込前のみ表示） */}
-                {group.status === 'gathering' && (
-                  <Button
-                    onClick={() => handleSubmit()}
-                    disabled={actionLoading}
-                    className="w-full bg-purple-600 hover:bg-purple-700 mt-4"
-                  >
-                    {actionLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        送信中...
-                      </>
-                    ) : '回答を更新する'}
-                  </Button>
-                )}
-                
-                {/* 主催者向け申請ボタン（日程調整中・再調整中の両方） */}
-                {isOrganizer && canMutateScheduleBeforeStoreReply && (group.candidate_dates?.length || 0) > 0 && (
-                  <Button
-                    onClick={handleOpenBookingDialog}
-                    className="w-full bg-green-600 hover:bg-green-700 mt-3"
-                  >
-                    予約リクエストを作成
-                  </Button>
-                )}
-              </div>
-            </TabsContent>
-
-            {/* チャットタブ */}
-            <TabsContent value="chat">
-              <GroupChat
-                groupId={group.id}
-                currentMemberId={existingMemberId}
-                members={group.members}
-                onGoToSchedule={() => setActiveTab('schedule')}
-                onOpenSurvey={() => setActiveTab('survey')}
-                scenarioId={group.scenario_master_id || undefined}
-                organizationId={group.organization_id || undefined}
-                performanceDate={group.confirmed_performance?.date}
-                needsCharAssignmentChoice={needsCharAssignmentChoice}
-                onCharAssignmentMethodSelected={async (method) => {
-                  const { error } = await privateGroupRpcApi.setCharacterMethod({
-                    p_group_id: group.id, p_method: method,
-                    p_expected_method: group.character_assignment_method || null,
-                    p_expected_assignments: group.character_assignments || {},
-                  })
-                  if (error) throw error
-                  await refetch()
-                }}
-                charAssignmentMethod={charAssignmentMethod}
-                characters={scenarioCharacters}
-                isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
-                onCharAssignmentConfirmed={() => refetch()}
-                onResetCharAssignmentMethod={async () => {
-                  const { error } = await privateGroupRpcApi.setCharacterMethod({
-                    p_group_id: group.id, p_method: null,
-                    p_expected_method: group.character_assignment_method || null,
-                    p_expected_assignments: group.character_assignments || {},
-                  })
-                  if (error) throw error
-                  await refetch()
-                }}
-                scenarioPlayerCount={scenarioMax}
-              />
-            </TabsContent>
-
-            {/* メンバータブ */}
-            <TabsContent value="members">
-              <div className="space-y-3">
-                <h3 className="text-base font-semibold">参加メンバー（{group.members.filter(m => m.status === 'joined').length}名）</h3>
-                {group.members.filter(m => m.status === 'joined').map(member => (
-                  <Card key={member.id}>
-                    <CardContent className="p-3 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                          <Users className="w-4 h-4 text-purple-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">
-                            {member.guest_name || member.users?.nickname || member.users?.email?.split('@')[0] || 'メンバー'}
-                          </p>
-                          {member.is_organizer && (
-                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
-                              主催者
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {member.id === existingMemberId && (
-                          <Badge variant="outline" className="text-xs">あなた</Badge>
-                        )}
-                        {isOrganizer && !member.is_organizer && member.id !== existingMemberId && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleRemoveMember(member.id)}
-                            className="text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50 hover:border-red-300"
-                          >
-                            外す
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
-
-            {/* 管理タブ（主催者のみ） */}
-            {isOrganizer && (
-              <TabsContent value="manage">
-                <div className="space-y-6">
-                  {/* 招待URL共有 */}
-                  <Card>
-                    <CardContent className="p-4 space-y-3">
-                      <h3 className="text-base font-semibold flex items-center gap-2">
-                        <Share2 className="w-4 h-4" />
-                        招待リンクを共有
-                      </h3>
-                      <div className="flex gap-2">
-                        <Input
-                          value={getInviteUrl()}
-                          readOnly
-                          className="text-sm"
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleCopyUrl}
-                          className="shrink-0"
-                        >
-                          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* 候補日追加 */}
-                  {isOrganizer && canMutateScheduleBeforeStoreReply && (
-                    <AddCandidateDates
-                      groupId={group.id}
-                      organizationId={group.organization_id || ''}
-                      scenarioId={group.scenario_master_id || ''}
-                      storeIds={group.preferred_store_ids || []}
-                      existingDates={group.candidate_dates || []}
-                      onDatesAdded={refetch}
-                    />
-                  )}
-
-                  {/* 申込ガイダンス */}
-                  {isOrganizer && canMutateScheduleBeforeStoreReply && (group.candidate_dates?.length || 0) > 0 && (
-                    <Card className="border-green-200 bg-green-50">
-                      <CardContent className="p-4 text-center text-sm text-muted-foreground">
-                        ↑ 上の候補日から採用する日程を選んで「この日程で申請する」を押してください
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* グループを閉じる（確認ダイアログで影響を見せる。処理はマイページの「操作」と共通） */}
-                  {canMutateScheduleBeforeStoreReply && (
-                    <Card className="border-red-200">
-                      <CardContent className="p-4">
-                        <Button
-                          variant="outline"
-                          onClick={handleCancelGroup}
-                          className="w-full text-red-600 border-red-300 hover:bg-red-50"
-                        >
-                          グループを閉じる
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              </TabsContent>
-            )}
-          </Tabs>
         )}
 
         {/* 参加費・クーポン */}
@@ -772,17 +433,6 @@ export function GroupInviteView({
               </p>
             </CardContent>
           </Card>
-        )}
-
-        {/* 公演前アンケート（日程確定後）。配役方法に関わらず回答できる。配役方法が「アンケート」でない間はキャラクターの質問を出さない（#911） */}
-        {isScheduleConfirmedUi && existingMemberId && group.scenario_master_id && (
-          <SurveyResponseForm
-            groupId={group.id}
-            memberId={existingMemberId}
-            performanceDate={group.confirmed_performance?.date}
-            characters={(group as any).scenario_characters || []}
-            hideCharacterSelection={charAssignmentMethod !== 'survey'}
-          />
         )}
 
         {/* 送信ボタン（新規参加時のみ表示） */}

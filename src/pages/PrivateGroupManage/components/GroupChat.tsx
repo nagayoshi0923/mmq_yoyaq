@@ -15,11 +15,12 @@ import { logger } from '@/utils/logger'
 import { isPastPerformanceDate } from '@/lib/surveyCompletion'
 import { Sentry } from '@/lib/sentry'
 import { toast } from 'sonner'
-import type { PrivateGroupMessage, PrivateGroupMember } from '@/types'
+import type { PrivateGroupMember } from '@/types'
 import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/SurveyResponseForm'
 import { formatJstDateJa, getJstParts, formatJstTime } from '@/utils/jstDate'
 import { ConfirmDialog } from '@/components/patterns/modal'
-import { closedHandoverRequestIds, formatChatDate, groupMessagesByDate, parseSystemMessage, type SystemMessage } from './groupChatMessages'
+import { chunkChatEntries, closedHandoverRequestIds, formatChatDate, groupMessagesByDate, markDeletedCandidates, noticeLineResolver, parseSystemMessage } from './groupChatMessages'
+import { SystemNoticeLine } from './SystemNoticeLine'
 import { SIMPLE_SYSTEM_MESSAGE_ACTIONS, SystemNoticeCard } from './SystemNoticeCard'
 import { renderMessageWithLinks } from './renderMessageWithLinks'
 
@@ -53,12 +54,15 @@ interface GroupChatProps {
   onOpenSurvey?: () => void
   /** 主催者の引き継ぎ確認画面を開く（依頼 id を渡す） */
   onOpenHandover?: (requestId: string) => void
+  /** 親（グループページ）が読んでいるメッセージ。渡されたらここでは読まない（未読数と二重に読まないため） */
+  messagesSource?: ReturnType<typeof usePrivateGroupMessages>
 }
 
 
-export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate, needsCharAssignmentChoice, onCharAssignmentMethodSelected, charAssignmentMethod, characters = [], isOrganizer = false, onCharAssignmentConfirmed, onResetCharAssignmentMethod, scenarioPlayerCount, onOpenSurvey, onOpenHandover }: GroupChatProps) {
+export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate, needsCharAssignmentChoice, onCharAssignmentMethodSelected, charAssignmentMethod, characters = [], isOrganizer = false, onCharAssignmentConfirmed, onResetCharAssignmentMethod, scenarioPlayerCount, onOpenSurvey, onOpenHandover, messagesSource }: GroupChatProps) {
   const { user } = useAuth()
-  const { messages, loading, error: messagesError, refetch: refetchMessages } = usePrivateGroupMessages(groupId, currentMemberId)
+  const ownMessages = usePrivateGroupMessages(groupId, currentMemberId, { enabled: !messagesSource })
+  const { messages, loading, error: messagesError, refetch: refetchMessages } = messagesSource ?? ownMessages
   const [newMessage, setNewMessage] = useState('')
   const [sending, setSending] = useState(false)
   const { group: chatGroup, refetch: refreshGroup } = usePrivateGroupSnapshot(groupId, null, currentMemberId, 5000)
@@ -334,6 +338,9 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
   // currentMemberIdを優先し、なければmembersから検索
   const memberIdFromUser = user ? members.find(m => m.user_id === user.id)?.id : null
   const effectiveMemberId = currentMemberId || memberIdFromUser
+  // 自動のお知らせは灰色の 1 行にまとめる（行動が要るものだけカードで残す。グループページ刷新 段階 1）
+  const currentCandidates = chatGroup?.candidate_dates ?? null
+  const lineOf = noticeLineResolver({ getMemberName, current: currentCandidates, status: chatGroup?.status, myMemberId: effectiveMemberId ?? null })
 
   return (
     <>
@@ -366,7 +373,9 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
                     {formatDate(group.date)}
                   </span>
                 </div>
-                {group.messages.map((msg) => {
+                {chunkChatEntries(group.messages, lineOf).map((entry) => {
+                  if (entry.kind === 'line') return <SystemNoticeLine key={entry.key} texts={entry.texts} />
+                  const msg = entry.message
                   const isOwnMessage = msg.member_id === effectiveMemberId
                   const systemMsg = parseSystemMessage(msg.message)
 
@@ -384,6 +393,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
                         onGoToSchedule={onGoToSchedule}
                         canOpenSurvey={Boolean(scenarioId && organizationId && currentMemberId)}
                         onOpenSurvey={openSurvey}
+                        candidateDates={systemMsg.action === 'candidate_dates_added' ? markDeletedCandidates(systemMsg.dates, currentCandidates) : undefined}
                       />
                     )
                   }

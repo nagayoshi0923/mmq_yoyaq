@@ -11,7 +11,7 @@ export const privateGroupPageReadApi = {
   async findScenarioForGroup(scenarioMasterId: string, organizationId: string) {
     return supabase
       .from('organization_scenarios_with_master')
-      .select('id, organization_id, scenario_master_id, title, key_visual_url, player_count_min, player_count_max, available_stores')
+      .select('id, organization_id, scenario_master_id, title, key_visual_url, player_count_min, player_count_max, available_stores, duration')
       .eq('scenario_master_id', scenarioMasterId)
       .eq('organization_id', organizationId)
       .single()
@@ -35,6 +35,18 @@ export const privateGroupPageReadApi = {
       .select('id, name, contact_email')
       .eq('id', organizationId)
       .single()
+  },
+
+  /** グループページの概要タブ用: 作品の所要時間（組織の上書きを反映）と組織の slug（注意事項への導線） */
+  async findGroupOverviewExtras(scenarioMasterId: string | null, organizationId: string) {
+    const [scenario, organization] = await Promise.all([
+      scenarioMasterId ? privateGroupPageReadApi.findScenarioForGroup(scenarioMasterId, organizationId) : Promise.resolve({ data: null, error: null }),
+      supabase.from('organizations').select('slug').eq('id', organizationId).maybeSingle(),
+    ])
+    return {
+      duration: (scenario.data as { duration?: number | null } | null)?.duration ?? null,
+      slug: (organization.data as { slug?: string | null } | null)?.slug ?? null,
+    }
   },
 
   /** 組織の連絡先メール */

@@ -15,8 +15,8 @@ import { formatHandoverDeadline, handoverWaitingLabel, type PrivateGroupHandover
 
 type ScheduleEventMap = Record<string, { date: string; start_time: string; category?: string; is_private_booking?: boolean | null }>
 
-/** 次にやること（カードのヘッダー左のラベル）。並びは判定の優先順 */
-type NextActionKind =
+/** 次にやること（カードのヘッダー左のラベル）。並びは判定の優先順。グループ画面の「いまの状態」の箱でも使う */
+export type NextActionKind =
   | 'accept_transfer'
   | 'answer_survey'
   | 'pick_dates'
@@ -168,7 +168,8 @@ function fullDateLabel(date: string, time: string | null | undefined, store: str
   return [withYear, time ? `${time.slice(0, 5)}〜` : null, store || null].filter(Boolean).join(' ')
 }
 
-function toneOf(action: NextActionKind, handoverRequested: boolean): PrivateBookingTone {
+/** 色（グループ画面の「いまの状態」の箱と共通） */
+export function toneOf(action: NextActionKind, handoverRequested: boolean): PrivateBookingTone {
   if (handoverRequested) return 'gray'
   switch (action) {
     case 'answer_survey':
@@ -194,9 +195,12 @@ interface GroupDecision {
   progress: PrivateBookingProgress
 }
 
-/** グループの「次にやること」と進み具合（優先順は NextActionKind の並び） */
+/** 判定に使うグループの項目（グループ画面は読み取り結果から組み立てて渡す） */
+export type GroupActionInput = Pick<PrivateGroupSummary, 'status' | 'schedule' | 'candidate_dates_count' | 'all_members_responded' | 'is_organizer' | 'my_unanswered_count'>
+
+/** グループの「次にやること」と進み具合（優先順は NextActionKind の並び）。マイページのカードとグループ画面で共通 */
 export function decideGroupAction(
-  group: PrivateGroupSummary,
+  group: GroupActionInput,
   options: { todayYmd: string; surveyPending: boolean; transferPending?: boolean },
 ): GroupDecision {
   // 引き継ぎの同意待ちは最優先。進み具合はいまの状態のまま見せる
@@ -223,7 +227,10 @@ export function decideGroupAction(
   return { action: 'waiting_organizer', progress: datesProgress }
 }
 
-function groupDescription(group: PrivateGroupSummary, action: NextActionKind): string {
+/** 1 行の説明文（マイページのカードとグループ画面の「いまの状態」の箱で共通） */
+export type GroupDescriptionInput = GroupActionInput & Pick<PrivateGroupSummary, 'handover' | 'organizer_name' | 'member_count'>
+
+export function groupDescription(group: GroupDescriptionInput, action: NextActionKind): string {
   const handover = group.handover
   if (handover && !handover.isRecipient) {
     return `${handover.toName}さんに主催者の引き継ぎを依頼中です（期限 ${formatHandoverDeadline(handover.expiresAt)}）。同意されるまであなたが主催者です`
@@ -260,7 +267,8 @@ function groupDescription(group: PrivateGroupSummary, action: NextActionKind): s
   }
 }
 
-function labelOf(action: NextActionKind, date: string | null | undefined): string {
+/** ラベルの文言（マイページのカードとグループ画面で共通） */
+export function labelOf(action: NextActionKind, date: string | null | undefined): string {
   if (action === 'upcoming') return date ? `${formatJstMonthDay(date, true)} 開催` : '日程確定'
   return NEXT_ACTION_LABELS[action]
 }
