@@ -11,6 +11,9 @@ import { ConfirmDialog } from '@/components/patterns/modal'
 import { ReservationsTab, type ReservationsSubTab } from './components/ReservationsTab'
 import { buildPrivateBookingView, countActivePrivateBookings, isPrivateReservation } from './components/PrivateBookingCards/privateBookingModel'
 import { usePrivateSurveyStatusQuery } from './hooks/usePrivateSurveyStatusQuery'
+import { useQuery } from '@tanstack/react-query'
+import { fetchAlbumCovers } from '@/lib/privateGroupChat'
+import { findAlbumCover, memoriesHref } from './utils/albumCovers'
 import { useCouponsQuery } from './hooks/useCouponsQuery'
 import { countUsableCoupons } from './utils/couponListVisibility'
 import { formatJstDateJa, toJstYmd } from '@/utils/jstDate'
@@ -131,7 +134,15 @@ export function MyPageContent({
   addManualHistoryMutation, handleAddManualHistory, handleDeleteManualHistory,
   duplicateConfirmTitle, setDuplicateConfirmTitle, handleConfirmDuplicateAdd,
 }: MyPageContentProps) {
+  // 貸切グループの写真（段階 4）。アルバムを開いたときだけ読む。署名付き URL は 1 時間なので 50 分で読み直す
+  const { data: albumCovers = [] } = useQuery({
+    queryKey: ['mypage-album-covers'],
+    enabled: activeTab === 'album' && Boolean(customerId),
+    staleTime: 50 * 60 * 1000,
+    queryFn: fetchAlbumCovers,
+  })
   const renderAlbumCard = (scenario: PlayedScenario) => {
+    const cover = findAlbumCover(scenario, albumCovers)
     const isHidden = isScenarioHidden(scenario)
     const isDeleted = isScenarioDeleted(scenario)
     const isOverridden = isScenarioOverridden(scenario)
@@ -181,6 +192,21 @@ export function MyPageContent({
             <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
               <span className="text-4xl opacity-30">🎭</span>
             </div>
+          )}
+          {/* その公演の貸切グループの写真（最新 1 枚）。押すとグループの思い出へ */}
+          {cover && (
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); navigate(memoriesHref(cover)) }}
+              className="absolute right-1.5 bottom-1.5 z-10 w-14 h-14 rounded-md overflow-hidden border-2 border-white shadow-md bg-muted"
+              aria-label={`グループの写真（${cover.photoCount}枚）を見る`}
+              data-testid="album-group-photo"
+            >
+              <img src={cover.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+              {cover.photoCount > 1 && (
+                <span className="absolute right-0 bottom-0 bg-black/60 text-white text-xs leading-none px-1 py-0.5 rounded-tl-md">{cover.photoCount}</span>
+              )}
+            </button>
           )}
         </div>
         {/* タイトル・日付部分 */}

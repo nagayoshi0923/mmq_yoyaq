@@ -1,5 +1,6 @@
 /**
  * 発言の写真。1 枚は大きく、2 枚は横並び、3 枚以上は 2 列の格子。押すと拡大。
+ * 2 枚以上は小さい版（長辺 400px、段階 4）を使う。無い写真は元画像を縮めて出す。
  */
 import { ImageIcon } from 'lucide-react'
 import type { PrivateGroupMessage } from '@/types'
@@ -8,7 +9,7 @@ import { photoLayout } from './chatModel'
 interface PhotoGridProps {
   messageId: string
   photos: NonNullable<PrivateGroupMessage['photos']>
-  urlOf: (messageId: string, position: number) => string | null
+  urlOf: (messageId: string, position: number, thumb?: boolean) => string | null
   onOpen: (position: number) => void
 }
 
@@ -24,7 +25,7 @@ export function PhotoGrid({ messageId, photos, urlOf, onOpen }: PhotoGridProps) 
       data-count={photos.length}
     >
       {photos.map(photo => {
-        const url = urlOf(messageId, photo.position)
+        const url = urlOf(messageId, photo.position, layout !== 'one')
         return (
           <button
             key={photo.position}

@@ -201,7 +201,7 @@ export type GroupActionInput = Pick<PrivateGroupSummary, 'status' | 'schedule' |
 /** グループの「次にやること」と進み具合（優先順は NextActionKind の並び）。マイページのカードとグループ画面で共通 */
 export function decideGroupAction(
   group: GroupActionInput,
-  options: { todayYmd: string; surveyPending: boolean; transferPending?: boolean },
+  options: { todayYmd: string; surveyPending: boolean; transferPending?: boolean; ended?: boolean },
 ): GroupDecision {
   // 引き継ぎの同意待ちは最優先。進み具合はいまの状態のまま見せる
   if (options.transferPending) {
@@ -211,7 +211,8 @@ export function decideGroupAction(
   const post = (current: number): PrivateBookingProgress => ({ steps: POST_CONFIRM_STEPS, current })
   if (group.status === 'confirmed') {
     const date = group.schedule?.date
-    if (date && date < options.todayYmd) return { action: 'ended', progress: post(POST_CONFIRM_STEPS.length) }
+    // グループ画面は終了時刻まで見て ended を渡す（公演後の思い出、段階 4）。マイページは日付で判定
+    if (options.ended || (date && date < options.todayYmd)) return { action: 'ended', progress: post(POST_CONFIRM_STEPS.length) }
     if (options.surveyPending) return { action: 'answer_survey', progress: post(1) }
     return { action: 'upcoming', progress: post(2) }
   }

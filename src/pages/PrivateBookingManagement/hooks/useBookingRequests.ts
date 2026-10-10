@@ -299,6 +299,7 @@ async function fetchRawBookingRequests(
       gm_role_by_staff: scenarioMasterId ? (gmRoleByScenario.get(scenarioMasterId) ?? {}) : {},
       created_at: req.created_at,
       invite_code: req.private_groups?.invite_code || '',
+      private_group_id: pgId ?? null,
     } as PrivateBookingRequest
   })
 }

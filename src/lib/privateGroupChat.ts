@@ -56,6 +56,8 @@ export interface GroupPhoto {
   messageId: string
   position: number
   url: string
+  /** 小さい版（長辺 400px）。段階 4 より前の写真は null（元画像を縮めて出す） */
+  thumbUrl: string | null
   createdAt: string
   memberId: string | null
   width: number | null
@@ -78,19 +80,25 @@ export async function deleteGroupMessage(groupId: string, memberId: string, mess
   await photoApi(groupId, memberId, { action: 'delete', messageId })
 }
 
-/** 縮小済みの写真を上げてから、写真の発言として送る */
+/** 縮小済みの写真（と小さい版）を上げてから、写真の発言として送る */
 export async function sendGroupPhotos(args: {
   groupId: string
   memberId: string
-  photos: Array<{ blob: Blob; width: number; height: number }>
+  photos: Array<{ blob: Blob; width: number; height: number; thumb?: Blob | null }>
   caption?: string
   replyTo?: string | null
 }): Promise<string> {
   const { groupId, memberId, photos } = args
-  const prepared = await photoApi<{ messageId: string; uploads: Array<{ path: string; token: string }> }>(groupId, memberId, { action: 'prepare', count: photos.length })
-  await Promise.all(prepared.uploads.map(async (upload, i) => {
-    const { error } = await supabase.storage.from(PRIVATE_GROUP_PHOTO_BUCKET).uploadToSignedUrl(upload.path, upload.token, photos[i].blob, { contentType: 'image/jpeg', upsert: false })
+  type Upload = { path: string; token: string }
+  const prepared = await photoApi<{ messageId: string; uploads: Upload[]; thumbUploads?: Array<Upload | null> }>(groupId, memberId, { action: 'prepare', count: photos.length })
+  const upload = (target: Upload, blob: Blob) => supabase.storage.from(PRIVATE_GROUP_PHOTO_BUCKET).uploadToSignedUrl(target.path, target.token, blob, { contentType: 'image/jpeg', upsert: false })
+  await Promise.all(prepared.uploads.map(async (target, i) => {
+    const { error } = await upload(target, photos[i].blob)
     if (error) throw error
+    // 小さい版は失敗しても送る（一覧では元画像を縮めて出す）
+    const thumbTarget = prepared.thumbUploads?.[i]
+    const thumb = photos[i].thumb
+    if (thumbTarget && thumb) await upload(thumbTarget, thumb).catch(() => undefined)
   }))
   await privateGroupChatAction(groupId, memberId, 'photo_message', {
     message_id: prepared.messageId,
@@ -101,3 +109,56 @@ export async function sendGroupPhotos(args: {
   })
   return prepared.messageId
 }
+
+export interface AlbumCover {
+  groupId: string
+  inviteCode: string
+  reservationId: string | null
+  scenarioMasterId: string | null
+  /** 確定した公演日（YYYY-MM-DD）。確定していなければ null */
+  performanceDate: string | null
+  photoCount: number
+  url: string
+}
+
+/** マイページのアルバム用: 参加しているグループごとの最新の写真 1 枚（会員だけ。URL は 1 時間有効） */
+export async function fetchAlbumCovers(): Promise<AlbumCover[]> {
+  const res = await apiClient.post<{ covers: AlbumCover[] }>('/api/private-group-photos', { action: 'covers' })
+  return res.covers ?? []
+}
+
+// ─── 公演後（段階 4） ──────────────────────────────────
+
+export interface GroupAfterInfo {
+  performance: {
+    date: string
+    start_time: string | null
+    end_time: string | null
+    store_name: string | null
+    participant_count: number | null
+    ended: boolean
+  } | null
+  joined_count: number
+  my_feedback: { rating: number; comment: string; updated_at: string } | null
+  /** 店舗が外部のアンケートを設定していればその URL */
+  post_survey_url: string | null
+}
+
+type AfterAction = 'read' | 'save_feedback' | 'announce_next_group'
+
+async function afterAction<T>(groupId: string, memberId: string, action: AfterAction, payload: Record<string, unknown> = {}): Promise<T> {
+  const { data, error } = await supabase.rpc('private_group_after_action', {
+    p_group_id: groupId, p_member_id: memberId, p_action: action, p_payload: payload, p_guest_token: getPrivateGroupGuestToken(groupId),
+  })
+  if (error) throw error
+  return data as T
+}
+
+export const readGroupAfter = (groupId: string, memberId: string) => afterAction<GroupAfterInfo>(groupId, memberId, 'read')
+
+export const saveGroupFeedback = (groupId: string, memberId: string, rating: number, comment: string) =>
+  afterAction<{ saved: boolean }>(groupId, memberId, 'save_feedback', { rating, comment })
+
+/** 「同じメンバーで次の貸切」: 作った新しいグループの招待を、もとのグループのチャットに流す */
+export const announceNextGroup = (groupId: string, memberId: string, newGroupId: string) =>
+  afterAction<{ id: string; replayed: boolean }>(groupId, memberId, 'announce_next_group', { new_group_id: newGroupId })

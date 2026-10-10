@@ -774,7 +774,7 @@
       "service_role=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "109434dd52c5ddef2b9e909253e7490d",
+    "body_md5": "544c50449308f5086a225e85e1623b73",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -940,6 +940,60 @@
     ],
     "returns": "void",
     "body_md5": "49630250bfa67023754a261ae08be249",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_album_covers()": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "61d618aa0b708e806949c12ed192a3a4",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_memories_notice(p_now timestamp with time zone)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "integer",
+    "body_md5": "363445cf00e6ff7f5d57cad1ee9235c0",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_feedback_staff(p_group_ids uuid[], p_detail boolean)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "2aad5b7ecbd9057894c080788be5cc4f",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_performance_info(p_group uuid, p_now timestamp with time zone)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "e13aae8bfa4f4fd2f65e339fb9561f53",
+    "language": "sql",
+    "security_definer": true
+  },
+  "private_group_after_action(p_group_id uuid, p_member_id uuid, p_action text, p_payload jsonb, p_guest_token text)": {
+    "acl": [
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "482afdb3deea42a1d0313afc10568812",
     "language": "plpgsql",
     "security_definer": true
   }

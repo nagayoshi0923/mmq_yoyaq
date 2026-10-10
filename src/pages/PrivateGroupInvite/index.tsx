@@ -658,6 +658,8 @@ export function PrivateGroupInvite() {
           scenario={scenario}
           playerRange={{ min: scenarioMin, max: scenarioMax }}
           isLoggedIn={Boolean(user)}
+          userId={user?.id ?? null}
+          reservationStatus={linkedReservationStatus ?? null}
           existingMemberId={existingMemberId}
           isOrganizer={Boolean(isOrganizer)}
           organizerName={organizerName}

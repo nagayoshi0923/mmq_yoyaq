@@ -1,22 +1,24 @@
--- グループページ刷新 段階 2 のチャット RPC（migration 20261010100000_private_group_chat_phase2.sql と同じ）
--- 参加者の表示名（会員はニックネーム→氏名、ゲストは入力した名前）
-CREATE OR REPLACE FUNCTION public.private_group_member_display_name(p_member_id uuid)
-RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
-  SELECT CASE WHEN m.user_id IS NULL THEN coalesce(nullif(btrim(m.guest_name), ''), 'ゲスト')
-    ELSE coalesce((SELECT coalesce(nullif(c.nickname, ''), nullif(c.name, '')) FROM public.customers c WHERE c.user_id = m.user_id ORDER BY c.id LIMIT 1),
-      nullif(btrim(m.guest_name), ''), 'メンバー') END
-  FROM public.private_group_members m WHERE m.id = p_member_id
-$$;
-REVOKE ALL ON FUNCTION public.private_group_member_display_name(uuid) FROM PUBLIC, anon, authenticated;
-
--- 本文がシステムのお知らせ（JSON の type=system）か
-CREATE OR REPLACE FUNCTION public.private_group_message_is_system(p_message text)
-RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
-  SELECT coalesce(public.private_group_message_payload(p_message)->>'type' = 'system', false)
-$$;
-REVOKE ALL ON FUNCTION public.private_group_message_is_system(text) FROM PUBLIC, anon, authenticated;
-
--- 段階 4（migration 20261010160000_private_group_memories.sql）でサムネイル（{n}_thumb.jpg）を扱うように変更
+-- 20261010160000 の取り消し: 貸切グループページ刷新 段階 4（公演後の思い出・サムネイル）を外す
+-- 注意: 書かれた感想（private_group_feedback）は消える。作られたベル（写真を共有しませんか）と、チャットに流した「次の貸切のお誘い」は残る。
+-- サムネイルの実体（{n}_thumb.jpg）は Storage に残る（バケットは非公開のまま。誰も読めない）。
+BEGIN;
+DO $$
+BEGIN
+  IF to_regclass('cron.job') IS NOT NULL THEN
+    PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'private-group-memories-notice';
+  END IF;
+END $$;
+DROP TRIGGER IF EXISTS web_push_on_user_notification ON public.user_notifications;
+CREATE TRIGGER web_push_on_user_notification AFTER INSERT ON public.user_notifications
+ FOR EACH ROW WHEN (NEW.metadata->>'kind' IN ('private_confirmed', 'private_rejected', 'private_group_handover', 'private_dates_aligned'))
+ EXECUTE FUNCTION public.web_push_on_user_notification();
+DROP FUNCTION IF EXISTS public.private_group_memories_notice(timestamptz);
+DROP FUNCTION IF EXISTS public.private_group_album_covers();
+DROP FUNCTION IF EXISTS public.private_group_feedback_staff(uuid[], boolean);
+DROP FUNCTION IF EXISTS public.private_group_after_action(uuid, uuid, text, jsonb, text);
+DROP TABLE IF EXISTS public.private_group_feedback;
+DROP FUNCTION IF EXISTS public.private_group_performance_info(uuid, timestamptz);
+-- 段階 2〜3 の private_group_chat_action に戻す（サムネイルを扱う前）
 CREATE OR REPLACE FUNCTION public.private_group_chat_action(p_group_id uuid, p_member_id uuid, p_action text, p_payload jsonb DEFAULT '{}'::jsonb, p_guest_token text DEFAULT NULL::text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -105,9 +107,8 @@ BEGIN
      WHERE id = v_msg.id;
     DELETE FROM public.private_group_message_reactions WHERE message_id = v_msg.id;
     -- 写真の記録を消し、ファイルの場所を返す（呼び出した API が Storage の実体を消す）
-    -- 小さい版（サムネイル）があればそれも返す
-    WITH removed AS (DELETE FROM public.private_group_message_photos WHERE message_id = v_msg.id RETURNING storage_path, thumb_path)
-    SELECT coalesce(array_agg(x.path), '{}') INTO v_paths FROM removed r, unnest(ARRAY[r.storage_path, r.thumb_path]) AS x(path) WHERE x.path IS NOT NULL;
+    WITH removed AS (DELETE FROM public.private_group_message_photos WHERE message_id = v_msg.id RETURNING storage_path)
+    SELECT coalesce(array_agg(storage_path), '{}') INTO v_paths FROM removed;
     RETURN jsonb_build_object('photo_paths', to_jsonb(v_paths));
 
   WHEN 'photo_prepare' THEN
@@ -115,9 +116,7 @@ BEGIN
     IF v_count IS NULL OR v_count NOT BETWEEN 1 AND 10 THEN RAISE EXCEPTION '写真は1回10枚までです' USING ERRCODE = '22023'; END IF;
     v_id := gen_random_uuid();
     SELECT array_agg(format('%s/%s/%s/%s.jpg', v_group.organization_id, p_group_id, v_id, n)) INTO v_paths FROM generate_series(1, v_count) n;
-    -- 一覧・格子・アルバム用の小さい版（長辺 400px）の場所（段階 4）。上げなかった写真は元画像を縮めて出す
-    RETURN jsonb_build_object('message_id', v_id, 'paths', to_jsonb(v_paths),
-      'thumb_paths', (SELECT to_jsonb(array_agg(format('%s/%s/%s/%s_thumb.jpg', v_group.organization_id, p_group_id, v_id, n) ORDER BY n)) FROM generate_series(1, v_count) n));
+    RETURN jsonb_build_object('message_id', v_id, 'paths', to_jsonb(v_paths));
 
   WHEN 'photo_message' THEN
     v_id := nullif(p_payload->>'message_id', '')::uuid;
@@ -137,13 +136,10 @@ BEGIN
         RAISE EXCEPTION '写真のアップロードが終わっていません' USING ERRCODE = '22023';
       END IF;
       v_size := p_payload->'sizes'->(i - 1);
-      INSERT INTO public.private_group_message_photos(message_id, position, group_id, organization_id, storage_path, width, height, thumb_path)
+      INSERT INTO public.private_group_message_photos(message_id, position, group_id, organization_id, storage_path, width, height)
       VALUES (v_id, i, p_group_id, v_group.organization_id, v_path,
         CASE WHEN jsonb_typeof(v_size->'w') = 'number' THEN least(greatest((v_size->>'w')::integer, 1), 10000) END,
-        CASE WHEN jsonb_typeof(v_size->'h') = 'number' THEN least(greatest((v_size->>'h')::integer, 1), 10000) END,
-        -- 小さい版は上がっていれば記録する（無くても送れる）
-        (SELECT o.name FROM storage.objects o WHERE o.bucket_id = 'private-group-photos'
-          AND o.name = format('%s/%s/%s/%s_thumb.jpg', v_group.organization_id, p_group_id, v_id, i)));
+        CASE WHEN jsonb_typeof(v_size->'h') = 'number' THEN least(greatest((v_size->>'h')::integer, 1), 10000) END);
     END LOOP;
     RETURN jsonb_build_object('id', v_id);
 
@@ -154,8 +150,8 @@ BEGIN
       SELECT array_agg(value::uuid) INTO v_ids FROM jsonb_array_elements_text(p_payload->'message_ids');
     END IF;
     RETURN coalesce((SELECT jsonb_agg(jsonb_build_object('message_id', x.message_id, 'position', x.position, 'path', x.storage_path,
-        'created_at', x.created_at, 'member_id', x.member_id, 'width', x.width, 'height', x.height, 'thumb_path', x.thumb_path) ORDER BY x.created_at DESC, x.position)
-      FROM (SELECT p.message_id, p.position, p.storage_path, p.created_at, p.width, p.height, p.thumb_path, m.member_id
+        'created_at', x.created_at, 'member_id', x.member_id, 'width', x.width, 'height', x.height) ORDER BY x.created_at DESC, x.position)
+      FROM (SELECT p.message_id, p.position, p.storage_path, p.created_at, p.width, p.height, m.member_id
         FROM public.private_group_message_photos p JOIN public.private_group_messages m ON m.id = p.message_id
         WHERE p.group_id = p_group_id AND m.deleted_at IS NULL AND (v_ids IS NULL OR p.message_id = ANY(v_ids))
         ORDER BY p.created_at DESC, p.position LIMIT 500) x), '[]'::jsonb);
@@ -185,22 +181,6 @@ BEGIN
 END $function$;
 REVOKE ALL ON FUNCTION public.private_group_chat_action(uuid, uuid, text, jsonb, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.private_group_chat_action(uuid, uuid, text, jsonb, text) TO anon, authenticated, service_role;
-
--- 既読の人数・リアクションの集計（参加中の本人だけ）。誰が読んだかは返さない（他の人の既読時刻だけ）
-CREATE OR REPLACE FUNCTION public.private_group_chat_state(p_group_id uuid, p_member_id uuid, p_guest_token text DEFAULT NULL)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
-BEGIN
-  PERFORM public.require_private_group_member(p_group_id, p_member_id, p_guest_token);
-  RETURN jsonb_build_object(
-    'my_last_read_at', (SELECT last_read_at FROM public.private_group_read_states WHERE group_id = p_group_id AND member_id = p_member_id),
-    'read_times', coalesce((SELECT jsonb_agg(s.last_read_at ORDER BY s.last_read_at)
-       FROM public.private_group_read_states s JOIN public.private_group_members m ON m.id = s.member_id AND m.status = 'joined'
-       WHERE s.group_id = p_group_id AND s.member_id <> p_member_id), '[]'::jsonb),
-    'reactions', coalesce((SELECT jsonb_agg(jsonb_build_object('message_id', r.message_id, 'emoji', r.emoji, 'count', r.n, 'mine', r.mine) ORDER BY r.message_id, r.first_at)
-       FROM (SELECT message_id, emoji, count(*) AS n, bool_or(member_id = p_member_id) AS mine, min(created_at) AS first_at
-         FROM public.private_group_message_reactions WHERE group_id = p_group_id GROUP BY message_id, emoji) r), '[]'::jsonb)
-  );
-END $$;
-REVOKE ALL ON FUNCTION public.private_group_chat_state(uuid, uuid, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.private_group_chat_state(uuid, uuid, text) TO anon, authenticated, service_role;
-
+ALTER TABLE public.private_group_message_photos DROP CONSTRAINT IF EXISTS private_group_message_photos_thumb_path_check;
+ALTER TABLE public.private_group_message_photos DROP COLUMN IF EXISTS thumb_path;
+COMMIT;

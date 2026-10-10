@@ -1,5 +1,5 @@
 /**
- * グループページのタブ（概要／日程／メンバー／チャット）。チャットには未読数の赤丸。
+ * グループページのタブ（概要／日程／メンバー／チャット。公演後は 思い出／メンバー／チャット）。チャットには未読数の赤丸。
  * PC（lg 以上）ではチャットを右列に出すのでチャットのタブを隠し、左に出している中身（desktopActive）を選択中にする。
  */
 import { GROUP_TABS, type GroupTab } from './groupPageModel'
@@ -10,6 +10,8 @@ interface GroupTabBarProps {
   desktopActive: GroupTab
   onChange: (tab: GroupTab) => void
   unread: number
+  /** 並べるタブ（既定は公演前の 4 つ） */
+  tabs?: ReadonlyArray<{ id: GroupTab; label: string }>
 }
 
 const ON = 'bg-violet-600 text-white font-bold'
@@ -17,8 +19,7 @@ const OFF = 'bg-card text-foreground/80 font-normal hover:bg-muted'
 const LG_ON = 'lg:bg-violet-600 lg:text-white lg:font-bold'
 const LG_OFF = 'lg:bg-card lg:text-foreground/80 lg:font-normal'
 
-export function GroupTabBar({ active, desktopActive, onChange, unread }: GroupTabBarProps) {
-  const tabs = GROUP_TABS
+export function GroupTabBar({ active, desktopActive, onChange, unread, tabs = GROUP_TABS }: GroupTabBarProps) {
   return (
     <div role="tablist" aria-label="グループの表示" className="flex bg-card border border-border rounded-lg overflow-hidden" data-testid="group-tabs">
       {tabs.map(tab => {
