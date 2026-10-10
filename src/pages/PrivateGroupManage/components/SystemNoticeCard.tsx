@@ -5,7 +5,7 @@
 import { Button } from '@/components/ui/button'
 import { Calendar, CheckCircle2, X, ClipboardList } from 'lucide-react'
 import type { PrivateGroupMessage } from '@/types'
-import type { SystemMessage } from './groupChatMessages'
+import type { CandidateNoticeDate, SystemMessage } from './groupChatMessages'
 import { renderMessageWithLinks } from './renderMessageWithLinks'
 
 export const SIMPLE_SYSTEM_MESSAGE_ACTIONS: ReadonlySet<SystemMessage['action']> = new Set(['candidate_dates_added', 'schedule_confirmed', 'pre_reading_notice', 'survey_notice', 'group_created', 'member_joined', 'member_removed', 'booking_requested', 'booking_rejected', 'booking_cancelled', 'staff_message', 'organizer_handover'])
@@ -20,11 +20,14 @@ export interface SystemNoticeCardProps {
   onGoToSchedule?: () => void
   canOpenSurvey: boolean
   onOpenSurvey: () => void
+  /** 候補日追加のお知らせの候補日（その後外されたものに印つき）。無ければお知らせのまま出す */
+  candidateDates?: CandidateNoticeDate[]
 }
 
-export function SystemNoticeCard({ systemMsg, msg, systemMsgTitles, getMemberName, formatDateTime, formatCandidateDate, onGoToSchedule, canOpenSurvey, onOpenSurvey }: SystemNoticeCardProps) {
+export function SystemNoticeCard({ systemMsg, msg, systemMsgTitles, getMemberName, formatDateTime, formatCandidateDate, onGoToSchedule, canOpenSurvey, onOpenSurvey, candidateDates }: SystemNoticeCardProps) {
   // システムメッセージ（候補日追加通知）
   if (systemMsg && systemMsg.action === 'candidate_dates_added') {
+    const dates: CandidateNoticeDate[] = candidateDates ?? (systemMsg.dates ?? []).map(d => ({ ...d, deleted: false }))
     return (
       <div key={msg.id} className="flex justify-center my-4">
         <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm">
@@ -41,18 +44,21 @@ export function SystemNoticeCard({ systemMsg, msg, systemMsgTitles, getMemberNam
               </p>
             </div>
           </div>
-          <div className="bg-white rounded-lg p-3 mb-3 space-y-1 border border-purple-100">
-            {systemMsg.dates?.slice(0, 5).map((d, i) => (
-              <div key={i} className="text-sm text-gray-700">
-                {formatCandidateDate(d.date, d.time_slot)}
-              </div>
-            ))}
-            {(systemMsg.dates?.length || 0) > 5 && (
-              <p className="text-xs text-muted-foreground">
-                他 {(systemMsg.dates?.length || 0) - 5} 件
-              </p>
-            )}
-          </div>
+          {/* 後から候補日を外しても空の白い箱にしない（外したものは「削除済み」、全部外れたら箱を出さない） */}
+          {dates.some(d => !d.deleted) && (
+            <div className="bg-white rounded-lg p-3 mb-3 space-y-1 border border-purple-100" data-testid="candidate-notice-dates">
+              {dates.slice(0, 5).map((d, i) => (
+                <div key={i} className={`text-sm ${d.deleted ? 'text-muted-foreground' : 'text-foreground'}`}>
+                  {formatCandidateDate(d.date, d.time_slot)}{d.deleted && '（削除済み）'}
+                </div>
+              ))}
+              {dates.length > 5 && (
+                <p className="text-xs text-muted-foreground">
+                  他 {dates.length - 5} 件
+                </p>
+              )}
+            </div>
+          )}
           {onGoToSchedule && (
             <Button
               onClick={onGoToSchedule}

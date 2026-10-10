@@ -1059,6 +1059,14 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
   `) })
   it('貸切グループ', async () => { expect(await snapshotModule(privateGroupPage)).toMatchInlineSnapshot(`
     {
+      "privateGroupPageReadApi.findGroupOverviewExtras": [
+        "from("organization_scenarios_with_master") .select("id, organization_id, scenario_master_id, title, key_visual_url, playe…) .eq("scenario_master_id", "a1") .eq("organization_id", "a2") .single()",
+        "from("organizations") .select("slug") .eq("id", "a2") .maybeSingle()",
+      ],
+      "privateGroupPageReadApi.findGroupOverviewExtras (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("id, organization_id, scenario_master_id, title, key_visual_url, playe…) .eq("scenario_master_id", "a1") .eq("organization_id", undefined) .single()",
+        "from("organizations") .select("slug") .eq("id", undefined) .maybeSingle()",
+      ],
       "privateGroupPageReadApi.findOrganizationContact": [
         "from("organizations") .select("id, name, contact_email") .eq("id", "a1") .single()",
       ],

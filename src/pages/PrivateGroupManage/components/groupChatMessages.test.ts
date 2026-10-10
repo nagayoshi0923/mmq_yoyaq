@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { closedHandoverRequestIds, formatChatDate, groupMessagesByDate, parseSystemMessage } from './groupChatMessages'
+import { chunkChatEntries, closedHandoverRequestIds, formatChatDate, groupMessagesByDate, markDeletedCandidates, noticeLineText, parseSystemMessage } from './groupChatMessages'
 import type { PrivateGroupMessage } from '@/types'
+import type { SystemMessage } from './groupChatMessages'
 
 const msg = (id: string, created_at: string) => ({ id, created_at, message: 'x' }) as unknown as PrivateGroupMessage
 
@@ -38,5 +39,37 @@ describe('主催者の引き継ぎ依頼の終わり', () => {
       msg('4', 'こんにちは'),
     ])
     expect([...ids]).toEqual(['h1'])
+  })
+})
+
+describe('自動のお知らせの 1 行（グループページ刷新 段階 1）', () => {
+  const current = [
+    { id: 'c1', date: '2026-10-30', time_slot: '夜間', status: 'active', responses: [{ member_id: 'm1' }] },
+    { id: 'c2', date: '2026-10-31', time_slot: '午後', status: 'active', responses: [] },
+  ]
+  const ctx = { getMemberName: (id: string | null) => (id === 'org' ? 'いちこ' : 'メンバー'), current, myMemberId: 'm1', answering: true }
+
+  it('外された候補日に印を付ける', () => {
+    expect(markDeletedCandidates([{ date: '2026-10-30', time_slot: '夜' }, { date: '2026-10-20', time_slot: '午後' }], current))
+      .toEqual([{ date: '2026-10-30', time_slot: '夜', deleted: false }, { date: '2026-10-20', time_slot: '午後', deleted: true }])
+  })
+  it('自分が未回答の候補日があればカードで残す', () => {
+    const msg = { type: 'system', action: 'candidate_dates_added', count: 1, dates: [{ date: '2026-10-31', time_slot: '午後' }] } as SystemMessage
+    expect(noticeLineText(msg, 'org', ctx)).toBeNull()
+  })
+  it('回答済み・削除済みは 1 行（削除の数を添える）', () => {
+    const msg = { type: 'system', action: 'candidate_dates_added', count: 2, dates: [{ date: '2026-10-30', time_slot: '夜' }, { date: '2026-10-20', time_slot: '午後' }] } as SystemMessage
+    expect(noticeLineText(msg, 'org', ctx)).toBe('いちこさんが候補日を 2 件追加（うち 1 件は削除済み）')
+    const gone = { ...msg, dates: [{ date: '2026-10-20', time_slot: '午後' }], count: 1 }
+    expect(noticeLineText(gone, 'org', ctx)).toBe('いちこさんが候補日を 1 件追加（その後削除）')
+  })
+  it('参加・外れた は 1 行、日程確定はカード', () => {
+    expect(noticeLineText({ type: 'system', action: 'member_removed', memberName: '三郎' }, null, ctx)).toBe('三郎さんが外れました')
+    expect(noticeLineText({ type: 'system', action: 'schedule_confirmed' }, null, ctx)).toBeNull()
+  })
+  it('続けて並ぶ 1 行はまとめる', () => {
+    const m = (id: string, message: string) => ({ id, group_id: 'g', member_id: null, message, created_at: '2026-10-10T00:00:00Z' }) as never
+    const entries = chunkChatEntries([m('1', 'a'), m('2', 'b'), m('3', 'c'), m('4', 'd')], msg => ((msg as { message: string }).message === 'c' ? null : (msg as { message: string }).message))
+    expect(entries.map(e => (e.kind === 'line' ? e.texts.join('+') : 'msg'))).toEqual(['a+b', 'msg', 'd'])
   })
 })

@@ -1,12 +1,8 @@
-import { ConfirmedGroupSchedule } from './components/ConfirmedGroupSchedule'
 import { usePrivateGroupMemberRestore } from '@/hooks/usePrivateGroupMemberRestore'
 import { privateGroupMemberAction, getPrivateGroupGuestToken, clearPrivateGroupGuestToken, guestStorage } from '@/lib/privateGroupGuestSession'
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
-import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Circle, X, HelpCircle, Settings } from 'lucide-react'
 import { GroupChat } from '@/pages/PrivateGroupManage/components/GroupChat'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup } from '@/hooks/usePrivateGroup'
@@ -22,23 +18,20 @@ import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { memberInvitationCap } from '@/lib/privateGroupPlayerCap'
 import { GroupChatSheets } from './components/GroupChatSheets'
 import { GroupInviteView } from './components/GroupInviteView'
-import { ChatModeSidebar } from './components/ChatModeSidebar'
-import { ChatModeHeader } from './components/ChatModeHeader'
 import { SurveyScreen } from './components/SurveyScreen'
 import { canMutateScheduleBeforeStoreReply as canMutateScheduleRule } from '@/components/patterns/privateGroup/privateGroupScheduleRules'
 import { InviteCancelledScreen, InviteJoinSuccessScreen, InviteLoadingScreen, InviteNotFoundScreen } from './components/InviteStatusScreens'
 import { getJstParts } from '@/utils/jstDate'
-import { ConfirmDialog } from '@/components/patterns/modal'
 import { getErrorMessage } from '@/lib/errorFields'
 import { submitGroupBookingRequest } from './submitBookingRequest'
 import { usePreferredStoreEditor } from './usePreferredStoreEditor'
 import { authenticateGroupGuestByPin } from './pinAuth'
-import { PrivateBookingActionsMenu } from '@/pages/MyPage/components/PrivateBookingCards/PrivateBookingActionsMenu'
-import { removeMemberConfirmText } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingMenu'
 import { useGroupBookingActions } from './useGroupBookingActions'
-import { toMemberRows } from '@/pages/MyPage/components/PrivateBookingCards/privateGroupSummary'
 import { BookingSummaryBox } from './components/BookingSummaryBox'
 import { HandoverScreen } from './components/HandoverScreen'
+import { usePrivateGroupMessages } from '@/hooks/usePrivateGroupMessages'
+import { GroupMemberScreen } from './groupPage/GroupMemberScreen'
+import { parseGroupTab, type GroupTab } from './groupPage/groupPageModel'
 
 interface Coupon {
   id: string
@@ -65,7 +58,7 @@ export function PrivateGroupInvite() {
 
   const { user } = useAuth()
   const [existingMemberId, setExistingMemberId] = useState<string | null>(null)
-  const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus, confirmedByName, linkedReservation, handover } = usePrivateGroupByInviteCode(code || null, existingMemberId)
+  const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus, linkedReservation, handover } = usePrivateGroupByInviteCode(code || null, existingMemberId)
   const { joinGroup, submitDateResponses, leaveGroup, loading: actionLoading } = usePrivateGroup()
   // group が宣言された後で呼ぶ（organization_id を参照するため）
   const { isCustomHoliday } = useCustomHolidays({ organizationId: group?.organization_id })
@@ -96,8 +89,6 @@ export function PrivateGroupInvite() {
   })
 
 
-  // 確認ダイアログ（メンバーを外す）。グループを閉じる・取り下げ・キャンセルは usePrivateBookingActions が持つ
-  const [confirmAction, setConfirmAction] = useState<{ kind: 'removeMember'; memberId: string } | null>(null)
 
   // クーポン関連
   const existingMember = group?.members?.find(member => member.status === 'joined' && (member.id === existingMemberId || member.user_id === user?.id))
@@ -127,12 +118,11 @@ export function PrivateGroupInvite() {
   // URLパラメータでシート・タブ状態を管理（ブラウザバックで閉じる）
   const [searchParams, setSearchParams] = useSearchParams()
   const activeSheet = searchParams.get('sheet')
-  const activeTab = searchParams.get('tab') ?? 'chat'
+  // 旧い ?sheet=invite（メンバー招待シート）はメンバータブで受ける
+  const tabParam = activeSheet === 'invite' ? 'members' : parseGroupTab(searchParams.get('tab'))
 
   const showPinAuth = activeSheet === 'pin'
-  const showMobileDates = activeSheet === 'dates'
   const showSettingsSheet = activeSheet === 'settings'
-  const showInviteSheet = activeSheet === 'invite'
   const showStoreEditSheet = activeSheet === 'store-edit'
   const showBookingDialog = activeSheet === 'booking'
 
@@ -158,10 +148,11 @@ export function PrivateGroupInvite() {
     return next
   }, { replace: true })
 
-  // タブ切り替え（履歴は積まず replace）
-  const setActiveTab = (tab: string) => setSearchParams(prev => {
+  // タブ切り替え（履歴は積まず replace）。旧い招待シートの ?sheet=invite はタブに置き換える
+  const setActiveTab = (tab: GroupTab | 'survey') => setSearchParams(prev => {
     const next = new URLSearchParams(prev)
     next.set('tab', tab)
+    if (next.get('sheet') === 'invite') next.delete('sheet')
     return next
   }, { replace: true })
 
@@ -273,6 +264,9 @@ export function PrivateGroupInvite() {
     setSelectedCouponId(existingMember.coupon_id || null)
   })
 
+  // チャットのメッセージ（未読数の赤丸と GroupChat で共用。二重に読まない）
+  const chatMessages = usePrivateGroupMessages(group?.id ?? '', existingMemberId, { enabled: Boolean(group?.id && existingMemberId) })
+
   // 料金計算
   const perPersonPrice = useMemo(() => {
     if (!group) return 0
@@ -297,97 +291,10 @@ export function PrivateGroupInvite() {
     [group?.candidate_dates]
   )
 
-  const allMembersResponded = useMemo(() => {
-    if (!activeCandidateDates.length || !joinedMembers.length) return false
-    return joinedMembers.every(member =>
-      activeCandidateDates.every(cd =>
-        cd.responses?.some(r => r.member_id === member.id)
-      )
-    )
-  }, [activeCandidateDates, joinedMembers])
-
-  /** 全員が同一の「有効」候補日に OK */
-  const hasViableDate = useMemo(() => {
-    if (!activeCandidateDates.length || !joinedMembers.length) return false
-    return activeCandidateDates.some(cd =>
-      joinedMembers.every(member =>
-        cd.responses?.some(r => r.member_id === member.id && r.response === 'ok')
-      )
-    )
-  }, [activeCandidateDates, joinedMembers])
-
-  /**
-   * 進捗の「申込可能」表示用。
-   * 却下後の再調整では、新候補にまだ全員OKが付く前に refetch で rejected が付くと
-   * hasViableDate だけだと一瞬 true→false になるため、
-   * date_adjusting かつ有効候補があれば再申請可能として表示する。
-   */
-  const bookingProgressReady = useMemo(
-    () =>
-      hasViableDate ||
-      (group?.status === 'date_adjusting' &&
-        activeCandidateDates.length > 0 &&
-        joinedMembers.length > 0),
-    [hasViableDate, group?.status, activeCandidateDates.length, joinedMembers.length]
-  )
-
-  const hasCharacters = useMemo(() => {
-    const scenario = group?.scenario_masters
-    return scenario?.characters && (scenario.characters as unknown[]).length > 0
-  }, [group?.scenario_masters])
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr + 'T00:00:00+09:00')
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    const parts = new Intl.DateTimeFormat('ja-JP', {
-      timeZone: 'Asia/Tokyo',
-      month: 'numeric',
-      day: 'numeric',
-      weekday: 'narrow',
-    }).formatToParts(date)
-    const m = parts.find(p => p.type === 'month')?.value ?? ''
-    const d = parts.find(p => p.type === 'day')?.value ?? ''
-    const wd = parts.find(p => p.type === 'weekday')?.value ?? ''
-    return `${m}/${d}(${wd})`
-  }
-
   // "11月30日(月)" 形式（候補日サマリー表示用）
   const formatDateJaMd = (dateStr: string) => {
     const p = getJstParts(dateStr)
     return p ? `${Number(p.mo)}月${Number(p.d)}日(${p.weekday})` : ''
-  }
-
-  const handleResponseChange = (candidateDateId: string, response: DateResponse) => {
-    setResponses(prev => ({
-      ...prev,
-      [candidateDateId]: prev[candidateDateId] === response ? null : response,
-    }))
-  }
-
-  const getResponseIcon = (response: ResponseValue, type: DateResponse) => {
-    const isSelected = response === type
-    const baseClass = 'w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer'
-
-    switch (type) {
-      case 'ok':
-        return (
-          <div className={`${baseClass} ${isSelected ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-green-100'}`}>
-            <Circle className="w-4 h-4" />
-          </div>
-        )
-      case 'maybe':
-        return (
-          <div className={`${baseClass} ${isSelected ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-amber-100'}`}>
-            <HelpCircle className="w-4 h-4" />
-          </div>
-        )
-      case 'ng':
-        return (
-          <div className={`${baseClass} ${isSelected ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-red-100'}`}>
-            <X className="w-4 h-4" />
-          </div>
-        )
-    }
   }
 
   const handleSubmit = async (options?: { skipSuccessPage?: boolean }) => {
@@ -607,21 +514,16 @@ export function PrivateGroupInvite() {
     window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank')
   }
 
-  // グループを閉じる（確認ダイアログで影響を見せる。処理はマイページの「操作」と共通）
-  const handleCancelGroup = () => {
-    if (!isOrganizer || !group) return
-    bookingActions.requestDanger('close_group')
-  }
-
   // 日程選択のトグル
   // 貸切申込ダイアログを開く
-  const handleOpenBookingDialog = async () => {
+  // preselect: 回答表の「この日で申し込む」・状態の箱の「○○ で店舗に申し込む」から来たとき、その候補日を選んでおく
+  const handleOpenBookingDialog = async (preselect?: string) => {
     if (!isOrganizer || !group || !user) return
     if (!canMutateScheduleBeforeStoreReply) {
       toast.error('店舗の返答待ちのため、候補日の追加や予約リクエストの作成はできません')
       return
     }
-    setBookingSelectedDates(new Set())
+    setBookingSelectedDates(new Set(preselect ? [preselect] : []))
     setBookingNotes('')
     
     // 既存の電話番号を取得
@@ -660,26 +562,6 @@ export function PrivateGroupInvite() {
     setBookingSelectedDates, refetch,
   })
 
-  // メンバー削除
-  const handleRemoveMember = async (memberId: string) => {
-    if (!isOrganizer || !group) return
-    setConfirmAction({ kind: 'removeMember', memberId })
-  }
-
-  // メンバーを外す確認ダイアログで「外す」が押されたときの実処理（メンバー管理シートと同じ RPC。チャットに記録・申込後は店舗へ人数変更）
-  const handleConfirmRemoveMember = async (memberId: string) => {
-    try {
-      const { data, error } = await privateGroupRpcApi.removeMemberWithNotice(memberId)
-      if (error) throw error
-      toast.success((data as { store_notified?: boolean } | null)?.store_notified ? 'メンバーを外しました。店舗に人数変更を知らせました' : 'メンバーを外しました')
-      refetch()
-    } catch (err) {
-      logger.error('Failed to remove member', err)
-      toast.error(getErrorMessage(err) || 'メンバーを外せませんでした')
-    }
-  }
-  const removeTargetName = confirmAction ? toMemberRows(group).find(m => m.id === confirmAction.memberId)?.name ?? 'メンバー' : ''
-  const removeConfirm = removeMemberConfirmText(removeTargetName, bookingPhase)
   const bookingSummary = (
     <BookingSummaryBox
       phase={bookingPhase}
@@ -691,22 +573,6 @@ export function PrivateGroupInvite() {
       actions={bookingActions}
     />
   )
-  const organizerActionsMenu = isOrganizer ? (
-    <PrivateBookingActionsMenu
-      target={bookingActions.target}
-      actions={bookingActions}
-      nav={{ edit_dates: () => openSheet('dates'), edit_store: openStoreEditSheet, view_survey: () => setActiveTab('survey') }}
-      trigger={
-        <button type="button" className="p-1.5 hover:bg-muted rounded-md" aria-label="グループの操作" title="グループの操作" data-testid="group-settings">
-          <Settings className="w-5 h-5 text-muted-foreground" />
-        </button>
-      }
-    />
-  ) : null
-
-  // チャットタブ時はシンプルなレイアウト
-  const isChatMode = existingMemberId && activeTab === 'chat'
-
   // 配役方法が未選択かつキャラクターが存在する場合
   // has_pre_reading=true のシナリオのみ配役フローを表示（表示目的のキャラクター登録では発火しない）
   const charAssignmentMethod = group.character_assignment_method as string | null
@@ -714,24 +580,13 @@ export function PrivateGroupInvite() {
   const scenarioSurveyEnabled = effectiveSurvey?.survey_enabled === true && !effectiveSurvey.survey_url
   const needsCharAssignmentChoice = !!(isScheduleConfirmedUi && group.scenario_master_id && scenarioSurveyEnabled && scenarioCharacters.length > 0 && charAssignmentMethod == null)
 
-  // 進捗ステップ数の計算
-  // booking_requested以降のステータスであれば、ステップ1〜4は完了済みとして扱う
-  const isBookingRequested = group.status === 'booking_requested' || group.status === 'confirmed'
-  const completedSteps = [
-    isBookingRequested || joinedMembers.length >= 1,
-    isBookingRequested || (group.candidate_dates?.length || 0) > 0,
-    isBookingRequested || allMembersResponded,
-    isBookingRequested,
-    isScheduleConfirmedUi
-  ].filter(Boolean).length
-
   // 主催者の引き継ぎ確認画面（段階 3。?sheet=handover。チャットのお知らせからは &request=依頼 id つき）
   if (activeSheet === 'handover' && group && user) {
     return <HandoverScreen requestId={searchParams.get('request') ?? handover?.id ?? null} user={user} onBack={closeSheet} onFinished={async () => { closeSheetReplace(); await refetch() }} />
   }
 
   // 公演前アンケートは、チャットの上の枠ではなく専用の画面で開く（2026-10-05、ゲストが回答できない報告への対策）
-  if (existingMemberId && activeTab === 'survey' && group) {
+  if (existingMemberId && tabParam === 'survey' && group) {
     return (
       <SurveyScreen
         groupId={group.id}
@@ -740,55 +595,108 @@ export function PrivateGroupInvite() {
         performanceDate={group.confirmed_performance?.date}
         charAssignmentMethod={charAssignmentMethod}
         characters={scenarioCharacters}
-        onBack={() => setActiveTab('chat')}
+        onBack={() => setActiveTab(isScheduleConfirmedUi ? 'overview' : 'dates')}
       />
     )
   }
 
-  // チャットモード時は専用レイアウト
-  if (isChatMode && group) {
+  // 参加中の人（会員・ゲスト）: グループページ刷新 段階 1（見出し・いまの状態・タブ・チャット）
+  if (existingMemberId && group) {
+    const chat = (
+      <GroupChat
+        groupId={group.id}
+        currentMemberId={existingMemberId}
+        members={group.members || []}
+        fullHeight={true}
+        messagesSource={chatMessages}
+        onGoToSchedule={() => setActiveTab('dates')}
+        onOpenSurvey={() => setActiveTab('survey')}
+        onOpenHandover={requestId => openSheet('handover', { request: requestId })}
+        scenarioId={group.scenario_master_id || undefined}
+        organizationId={group.organization_id || undefined}
+        performanceDate={group.confirmed_performance?.date}
+        needsCharAssignmentChoice={needsCharAssignmentChoice}
+        onCharAssignmentMethodSelected={async (method) => {
+          const { error } = await privateGroupRpcApi.setCharacterMethod({
+            p_group_id: group.id, p_method: method,
+            p_expected_method: group.character_assignment_method || null,
+            p_expected_assignments: group.character_assignments || {},
+          })
+          if (error) throw error
+          await refetch()
+        }}
+        charAssignmentMethod={charAssignmentMethod}
+        characters={scenarioCharacters}
+        isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
+        onCharAssignmentConfirmed={() => refetch()}
+        onResetCharAssignmentMethod={async () => {
+          const { error } = await privateGroupRpcApi.setCharacterMethod({
+            p_group_id: group.id, p_method: null,
+            p_expected_method: group.character_assignment_method || null,
+            p_expected_assignments: group.character_assignments || {},
+          })
+          if (error) throw error
+          await refetch()
+        }}
+        scenarioPlayerCount={scenarioMax}
+      />
+    )
     return (
-    <>
-      <div className="h-screen flex flex-col bg-background overflow-hidden">
-        {/* ヘッダー */}
-        <Header />
-        
-        {/* PC用ナビゲーション */}
-        <div className="hidden lg:block">
-          <NavigationBar currentPage="/" />
-        </div>
-        
-        {/* メインコンテンツ */}
-        <div className="flex-1 flex flex-col overflow-hidden lg:max-w-6xl lg:mx-auto lg:w-full lg:px-4 lg:py-4">
-          {/* チャットヘッダー */}
-          <ChatModeHeader scenario={scenario} memberCount={memberCount} isScheduleConfirmedUi={isScheduleConfirmedUi} group={group} completedSteps={completedSteps} confirmedByName={confirmedByName} isOrganizer={isOrganizer} navigate={navigate} openSheet={openSheet} actionsMenu={organizerActionsMenu} />
+      <>
+        <GroupMemberScreen
+          group={group}
+          scenario={scenario}
+          playerRange={{ min: scenarioMin, max: scenarioMax }}
+          isLoggedIn={Boolean(user)}
+          existingMemberId={existingMemberId}
+          isOrganizer={Boolean(isOrganizer)}
+          organizerName={organizerName}
+          memberCount={memberCount}
+          inviteMemberCap={inviteMemberCap}
+          linkedReservation={linkedReservation}
+          handover={handover}
+          bookingPhase={bookingPhase}
+          canMutateSchedule={canMutateScheduleBeforeStoreReply}
+          survey={effectiveSurvey}
+          preferredStoreNames={preferredStoreNames.map(s => s.name)}
+          copied={copied}
+          tabParam={tabParam === 'survey' ? null : tabParam}
+          dateEditorOpen={activeSheet === 'dates' && Boolean(isOrganizer) && canMutateScheduleBeforeStoreReply}
+          chatMessages={chatMessages}
+          bookingActions={bookingActions}
+          bookingSummary={bookingSummary}
+          chat={chat}
+          navigate={navigate}
+          setTab={setActiveTab}
+          openSheet={openSheet}
+          closeSheet={closeSheet}
+          openBooking={candidateId => void handleOpenBookingDialog(candidateId)}
+          openStoreEdit={openStoreEditSheet}
+          copyInvite={handleCopyUrl}
+          shareLine={handleShareLine}
+          getInviteUrl={getInviteUrl}
+          refetch={refetch}
+          submitDateResponses={submitDateResponses}
+          formatDateJaMd={formatDateJaMd}
+        />
 
-        <ConfirmedGroupSchedule group={group} />
-
-        {/* オーバーレイシート群（候補日/招待/設定/店舗編集/予約申請） */}
+        {/* シート（グループ設定・希望店舗の編集・予約申請） */}
         <GroupChatSheets
-          showMobileDates={showMobileDates}
-          showInviteSheet={showInviteSheet}
           showSettingsSheet={showSettingsSheet}
           showStoreEditSheet={showStoreEditSheet}
           showBookingDialog={showBookingDialog}
           group={group}
           scenario={scenario}
           joinedMembers={joinedMembers}
-          organizerMember={organizerMember}
           memberCount={memberCount}
           inviteMemberCap={inviteMemberCap}
           user={user}
-          code={code}
           existingMemberId={existingMemberId}
-          responses={responses}
           isOrganizer={isOrganizer}
           isFilteredByScenario={isFilteredByScenario}
           isScheduleConfirmedUi={isScheduleConfirmedUi}
-          allMembersResponded={allMembersResponded}
           canMutateScheduleBeforeStoreReply={canMutateScheduleBeforeStoreReply}
           actionLoading={actionLoading}
-          copied={copied}
           isSubmittingBooking={isSubmittingBooking}
           loadingStoresForEdit={loadingStoresForEdit}
           savingStores={savingStores}
@@ -807,106 +715,17 @@ export function PrivateGroupInvite() {
           refetch={refetch}
           leaveGroup={leaveGroup}
           formatDateJaMd={formatDateJaMd}
-          getInviteUrl={getInviteUrl}
           closeSheet={closeSheet}
           closeSheetReplace={closeSheetReplace}
           openStoreEditSheet={openStoreEditSheet}
           clearGuestSession={clearGuestSession}
           toggleBookingDate={toggleBookingDate}
-          handleResponseChange={handleResponseChange}
-          handleRemoveMember={handleRemoveMember}
           handleSavePreferredStores={handleSavePreferredStores}
           handleSubmitBooking={handleSubmitBooking}
-          handleShareLine={handleShareLine}
-          handleCopyUrl={handleCopyUrl}
-          handleOpenBookingDialog={handleOpenBookingDialog}
-          handleSubmit={handleSubmit}
           onOpenInquiry={() => { closeSheetReplace(); bookingActions.openInquiry() }}
-          bookingSummary={bookingSummary}
         />
-
-        {/* PC: 2カラム / モバイル: チャットのみ */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* チャット */}
-          <div className="flex-1 flex flex-col min-w-0">
-            <GroupChat
-              groupId={group.id}
-              currentMemberId={existingMemberId}
-              members={group.members || []}
-              fullHeight={true}
-              onGoToSchedule={() => openSheet('dates')}
-              onOpenSurvey={() => setActiveTab('survey')}
-              onOpenHandover={requestId => openSheet('handover', { request: requestId })}
-              scenarioId={group.scenario_master_id || undefined}
-              organizationId={group.organization_id || undefined}
-              performanceDate={group.confirmed_performance?.date}
-              needsCharAssignmentChoice={needsCharAssignmentChoice}
-              onCharAssignmentMethodSelected={async (method) => {
-                const { error } = await privateGroupRpcApi.setCharacterMethod({
-                  p_group_id: group.id, p_method: method,
-                  p_expected_method: group.character_assignment_method || null,
-                  p_expected_assignments: group.character_assignments || {},
-                })
-                if (error) throw error
-                await refetch()
-              }}
-              charAssignmentMethod={charAssignmentMethod}
-              characters={scenarioCharacters}
-              isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
-              onCharAssignmentConfirmed={() => refetch()}
-              onResetCharAssignmentMethod={async () => {
-                const { error } = await privateGroupRpcApi.setCharacterMethod({
-                  p_group_id: group.id, p_method: null,
-                  p_expected_method: group.character_assignment_method || null,
-                  p_expected_assignments: group.character_assignments || {},
-                })
-                if (error) throw error
-                await refetch()
-              }}
-              scenarioPlayerCount={scenarioMax}
-            />
-          </div>
-
-          {/* PC用サイドバー */}
-          <ChatModeSidebar
-            group={group}
-            joinedMembers={joinedMembers}
-            allMembersResponded={allMembersResponded}
-            isScheduleConfirmedUi={isScheduleConfirmedUi}
-            confirmedByName={confirmedByName}
-            isOrganizer={Boolean(isOrganizer)}
-            canMutateScheduleBeforeStoreReply={canMutateScheduleBeforeStoreReply}
-            preferredStoreNames={preferredStoreNames}
-            formatDateJaMd={formatDateJaMd}
-            openStoreEditSheet={openStoreEditSheet}
-            onShowAllDates={() => setActiveTab('schedule')}
-            onOpenInvite={() => openSheet('invite')}
-            handleOpenBookingDialog={handleOpenBookingDialog}
-            bookingSummary={bookingSummary}
-          />
-        </div>
-        </div>
-        
-        {/* モバイル用ナビゲーション */}
-        <div className="lg:hidden shrink-0">
-          <NavigationBar currentPage="/" />
-        </div>
-
-      </div>
-
-      <ConfirmDialog
-        open={confirmAction?.kind === 'removeMember'}
-        onOpenChange={(open) => { if (!open) setConfirmAction(null) }}
-        title={removeConfirm.title}
-        message={removeConfirm.message}
-        confirmLabel={removeConfirm.confirmLabel}
-        variant="destructive"
-        onConfirm={async () => {
-          if (confirmAction?.kind === 'removeMember') await handleConfirmRemoveMember(confirmAction.memberId)
-        }}
-      />
-      {bookingActions.dialogs}
-    </>
+        {bookingActions.dialogs}
+      </>
     )
   }
 
@@ -915,8 +734,6 @@ export function PrivateGroupInvite() {
     <GroupInviteView
       group={group}
       scenario={scenario}
-      joinedMembers={joinedMembers}
-      organizerMember={organizerMember}
       organizerName={organizerName}
       memberCount={memberCount}
       inviteMemberCap={inviteMemberCap}
@@ -924,23 +741,9 @@ export function PrivateGroupInvite() {
       user={user}
       code={code}
       existingMemberId={existingMemberId}
-      responses={responses}
-      isOrganizer={isOrganizer}
-      isChatMode={isChatMode}
       isScheduleConfirmedUi={isScheduleConfirmedUi}
-      allMembersResponded={allMembersResponded}
-      canMutateScheduleBeforeStoreReply={canMutateScheduleBeforeStoreReply}
-      bookingProgressReady={bookingProgressReady}
-      hasCharacters={hasCharacters}
-      needsCharAssignmentChoice={needsCharAssignmentChoice}
-      charAssignmentMethod={charAssignmentMethod}
-      scenarioCharacters={scenarioCharacters}
-      scenarioMax={scenarioMax}
-      confirmedByName={confirmedByName}
       actionLoading={actionLoading}
-      copied={copied}
       error={error}
-      activeTab={activeTab}
       showPinAuth={showPinAuth}
       guestName={guestName}
       guestEmail={guestEmail}
@@ -954,7 +757,6 @@ export function PrivateGroupInvite() {
       perPersonPrice={perPersonPrice}
       discountAmount={discountAmount}
       finalAmount={finalAmount}
-      setActiveTab={setActiveTab}
       setExistingMemberId={setExistingMemberId}
       setGuestName={setGuestName}
       setGuestEmail={setGuestEmail}
@@ -964,32 +766,13 @@ export function PrivateGroupInvite() {
       navigate={navigate}
       refetch={refetch}
       leaveGroup={leaveGroup}
-      formatDate={formatDate}
-      getResponseIcon={getResponseIcon}
-      getInviteUrl={getInviteUrl}
       openSheet={openSheet}
       closeSheet={closeSheet}
       clearGuestSession={clearGuestSession}
-      handleCancelGroup={handleCancelGroup}
       handlePinAuth={handlePinAuth}
-      handleCopyUrl={handleCopyUrl}
-      handleRemoveMember={handleRemoveMember}
-      handleResponseChange={handleResponseChange}
-      handleOpenBookingDialog={handleOpenBookingDialog}
       handleSubmit={handleSubmit}
     />
 
-    <ConfirmDialog
-      open={confirmAction?.kind === 'removeMember'}
-      onOpenChange={(open) => { if (!open) setConfirmAction(null) }}
-      title={removeConfirm.title}
-      message={removeConfirm.message}
-      confirmLabel={removeConfirm.confirmLabel}
-      variant="destructive"
-      onConfirm={async () => {
-        if (confirmAction?.kind === 'removeMember') await handleConfirmRemoveMember(confirmAction.memberId)
-      }}
-    />
     {bookingActions.dialogs}
     </>
   )

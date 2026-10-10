@@ -106,3 +106,127 @@ export function closedHandoverRequestIds(messages: PrivateGroupMessage[]): Set<s
   }
   return ids
 }
+
+// ─── 自動のお知らせを灰色の 1 行にまとめる（グループページ刷新 段階 1） ───
+
+/** 候補日追加のお知らせの 1 件。その後に外された（取り下げた）候補日は deleted */
+export interface CandidateNoticeDate {
+  date: string
+  time_slot: string
+  deleted: boolean
+}
+
+interface CurrentCandidate {
+  id: string
+  date: string
+  time_slot: string
+  status?: string | null
+  responses?: Array<{ member_id: string }> | null
+}
+
+/** お知らせの time_slot（午前／午後／夜）と DB の time_slot（午前／午後／夜間）をそろえる */
+function sameSlot(a: string, b: string): boolean {
+  const n = (s: string) => (s === '夜間' ? '夜' : s)
+  return n(a) === n(b)
+}
+
+function findCandidate(d: { date: string; time_slot: string }, current: ReadonlyArray<CurrentCandidate>): CurrentCandidate | undefined {
+  return current.find(c => c.date === d.date && sameSlot(c.time_slot, d.time_slot))
+}
+
+/** お知らせに載った候補日に「その後外された」印を付ける。current が null（まだ読めていない）なら全部ありとして扱う */
+export function markDeletedCandidates(
+  dates: ReadonlyArray<{ date: string; time_slot: string }> | undefined,
+  current: ReadonlyArray<CurrentCandidate> | null,
+): CandidateNoticeDate[] {
+  return (dates ?? []).map(d => ({ date: d.date, time_slot: d.time_slot, deleted: current ? !findCandidate(d, current) : false }))
+}
+
+/** 候補日追加のお知らせを「日程に回答」のカードで残すか（自分が未回答の、まだある候補日が含まれるとき） */
+export function candidateNoticeNeedsAnswer(
+  dates: ReadonlyArray<{ date: string; time_slot: string }> | undefined,
+  current: ReadonlyArray<CurrentCandidate> | null,
+  myMemberId: string | null,
+  answering: boolean,
+): boolean {
+  if (!answering || !current || !myMemberId) return false
+  return (dates ?? []).some(d => {
+    const c = findCandidate(d, current)
+    return Boolean(c && c.status !== 'rejected' && !c.responses?.some(r => r.member_id === myMemberId))
+  })
+}
+
+export interface NoticeLineContext {
+  getMemberName: (memberId: string | null) => string
+  current: ReadonlyArray<CurrentCandidate> | null
+  myMemberId: string | null
+  /** 日程の回答を受け付けている（店舗への申込前） */
+  answering: boolean
+}
+
+/**
+ * 自動のお知らせ（参加した・外れた・候補日が追加された・作成・申込・引き継ぎの結果）を 1 行の文にする。
+ * カードで残すもの（日程の回答が要る候補日追加・日程確定・却下・取消・店舗からのお知らせ・アンケート等）は null。
+ */
+export function noticeLineText(systemMsg: SystemMessage, authorMemberId: string | null, ctx: NoticeLineContext): string | null {
+  switch (systemMsg.action) {
+    case 'member_joined': {
+      const name = systemMsg.memberId ? ctx.getMemberName(systemMsg.memberId) : (systemMsg.memberName || '退出したメンバー')
+      return `${name}さんが参加`
+    }
+    case 'member_removed':
+      return `${systemMsg.memberName || 'メンバー'}さんが外れました`
+    case 'group_created':
+      return systemMsg.title || 'グループを作成しました'
+    case 'booking_requested':
+      return systemMsg.title || '店舗に申し込みました'
+    case 'organizer_handover':
+      return systemMsg.title || '主催者の引き継ぎ'
+    case 'candidate_dates_added': {
+      if (candidateNoticeNeedsAnswer(systemMsg.dates, ctx.current, ctx.myMemberId, ctx.answering)) return null
+      const dates = markDeletedCandidates(systemMsg.dates, ctx.current)
+      const count = systemMsg.count ?? dates.length
+      const deleted = dates.filter(d => d.deleted).length
+      const note = deleted === 0 ? '' : deleted >= dates.length ? '（その後削除）' : `（うち ${deleted} 件は削除済み）`
+      return `${ctx.getMemberName(authorMemberId)}さんが候補日を ${count} 件追加${note}`
+    }
+    default:
+      return null
+  }
+}
+
+export type ChatEntry =
+  | { kind: 'line'; key: string; texts: string[] }
+  | { kind: 'message'; message: PrivateGroupMessage }
+
+/** 続けて並ぶ 1 行のお知らせを 1 つにまとめる（届いた順のまま） */
+export function chunkChatEntries(messages: PrivateGroupMessage[], lineOf: (msg: PrivateGroupMessage) => string | null): ChatEntry[] {
+  const entries: ChatEntry[] = []
+  for (const message of messages) {
+    const text = lineOf(message)
+    const last = entries[entries.length - 1]
+    if (text === null) entries.push({ kind: 'message', message })
+    else if (last?.kind === 'line') last.texts.push(text)
+    else entries.push({ kind: 'line', key: `line-${message.id}`, texts: [text] })
+  }
+  return entries
+}
+
+/** GroupChat 用: メッセージ → 1 行の文（カードで出すものは null） */
+export function noticeLineResolver(args: {
+  getMemberName: (memberId: string | null) => string
+  current: ReadonlyArray<CurrentCandidate> | null
+  status: string | null | undefined
+  myMemberId: string | null
+}): (msg: PrivateGroupMessage) => string | null {
+  const ctx: NoticeLineContext = {
+    getMemberName: args.getMemberName,
+    current: args.current,
+    myMemberId: args.myMemberId,
+    answering: args.status === 'gathering' || args.status === 'date_adjusting',
+  }
+  return msg => {
+    const system = parseSystemMessage(msg.message)
+    return system ? noticeLineText(system, msg.member_id, ctx) : null
+  }
+}
