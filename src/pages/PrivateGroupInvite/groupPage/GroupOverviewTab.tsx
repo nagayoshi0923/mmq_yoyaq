@@ -6,6 +6,7 @@
 import type { ReactNode } from 'react'
 import type { PrivateGroup } from '@/types'
 import type { PrivateGroupLinkedReservation } from '@/lib/privateGroupRead'
+import type { CalendarEventInput } from '@/lib/calendarEvent'
 import type { PrivateBookingPhase } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingMenu'
 import type { AnswerTable } from './groupPageModel'
 import type { GroupScenarioData } from './useGroupScenarioInfo'
@@ -30,6 +31,8 @@ interface GroupOverviewTabProps {
   inviteCap: number | null
   preferredStores: Array<{ id: string; name: string }>
   linkedReservation: PrivateGroupLinkedReservation | null
+  /** 確定後の「カレンダーに登録」の中身（確定前は null） */
+  calendarEvent?: CalendarEventInput | null
   /** 申込内容（BookingSummaryBox の embedded。申込前は null） */
   bookingSummary: ReactNode
   copied: boolean
@@ -43,7 +46,7 @@ interface GroupOverviewTabProps {
 
 export function GroupOverviewTab(props: GroupOverviewTabProps) {
   const {
-    group, title, imageUrl, playerRange, scenarioData, scenarioUrl, table, phase, inviteCap, preferredStores, linkedReservation,
+    group, title, imageUrl, playerRange, scenarioData, scenarioUrl, table, phase, inviteCap, preferredStores, linkedReservation, calendarEvent = null,
     bookingSummary, copied, onCopyInvite, onEditStore, onGoDates, onGoMembers, onInquiry, isCustomHoliday,
   } = props
   const info = scenarioData?.scenario ?? null
@@ -78,6 +81,7 @@ export function GroupOverviewTab(props: GroupOverviewTabProps) {
         linkedReservation={linkedReservation}
         confirmed={confirmed}
         venueAddress={venue?.address ?? null}
+        calendarEvent={calendarEvent}
         onEditStore={phase === 'pre_request' ? onEditStore : null}
         onGoDates={onGoDates}
       />

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { ScheduleActions, absolutePageUrl } from '@/components/patterns/schedule'
 import type { PrivateBookingItem } from './privateBookingModel'
 import { PRIVATE_BOOKING_TONE as TONE } from './privateBookingTone'
 
@@ -80,6 +81,18 @@ export function PrivateBookingCard({ item, actions, secondaryAction, onOpenInPla
       {item.secondary.label}
     </Button>
   )
+  // 確定した貸切はボタン列の下に「カレンダーに登録」「地図を開く」を横並び（押してもカードは開かない）
+  const schedule = item.calendar ? (
+    <div className="px-3 sm:px-4 pb-3 sm:flex sm:justify-end" onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
+      <ScheduleActions
+        event={{ ...item.calendar.event, pageUrl: item.calendar.event.pageUrl ? absolutePageUrl(item.calendar.event.pageUrl) : null }}
+        address={item.calendar.address}
+        stretch
+        className="sm:w-80"
+        testId="private-booking-schedule-actions"
+      />
+    </div>
+  ) : null
   return (
     <div
       role="link"
@@ -146,6 +159,7 @@ export function PrivateBookingCard({ item, actions, secondaryAction, onOpenInPla
         </div>
       )}
       {item.compact && <div className="sm:hidden px-3 pb-3 -mt-1 flex">{secondary}</div>}
+      {schedule}
     </div>
   )
 }

@@ -31,6 +31,7 @@ import { CancellationPolicyLink } from '@/components/patterns/cancellation/Cance
 import { upsertOwnCustomer } from '@/lib/api/customerApi'
 import { waitlistApi } from '@/lib/api/globalSettingsApi'
 import { getErrorMessage } from '@/lib/errorFields'
+import { AddToCalendarButton, absolutePageUrl } from '@/components/patterns/schedule'
 
 export function BookingConfirmation({
   eventId,
@@ -407,6 +408,24 @@ export function BookingConfirmation({
               {confirmationEmailOutcome?.status === 'accepted' && <p className="text-xs text-green-600">
                 メールが届かない場合は、迷惑メールフォルダもご確認ください。
               </p>}
+              {completedReservation && (
+                <div className="flex justify-center">
+                  <AddToCalendarButton
+                    event={{
+                      scenarioTitle,
+                      kind: 'open',
+                      date: eventDate,
+                      startTime,
+                      endTime,
+                      storeName,
+                      address: storeAddress ?? null,
+                      reservationNumber: completedReservation.reservationNumber,
+                      pageUrl: absolutePageUrl(`/mypage/reservation/${completedReservation.reservationId}`),
+                    }}
+                    testId="booking-complete-calendar"
+                  />
+                </div>
+              )}
               <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
                   onClick={() => navigate('/mypage')}

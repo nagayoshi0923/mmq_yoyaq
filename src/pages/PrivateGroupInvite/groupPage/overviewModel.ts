@@ -98,19 +98,9 @@ export function publicCharacters(characters: ReadonlyArray<CharacterLike> | null
     }))
 }
 
-/** 開演の 10 分前（「13:50」）。時刻が無ければ null */
-export function meetingTime(startTime: string | null | undefined): string | null {
-  const m = /^(\d{1,2}):(\d{2})/.exec(startTime ?? '')
-  if (!m) return null
-  const total = Number(m[1]) * 60 + Number(m[2]) - 10
-  const t = (total + 24 * 60) % (24 * 60)
-  return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`
-}
+/** 開演の 10 分前（「13:50」）。時刻が無ければ null（カレンダーの説明と同じ計算） */
+export { meetingTimeOf as meetingTime } from '@/lib/calendarEvent'
 
-/** 地図アプリで住所を開く URL */
-export function mapUrl(address: string): string {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
-}
 
 /** 確定した公演の店舗を名前で探す（読み取り結果には店舗名しか無いため。正式名・略称のどちらでも） */
 export function findStoreByName<S extends { name: string; short_name?: string | null }>(stores: ReadonlyArray<S>, name: string | null | undefined): S | null {

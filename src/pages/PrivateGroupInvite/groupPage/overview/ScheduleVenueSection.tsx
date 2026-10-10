@@ -2,14 +2,16 @@
  * 「日程と場所」: 希望店舗はこの欄だけに出す（点検 44 番: 以前は概要の上と申込内容の箱の 2 か所に出ていた）。
  * - 申込前: 候補日の件数・最有力の日（○△ の数）・回答した人数、希望店舗（主催者は編集）、「日程タブへ ›」
  * - 返事待ち: 申し込んだ候補日と希望店舗
- * - 確定後: 開催日時・集合時刻（開演 10 分前）・店舗名・住所・地図
+ * - 確定後: 開催日時・集合時刻（開演 10 分前）・店舗名・住所、「カレンダーに登録」「地図を開く」のボタン
  */
 import type { ReactNode } from 'react'
 import { formatJstMonthDay } from '@/utils/jstDate'
 import type { PrivateGroupLinkedReservation } from '@/lib/privateGroupRead'
 import type { PrivateBookingPhase } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingMenu'
 import { rowShortLabel, rowTally, type AnswerTable } from '../groupPageModel'
-import { mapUrl, meetingTime } from '../overviewModel'
+import { meetingTime } from '../overviewModel'
+import { ScheduleActions } from '@/components/patterns/schedule'
+import type { CalendarEventInput } from '@/lib/calendarEvent'
 import { AsideLink, OverviewSection } from './OverviewSection'
 
 interface ScheduleVenueSectionProps {
@@ -20,6 +22,8 @@ interface ScheduleVenueSectionProps {
   confirmed: { date?: string | null; start_time?: string | null; end_time?: string | null; store_name?: string | null } | null | undefined
   /** 確定した店舗の住所（公開情報。分からなければ null） */
   venueAddress: string | null
+  /** 「カレンダーに登録」の中身（確定後だけ） */
+  calendarEvent?: CalendarEventInput | null
   /** 希望店舗の編集（主催者で、店舗の返事待ちでないときだけ） */
   onEditStore: (() => void) | null
   /** 日程タブへ（公演後は日程タブが無いので null） */
@@ -37,7 +41,7 @@ function Line({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-export function ScheduleVenueSection({ phase, table, preferredStoreNames, linkedReservation, confirmed, venueAddress, onEditStore, onGoDates }: ScheduleVenueSectionProps) {
+export function ScheduleVenueSection({ phase, table, preferredStoreNames, linkedReservation, confirmed, venueAddress, calendarEvent = null, onEditStore, onGoDates }: ScheduleVenueSectionProps) {
   const aside = onGoDates ? <AsideLink onClick={onGoDates} testId="overview-go-dates">日程タブへ ›</AsideLink> : null
 
   if (phase === 'confirmed' && confirmed?.date) {
@@ -50,13 +54,9 @@ export function ScheduleVenueSection({ phase, table, preferredStoreNames, linked
           </Line>
           {meet && <Line label="集合">{meet}（開演 10 分前）</Line>}
           <Line label="店舗">{confirmed.store_name || '—'}</Line>
-          {venueAddress && (
-            <Line label="住所">
-              {venueAddress}
-              <a href={mapUrl(venueAddress)} target="_blank" rel="noopener noreferrer" className="ml-2 text-xs text-violet-700 hover:underline whitespace-nowrap" data-testid="overview-map">地図を開く ›</a>
-            </Line>
-          )}
+          {venueAddress && <Line label="住所">{venueAddress}</Line>}
         </dl>
+        <ScheduleActions event={calendarEvent} address={venueAddress} stretch className="mt-2" testId="overview-schedule-actions" />
       </OverviewSection>
     )
   }

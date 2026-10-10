@@ -453,8 +453,8 @@ export function MyPageContent({
 
   const { data: surveyPending } = usePrivateSurveyStatusQuery(privateGroups, todayYmd)
   const privateView = useMemo(
-    () => buildPrivateBookingView({ groups: privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending: surveyPending ?? {}, todayYmd }),
-    [privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending, todayYmd],
+    () => buildPrivateBookingView({ groups: privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending: surveyPending ?? {}, todayYmd, stores }),
+    [privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending, todayYmd, stores],
   )
 
   // タブのバッジの数字（意味は docs/product-spec/マイページ改修_2026-10.md「数字の意味」）

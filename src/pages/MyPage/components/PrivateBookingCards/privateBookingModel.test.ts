@@ -169,9 +169,9 @@ describe('グループの要約', () => {
   it('確定済みは確定公演、無ければ予約の日時を使う', () => {
     const base = { id: 'g', status: 'confirmed', members: [], candidate_dates: [] } as unknown as PrivateGroup
     expect(summarizePrivateGroup({ ...base, confirmed_performance: { id: 'e', date: '2026-10-25', start_time: '13:00:00', end_time: '16:00:00', store_name: '二号店' } }, 'u', undefined, {}).schedule)
-      .toEqual({ date: '2026-10-25', start_time: '13:00', store_name: '二号店' })
+      .toEqual({ date: '2026-10-25', start_time: '13:00', store_name: '二号店', end_time: '16:00', store_id: null })
     expect(summarizePrivateGroup(base, 'u', { requested_datetime: '2026-10-26T18:00:00+09:00', store_id: 's1', store_name: null }, { s1: '本店' }).schedule)
-      .toEqual({ date: '2026-10-26', start_time: '18:00', store_name: '本店' })
+      .toEqual({ date: '2026-10-26', start_time: '18:00', store_name: '本店', store_id: 's1' })
   })
 })
 
@@ -203,6 +203,39 @@ describe('カードの見た目（改善案 Main.dc.html）', () => {
     expect(gathering.whenWhere).toBeNull()
     expect(gathering.compact).toBe(false)
     expect(gathering.showProgress).toBe(true)
+  })
+})
+
+describe('確定した貸切の「カレンダーに登録」「地図を開く」', () => {
+  const stores = { s1: { name: '高田馬場店', address: '東京都新宿区高田馬場1-2-3' } }
+  const schedule = { date: '2026-11-07', start_time: '14:00', end_time: '17:00', store_name: '高田馬場店', store_id: 's1' }
+  const build = (groups: PrivateGroupSummary[], reservations: Reservation[] = []) =>
+    Object.values(buildPrivateBookingView({ groups, reservations, scheduleEvents: {}, scenarioImages: {}, surveyPending: {}, todayYmd: TODAY, stores }).bySection).flat()
+
+  it('確定・未来の貸切だけに材料を付ける（店舗の住所・予約番号・グループページ）', () => {
+    const [item] = build([group({ status: 'confirmed', schedule, reservation_id: 'r1' })], [reservation({ reservation_source: 'web_private', reservation_number: 'PB-1' })])
+    expect(item.calendar).toEqual({
+      event: {
+        scenarioTitle: '作品A', kind: 'private', date: '2026-11-07', startTime: '14:00', endTime: '17:00',
+        storeName: '高田馬場店', address: '東京都新宿区高田馬場1-2-3', reservationNumber: 'PB-1', pageUrl: '/group/invite/CODE1',
+      },
+      address: '東京都新宿区高田馬場1-2-3',
+    })
+  })
+
+  it('店舗 id が分からなければ店舗名で住所を探す', () => {
+    const [item] = build([group({ status: 'confirmed', schedule: { ...schedule, store_id: null } })])
+    expect(item.calendar?.address).toBe('東京都新宿区高田馬場1-2-3')
+  })
+
+  it('確定前・終了後は出さない', () => {
+    expect(build([group({ candidate_dates_count: 2 })])[0].calendar).toBeNull()
+    expect(build([group({ status: 'confirmed', schedule: { ...schedule, date: '2026-10-01' } })])[0].calendar).toBeNull()
+  })
+
+  it('グループの無い旧い貸切予約は予約詳細を案内する', () => {
+    const [item] = build([], [reservation({ reservation_source: 'web_private', store_id: 's1', reservation_number: 'PB-9', title: '【貸切希望】作品C' })])
+    expect(item.calendar?.event).toMatchObject({ scenarioTitle: '作品C', kind: 'private', date: '2026-10-20', startTime: '13:00', storeName: '高田馬場店', pageUrl: '/mypage/reservation/r1' })
   })
 })
 

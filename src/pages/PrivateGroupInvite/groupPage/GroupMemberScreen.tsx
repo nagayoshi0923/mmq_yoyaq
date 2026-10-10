@@ -33,7 +33,9 @@ import { GroupMemoriesTab } from './GroupMemoriesTab'
 import { GroupFeedbackDialog } from './GroupFeedbackDialog'
 import { useGroupMemories } from './useGroupMemories'
 import { useGroupScenarioInfo } from './useGroupScenarioInfo'
-import { scenarioPageUrl } from './overviewModel'
+import { findStoreByName, scenarioPageUrl } from './overviewModel'
+import { ScheduleActions, absolutePageUrl } from '@/components/patterns/schedule'
+import type { CalendarEventInput } from '@/lib/calendarEvent'
 import { GroupHeaderMenu } from './GroupHeaderMenu'
 import { GroupPhotosSheet, GroupPinsSheet } from './GroupChatListSheets'
 import { ChatVisibleContext } from '@/pages/PrivateGroupManage/components/chat/chatVisibility'
@@ -135,6 +137,23 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
   const { data: scenarioData } = useGroupScenarioInfo(group.scenario_master_id, group.organization_id)
   const orgSlug = scenarioData?.orgSlug ?? null
   const scenarioUrl = scenarioPageUrl(orgSlug, scenarioData?.scenario?.slug ?? scenario?.slug, group.scenario_master_id ?? scenario?.id)
+  // 確定後の「カレンダーに登録」「地図を開く」（状態の箱と概要タブの「日程と場所」）
+  const performance = group.confirmed_performance
+  const venue = bookingPhase === 'confirmed' ? findStoreByName(scenarioData?.stores ?? [], performance?.store_name) : null
+  const calendarEvent: CalendarEventInput | null = bookingPhase === 'confirmed' && performance?.date && performance.start_time
+    ? {
+      scenarioTitle: title,
+      kind: 'private',
+      date: performance.date,
+      startTime: performance.start_time,
+      endTime: performance.end_time,
+      durationMinutes: scenarioData?.scenario?.duration ?? null,
+      storeName: performance.store_name,
+      address: venue?.address ?? null,
+      reservationNumber: linkedReservation?.reservation_number ?? null,
+      pageUrl: absolutePageUrl(`/group/invite/${group.invite_code}`),
+    }
+    : null
   const nameOf = (memberId: string | null) => group.members?.find(m => m.id === memberId)?.guest_name || (memberId ? 'メンバー' : '退出したメンバー')
 
   const status = useMemo(() => buildGroupStatus({
@@ -295,6 +314,9 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
     <GroupMemberPage
       header={header}
       status={status}
+      statusExtra={calendarEvent && !ended
+        ? <ScheduleActions event={calendarEvent} address={venue?.address} stretch testId="group-status-schedule-actions" />
+        : undefined}
       onStatusAction={onStatusAction}
       activeTab={activeTab}
       desktopTab={activeTab === 'chat' ? desktopTab : activeTab}
@@ -340,6 +362,7 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
             inviteCap={inviteMemberCap}
             preferredStores={preferredStores}
             linkedReservation={linkedReservation}
+            calendarEvent={calendarEvent}
             bookingSummary={bookingSummary}
             copied={copied}
             onCopyInvite={() => void copyInvite()}
