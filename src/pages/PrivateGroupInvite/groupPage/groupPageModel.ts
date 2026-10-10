@@ -308,6 +308,8 @@ export interface GroupStatusInput {
   canStartNext?: boolean
   /** 配役の進み具合（確定後・キャラクターのいる作品だけ） */
   casting?: CastingProgress | null
+  /** 事前配役アンケートに自分が回答済み（回答した人数／対象の人数。分からなければ null） */
+  surveyAnswered?: { answered: number; total: number } | null
 }
 
 /** 確定後の状態名に合わせてグループの status を補う（予約の状態でグループ行の更新遅れを補う） */
@@ -364,7 +366,7 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
       primary = { kind: 'handover', label: '内容を確認して同意する' }
       break
     case 'answer_survey':
-      primary = { kind: 'survey', label: 'アンケートに回答する' }
+      primary = { kind: 'survey', label: '事前配役アンケートに回答する' }
       oneLine = `${chip}・${description}`
       barAction = primary
       barLabel = '回答する ›'
@@ -431,6 +433,12 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
       break
     case 'upcoming':
       oneLine = `${chip}・${description}`
+      if (input.surveyAnswered) {
+        // 送ったあとの見え方（見本 SurveySheet.dc.html）: 回答済みの 1 文と「回答を変更する」
+        const { answered, total } = input.surveyAnswered
+        highlight = `${description}。事前配役アンケートは回答済みです${total > 0 ? `（${answered}/${total} 名が回答）` : ''}。`
+        secondary = [{ kind: 'survey', label: '回答を変更する' }]
+      }
       break
     case 'ended':
       if (input.ended) return endedStatus(input)

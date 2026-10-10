@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { AlertTriangle, ArrowLeft, Check, Loader2, Users } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Check, Loader2 } from 'lucide-react'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
 import { getErrorMessage } from '@/lib/errorFields'
@@ -15,6 +15,7 @@ import { logger } from '@/utils/logger'
 import type { PrivateGroup } from '@/types'
 import { saveCastingDecisions, saveCastingMethod, saveCharacterPreference } from './castingActions'
 import { useGroupCasting } from './useGroupCasting'
+import { CharacterImage } from './CharacterImage'
 import {
   canConfirmCasting, castingHeadcountNote, duplicatedCharacters, preferenceLabel, rowName, shortName,
   type CastingCharacter, type CastingMember, type CastingSheet,
@@ -42,27 +43,6 @@ export interface CastingScreenProps {
   /** 保存したあと（グループ・チャット・状況を読み直す） */
   onChanged: () => Promise<unknown> | unknown
   onBack: () => void
-}
-
-export function CharacterImage({ c, className }: { c: CastingCharacter; className: string }) {
-  if (!c.image_url) {
-    return (
-      <div className={`${className} flex items-center justify-center bg-muted`} aria-hidden="true">
-        <Users className="h-5 w-5 text-muted-foreground" />
-      </div>
-    )
-  }
-  const [x, y] = (c.image_position ?? '').split(' ')
-  return (
-    <div className={`${className} overflow-hidden bg-muted`}>
-      <img
-        src={c.image_url}
-        alt=""
-        className="h-full w-full object-cover"
-        style={{ objectPosition: x && y ? `${x}% ${y}%` : '50% 30%', transform: c.image_scale ? `scale(${c.image_scale / 100})` : undefined }}
-      />
-    </div>
-  )
 }
 
 const TITLES: Record<CastingSheet, string> = {

@@ -51,7 +51,7 @@ const LABELS: Record<PrivateBookingMenuItemId, string> = {
   manage_members: 'メンバーを管理',
   cancel_handover: '引き継ぎの依頼を取り消す',
   answer_dates: '日程に回答する',
-  view_survey: 'アンケートを見る',
+  view_survey: '事前配役アンケートを見る',
   contact_store: '店舗に問い合わせる',
   close_group: 'グループを閉じる',
   withdraw: '申込を取り下げる',

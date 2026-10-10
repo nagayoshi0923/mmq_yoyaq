@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isPastPerformanceDate, missingRequiredSurveyQuestions, stripHiddenSurveyAnswers } from './surveyCompletion'
+import { isPastPerformanceDate, missingRequiredSurveyQuestions, stripHiddenSurveyAnswers, toggleCharacterPick } from './surveyCompletion'
 
 const charQ = { id: 'c', question_type: 'character_selection' as const, is_required: true }
 const textQ = { id: 't', question_type: 'text' as const, is_required: true }
@@ -23,5 +23,19 @@ describe('surveyCompletion', () => {
     expect(isPastPerformanceDate('2026-10-05', new Date('2026-10-05T14:59:58Z'))).toBe(false)
     expect(isPastPerformanceDate('2026-10-05', new Date('2026-10-05T15:00:00Z'))).toBe(true)
     expect(isPastPerformanceDate(undefined)).toBe(false)
+  })
+})
+
+describe('toggleCharacterPick（事前配役アンケートの第 1・第 2 希望）', () => {
+  it('押す順に第 1・第 2 希望になり、3 つ目は第 2 を入れ替える', () => {
+    let p = toggleCharacterPick({ first: null, second: null }, 'a')
+    expect(p).toEqual({ first: 'a', second: null })
+    p = toggleCharacterPick(p, 'b')
+    expect(p).toEqual({ first: 'a', second: 'b' })
+    expect(toggleCharacterPick(p, 'c')).toEqual({ first: 'a', second: 'c' })
+  })
+  it('選んでいるカードをもう一度押すと外し、第 1 を外すと第 2 が繰り上がる', () => {
+    expect(toggleCharacterPick({ first: 'a', second: 'b' }, 'a')).toEqual({ first: 'b', second: null })
+    expect(toggleCharacterPick({ first: 'a', second: 'b' }, 'b')).toEqual({ first: 'a', second: null })
   })
 })

@@ -96,6 +96,8 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
   const refreshLists = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['mypage-data'], refetchType: 'all' }),
+      // 事前配役アンケートの未回答（カードの「回答済み」）
+      queryClient.invalidateQueries({ queryKey: ['mypage-private-survey-status'], refetchType: 'all' }),
       target.reservationId
         ? queryClient.invalidateQueries({ queryKey: reservationDetailKeys.detail(target.reservationId), refetchType: 'all' })
         : Promise.resolve(),

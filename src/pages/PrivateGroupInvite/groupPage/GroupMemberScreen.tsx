@@ -183,7 +183,10 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
       : null,
     canStartNext: isLoggedIn,
     casting: casting.progress,
-  }), [group, bookingPhase, isOrganizer, organizerName, memberCount, table, existingMemberId, linkedReservation, survey, handover, canMutateSchedule, now, ended, isLoggedIn, casting.progress])
+    surveyAnswered: survey?.existing_response_id && survey.survey_enabled && !survey.survey_url
+      ? { answered: casting.status?.answered_count ?? 0, total: casting.status?.target_count ?? 0 }
+      : null,
+  }), [group, bookingPhase, isOrganizer, organizerName, memberCount, table, existingMemberId, linkedReservation, survey, handover, canMutateSchedule, now, ended, isLoggedIn, casting.progress, casting.status])
 
   // 同じメンバーで次の貸切: もとのグループを覚えて作品選択へ。グループを作ったら招待がこのチャットに流れる
   const startNextGroup = () => {

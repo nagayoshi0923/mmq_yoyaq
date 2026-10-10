@@ -428,51 +428,16 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
       )}
       {viewer && <PhotoViewer photos={viewer.photos} startIndex={viewer.index} onClose={() => setViewer(null)} />}
 
-      {/* アンケート回答ダイアログ */}
-      {showSurveyDialog && (
-        <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowSurveyDialog(false)}>
-          <div 
-            className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-[420px] bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* ハンドル（モバイルのみ） */}
-            <div className="flex justify-center py-2 shrink-0 lg:hidden">
-              <div className="w-10 h-1 bg-gray-300 rounded-full" />
-            </div>
-            
-            {/* ヘッダー */}
-            <div className="flex items-center justify-between px-4 pb-2 border-b shrink-0">
-              <h3 className="font-semibold flex items-center gap-2">
-                <ClipboardList className="w-5 h-5 text-purple-600" />
-                公演前アンケート
-              </h3>
-              <button 
-                onClick={() => setShowSurveyDialog(false)}
-                className="p-2 hover:bg-gray-100 rounded-full"
-              >
-                <X className="w-5 h-5 text-gray-600" />
-              </button>
-            </div>
-            
-            {/* コンテンツ */}
-            <div className="overflow-y-auto flex-1 p-4">
-              {!currentMemberId ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-                  <p className="text-sm">メンバー情報を読み込み中...</p>
-                </div>
-              ) : (
-                <SurveyResponseForm
-                  groupId={groupId}
-                  memberId={currentMemberId}
-                  performanceDate={performanceDate}
-                  hideCharacterSelection={charAssignmentMethod !== 'survey'}
-                  explainEmptyState
-                />
-              )}
-            </div>
-          </div>
-        </div>
+      {/* 事前配役アンケート（グループ画面から開くときは onOpenSurvey で全画面のシートへ。ここは渡されていない場合の予備） */}
+      {showSurveyDialog && currentMemberId && (
+        <SurveyResponseForm
+          groupId={groupId}
+          memberId={currentMemberId}
+          performanceDate={performanceDate}
+          characters={characters}
+          hideCharacterSelection={charAssignmentMethod !== 'survey'}
+          onClose={() => setShowSurveyDialog(false)}
+        />
       )}
 
       <ConfirmDialog

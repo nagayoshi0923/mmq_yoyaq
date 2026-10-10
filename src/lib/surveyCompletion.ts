@@ -30,3 +30,26 @@ export function stripHiddenSurveyAnswers<T extends string | string[]>(
 export function isPastPerformanceDate(performanceDate: string | null | undefined, now = new Date()): boolean {
   return Boolean(performanceDate && now > new Date(performanceDate + 'T23:59:59+09:00'))
 }
+
+/**
+ * 事前配役アンケートのキャラクター選択で「どのキャラクターでもよい（おまかせ）」を選んだときに保存する値。
+ * 回答は従来どおり文字列 1 つ（キャラクター id）で保存するため、おまかせもこの文字で保存する
+ * （店舗の回答一覧はキャラクター名が見つからないとき値をそのまま出すので「おまかせ」と読める）。
+ */
+export const SURVEY_CHARACTER_ANY = 'おまかせ'
+
+export interface CharacterPicks {
+  first: string | null
+  second: string | null
+}
+
+/**
+ * キャラクターのカードを押したときの希望の並び。押す順に第 1・第 2 希望。
+ * 選んでいるカードをもう一度押すと外す（第 1 を外すと第 2 が第 1 に繰り上がる）。2 つ選んだ後に別のカードを押すと第 2 を入れ替える。
+ */
+export function toggleCharacterPick(picks: CharacterPicks, characterId: string): CharacterPicks {
+  if (picks.first === characterId) return { first: picks.second, second: null }
+  if (picks.second === characterId) return { first: picks.first, second: null }
+  if (!picks.first) return { first: characterId, second: picks.second === characterId ? null : picks.second }
+  return { first: picks.first, second: characterId }
+}
