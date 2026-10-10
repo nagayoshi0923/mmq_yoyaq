@@ -19,11 +19,13 @@ interface GroupMemberPageProps {
   desktopTab: GroupTab
   onTabChange: (tab: GroupTab) => void
   unread: number
-  panels: Record<Exclude<GroupTab, 'chat'>, ReactNode>
+  /** 並べるタブ（公演後は 思い出／メンバー／チャット） */
+  tabs: ReadonlyArray<{ id: GroupTab; label: string }>
+  panels: Partial<Record<Exclude<GroupTab, 'chat'>, ReactNode>>
   chat: ReactNode
 }
 
-export function GroupMemberPage({ header, status, onStatusAction, activeTab, desktopTab, onTabChange, unread, panels, chat }: GroupMemberPageProps) {
+export function GroupMemberPage({ header, status, onStatusAction, activeTab, desktopTab, onTabChange, unread, tabs, panels, chat }: GroupMemberPageProps) {
   const chatActive = activeTab === 'chat'
   const leftTab = chatActive ? desktopTab : activeTab
   return (
@@ -46,7 +48,7 @@ export function GroupMemberPage({ header, status, onStatusAction, activeTab, des
             </div>
           </div>
           <div className={`[grid-area:tabs] px-3.5 lg:px-0 ${chatActive ? 'pt-2 lg:pt-3' : 'pt-3'}`}>
-            <GroupTabBar active={activeTab} desktopActive={leftTab} onChange={onTabChange} unread={unread} />
+            <GroupTabBar active={activeTab} desktopActive={leftTab} onChange={onTabChange} unread={unread} tabs={tabs} />
           </div>
           <div className={`[grid-area:body] min-h-0 overflow-y-auto px-3.5 pt-3 pb-6 lg:px-0 ${chatActive ? 'hidden lg:block' : ''}`} data-testid="group-tab-panel">
             {panels[leftTab as Exclude<GroupTab, 'chat'>]}

@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS public.private_group_message_photos (
   width integer CHECK (width IS NULL OR width BETWEEN 1 AND 10000),
   height integer CHECK (height IS NULL OR height BETWEEN 1 AND 10000),
   created_at timestamptz NOT NULL DEFAULT now(),
+  -- 段階 4（migration 20261010160000）: 一覧・格子・アルバム用の小さい版（長辺 400px）
+  thumb_path text CHECK (thumb_path IS NULL OR thumb_path = regexp_replace(storage_path, '\.jpg$', '_thumb.jpg')),
   PRIMARY KEY (message_id, position)
 );
 ALTER TABLE public.private_group_message_photos ENABLE ROW LEVEL SECURITY;

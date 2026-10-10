@@ -3335,7 +3335,7 @@
     "name": "customer_notice_on_handover_bell"
    },
    {
-    "def": "CREATE TRIGGER web_push_on_user_notification AFTER INSERT ON public.user_notifications FOR EACH ROW WHEN (((new.metadata ->> 'kind'::text) = ANY (ARRAY['private_confirmed'::text, 'private_rejected'::text, 'private_group_handover'::text, 'private_dates_aligned'::text]))) EXECUTE FUNCTION web_push_on_user_notification()",
+    "def": "CREATE TRIGGER web_push_on_user_notification AFTER INSERT ON public.user_notifications FOR EACH ROW WHEN (((new.metadata ->> 'kind'::text) = ANY (ARRAY['private_confirmed'::text, 'private_rejected'::text, 'private_group_handover'::text, 'private_dates_aligned'::text, 'private_group_memories'::text]))) EXECUTE FUNCTION web_push_on_user_notification()",
     "name": "web_push_on_user_notification"
    }
   ],
@@ -3647,6 +3647,12 @@
     "type": "timestamp with time zone",
     "default": "now()",
     "not_null": true
+   },
+   {
+    "name": "thumb_path",
+    "type": "text",
+    "default": null,
+    "not_null": false
    }
   ],
   "indexes": [
@@ -3704,6 +3710,11 @@
     "def": "UNIQUE (storage_path)",
     "name": "private_group_message_photos_storage_path_key",
     "type": "u"
+   },
+   {
+    "def": "CHECK (((thumb_path IS NULL) OR (thumb_path = regexp_replace(storage_path, '\\.jpg$'::text, '_thumb.jpg'::text))))",
+    "name": "private_group_message_photos_thumb_path_check",
+    "type": "c"
    },
    {
     "def": "CHECK (((width IS NULL) OR ((width >= 1) AND (width <= 10000))))",
@@ -4108,6 +4119,123 @@
    {
     "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
     "name": "web_push_outbox_user_id_fkey",
+    "type": "f"
+   }
+  ]
+ },
+ "private_group_feedback": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "group_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "member_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "reservation_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "rating",
+    "type": "smallint",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "comment",
+    "type": "text",
+    "default": "''::text",
+    "not_null": true
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_private_group_feedback_org ON public.private_group_feedback USING btree (organization_id, created_at DESC)",
+    "name": "idx_private_group_feedback_org"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_feedback_group_id_member_id_key ON public.private_group_feedback USING btree (group_id, member_id)",
+    "name": "private_group_feedback_group_id_member_id_key"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_feedback_pkey ON public.private_group_feedback USING btree (id)",
+    "name": "private_group_feedback_pkey"
+   }
+  ],
+  "policies": [],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "CHECK ((char_length(comment) <= 2000))",
+    "name": "private_group_feedback_comment_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+    "name": "private_group_feedback_group_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "UNIQUE (group_id, member_id)",
+    "name": "private_group_feedback_group_id_member_id_key",
+    "type": "u"
+   },
+   {
+    "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+    "name": "private_group_feedback_member_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+    "name": "private_group_feedback_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "private_group_feedback_pkey",
+    "type": "p"
+   },
+   {
+    "def": "CHECK (((rating >= 1) AND (rating <= 5)))",
+    "name": "private_group_feedback_rating_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE SET NULL",
+    "name": "private_group_feedback_reservation_id_fkey",
     "type": "f"
    }
   ]

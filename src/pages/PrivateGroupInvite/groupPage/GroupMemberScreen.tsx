@@ -1,13 +1,18 @@
 /**
  * 参加中の人のグループページを組み立てる（刷新 段階 1）。読み取り結果から回答表・いまの状態を作り、
  * 見出し・状態の箱・タブ・各タブの中身・チャットを GroupMemberPage に渡す。
+ * 公演後（段階 4）は 思い出／メンバー／チャット のタブと「開催しました」の箱になる。
  */
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import type { NavigateFunction } from 'react-router-dom'
-import { privateGroupChatAction } from '@/lib/privateGroupChat'
+import { deleteGroupMessage, privateGroupChatAction } from '@/lib/privateGroupChat'
+import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
+import { saveNextGroupSource } from '@/lib/nextPrivateGroup'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import { getErrorMessage } from '@/lib/errorFields'
-import { toJstYmd } from '@/utils/jstDate'
+import { formatJstMonthDay, toJstYmd } from '@/utils/jstDate'
 import type { DateResponse, PrivateGroup } from '@/types'
 import type { PrivateGroupHandoverSummary, PrivateGroupLinkedReservation } from '@/lib/privateGroupRead'
 import type { usePrivateGroupMessages } from '@/hooks/usePrivateGroupMessages'
@@ -25,7 +30,10 @@ import { GroupDatesTab } from './GroupDatesTab'
 import { GroupOverviewTab } from './GroupOverviewTab'
 import { GroupMembersTab } from './GroupMembersTab'
 import { useGroupChatUnread, useIsDesktop } from './useGroupChatUnread'
-import { buildAnswerTable, buildGroupStatus, defaultGroupTab, type GroupTab, type StatusAction } from './groupPageModel'
+import { buildAnswerTable, buildGroupStatus, defaultGroupTab, groupTabsFor, isPerformanceEnded, resolveGroupTab, type GroupTab, type StatusAction } from './groupPageModel'
+import { GroupMemoriesTab } from './GroupMemoriesTab'
+import { GroupFeedbackDialog } from './GroupFeedbackDialog'
+import { useGroupMemories } from './useGroupMemories'
 import { GroupHeaderMenu } from './GroupHeaderMenu'
 import { GroupPhotosSheet, GroupPinsSheet } from './GroupChatListSheets'
 import { ChatVisibleContext } from '@/pages/PrivateGroupManage/components/chat/chatVisibility'
@@ -37,6 +45,10 @@ interface GroupMemberScreenProps {
   scenario: { id?: string; slug?: string; title?: string; key_visual_url?: string } | undefined
   playerRange: { min: number | null; max: number | null }
   isLoggedIn: boolean
+  /** ログイン中の会員（アルバムの登録に使う。ゲストは null） */
+  userId: string | null
+  /** 予約の状態（completed なら公演後） */
+  reservationStatus: string | null
   existingMemberId: string
   isOrganizer: boolean
   organizerName: string
@@ -78,14 +90,22 @@ interface GroupMemberScreenProps {
 
 export function GroupMemberScreen(props: GroupMemberScreenProps) {
   const {
-    group, scenario, playerRange, isLoggedIn, existingMemberId, isOrganizer, organizerName, memberCount, inviteMemberCap, linkedReservation, handover,
+    group, scenario, playerRange, isLoggedIn, userId, reservationStatus, existingMemberId, isOrganizer, organizerName, memberCount, inviteMemberCap, linkedReservation, handover,
     bookingPhase, canMutateSchedule, survey, preferredStoreNames, copied, tabParam, dateEditorOpen, chatMessages, chatState, listSheet, setListSheet, bookingActions, bookingSummary, chat,
     navigate, setTab, openSheet, closeSheet, openBooking, openStoreEdit, copyInvite, shareLine, getInviteUrl, refetch, submitDateResponses, formatDateJaMd,
   } = props
 
   const table = useMemo(() => buildAnswerTable(group, existingMemberId), [group, existingMemberId])
-  const fallbackTab = defaultGroupTab(bookingPhase)
-  const activeTab: GroupTab = dateEditorOpen ? 'dates' : tabParam ?? fallbackTab
+  // 公演後か（終了時刻を過ぎた・完了扱い）。開いたままでも 1 分ごとに見直す
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60 * 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const ended = bookingPhase === 'confirmed' && isPerformanceEnded(group.confirmed_performance, reservationStatus, now)
+  const tabs = groupTabsFor(ended)
+  const fallbackTab = defaultGroupTab(bookingPhase, ended)
+  const activeTab: GroupTab = dateEditorOpen && !ended ? 'dates' : resolveGroupTab(tabParam, bookingPhase, ended)
   const desktopTab: GroupTab = fallbackTab
   const isDesktop = useIsDesktop()
   const unread = useGroupChatUnread(existingMemberId, chatMessages.messages, chatMessages.loading, chatState, activeTab === 'chat' || isDesktop, group)
@@ -93,6 +113,27 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
   // プッシュ通知（段階 3。会員だけ）
   const push = useGroupPush(group.id, isLoggedIn)
   const [actionsOpen, setActionsOpen] = useState(false)
+  const title = scenario?.title || '貸切グループ'
+  // 公演後の思い出（段階 4）
+  const memories = useGroupMemories({
+    groupId: group.id,
+    memberId: existingMemberId,
+    enabled: ended,
+    userId,
+    scenarioMasterId: group.scenario_master_id,
+    scenarioTitle: title,
+    reservationId: group.reservation_id,
+    onPhotosSent: () => chatMessages.refetch(),
+  })
+  const photoInput = useRef<HTMLInputElement>(null)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<{ messageId: string; count: number } | null>(null)
+  const { data: extras } = useQuery({
+    queryKey: ['group-page-overview', group.scenario_master_id, group.organization_id],
+    enabled: ended && Boolean(group.organization_id),
+    staleTime: 5 * 60 * 1000,
+    queryFn: () => privateGroupPageReadApi.findGroupOverviewExtras(group.scenario_master_id, group.organization_id),
+  })
   const nameOf = (memberId: string | null) => group.members?.find(m => m.id === memberId)?.guest_name || (memberId ? 'メンバー' : '退出したメンバー')
 
   const status = useMemo(() => buildGroupStatus({
@@ -110,8 +151,32 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
     surveyPending: isSurveyPending(survey, new Date()),
     handover: handover && (handover.is_recipient || handover.is_requester) ? toHandoverInfo(handover) : null,
     canMutateSchedule,
-    todayYmd: toJstYmd(new Date()),
-  }), [group, bookingPhase, isOrganizer, organizerName, memberCount, table, existingMemberId, linkedReservation, survey, handover, canMutateSchedule])
+    todayYmd: toJstYmd(now),
+    ended,
+    performance: group.confirmed_performance
+      ? { date: group.confirmed_performance.date, start_time: group.confirmed_performance.start_time, store_name: group.confirmed_performance.store_name }
+      : null,
+    canStartNext: isLoggedIn,
+  }), [group, bookingPhase, isOrganizer, organizerName, memberCount, table, existingMemberId, linkedReservation, survey, handover, canMutateSchedule, now, ended, isLoggedIn])
+
+  // 同じメンバーで次の貸切: もとのグループを覚えて作品選択へ。グループを作ったら招待がこのチャットに流れる
+  const startNextGroup = () => {
+    saveNextGroupSource({ groupId: group.id, memberId: existingMemberId, organizationId: group.organization_id, title, memberCount: Math.max(0, memberCount - 1) })
+    navigate(extras?.slug ? `/${extras.slug}/catalog` : '/catalog')
+  }
+
+  const confirmDeletePhotos = async () => {
+    if (!deleteTarget) return
+    try {
+      await deleteGroupMessage(group.id, existingMemberId, deleteTarget.messageId)
+      toast.success('写真の投稿を削除しました')
+      await Promise.all([memories.refetchPhotos(), chatMessages.refetch()])
+    } catch (err) {
+      toast.error(getErrorMessage(err) || '削除できませんでした')
+    } finally {
+      setDeleteTarget(null)
+    }
+  }
 
   const sendInvite = async () => {
     const url = getInviteUrl()
@@ -145,6 +210,14 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
         return setTab('survey')
       case 'handover':
         return openSheet('handover', handover?.id ? { request: handover.id } : {})
+      case 'share_photos':
+        // 押した操作のまま写真を選ぶ（スマホのブラウザは操作の外ではファイル選択を開かない）
+        if (activeTab !== 'memories' && !isDesktop) setTab('memories')
+        return photoInput.current?.click()
+      case 'feedback':
+        return setFeedbackOpen(true)
+      case 'next_group':
+        return startNextGroup()
     }
   }
 
@@ -176,6 +249,9 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
   }
 
   const openScenario = scenario ? () => navigate(`/scenario/${scenario.slug || scenario.id}`) : undefined
+  const subtitle = ended && group.confirmed_performance
+    ? `${formatJstMonthDay(group.confirmed_performance.date, true)} 開催済み・参加 ${memories.after?.performance?.participant_count ?? memberCount}名`
+    : `貸切・参加 ${memberCount}${inviteMemberCap ? `/${inviteMemberCap}` : ''}名・${isOrganizer ? 'あなたが主催' : `${organizerName}さんが主催`}`
   const menu = (
     <GroupHeaderMenu
       memberCount={memberCount}
@@ -204,8 +280,8 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
 
   const header = (
     <GroupPageHeader
-      title={scenario?.title || '貸切グループ'}
-      subtitle={`貸切・参加 ${memberCount}${inviteMemberCap ? `/${inviteMemberCap}` : ''}名・${isOrganizer ? 'あなたが主催' : `${organizerName}さんが主催`}`}
+      title={title}
+      subtitle={subtitle}
       onBack={isLoggedIn ? () => navigate('/mypage?tab=reservations&sub=private') : null}
       backLabel="マイページ"
       onOpenScenario={openScenario}
@@ -226,8 +302,29 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
         setTab(tab)
       }}
       unread={unread}
+      tabs={tabs}
       chat={chat}
       panels={{
+        memories: ended ? (
+          <GroupMemoriesTab
+            title={title}
+            imageUrl={scenario?.key_visual_url ?? null}
+            photos={memories.photos}
+            photosFailed={memories.photosFailed}
+            myMemberId={existingMemberId}
+            nameOf={nameOf}
+            sending={memories.sending}
+            onShare={() => photoInput.current?.click()}
+            onDeleteMessage={(messageId, count) => setDeleteTarget({ messageId, count })}
+            after={memories.after}
+            memberCount={memberCount}
+            albumState={memories.albumState}
+            registering={memories.registering}
+            onRegisterAlbum={() => { if (memories.after?.performance) void memories.registerAlbum(memories.after.performance) }}
+            onOpenFeedback={() => setFeedbackOpen(true)}
+            onOpenScenario={openScenario}
+          />
+        ) : null,
         overview: (
           <GroupOverviewTab
             group={group}
@@ -275,6 +372,34 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
     {listSheet === 'photos' && <GroupPhotosSheet groupId={group.id} memberId={existingMemberId} nameOf={nameOf} onClose={() => setListSheet(null)} />}
     {listSheet === 'pins' && <GroupPinsSheet pinned={pinned} nameOf={nameOf} onJump={jumpFromList} onClose={() => setListSheet(null)} />}
     {push.prompt && <PushPromptCard kind={push.prompt} busy={push.busy} onAccept={() => void push.accept()} onDismiss={push.dismiss} />}
+    {ended && (
+      <>
+        <input
+          ref={photoInput}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={e => { void memories.sharePhotos(e.target.files); e.target.value = '' }}
+          data-testid="memories-photo-input"
+        />
+        <GroupFeedbackDialog
+          open={feedbackOpen}
+          onOpenChange={setFeedbackOpen}
+          initial={memories.after?.my_feedback ?? null}
+          onSave={memories.saveFeedback}
+        />
+        <ConfirmDialog
+          open={Boolean(deleteTarget)}
+          onOpenChange={open => { if (!open) setDeleteTarget(null) }}
+          title="この写真の投稿を削除しますか？"
+          message={`同じ投稿の写真 ${deleteTarget?.count ?? 1} 枚が消え、元に戻せません。チャットには「メッセージを削除しました」と表示されます。`}
+          confirmLabel="削除する"
+          variant="danger"
+          onConfirm={confirmDeletePhotos}
+        />
+      </>
+    )}
     </ChatVisibleContext.Provider>
   )
 }

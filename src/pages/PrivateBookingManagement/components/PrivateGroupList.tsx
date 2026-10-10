@@ -27,6 +27,7 @@ import type { RpcSendStaffGroupMessageParams } from '@/lib/rpcTypes'
 import { showToast } from '@/utils/toast'
 import { usePrivateGroupList, type PrivateGroupListItem } from '../hooks/usePrivateGroupList'
 import { PrivateGroupAnnouncementHistoryDialog } from './PrivateGroupAnnouncementHistoryDialog'
+import { PrivateGroupFeedbackBadge } from './PrivateGroupFeedbackBadge'
 import { useLocalState } from '@/hooks/useLocalState'
 import { useAuth } from '@/contexts/AuthContext'
 import { readSurveyDeliveries, sendSurveyNotice, surveyDeliveryLabels, type SurveyDeliveryHistory } from '@/lib/privateSurveyDelivery'
@@ -420,6 +421,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
                         <MessageSquare className="w-4 h-4 mr-1" />
                         ログ
                       </Button>
+                      <PrivateGroupFeedbackBadge groupId={group.id} title={group.scenario_masters?.title || '(シナリオ未設定)'} />
                       <Button
                         variant="outline"
                         size="sm"

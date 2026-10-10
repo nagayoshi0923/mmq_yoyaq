@@ -1,5 +1,6 @@
 /**
  * チャットの写真の表示用 URL（署名付き・1 時間有効）。写真のある発言が増えたらその分だけ取り、切れる前に取り直す。
+ * 小さい版（段階 4）があれば thumb=true でそちらを返す（無ければ元画像）。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { logger } from '@/utils/logger'
@@ -11,7 +12,7 @@ import { photoKey } from './chatModel'
 const REFRESH_MARGIN_MS = 5 * 60 * 1000
 
 export function useGroupPhotoUrls(groupId: string, memberId: string | null, messages: ReadonlyArray<PrivateGroupMessage>) {
-  const [urls, setUrls] = useState<Record<string, { url: string; expiresAt: number }>>({})
+  const [urls, setUrls] = useState<Record<string, { url: string; thumbUrl: string | null; expiresAt: number }>>({})
   const inflight = useRef(new Set<string>())
   const photoMessageIds = useMemo(
     () => messages.filter(m => !m.deleted_at && (m.photos?.length ?? 0) > 0).map(m => m.id),
@@ -28,7 +29,7 @@ export function useGroupPhotoUrls(groupId: string, memberId: string | null, mess
         const expiresAt = Date.now() + expiresIn * 1000 - REFRESH_MARGIN_MS
         setUrls(prev => {
           const next = { ...prev }
-          for (const p of photos) next[photoKey(p.messageId, p.position)] = { url: p.url, expiresAt }
+          for (const p of photos) next[photoKey(p.messageId, p.position)] = { url: p.url, thumbUrl: p.thumbUrl ?? null, expiresAt }
           return next
         })
       }
@@ -55,6 +56,10 @@ export function useGroupPhotoUrls(groupId: string, memberId: string | null, mess
     return () => window.clearInterval(timer)
   }, [])
 
-  const urlOf = useCallback((messageId: string, position: number) => urls[photoKey(messageId, position)]?.url ?? null, [urls])
+  const urlOf = useCallback((messageId: string, position: number, thumb = false) => {
+    const entry = urls[photoKey(messageId, position)]
+    if (!entry) return null
+    return (thumb ? entry.thumbUrl : null) ?? entry.url
+  }, [urls])
   return { urlOf }
 }

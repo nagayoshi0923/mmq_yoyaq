@@ -2,13 +2,14 @@
  * 貸切グループのチャットのお知らせ（システムメッセージ）のうち、表示だけのもの。
  * GroupChat.tsx から見た目を変えずに切り出した（個別お知らせ・配役は GroupChat.tsx に残す）。
  */
+import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Calendar, CheckCircle2, X, ClipboardList } from 'lucide-react'
 import type { PrivateGroupMessage } from '@/types'
 import type { CandidateNoticeDate, SystemMessage } from './groupChatMessages'
 import { renderMessageWithLinks } from './renderMessageWithLinks'
 
-export const SIMPLE_SYSTEM_MESSAGE_ACTIONS: ReadonlySet<SystemMessage['action']> = new Set(['candidate_dates_added', 'schedule_confirmed', 'pre_reading_notice', 'survey_notice', 'group_created', 'member_joined', 'member_removed', 'booking_requested', 'booking_rejected', 'booking_cancelled', 'staff_message', 'organizer_handover'])
+export const SIMPLE_SYSTEM_MESSAGE_ACTIONS: ReadonlySet<SystemMessage['action']> = new Set(['candidate_dates_added', 'schedule_confirmed', 'pre_reading_notice', 'survey_notice', 'group_created', 'member_joined', 'member_removed', 'booking_requested', 'booking_rejected', 'booking_cancelled', 'staff_message', 'organizer_handover', 'next_group_created'])
 
 export interface SystemNoticeCardProps {
   systemMsg: SystemMessage
@@ -337,6 +338,25 @@ export function SystemNoticeCard({ systemMsg, msg, systemMsgTitles, getMemberNam
           </p>
           <p className="text-xs text-muted-foreground">{formatDateTime(msg.created_at)}</p>
           {systemMsg.body && <p className="text-xs text-foreground mt-1.5 whitespace-pre-wrap">{systemMsg.body}</p>}
+        </div>
+      </div>
+    )
+  }
+
+  // 同じメンバーで次の貸切（段階 4）。新しいグループへの参加ボタン
+  if (systemMsg && systemMsg.action === 'next_group_created') {
+    const code = systemMsg.inviteCode && /^[0-9a-f]{32}$/i.test(systemMsg.inviteCode) ? systemMsg.inviteCode : null
+    return (
+      <div key={msg.id} className="flex justify-center my-3" data-testid="next-group-notice">
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 w-full max-w-sm">
+          <p className="text-sm font-medium text-purple-800">{systemMsg.title || '次の貸切のお誘い'}</p>
+          <p className="text-xs text-muted-foreground">{formatDateTime(msg.created_at)}</p>
+          {systemMsg.body && <p className="text-sm text-foreground mt-1.5 whitespace-pre-wrap">{systemMsg.body}</p>}
+          {code && (
+            <Button asChild size="sm" className="mt-2 w-full bg-purple-600 hover:bg-purple-700 text-white">
+              <Link to={`/group/invite/${code}`}>{systemMsg.scenarioTitle ? `「${systemMsg.scenarioTitle}」に参加する` : '参加する'}</Link>
+            </Button>
+          )}
         </div>
       </div>
     )

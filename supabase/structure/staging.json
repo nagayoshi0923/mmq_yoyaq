@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-10T04:09:42.399Z",
-  "table_count": 155,
-  "function_count": 419,
-  "digest": "dcd7636677783e39d739748d0a6d10c302fec3d341f36807d38e25213c385424"
+  "captured_at": "2026-10-10T04:42:24.314Z",
+  "table_count": 156,
+  "function_count": 424,
+  "digest": "d524b346fd5cb23fc20a24f8dd845973c121395f76c257436e554b7f7aa56aaa"
  },
  "tables": {
   "staff": {
@@ -9203,7 +9203,7 @@
      "name": "customer_notice_on_handover_bell"
     },
     {
-     "def": "CREATE TRIGGER web_push_on_user_notification AFTER INSERT ON public.user_notifications FOR EACH ROW WHEN (((new.metadata ->> 'kind'::text) = ANY (ARRAY['private_confirmed'::text, 'private_rejected'::text, 'private_group_handover'::text, 'private_dates_aligned'::text]))) EXECUTE FUNCTION web_push_on_user_notification()",
+     "def": "CREATE TRIGGER web_push_on_user_notification AFTER INSERT ON public.user_notifications FOR EACH ROW WHEN (((new.metadata ->> 'kind'::text) = ANY (ARRAY['private_confirmed'::text, 'private_rejected'::text, 'private_group_handover'::text, 'private_dates_aligned'::text, 'private_group_memories'::text]))) EXECUTE FUNCTION web_push_on_user_notification()",
      "name": "web_push_on_user_notification"
     }
    ],
@@ -13702,6 +13702,123 @@
      "def": "CHECK ((((recruitment_target_mode = 'count'::text) AND ((recruitment_target_value >= 1) AND (recruitment_target_value <= 20))) OR ((recruitment_target_mode = 'percent'::text) AND ((recruitment_target_value >= 1) AND (recruitment_target_value <= 100)))))",
      "name": "recruitment_target_value_check",
      "type": "c"
+    }
+   ]
+  },
+  "private_group_feedback": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "default": "gen_random_uuid()",
+     "not_null": true
+    },
+    {
+     "name": "group_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "organization_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "member_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "reservation_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "rating",
+     "type": "smallint",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "comment",
+     "type": "text",
+     "default": "''::text",
+     "not_null": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE INDEX idx_private_group_feedback_org ON public.private_group_feedback USING btree (organization_id, created_at DESC)",
+     "name": "idx_private_group_feedback_org"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_feedback_group_id_member_id_key ON public.private_group_feedback USING btree (group_id, member_id)",
+     "name": "private_group_feedback_group_id_member_id_key"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_feedback_pkey ON public.private_group_feedback USING btree (id)",
+     "name": "private_group_feedback_pkey"
+    }
+   ],
+   "policies": [],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "CHECK ((char_length(comment) <= 2000))",
+     "name": "private_group_feedback_comment_check",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+     "name": "private_group_feedback_group_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "UNIQUE (group_id, member_id)",
+     "name": "private_group_feedback_group_id_member_id_key",
+     "type": "u"
+    },
+    {
+     "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+     "name": "private_group_feedback_member_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+     "name": "private_group_feedback_organization_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (id)",
+     "name": "private_group_feedback_pkey",
+     "type": "p"
+    },
+    {
+     "def": "CHECK (((rating >= 1) AND (rating <= 5)))",
+     "name": "private_group_feedback_rating_check",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE SET NULL",
+     "name": "private_group_feedback_reservation_id_fkey",
+     "type": "f"
     }
    ]
   },
@@ -20428,6 +20545,12 @@
      "type": "timestamp with time zone",
      "default": "now()",
      "not_null": true
+    },
+    {
+     "name": "thumb_path",
+     "type": "text",
+     "default": null,
+     "not_null": false
     }
    ],
    "indexes": [
@@ -20485,6 +20608,11 @@
      "def": "UNIQUE (storage_path)",
      "name": "private_group_message_photos_storage_path_key",
      "type": "u"
+    },
+    {
+     "def": "CHECK (((thumb_path IS NULL) OR (thumb_path = regexp_replace(storage_path, '\\.jpg$'::text, '_thumb.jpg'::text))))",
+     "name": "private_group_message_photos_thumb_path_check",
+     "type": "c"
     },
     {
      "def": "CHECK (((width IS NULL) OR ((width >= 1) AND (width <= 10000))))",
@@ -25420,6 +25548,17 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_album_covers()": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "61d618aa0b708e806949c12ed192a3a4",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "set_cancelled_at_on_cancel()": {
    "acl": [
     "=X/postgres",
@@ -27651,6 +27790,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_memories_notice(p_now timestamp with time zone)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "integer",
+   "body_md5": "363445cf00e6ff7f5d57cad1ee9235c0",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "admin_delete_reservations_by_source(p_reservation_source text)": {
    "acl": [
     "postgres=X/postgres",
@@ -27830,6 +27979,17 @@
    ],
    "returns": "json",
    "body_md5": "7f00e7de54f9feff3c35b820699584f1",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_feedback_staff(p_group_ids uuid[], p_detail boolean)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "2aad5b7ecbd9057894c080788be5cc4f",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28129,6 +28289,16 @@
    ],
    "returns": "boolean",
    "body_md5": "ab4572d7a05b47a55b3127394ffe838f",
+   "language": "sql",
+   "security_definer": true
+  },
+  "private_group_performance_info(p_group uuid, p_now timestamp with time zone)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "e13aae8bfa4f4fd2f65e339fb9561f53",
    "language": "sql",
    "security_definer": true
   },
@@ -28791,7 +28961,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "109434dd52c5ddef2b9e909253e7490d",
+   "body_md5": "544c50449308f5086a225e85e1623b73",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28824,6 +28994,18 @@
    ],
    "returns": "integer",
    "body_md5": "7bac591f882ee26ed00bbd8fad321f86",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_after_action(p_group_id uuid, p_member_id uuid, p_action text, p_payload jsonb, p_guest_token text)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "482afdb3deea42a1d0313afc10568812",
    "language": "plpgsql",
    "security_definer": true
   },

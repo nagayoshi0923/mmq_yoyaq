@@ -1,8 +1,9 @@
 /**
  * 写真の拡大表示。左右で切り替え、保存ボタンで端末に保存する。
+ * onDelete を渡すと、消せる写真（canDelete）にごみ箱のボタンを出す（思い出タブの自分の投稿、段階 4）。
  */
 import { useCallback, useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, Download, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, Trash2, X } from 'lucide-react'
 import { savePhoto } from './chatDom'
 
 export interface ViewerPhoto {
@@ -14,9 +15,11 @@ interface PhotoViewerProps {
   photos: ViewerPhoto[]
   startIndex: number
   onClose: () => void
+  canDelete?: (index: number) => boolean
+  onDelete?: (index: number) => void
 }
 
-export function PhotoViewer({ photos, startIndex, onClose }: PhotoViewerProps) {
+export function PhotoViewer({ photos, startIndex, onClose, canDelete, onDelete }: PhotoViewerProps) {
   const [index, setIndex] = useState(startIndex)
   const [touchX, setTouchX] = useState<number | null>(null)
   const count = photos.length
@@ -50,7 +53,18 @@ export function PhotoViewer({ photos, startIndex, onClose }: PhotoViewerProps) {
         <button type="button" onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10" aria-label="閉じる">
           <X className="w-5 h-5" aria-hidden="true" />
         </button>
-        <span className="text-sm">{count > 1 ? `${index + 1} / ${count}` : ''}{photo.label ? `　${photo.label}` : ''}</span>
+        <span className="text-sm flex-1 min-w-0 truncate text-center">{count > 1 ? `${index + 1} / ${count}` : ''}{photo.label ? `　${photo.label}` : ''}</span>
+        {onDelete && canDelete?.(index) && (
+          <button
+            type="button"
+            onClick={() => onDelete(index)}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10"
+            aria-label="この投稿を削除"
+            data-testid="photo-viewer-delete"
+          >
+            <Trash2 className="w-5 h-5" aria-hidden="true" />
+          </button>
+        )}
         <button
           type="button"
           onClick={() => photo.url && void savePhoto(photo.url, `photo-${index + 1}.jpg`)}

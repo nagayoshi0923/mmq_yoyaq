@@ -22,7 +22,7 @@ import type { PrivateBookingPhase } from '@/pages/MyPage/components/PrivateBooki
 
 // ─── タブ ──────────────────────────────────────────────
 
-export type GroupTab = 'overview' | 'dates' | 'members' | 'chat'
+export type GroupTab = 'overview' | 'dates' | 'members' | 'chat' | 'memories'
 
 export const GROUP_TABS: ReadonlyArray<{ id: GroupTab; label: string }> = [
   { id: 'overview', label: '概要' },
@@ -30,6 +30,39 @@ export const GROUP_TABS: ReadonlyArray<{ id: GroupTab; label: string }> = [
   { id: 'members', label: 'メンバー' },
   { id: 'chat', label: 'チャット' },
 ]
+
+/** 公演後（段階 4）のタブ。日程は出さず、概要の中身は思い出タブの「公演の記録」に畳む */
+export const AFTER_TABS: ReadonlyArray<{ id: GroupTab; label: string }> = [
+  { id: 'memories', label: '思い出' },
+  { id: 'members', label: 'メンバー' },
+  { id: 'chat', label: 'チャット' },
+]
+
+export function groupTabsFor(ended: boolean): ReadonlyArray<{ id: GroupTab; label: string }> {
+  return ended ? AFTER_TABS : GROUP_TABS
+}
+
+/**
+ * 公演が終わったか（確定した公演の終了時刻〔無ければ開始時刻〕を過ぎた、または予約が完了扱い）。
+ * 日付と時刻は日本時間として読む。
+ */
+export function isPerformanceEnded(
+  performance: { date: string; start_time?: string | null; end_time?: string | null } | null | undefined,
+  reservationStatus: string | null | undefined,
+  now: Date,
+): boolean {
+  if (!performance?.date) return false
+  if (reservationStatus === 'completed') return true
+  const time = (performance.end_time || performance.start_time || '23:59').slice(0, 5)
+  const at = new Date(`${performance.date}T${time}:00+09:00`)
+  return !Number.isNaN(at.getTime()) && at.getTime() <= now.getTime()
+}
+
+/** 「11/7(土) 14:00 高田馬場店」 */
+export function performanceLabel(performance: { date: string; start_time?: string | null; store_name?: string | null }): string {
+  const day = formatJstMonthDay(performance.date, true)
+  return [day, (performance.start_time ?? '').slice(0, 5), performance.store_name ?? ''].filter(Boolean).join(' ')
+}
 
 /**
  * URL の ?tab= を読む。旧い値（マイページ・通知の ?tab=schedule、旧「管理」タブ）も受ける。
@@ -41,6 +74,7 @@ export function parseGroupTab(raw: string | null | undefined): GroupTab | 'surve
     case 'dates':
     case 'members':
     case 'chat':
+    case 'memories':
     case 'survey':
       return raw
     case 'schedule':
@@ -52,9 +86,19 @@ export function parseGroupTab(raw: string | null | undefined): GroupTab | 'surve
   }
 }
 
-/** ?tab= が無いときの初期タブ。確定後は概要、それ以外は日程（チャットに未読があっても自動では開かない） */
-export function defaultGroupTab(phase: PrivateBookingPhase): GroupTab {
+/** ?tab= が無いときの初期タブ。公演後は思い出、確定後は概要、それ以外は日程（チャットに未読があっても自動では開かない） */
+export function defaultGroupTab(phase: PrivateBookingPhase, ended = false): GroupTab {
+  if (ended) return 'memories'
   return phase === 'confirmed' ? 'overview' : 'dates'
+}
+
+/** いま出すタブ。公演後は概要・日程を思い出に、公演前は思い出を初期タブに読み替える */
+export function resolveGroupTab(tab: GroupTab | null, phase: PrivateBookingPhase, ended: boolean): GroupTab {
+  const fallback = defaultGroupTab(phase, ended)
+  if (!tab) return fallback
+  if (ended && (tab === 'overview' || tab === 'dates')) return 'memories'
+  if (!ended && tab === 'memories') return fallback
+  return tab
 }
 
 // ─── 日程の回答表 ───────────────────────────────────────
@@ -201,6 +245,9 @@ export type StatusActionKind =
   | 'view_booking'
   | 'survey'
   | 'handover'
+  | 'share_photos'
+  | 'feedback'
+  | 'next_group'
 
 export interface StatusAction {
   kind: StatusActionKind
@@ -242,6 +289,12 @@ export interface GroupStatusInput {
   /** 候補日の追加・申込ができる（店舗への申込前） */
   canMutateSchedule: boolean
   todayYmd: string
+  /** 公演が終わった（終了時刻を過ぎた・完了扱い）。公演後の思い出（段階 4）の箱になる */
+  ended?: boolean
+  /** 公演の記録（開催日時・店舗）。公演後の箱の補足に使う */
+  performance?: { date: string; start_time: string | null; store_name: string | null } | null
+  /** 「同じメンバーで次の貸切」を出す（会員だけ） */
+  canStartNext?: boolean
 }
 
 /** 確定後の状態名に合わせてグループの status を補う（予約の状態でグループ行の更新遅れを補う） */
@@ -271,6 +324,7 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
     todayYmd: input.todayYmd,
     surveyPending: input.surveyPending,
     transferPending: input.handover?.isRecipient === true,
+    ended: input.ended === true,
   })
   const requested = input.handover && !input.handover.isRecipient ? input.handover : null
   const chip = requested ? handoverWaitingLabel(requested) : labelOf(action, summary.schedule?.date)
@@ -336,6 +390,7 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
       oneLine = `${chip}・${description}`
       break
     case 'ended':
+      if (input.ended) return endedStatus(input)
       oneLine = `${chip}・${description}`
       break
   }
@@ -351,6 +406,35 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
     secondary,
     oneLine,
   }
+}
+
+/** 公演後（段階 4）の箱: 緑の「開催しました」、写真の共有へ誘う */
+function endedStatus(input: GroupStatusInput): GroupStatusView {
+  const sub = input.performance ? performanceLabel(input.performance) : null
+  const secondary: StatusAction[] = [{ kind: 'feedback', label: '感想を書く' }]
+  if (input.canStartNext) secondary.push({ kind: 'next_group', label: '同じメンバーで次の貸切' })
+  return {
+    action: 'ended',
+    tone: 'green',
+    primaryTone: 'green',
+    chip: '開催しました',
+    sub,
+    body: 'ご参加ありがとうございました。記念写真をここに残すと、メンバー全員のアルバムにも入ります。',
+    primary: { kind: 'share_photos', label: '写真を共有する' },
+    secondary,
+    oneLine: '開催しました・写真を共有しましょう',
+  }
+}
+
+/** 「9 枚・いちこ、二郎、るい」（投稿者は新しい順に 3 人まで） */
+export function photoSummary(photos: ReadonlyArray<{ memberId: string | null }>, nameOf: (memberId: string | null) => string): string {
+  const names: string[] = []
+  for (const p of photos) {
+    const name = nameOf(p.memberId)
+    if (!names.includes(name)) names.push(name)
+  }
+  const shown = names.slice(0, 3).join('、')
+  return `${photos.length} 枚${shown ? `・${shown}${names.length > 3 ? ` ほか ${names.length - 3} 人` : ''}` : ''}`
 }
 
 // ─── チャットの未読 ─────────────────────────────────────

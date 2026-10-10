@@ -6,7 +6,7 @@ import type { PrivateGroupMessage } from '@/types'
 
 export interface SystemMessage {
   type: 'system'
-  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'member_removed' | 'booking_requested' | 'booking_rejected' | 'booking_cancelled' | 'individual_notice' | 'performance_cancelled' | 'staff_message' | 'character_assignment' | 'character_method_selected' | 'organizer_handover' | 'date_answer_reminder'
+  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'member_removed' | 'booking_requested' | 'booking_rejected' | 'booking_cancelled' | 'individual_notice' | 'performance_cancelled' | 'staff_message' | 'character_assignment' | 'character_method_selected' | 'organizer_handover' | 'date_answer_reminder' | 'next_group_created'
   count?: number
   dates?: Array<{ date: string; time_slot: string }>
   confirmedDate?: string
@@ -35,6 +35,9 @@ export interface SystemMessage {
   assignments?: Record<string, string>
   /** date_answer_reminder（未回答の人に知らせる）の宛先の名前 */
   names?: string[]
+  /** next_group_created（同じメンバーで次の貸切、段階 4）の新しいグループの招待コードと作品名 */
+  inviteCode?: string
+  scenarioTitle?: string
 }
 
 /** 日付の見出し（今日・昨日・○月○日） */

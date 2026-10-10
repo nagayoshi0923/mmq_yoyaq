@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PrivateGroup } from '@/types'
-import { buildAnswerTable, buildGroupStatus, countUnread, defaultGroupTab, nextResponse, parseGroupTab, rowTally, unansweredMembers, type GroupStatusInput } from './groupPageModel'
+import { buildAnswerTable, buildGroupStatus, countUnread, defaultGroupTab, groupTabsFor, isPerformanceEnded, nextResponse, parseGroupTab, performanceLabel, resolveGroupTab, rowTally, unansweredMembers, type GroupStatusInput } from './groupPageModel'
 
 const member = (id: string, extra: Record<string, unknown> = {}) => ({ id, group_id: 'g', user_id: `u-${id}`, guest_name: null, guest_email: null, guest_phone: null, is_organizer: false, status: 'joined', joined_at: null, created_at: '2026-10-01', users: { id: `u-${id}`, email: `${id}@x`, nickname: id }, ...extra })
 const cand = (id: string, date: string, start: string, responses: Array<[string, 'ok' | 'maybe' | 'ng']>, extra: Record<string, unknown> = {}) => ({
@@ -109,6 +109,51 @@ describe('いまの状態の箱（マイページのカードと同じラベル�
     expect(v.tone).toBe('gray')
     expect(v.primary).toBeNull()
     expect(v.secondary).toEqual([])
+  })
+  it('公演後（終了時刻を過ぎた・段階 4）は緑の「開催しました」と写真の共有', () => {
+    const performance = { date: '2026-11-07', start_time: '14:00:00', store_name: '高田馬場店' }
+    const v = buildGroupStatus(base({ status: 'confirmed', phase: 'confirmed', confirmed: performance, performance, canMutateSchedule: false, ended: true, canStartNext: true, todayYmd: '2026-11-07' }))
+    expect(v.chip).toBe('開催しました')
+    expect(v.tone).toBe('green')
+    expect(v.sub).toBe('11/7(土) 14:00 高田馬場店')
+    expect(v.body).toBe('ご参加ありがとうございました。記念写真をここに残すと、メンバー全員のアルバムにも入ります。')
+    expect(v.primary).toEqual({ kind: 'share_photos', label: '写真を共有する' })
+    expect(v.secondary.map(s => s.label)).toEqual(['感想を書く', '同じメンバーで次の貸切'])
+  })
+  it('公演後のゲストには「同じメンバーで次の貸切」を出さない', () => {
+    const v = buildGroupStatus(base({ status: 'confirmed', phase: 'confirmed', confirmed: { date: '2026-11-07', start_time: '14:00', store_name: null }, canMutateSchedule: false, ended: true, canStartNext: false }))
+    expect(v.secondary.map(s => s.kind)).toEqual(['feedback'])
+  })
+})
+
+describe('公演後（段階 4）', () => {
+  const perf = { date: '2026-11-07', start_time: '14:00:00', end_time: '17:00:00' }
+  it('終了時刻（日本時間）を過ぎたら公演後', () => {
+    expect(isPerformanceEnded(perf, 'confirmed', new Date('2026-11-07T07:59:00Z'))).toBe(false)
+    expect(isPerformanceEnded(perf, 'confirmed', new Date('2026-11-07T08:00:00Z'))).toBe(true)
+  })
+  it('終了時刻が無ければ開始時刻、完了扱いならすぐ公演後', () => {
+    expect(isPerformanceEnded({ date: '2026-11-07', start_time: '14:00' }, 'confirmed', new Date('2026-11-07T05:00:00Z'))).toBe(true)
+    expect(isPerformanceEnded(perf, 'completed', new Date('2026-11-01T00:00:00Z'))).toBe(true)
+    expect(isPerformanceEnded(null, 'completed', new Date())).toBe(false)
+  })
+  it('タブは 思い出／メンバー／チャット、初期は思い出', () => {
+    expect(groupTabsFor(true).map(t => t.label)).toEqual(['思い出', 'メンバー', 'チャット'])
+    expect(groupTabsFor(false).map(t => t.id)).toEqual(['overview', 'dates', 'members', 'chat'])
+    expect(defaultGroupTab('confirmed', true)).toBe('memories')
+    expect(parseGroupTab('memories')).toBe('memories')
+  })
+  it('公演後は概要・日程を思い出に、公演前は思い出を初期タブに読み替える', () => {
+    expect(resolveGroupTab('dates', 'confirmed', true)).toBe('memories')
+    expect(resolveGroupTab('overview', 'confirmed', true)).toBe('memories')
+    expect(resolveGroupTab('chat', 'confirmed', true)).toBe('chat')
+    expect(resolveGroupTab(null, 'confirmed', true)).toBe('memories')
+    expect(resolveGroupTab('memories', 'confirmed', false)).toBe('overview')
+    expect(resolveGroupTab('memories', 'pre_request', false)).toBe('dates')
+  })
+  it('開催の表示', () => {
+    expect(performanceLabel({ date: '2026-11-07', start_time: '14:00:00', store_name: '高田馬場店' })).toBe('11/7(土) 14:00 高田馬場店')
+    expect(performanceLabel({ date: '2026-11-07', start_time: null, store_name: null })).toBe('11/7(土)')
   })
 })
 

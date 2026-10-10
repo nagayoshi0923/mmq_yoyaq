@@ -22,7 +22,7 @@ interface ChatBubbleProps {
   onQuoteClick?: () => void
   reactions: ChatReactionRow[]
   readCount: number | null
-  urlOf: (messageId: string, position: number) => string | null
+  urlOf: (messageId: string, position: number, thumb?: boolean) => string | null
   onOpenPhoto: (position: number) => void
   onOpenMenu: () => void
   onToggleReaction: (emoji: string) => void

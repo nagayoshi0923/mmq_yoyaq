@@ -1,4 +1,5 @@
 import type { ManualGmResponseBaseline } from '@/lib/gmResponseApi'
+import { PrivateGroupFeedbackBadge } from './PrivateGroupFeedbackBadge'
 import { candidateResponseIndex } from '@/lib/gmCandidateSelection'
 import { DeliveryHistoryDialog } from './DeliveryHistoryDialog'
 import { approvalDeliveryLabel, type ApprovalDeliveryStatus } from '../hooks/useApprovalDeliveryStatus'
@@ -74,6 +75,8 @@ interface BookingRequest {
   cancellation_reason?: string
   notes?: string
   invite_code?: string
+  /** 貸切グループ（感想の件数に使う） */
+  private_group_id?: string | null
   response_candidate_snapshot?: unknown[]
   candidate_datetimes?: {
     candidates: Candidate[]
@@ -193,6 +196,8 @@ export const BookingRequestCard = ({
               </span>
             )}
             {['confirmed','gm_confirmed','checked_in','completed','cancelled'].includes(request.status) && <DeliveryHistoryDialog reservationId={request.id} />}
+            {/* 公演後の感想（グループページ 段階 4）。感想があるときだけ */}
+            {['confirmed','gm_confirmed','checked_in','completed'].includes(request.status) && <PrivateGroupFeedbackBadge groupId={request.private_group_id} title={request.scenario_title} />}
         {approvalDeliveryError && <p className="text-sm text-destructive" role="alert">確定通知の送信状況を取得できません。再読み込みしてください。</p>}
         {!approvalDeliveryError && approvalDeliveries && approvalDeliveries.length > 0 && (
           <div className="space-y-1 text-sm" aria-label="確定通知の送信状況">
