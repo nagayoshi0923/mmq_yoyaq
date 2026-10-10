@@ -9,7 +9,9 @@ import type { PrivateGroupCandidateDate } from '@/types'
 import { privateGroupTimeSlotFromDb } from '@/lib/privateGroupTimeSlot'
 import { addPrivateGroupCandidates } from '@/lib/privateGroupCandidateDates'
 import type { PrivateBookingSlot } from '@/lib/computePrivateBookingSlots'
-import { usePrivateBookingSlotData } from '@/hooks/usePrivateBookingSlotData'
+import { useCandidateSlotAvailability } from '@/hooks/useCandidateSlotAvailability'
+import { useScenarioStoreHint } from '@/hooks/useScenarioStoreHint'
+import { ScenarioStoreHint } from '@/components/private-booking/ScenarioStoreHint'
 import { usePrivateBookingDeadlineState, DEFAULT_PRIVATE_BOOKING_DEADLINE_DAYS } from '@/hooks/usePrivateBookingDeadlineDays'
 import { PrivateBookingSlotGrid } from '@/components/private-booking/PrivateBookingSlotGrid'
 import { showToast } from '@/utils/toast'
@@ -62,27 +64,12 @@ export function AddCandidateDates({
   const [saving, setSaving] = useState(false)
   const savingRef = useRef(false)
   const pendingRequestRef = useRef<{ fingerprint: string; id: string } | null>(null)
-  const [availabilityMap, setAvailabilityMap] = useState<Record<string, boolean>>({})
 
   const { isCustomHoliday, isLoading: holidaysLoading, error: holidaysError } = useCustomHolidays({ organizationId })
   const MAX_SELECTIONS = 100
 
   // 予約受付締切（公演日の何日前まで候補にできるか）。設定 > 予約設定の値
   const { days: minAdvanceDays, loading: deadlineLoading } = usePrivateBookingDeadlineState({ organizationId, scenarioId })
-
-  const {
-    loading,
-    scenarioTiming,
-    blockedSlots,
-    computeSlotsByDate,
-    isCandidateBlockedOnAllStores,
-  } = usePrivateBookingSlotData({
-    organizationId,
-    scenarioId,
-    storeIds,
-    isActive: isOpen && !holidaysLoading && !holidaysError,
-    isCustomHoliday,
-  })
 
   const { availableDates } = useMemo(() => {
     const dates: string[] = []
@@ -111,41 +98,29 @@ export function AddCandidateDates({
     return { availableDates: dates }
   }, [currentMonth, minAdvanceDays])
 
-  const slotsByDate = useMemo(
-    () => computeSlotsByDate(availableDates),
-    [computeSlotsByDate, availableDates]
-  )
+  // 空き判定は DB（保存と同じ判定）。画面では計算しない
+  const availabilityTarget = useMemo(() => (isOpen ? { kind: 'group' as const, groupId } : null), [isOpen, groupId])
+  const {
+    availability,
+    loading: availabilityLoading,
+    error: availabilityError,
+    reload: reloadAvailability,
+  } = useCandidateSlotAvailability(availabilityTarget, availableDates)
+  const loading = availabilityLoading
+  const storeHint = useScenarioStoreHint(isOpen ? organizationId : null, scenarioId, storeIds)
+
+  // 読み直した結果で選べなくなった枠は選択から外す（保存で弾かれる前に）
+  useEffect(() => {
+    if (loading) return
+    setSelectedSlots(prev => {
+      const next = prev.filter(({ date, slot }) => !availability.slotsByDate[date] || !availability.unavailableReasons[`${date}-${slot.label}`])
+      return next.length === prev.length ? prev : next
+    })
+  }, [loading, availability])
 
   const existingSlotKeys = useMemo(() => new Set(existingDates.filter(date => !date.withdrawn_at).map(
     date => `${date.date}-${privateGroupTimeSlotFromDb(date.time_slot)}`
   )), [existingDates])
-
-  // 保存済み候補と受付停止は、表示上も理由を分ける。
-  useEffect(() => {
-    if (!isOpen || !scenarioTiming) return
-
-    const newMap: Record<string, boolean> = {}
-    for (const date of availableDates) {
-      const daySlots = slotsByDate[date] || []
-      for (const slot of daySlots) {
-        const key = `${date}-${slot.label}`
-        const isAlreadySelected = existingSlotKeys.has(key)
-        newMap[key] =
-          !isAlreadySelected &&
-          !isCandidateBlockedOnAllStores(date, slot.label, storeIds)
-      }
-    }
-    setAvailabilityMap(newMap)
-  }, [
-    isOpen,
-    availableDates,
-    existingSlotKeys,
-    slotsByDate,
-    scenarioTiming,
-    storeIds,
-    blockedSlots,
-    isCandidateBlockedOnAllStores,
-  ])
 
   const handleMonthChange = (delta: number) => {
     setCurrentMonth(prev => {
@@ -247,6 +222,8 @@ export function AddCandidateDates({
       setIsOpen(false)
       onDatesAdded()
     } catch (err: unknown) {
+      // 弾かれた理由が分かるよう、空き状況を読み直す
+      reloadAvailability()
       logger.error('Failed to save candidate dates', err)
       const msg =
         err && typeof err === 'object' && 'message' in err
@@ -301,17 +278,19 @@ export function AddCandidateDates({
         </div>
 
         {holidaysError && <p role="alert" className="text-sm text-destructive">{holidaysError}</p>}
+        {availabilityError && <p role="alert" className="text-xs text-destructive">{availabilityError}</p>}
+        <ScenarioStoreHint hint={storeHint} compact />
         <PrivateBookingSlotGrid
           currentMonth={currentMonth}
           onMonthChange={handleMonthChange}
           isPrevMonthDisabled={isPrevDisabled}
           isNextMonthDisabled={isNextDisabled}
           availableDates={availableDates}
-          slotsByDate={slotsByDate}
+          slotsByDate={availability.slotsByDate}
           selectedSlots={selectedSlots}
           onSlotToggle={handleSlotToggle}
           maxSelections={MAX_SELECTIONS}
-          availabilityMap={availabilityMap}
+          unavailableReasons={availability.unavailableReasons}
           existingSlotKeys={existingSlotKeys}
           isCustomHoliday={isCustomHoliday}
           colorScheme="purple"
@@ -329,7 +308,7 @@ export function AddCandidateDates({
         />
 
         <p className="shrink-0 px-1 py-0.5 text-[9px] text-muted-foreground">
-          「追加済み」は保存済みの候補です。削除は候補日程の「削除」から行えます。灰色は受付停止などで選べない枠です。
+          「追加済み」は保存済みの候補です。削除は候補日程の「削除」から行えます。灰色は選べない枠です（押すと理由を表示）。
         </p>
 
         {selectedSlots.length > 0 && (

@@ -1,7 +1,8 @@
 import { useState, useCallback, useMemo } from 'react'
 import { showToast } from '@/utils/toast'
 import { usePrivateBookingStorePreference, useStoreFilterPreference } from '@/hooks/useUserPreference'
-import { usePrivateBookingSlotData } from '@/hooks/usePrivateBookingSlotData'
+import { useCandidateSlotAvailability } from '@/hooks/useCandidateSlotAvailability'
+import { availableSlotsForDate } from '@/lib/candidateSlotAvailability'
 import type { TimeSlot } from '../utils/types'
 import { useEffect } from 'react'
 
@@ -12,11 +13,12 @@ interface UsePrivateBookingProps {
   scenario?: any
   organizationSlug?: string
   organizationId?: string
+  /** 互換のため受け取る（空き判定は DB で行うため使わない） */
   isCustomHoliday?: (date: string) => boolean
   isActive?: boolean
 }
 
-export function usePrivateBooking({ stores, scenarioId, scenario, organizationId, isCustomHoliday, isActive = true }: UsePrivateBookingProps) {
+export function usePrivateBooking({ stores, scenarioId, scenario, organizationId, isActive = true }: UsePrivateBookingProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [savedStoreIds, setSavedStoreIds] = usePrivateBookingStorePreference()
   const [storeFilterIds] = useStoreFilterPreference([])
@@ -63,59 +65,6 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
 
   const scenarioMasterId = scenario?.scenario_master_id || scenario?.scenario_id || scenario?.id || scenarioId
 
-  const {
-    loading: isLoadingEvents,
-    canRevalidate,
-    computeSlotsByDate,
-    isCandidateBlockedOnAllStores,
-  } = usePrivateBookingSlotData({
-    organizationId: organizationId || '',
-    scenarioId: scenarioMasterId,
-    storeIds: selectedStoreIds,
-    isActive: isActive && !!organizationId,
-    isCustomHoliday: isCustomHoliday ?? (() => false),
-    privateBookingTimeSlots: scenario?.private_booking_time_slots,
-    scenarioTitle: scenario?.title,
-  })
-
-  const getTimeSlotsForDate = useCallback((date: string): TimeSlot[] => {
-    const result = computeSlotsByDate([date])
-    const slots = result[date] || []
-    return slots.map(s => ({ label: s.label, startTime: s.startTime, endTime: s.endTime }))
-  }, [computeSlotsByDate])
-
-  // 店舗・営業時間・作品期間の最新取得後に、選択済み候補を再検証する。
-  // 同じ店舗でも期間や利用可能な枠が変わったら、古い候補を送信させない。
-  useEffect(() => {
-    if (isLoadingEvents || !canRevalidate) return
-
-    setSelectedTimeSlots(prev => {
-      if (prev.length === 0) return prev
-      const updated = prev.map(ts => {
-        const slots = computeSlotsByDate([ts.date])[ts.date] || []
-        const match = slots.find(s => s.label === ts.slot.label)
-        if (!match) return null
-        return { ...ts, slot: { label: match.label, startTime: match.startTime, endTime: match.endTime } }
-      })
-      const filtered = updated.filter((ts): ts is NonNullable<typeof ts> => ts !== null)
-      const removedCount = prev.length - filtered.length
-      if (removedCount > 0) {
-        showToast.warning(`受付条件の変更により候補日時 ${removedCount}件 が選択不可になったため削除しました`)
-      }
-      return JSON.stringify(filtered) === JSON.stringify(prev) ? prev : filtered
-    })
-  }, [isLoadingEvents, canRevalidate, computeSlotsByDate])
-
-  const checkTimeSlotAvailability = useCallback(async (date: string, slot: TimeSlot, _storeIds?: string[]): Promise<boolean> => {
-    if (isLoadingEvents || !canRevalidate) return false
-    const result = computeSlotsByDate([date])
-    const slots = result[date] || []
-    return (
-      slots.some(s => s.label === slot.label) &&
-      !isCandidateBlockedOnAllStores(date, slot.label, _storeIds)
-    )
-  }, [isLoadingEvents, canRevalidate, computeSlotsByDate, isCandidateBlockedOnAllStores])
-
   const generatePrivateDates = useCallback(() => {
     const dates: string[] = []
     const year = currentMonth.getFullYear()
@@ -136,6 +85,53 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
 
     return dates
   }, [currentMonth])
+
+  // 表示中の月の日付（generatePrivateDates の結果を安定化）
+  const monthDates = useMemo(() => generatePrivateDates(), [generatePrivateDates])
+
+  // 空き判定は DB（グループの候補日保存と同じ判定）。画面では計算しない
+  const storeIdsKey = [...selectedStoreIds].sort().join(',')
+  const availabilityTarget = useMemo(() => (
+    isActive && organizationId && scenarioMasterId && storeIdsKey
+      ? { kind: 'scenario' as const, organizationId, scenarioId: scenarioMasterId, storeIds: storeIdsKey.split(',') }
+      : null
+  ), [isActive, organizationId, scenarioMasterId, storeIdsKey])
+  const {
+    availability: slotAvailability,
+    loading: isLoadingEvents,
+    ready: canRevalidate,
+  } = useCandidateSlotAvailability(availabilityTarget, monthDates)
+
+  const getTimeSlotsForDate = useCallback((date: string): TimeSlot[] => (
+    availableSlotsForDate(slotAvailability, date).map(s => ({ label: s.label, startTime: s.startTime, endTime: s.endTime }))
+  ), [slotAvailability])
+
+  // 空き状況の読み直し後に、表示中の月の選択済み候補を再検証する（時刻の更新・選べなくなった枠の削除）。
+  useEffect(() => {
+    if (isLoadingEvents || !canRevalidate) return
+
+    setSelectedTimeSlots(prev => {
+      if (prev.length === 0) return prev
+      const updated = prev.map(ts => {
+        if (!slotAvailability.slotsByDate[ts.date]) return ts
+        const match = availableSlotsForDate(slotAvailability, ts.date).find(s => s.label === ts.slot.label)
+        if (!match) return null
+        return { ...ts, slot: { label: match.label, startTime: match.startTime, endTime: match.endTime } }
+      })
+      const filtered = updated.filter((ts): ts is NonNullable<typeof ts> => ts !== null)
+      const removedCount = prev.length - filtered.length
+      if (removedCount > 0) {
+        showToast.warning(`受付条件の変更により候補日時 ${removedCount}件 が選択不可になったため削除しました`)
+      }
+      return JSON.stringify(filtered) === JSON.stringify(prev) ? prev : filtered
+    })
+  }, [isLoadingEvents, canRevalidate, slotAvailability])
+
+  /** 指定日の月を表示する（URL からの事前選択用） */
+  const showMonthOf = useCallback((date: string) => {
+    const [y, m] = date.split('-').map(Number)
+    setCurrentMonth(prev => (prev.getFullYear() === y && prev.getMonth() === m - 1 ? prev : new Date(y, m - 1, 1)))
+  }, [])
 
   const changeMonth = useCallback((offset: number) => {
     const newMonth = new Date(currentMonth)
@@ -195,10 +191,11 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     isNextMonthDisabled,
     isLoadingEvents,
     isAvailabilityReady: canRevalidate,
+    slotAvailability,
+    monthDates,
+    showMonthOf,
     setSelectedStoreIds,
     setSelectedTimeSlots,
-    checkTimeSlotAvailability,
-    generatePrivateDates,
     changeMonth,
     toggleTimeSlot,
     getTimeSlotsForDate
