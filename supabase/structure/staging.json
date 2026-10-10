@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-10T03:22:50.099Z",
+  "captured_at": "2026-10-10T03:28:48.950Z",
   "table_count": 152,
   "function_count": 404,
-  "digest": "1652e9e6668f99d6bcae7abb75a6c3f90692e569acc4fa8dcc53204a5d00b629"
+  "digest": "b528be97f51180a3e5638ab90c125a2e0712d172e73cddd85fb3d23e4a59c18c"
  },
  "tables": {
   "staff": {
@@ -26439,7 +26439,8 @@
   },
   "private_group_message_is_system(p_message text)": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "boolean",
    "body_md5": "7d4a763d29549cf7f6ee4febc5d0f8d5",
@@ -26608,7 +26609,8 @@
   },
   "private_group_member_display_name(p_member_id uuid)": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "text",
    "body_md5": "8f2d75aa95fded898fcf4388c9de3087",

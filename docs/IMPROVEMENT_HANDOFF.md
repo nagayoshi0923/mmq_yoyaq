@@ -6,7 +6,7 @@
 - 「未回答の人に知らせる」は主催者だけ、灰色の 1 行（system: date_answer_reminder）に直した。
 - ⋮ メニュー: メンバー・招待リンク／写真の一覧／ピン留めの一覧／操作。
 - 写真: 非公開バケット private-group-photos（Storage ポリシー無し）。表示とアップロード先は /api/private-group-photos が参加者本人を RPC で確かめてから署名付き URL（1 時間）で出す。スタッフ・未参加者は 403 を手元で確認。
-- DB: migration 20261010100000（staging 適用済み・本番未適用）。structure（staging.json・期待構造）を更新。
+- DB: migration 20261010100000・20261010100100（補助関数の権限をそろえる）（staging 適用済み・本番未適用）。structure（staging.json・期待構造）を更新。
 - 既知（本件の範囲外）: ゲストで global_settings の読み取りが 401、会員で scenarioApi.getById が 400 の記録がコンソールに出る（段階 1 以前から）。
 
 ## 2026-10-10 / 貸切グループページ刷新 段階 1 骨格と日程の回答表（feat/group-page-phase1、#1013 staging 取り込み済み）
