@@ -1,86 +1,102 @@
 /**
- * 概要タブ: 作品の写真・作品名・人数・所要時間、希望店舗、申込内容（返事待ち・確定後は BookingSummaryBox）、注意事項への導線。
+ * 概要タブ（刷新 2026-10-11、見本 GroupOverview.dc.html）。上から
+ * 作品について → 登場人物 → 日程と場所 → 参加メンバー → 料金 → 店舗とのやりとり → 注意事項とキャンセル規定。
+ * 作品の情報は作品ページと同じ公開用の読み取り（useGroupScenarioInfo）。希望店舗は「日程と場所」の 1 か所だけに出す。
  */
 import type { ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
 import type { PrivateGroup } from '@/types'
+import type { PrivateGroupLinkedReservation } from '@/lib/privateGroupRead'
+import type { PrivateBookingPhase } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingMenu'
+import type { AnswerTable } from './groupPageModel'
+import type { GroupScenarioData } from './useGroupScenarioInfo'
+import { findStoreByName, priceSummary, publicCharacters } from './overviewModel'
+import { ScenarioAboutSection } from './overview/ScenarioAboutSection'
+import { CharactersSection } from './overview/CharactersSection'
+import { ScheduleVenueSection } from './overview/ScheduleVenueSection'
+import { MembersSummarySection } from './overview/MembersSummarySection'
+import { PriceSection } from './overview/PriceSection'
+import { NoticeSection } from './overview/NoticeSection'
+import { OverviewSection } from './overview/OverviewSection'
 
 interface GroupOverviewTabProps {
   group: PrivateGroup
   title: string
   imageUrl: string | null
-  memberCount: number
   playerRange: { min: number | null; max: number | null }
-  preferredStoreNames: string[]
-  /** 申込内容の箱（申込前は何も出ない） */
+  scenarioData: GroupScenarioData | undefined
+  scenarioUrl: string | null
+  table: AnswerTable
+  phase: PrivateBookingPhase
+  inviteCap: number | null
+  preferredStores: Array<{ id: string; name: string }>
+  linkedReservation: PrivateGroupLinkedReservation | null
+  /** 申込内容（BookingSummaryBox の embedded。申込前は null） */
   bookingSummary: ReactNode
-  onOpenScenario?: () => void
+  copied: boolean
+  onCopyInvite: () => void
+  onEditStore: (() => void) | null
+  onGoDates: () => void
+  onGoMembers: () => void
+  onInquiry: () => void
+  isCustomHoliday?: (date: string) => boolean
 }
 
-function durationText(minutes: number | null): string | null {
-  if (!minutes || minutes <= 0) return null
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  return h > 0 ? `約 ${h} 時間${m ? ` ${m} 分` : ''}` : `約 ${m} 分`
-}
-
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex gap-3 py-1.5 border-b border-border last:border-b-0">
-      <dt className="w-20 shrink-0 text-xs text-muted-foreground">{label}</dt>
-      <dd className="flex-1 min-w-0 text-sm">{children}</dd>
-    </div>
-  )
-}
-
-export function GroupOverviewTab({ group, title, imageUrl, memberCount, playerRange, preferredStoreNames, bookingSummary, onOpenScenario }: GroupOverviewTabProps) {
-  const { data: extras } = useQuery({
-    queryKey: ['group-page-overview', group.scenario_master_id, group.organization_id],
-    enabled: Boolean(group.organization_id),
-    staleTime: 5 * 60 * 1000,
-    queryFn: () => privateGroupPageReadApi.findGroupOverviewExtras(group.scenario_master_id, group.organization_id),
+export function GroupOverviewTab(props: GroupOverviewTabProps) {
+  const {
+    group, title, imageUrl, playerRange, scenarioData, scenarioUrl, table, phase, inviteCap, preferredStores, linkedReservation,
+    bookingSummary, copied, onCopyInvite, onEditStore, onGoDates, onGoMembers, onInquiry, isCustomHoliday,
+  } = props
+  const info = scenarioData?.scenario ?? null
+  const confirmed = group.confirmed_performance
+  const venue = phase === 'confirmed' ? findStoreByName(scenarioData?.stores ?? [], confirmed?.store_name) : null
+  const people = info?.playerMax ?? playerRange.max
+  const candidates = phase === 'requested'
+    ? (linkedReservation?.candidates ?? []).filter(c => c.date).map(c => ({ date: c.date as string, startTime: c.startTime ?? '' }))
+    : table.rows.filter(r => !r.rejected).map(r => ({ date: r.date, startTime: r.startTime }))
+  const price = priceSummary({
+    phase,
+    fee: info?.participationFee ?? null,
+    costs: info?.participationCosts ?? [],
+    people,
+    candidates,
+    confirmed: confirmed?.date ? { date: confirmed.date, startTime: confirmed.start_time ?? '' } : null,
+    savedPerPerson: group.per_person_price ?? null,
+    savedTotal: group.total_price ?? null,
+    isCustomHoliday,
   })
-  const range = playerRange.min && playerRange.max
-    ? playerRange.min === playerRange.max ? `${playerRange.min}名で遊ぶ作品` : `${playerRange.min}〜${playerRange.max}名で遊ぶ作品`
-    : null
-  const duration = durationText(extras?.duration ?? null)
-  const slug = extras?.slug ?? null
+  // キャンセルポリシーは店舗ごと。確定した店舗、または希望店舗が 1 つならその店舗
+  const policyStoreId = venue?.id ?? (preferredStores.length === 1 ? preferredStores[0].id : null)
 
   return (
-    <div className="flex flex-col gap-3">
-      <section className="bg-card border border-border rounded-lg p-3 flex gap-3" aria-label="作品">
-        {imageUrl ? (
-          <img src={imageUrl} alt="" className="w-20 h-28 shrink-0 rounded-md object-cover bg-muted cursor-pointer" onClick={onOpenScenario} />
-        ) : (
-          <div className="w-20 h-28 shrink-0 rounded-md bg-muted" aria-hidden="true" />
-        )}
-        <div className="min-w-0 flex-1">
-          <h2 className="text-base font-bold leading-tight cursor-pointer hover:text-primary" onClick={onOpenScenario}>{title}</h2>
-          {group.name && <p className="mt-0.5 text-xs text-muted-foreground">{group.name}</p>}
-          <dl className="mt-2">
-            <Row label="参加">{memberCount}名{range ? `（${range}）` : ''}</Row>
-            {duration && <Row label="所要時間">{duration}</Row>}
-            <Row label="希望店舗">{preferredStoreNames.length > 0 ? preferredStoreNames.join('・') : '未設定'}</Row>
-          </dl>
-        </div>
-      </section>
-
-      {bookingSummary}
-
-      <section className="bg-card border border-border rounded-lg p-3" aria-label="注意事項">
-        <h2 className="mb-1 text-sm font-bold">注意事項</h2>
-        <p className="text-sm text-foreground/80 leading-snug">
-          当日は参加人数全員でお越しください。キャンセル料の決まりは店舗ごとに異なります。
-        </p>
-        {slug && (
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-            <Link to={`/${slug}/cancel-policy`} className="text-violet-700 hover:underline">キャンセルポリシー ›</Link>
-            <Link to={`/${slug}/faq`} className="text-violet-700 hover:underline">よくある質問 ›</Link>
-          </div>
-        )}
-      </section>
+    <div className="flex flex-col gap-3" data-testid="group-overview-tab">
+      <ScenarioAboutSection title={title} imageUrl={imageUrl} playerRange={playerRange} info={info} scenarioUrl={scenarioUrl} />
+      <CharactersSection characters={publicCharacters(info ? info.characters : group.scenario_masters?.characters)} />
+      <ScheduleVenueSection
+        phase={phase}
+        table={table}
+        preferredStoreNames={preferredStores.map(s => s.name)}
+        linkedReservation={linkedReservation}
+        confirmed={confirmed}
+        venueAddress={venue?.address ?? null}
+        onEditStore={phase === 'pre_request' ? onEditStore : null}
+        onGoDates={onGoDates}
+      />
+      <MembersSummarySection table={table} inviteCap={inviteCap} copied={copied} onCopyInvite={onCopyInvite} onGoMembers={onGoMembers} />
+      <PriceSection price={price} phase={phase} />
+      <OverviewSection label="店舗とのやりとり" testId="overview-booking" title="店舗とのやりとり">
+        {phase === 'pre_request' ? (
+          <p className="text-sm text-muted-foreground leading-snug">
+            まだ店舗へ申し込んでいません。日程が決まったら、主催者が「この日で申し込む」から申し込めます。申込後はここに申込日・店舗の返事・予約番号を出します。
+          </p>
+        ) : bookingSummary}
+      </OverviewSection>
+      <NoticeSection
+        orgSlug={scenarioData?.orgSlug ?? null}
+        scenarioMasterId={group.scenario_master_id}
+        storeId={policyStoreId}
+        hasPreReading={info?.hasPreReading ?? false}
+        onInquiry={onInquiry}
+      />
     </div>
   )
 }

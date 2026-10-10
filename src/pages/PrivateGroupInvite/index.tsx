@@ -580,6 +580,7 @@ export function PrivateGroupInvite() {
       confirmedPerformance={group.confirmed_performance}
       isOrganizer={Boolean(isOrganizer)}
       actions={bookingActions}
+      embedded
     />
   )
   // 配役方法が未選択かつキャラクターが存在する場合
@@ -672,7 +673,7 @@ export function PrivateGroupInvite() {
           bookingPhase={bookingPhase}
           canMutateSchedule={canMutateScheduleBeforeStoreReply}
           survey={effectiveSurvey}
-          preferredStoreNames={preferredStoreNames.map(s => s.name)}
+          preferredStores={preferredStoreNames}
           copied={copied}
           tabParam={tabParam === 'survey' ? null : tabParam}
           dateEditorOpen={activeSheet === 'dates' && Boolean(isOrganizer) && canMutateScheduleBeforeStoreReply}
@@ -695,6 +696,7 @@ export function PrivateGroupInvite() {
           refetch={refetch}
           submitDateResponses={submitDateResponses}
           formatDateJaMd={formatDateJaMd}
+          isCustomHoliday={isCustomHoliday}
         />
 
         {/* シート（グループ設定・希望店舗の編集・予約申請） */}

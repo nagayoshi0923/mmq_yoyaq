@@ -5,6 +5,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { ImageIcon, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import type { GroupPhoto, GroupAfterInfo } from '@/lib/privateGroupChat'
 import { formatChatDate } from '@/pages/PrivateGroupManage/components/groupChatMessages'
@@ -31,6 +32,8 @@ interface GroupMemoriesTabProps {
   onRegisterAlbum: () => void
   onOpenFeedback: () => void
   onOpenScenario?: () => void
+  /** 作品ページの URL（「作品ページを見る ›」） */
+  scenarioUrl?: string | null
 }
 
 function Section({ title, aside, children, label }: { title: ReactNode; aside?: ReactNode; children: ReactNode; label: string }) {
@@ -46,7 +49,7 @@ function Section({ title, aside, children, label }: { title: ReactNode; aside?: 
 }
 
 export function GroupMemoriesTab(props: GroupMemoriesTabProps) {
-  const { title, imageUrl, photos, photosFailed, myMemberId, nameOf, sending, onShare, onDeleteMessage, after, memberCount, albumState, registering, onRegisterAlbum, onOpenFeedback, onOpenScenario } = props
+  const { title, imageUrl, photos, photosFailed, myMemberId, nameOf, sending, onShare, onDeleteMessage, after, memberCount, albumState, registering, onRegisterAlbum, onOpenFeedback, onOpenScenario, scenarioUrl } = props
   const [viewing, setViewing] = useState<number | null>(null)
   const [saving, setSaving] = useState<number | null>(null)
   const perf = after?.performance ?? null
@@ -107,7 +110,11 @@ export function GroupMemoriesTab(props: GroupMemoriesTabProps) {
         )}
       </Section>
 
-      <Section label="公演の記録" title="公演の記録">
+      <Section
+        label="公演の記録"
+        title="公演の記録"
+        aside={scenarioUrl ? <Link to={scenarioUrl} className="text-xs font-normal text-violet-700 hover:underline" data-testid="memories-open-scenario">作品ページを見る ›</Link> : null}
+      >
         <div className="flex gap-3">
           {imageUrl && <img src={imageUrl} alt="" className="w-16 h-[5.5rem] shrink-0 rounded-md object-cover bg-muted cursor-pointer" onClick={onOpenScenario} />}
           <dl className="flex-1 min-w-0 text-sm grid grid-cols-[4.5rem_1fr] gap-x-2 gap-y-1">

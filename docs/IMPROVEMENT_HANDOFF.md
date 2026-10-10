@@ -1,3 +1,13 @@
+## 2026-10-11 / グループページの概要タブを刷新（作品情報・登場人物・日程と場所・料金・やりとり）（feat/group-page-scenario-info、staging 向け PR・未取り込み）
+
+- 社長要望: グループページで作品の情報・キャラクター・作品ページへの導線が分かるように。あわせて概要タブを 作品について → 登場人物 → 日程と場所 → 参加メンバー → 料金 → 店舗とのやりとり → 注意事項とキャンセル規定 の並びに組み直した（見本 GroupOverview.dc.html）。詳細は方針書 `docs/product-spec/グループページ刷新_2026-10.md` の「段階 5」。
+- 作品の情報とキャラクターは作品ページと同じ公開用の読み取り（/api/scenarios?id&org_id、お客様・ゲスト・未ログインは公開用の列だけ）。キャラクターの正は organization_scenarios.characters。`public.scenario_characters` は staging で 0 行・会員だけ読める・秘密の列を持つ古い表なので使わない。RLS・DB は変更なし。
+- 希望店舗は「日程と場所」の 1 か所だけ（点検 44 番）。BookingSummaryBox に embedded（日時・会場・候補日・希望店舗を省く）を追加。料金は貸切申込の画面と同じ計算（calculatePrivateCandidateFees × 定員）。注意事項は BookingNotice を流用、「店舗に問い合わせる」は既存の問い合わせダイアログ。
+- 作品ページへの導線は組織の slug 付き（/{slug}/scenario/{作品}）に統一（見出しの作品名・概要・思い出タブの「公演の記録」）。招待ページ（参加前）にも「作品について」の短い版（点検 51 番の一部）。
+- 共有にした部品: `src/components/scenario/scenarioFacts.ts`（人数・所要時間・難易度・キャラクター画像の位置。作品ページも使う）、`SensitivityCheck` を作品ページから移動。`privateGroupPageReadApi.findGroupOverviewExtras` は `findOrganizationSlug` に置き換え。
+- 見本との差: 配慮が必要な表現の項目名は出さない（作品ページと同じネタバレ防止）。ギャラリー画像は公開用のビューに列が無いため出さない。難易度は作品ページでは非表示だがここでは出す。
+- 確認: 手元 DB だけに試験データ（キャラクター・あらすじ等）を入れ、375px で申込前・返事待ち・確定後の概要タブ・登場人物・未ログインの招待ページを確認（作業メモの `shots/g5_*.png`）。
+
 ## 2026-10-11 / 新しい版はお知らせを出さずに自動で切り替え・チャット入力欄がスマホで切れる（fix/silent-update-and-chat-input、staging 向け PR・未取り込み）
 
 - 社長指示: 「新しいバージョンが利用可能です」のお知らせ（スマホで 1 文字ずつ縦に潰れる、点検 4 番）をやめ、自動で新しい版に切り替える。
