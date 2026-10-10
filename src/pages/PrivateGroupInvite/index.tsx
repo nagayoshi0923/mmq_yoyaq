@@ -19,7 +19,7 @@ import { memberInvitationCap } from '@/lib/privateGroupPlayerCap'
 import { GroupChatSheets } from './components/GroupChatSheets'
 import { GroupInviteView } from './components/GroupInviteView'
 import { SurveyScreen } from './components/SurveyScreen'
-import { canMutateScheduleBeforeStoreReply as canMutateScheduleRule } from '@/components/patterns/privateGroup/privateGroupScheduleRules'
+import { canMutateScheduleBeforeStoreReply as canMutateScheduleRule, privateGroupProgress } from '@/components/patterns/privateGroup/privateGroupScheduleRules'
 import { InviteCancelledScreen, InviteJoinSuccessScreen, InviteLoadingScreen, InviteNotFoundScreen } from './components/InviteStatusScreens'
 import { getJstParts } from '@/utils/jstDate'
 import { getErrorMessage } from '@/lib/errorFields'
@@ -441,7 +441,7 @@ export function PrivateGroupInvite() {
   }
 
   if (groupError || !group) {
-    return <InviteNotFoundScreen errorMessage={groupError} onBackToTop={() => navigate('/')} />
+    return <InviteNotFoundScreen onBackToTop={() => navigate('/')} />
   }
 
   if (group.status === 'cancelled') {
@@ -454,6 +454,8 @@ export function PrivateGroupInvite() {
         generatedPin={generatedPin}
         isNewMember={joinedAsNewMember}
         guestEmail={guestEmail}
+        progress={privateGroupProgress(group, linkedReservationStatus)}
+        isMember={Boolean(user)}
         onViewGroup={() => {
           setSuccess(false)
           refetch()

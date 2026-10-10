@@ -392,7 +392,7 @@ export function BookingConfirmation({
                     )}
                     <div className="flex justify-between border-t pt-2 mt-2">
                       <span className="text-muted-foreground">合計金額</span>
-                      <span className="font-bold">{formatPrice(completedReservation.totalPrice)}</span>
+                      <span className="font-bold">¥{formatPrice(completedReservation.totalPrice)}</span>
                     </div>
                   </div>
                 </div>

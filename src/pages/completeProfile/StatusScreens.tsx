@@ -9,8 +9,9 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
+import { successRedirectMessage, type SuccessDestination } from './successRedirect'
 
-export function SuccessScreen({ navigate }: { navigate: NavigateFunction }) {
+export function SuccessScreen({ navigate, destination }: { navigate: NavigateFunction; destination: SuccessDestination }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
       <Card className="w-full max-w-md">
@@ -21,14 +22,14 @@ export function SuccessScreen({ navigate }: { navigate: NavigateFunction }) {
             アカウントの設定が完了しました。
           </p>
           <p className="text-sm text-gray-500">
-            3秒後にトップページに移動します...
+            {successRedirectMessage(destination.kind)}
           </p>
           <Button 
-            onClick={() => navigate('/', { replace: true })}
+            onClick={() => navigate(destination.url, { replace: true })}
             className="w-full"
             style={{ backgroundColor: THEME.primary }}
           >
-            今すぐトップページへ
+            今すぐ移動する
           </Button>
         </CardContent>
       </Card>

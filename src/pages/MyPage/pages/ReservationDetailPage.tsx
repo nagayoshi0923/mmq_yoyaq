@@ -45,7 +45,7 @@ export function ReservationDetailPage() {
   const canCancelByPolicy = data?.canCancelByPolicy ?? false
 
   const maxParticipants = reservation?.schedule_events?.max_participants ?? scenario?.player_count_max ?? 4
-  const { data: remainingSeats = 0 } = useCurrentSeatsQuery(
+  const { data: maxSelectableCount = 0 } = useCurrentSeatsQuery(
     reservation?.schedule_event_id ?? undefined,
     reservation?.participant_count ?? 0,
     maxParticipants,
@@ -471,7 +471,7 @@ export function ReservationDetailPage() {
           <DialogHeader>
             <DialogTitle>参加人数を変更</DialogTitle>
             <DialogDescription>
-              変更後の参加人数を選択してください。（残席: {remainingSeats}名）
+              変更後の参加人数を選択してください。最大{maxSelectableCount}名まで変更できます{reservation ? `（いまの予約は${reservation.participant_count}名）` : ''}。
               {!canDecrease && reservation && <span className="block text-amber-600 mt-1">※キャンセル期限を過ぎているため、人数の追加のみ可能です</span>}
             </DialogDescription>
           </DialogHeader>
@@ -479,7 +479,7 @@ export function ReservationDetailPage() {
             <Select value={String(editParticipantCount)} onValueChange={(val) => setEditParticipantCount(Number(val))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Array.from({ length: remainingSeats }, (_, i) => i + 1)
+                {Array.from({ length: maxSelectableCount }, (_, i) => i + 1)
                   .filter((num) => canDecrease || num >= (reservation?.participant_count || 1))
                   .map((num) => <SelectItem key={num} value={String(num)}>{num}名</SelectItem>)}
               </SelectContent>
