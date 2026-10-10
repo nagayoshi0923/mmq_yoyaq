@@ -32,6 +32,9 @@ export interface PrivateGroup {
   character_assignments?: Record<string, string> | null
   created_at: string
   updated_at: string
+  /** 確定時に保存した料金（private_group_read_snapshot が返す。未確定は null） */
+  total_price?: number | null
+  per_person_price?: number | null
   // JOIN時の拡張フィールド
   scenario_masters?: {
     id: string
@@ -52,6 +55,7 @@ export interface PrivateGroup {
       description?: string
       image_url?: string
       sort_order?: number
+      is_npc?: boolean
     }>
   } | null
   organizer?: { id: string; email: string; nickname?: string } | null

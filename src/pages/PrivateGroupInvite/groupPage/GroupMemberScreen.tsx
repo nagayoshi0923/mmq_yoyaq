@@ -4,11 +4,9 @@
  * 公演後（段階 4）は 思い出／メンバー／チャット のタブと「開催しました」の箱になる。
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import type { NavigateFunction } from 'react-router-dom'
 import { deleteGroupMessage, privateGroupChatAction } from '@/lib/privateGroupChat'
-import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
 import { saveNextGroupSource } from '@/lib/nextPrivateGroup'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import { getErrorMessage } from '@/lib/errorFields'
@@ -34,6 +32,8 @@ import { buildAnswerTable, buildGroupStatus, defaultGroupTab, groupTabsFor, isPe
 import { GroupMemoriesTab } from './GroupMemoriesTab'
 import { GroupFeedbackDialog } from './GroupFeedbackDialog'
 import { useGroupMemories } from './useGroupMemories'
+import { useGroupScenarioInfo } from './useGroupScenarioInfo'
+import { scenarioPageUrl } from './overviewModel'
 import { GroupHeaderMenu } from './GroupHeaderMenu'
 import { GroupPhotosSheet, GroupPinsSheet } from './GroupChatListSheets'
 import { ChatVisibleContext } from '@/pages/PrivateGroupManage/components/chat/chatVisibility'
@@ -59,7 +59,8 @@ interface GroupMemberScreenProps {
   bookingPhase: PrivateBookingPhase
   canMutateSchedule: boolean
   survey: { survey_enabled?: boolean; survey_url?: string | null; questions?: unknown[]; existing_response_id?: string | null; survey_deadline_at?: string | null } | undefined
-  preferredStoreNames: string[]
+  /** 希望店舗（id と名前） */
+  preferredStores: Array<{ id: string; name: string }>
   copied: boolean
   /** ?tab= の値（無い・分からないときは null） */
   tabParam: GroupTab | null
@@ -86,14 +87,16 @@ interface GroupMemberScreenProps {
   refetch: () => unknown
   submitDateResponses: (groupId: string, memberId: string, responses: Array<{ candidateDateId: string; response: DateResponse }>) => Promise<void>
   formatDateJaMd: (dateStr: string) => string
+  isCustomHoliday?: (date: string) => boolean
 }
 
 export function GroupMemberScreen(props: GroupMemberScreenProps) {
   const {
     group, scenario, playerRange, isLoggedIn, userId, reservationStatus, existingMemberId, isOrganizer, organizerName, memberCount, inviteMemberCap, linkedReservation, handover,
-    bookingPhase, canMutateSchedule, survey, preferredStoreNames, copied, tabParam, dateEditorOpen, chatMessages, chatState, listSheet, setListSheet, bookingActions, bookingSummary, chat,
-    navigate, setTab, openSheet, closeSheet, openBooking, openStoreEdit, copyInvite, shareLine, getInviteUrl, refetch, submitDateResponses, formatDateJaMd,
+    bookingPhase, canMutateSchedule, survey, preferredStores, copied, tabParam, dateEditorOpen, chatMessages, chatState, listSheet, setListSheet, bookingActions, bookingSummary, chat,
+    navigate, setTab, openSheet, closeSheet, openBooking, openStoreEdit, copyInvite, shareLine, getInviteUrl, refetch, submitDateResponses, formatDateJaMd, isCustomHoliday,
   } = props
+  const preferredStoreNames = useMemo(() => preferredStores.map(s => s.name), [preferredStores])
 
   const table = useMemo(() => buildAnswerTable(group, existingMemberId), [group, existingMemberId])
   // 公演後か（終了時刻を過ぎた・完了扱い）。開いたままでも 1 分ごとに見直す
@@ -128,12 +131,10 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
   const photoInput = useRef<HTMLInputElement>(null)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ messageId: string; count: number } | null>(null)
-  const { data: extras } = useQuery({
-    queryKey: ['group-page-overview', group.scenario_master_id, group.organization_id],
-    enabled: ended && Boolean(group.organization_id),
-    staleTime: 5 * 60 * 1000,
-    queryFn: () => privateGroupPageReadApi.findGroupOverviewExtras(group.scenario_master_id, group.organization_id),
-  })
+  // 作品の公開情報・組織の slug・店舗の住所（概要タブ・作品ページへの導線・次の貸切）
+  const { data: scenarioData } = useGroupScenarioInfo(group.scenario_master_id, group.organization_id)
+  const orgSlug = scenarioData?.orgSlug ?? null
+  const scenarioUrl = scenarioPageUrl(orgSlug, scenarioData?.scenario?.slug ?? scenario?.slug, group.scenario_master_id ?? scenario?.id)
   const nameOf = (memberId: string | null) => group.members?.find(m => m.id === memberId)?.guest_name || (memberId ? 'メンバー' : '退出したメンバー')
 
   const status = useMemo(() => buildGroupStatus({
@@ -162,7 +163,7 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
   // 同じメンバーで次の貸切: もとのグループを覚えて作品選択へ。グループを作ったら招待がこのチャットに流れる
   const startNextGroup = () => {
     saveNextGroupSource({ groupId: group.id, memberId: existingMemberId, organizationId: group.organization_id, title, memberCount: Math.max(0, memberCount - 1) })
-    navigate(extras?.slug ? `/${extras.slug}/catalog` : '/catalog')
+    navigate(orgSlug ? `/${orgSlug}/catalog` : '/catalog')
   }
 
   const confirmDeletePhotos = async () => {
@@ -248,7 +249,7 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
     window.setTimeout(() => jumpToMessage(messageId), 250)
   }
 
-  const openScenario = scenario ? () => navigate(`/scenario/${scenario.slug || scenario.id}`) : undefined
+  const openScenario = scenarioUrl ? () => navigate(scenarioUrl) : undefined
   const subtitle = ended && group.confirmed_performance
     ? `${formatJstMonthDay(group.confirmed_performance.date, true)} 開催済み・参加 ${memories.after?.performance?.participant_count ?? memberCount}名`
     : `貸切・参加 ${memberCount}${inviteMemberCap ? `/${inviteMemberCap}` : ''}名・${isOrganizer ? 'あなたが主催' : `${organizerName}さんが主催`}`
@@ -323,18 +324,30 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
             onRegisterAlbum={() => { if (memories.after?.performance) void memories.registerAlbum(memories.after.performance) }}
             onOpenFeedback={() => setFeedbackOpen(true)}
             onOpenScenario={openScenario}
+            scenarioUrl={scenarioUrl}
           />
         ) : null,
         overview: (
           <GroupOverviewTab
             group={group}
-            title={scenario?.title || '貸切グループ'}
+            title={title}
             imageUrl={scenario?.key_visual_url ?? null}
-            memberCount={memberCount}
             playerRange={playerRange}
-            preferredStoreNames={preferredStoreNames}
+            scenarioData={scenarioData}
+            scenarioUrl={scenarioUrl}
+            table={table}
+            phase={bookingPhase}
+            inviteCap={inviteMemberCap}
+            preferredStores={preferredStores}
+            linkedReservation={linkedReservation}
             bookingSummary={bookingSummary}
-            onOpenScenario={openScenario}
+            copied={copied}
+            onCopyInvite={() => void copyInvite()}
+            onEditStore={isOrganizer && canMutateSchedule ? openStoreEdit : null}
+            onGoDates={() => setTab('dates')}
+            onGoMembers={() => setTab('members')}
+            onInquiry={bookingActions.openInquiry}
+            isCustomHoliday={isCustomHoliday}
           />
         ),
         dates: (

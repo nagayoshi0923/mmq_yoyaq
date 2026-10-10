@@ -22,6 +22,9 @@ import type { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInvit
 import type { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import type { useAuth } from '@/contexts/AuthContext'
 import { leaveStoreNotice, privateBookingPhase } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingMenu'
+import { ScenarioAboutSection } from '../groupPage/overview/ScenarioAboutSection'
+import { useGroupScenarioInfo } from '../groupPage/useGroupScenarioInfo'
+import { scenarioPageUrl } from '../groupPage/overviewModel'
 
 type GroupType = NonNullable<ReturnType<typeof usePrivateGroupByInviteCode>['group']>
 interface Coupon {
@@ -96,6 +99,8 @@ export function GroupInviteView({
 }: GroupInviteViewProps) {
   // 確認ダイアログ（グループから退出）
   const [showLeaveGroupConfirm, setShowLeaveGroupConfirm] = useState(false)
+  // 作品の公開情報（作品ページと同じ読み取り。招待リンクだけの人・未ログインも読める）
+  const { data: scenarioData } = useGroupScenarioInfo(group.scenario_master_id, group.organization_id)
 
   const handleConfirmLeaveGroup = async () => {
     try {
@@ -175,43 +180,27 @@ export function GroupInviteView({
           </Card>
         )}
 
-        {/* シナリオ情報 */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex gap-4">
-              {scenario?.key_visual_url && (
-                <img
-                  src={scenario.key_visual_url}
-                  alt={scenario.title || ''}
-                  className="w-20 h-28 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => scenario && navigate(`/scenario/${scenario.slug || scenario.id}`)}
-                />
-              )}
-              <div className="flex-1">
-                <h2 
-                  className="text-base font-medium cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => scenario && navigate(`/scenario/${scenario.slug || scenario.id}`)}
-                >
-                  {scenario?.title || 'シナリオ'}
-                </h2>
-                {group.name && (
-                  <p className="text-sm text-muted-foreground mt-1">{group.name}</p>
-                )}
-                <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Users className="w-4 h-4" />
-                    <span>
-                      {memberCount}/{inviteMemberCap ?? '?'}名
-                    </span>
-                  </div>
-                </div>
-                <Badge variant="outline" className="mt-2 bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                  貸切リクエスト
-                </Badge>
+        {/* 作品について（短い版。参加前に何に参加するのかが分かるように。点検 51 番の一部） */}
+        <div className="mb-6">
+          <ScenarioAboutSection
+            compact
+            title={scenario?.title || 'シナリオ'}
+            imageUrl={scenario?.key_visual_url ?? null}
+            playerRange={{
+              min: scenario?.effective_player_count_min ?? scenario?.player_count_min ?? null,
+              max: scenario?.effective_player_count_max ?? scenario?.player_count_max ?? null,
+            }}
+            info={scenarioData?.scenario ?? null}
+            scenarioUrl={scenarioPageUrl(scenarioData?.orgSlug, scenarioData?.scenario?.slug ?? scenario?.slug, group.scenario_master_id ?? scenario?.id)}
+            extra={(
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                {group.name && <span>{group.name}</span>}
+                <span className="inline-flex items-center gap-1"><Users className="w-3.5 h-3.5" aria-hidden="true" />参加 {memberCount}/{inviteMemberCap ?? '?'}名</span>
+                <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">貸切リクエスト</Badge>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            )}
+          />
+        </div>
 
         {error && (
           <Card className="mb-4 border-2 border-red-200 bg-red-50">
