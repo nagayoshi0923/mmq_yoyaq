@@ -2,6 +2,7 @@
  * 「いまの状態」の箱（ヘッダー直下に固定）。マイページの貸切カードと同じ見た目の決まり
  * （チップ型ラベル＝次にやること、本文、主ボタン、副ボタン）。チャットタブでは 1 行版にする。
  */
+import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { PRIVATE_BOOKING_TONE } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingTone'
 import type { GroupStatusView, StatusAction } from './groupPageModel'
@@ -12,9 +13,11 @@ interface GroupStatusBoxProps {
   /** チャットタブ用の 1 行版。押すと日程（または概要）へ */
   compact?: boolean
   onOpenDetail?: () => void
+  /** 主ボタンの下に横並びで出す追加のボタン（確定後の「カレンダーに登録」「地図を開く」） */
+  extra?: ReactNode
 }
 
-export function GroupStatusBox({ view, onAction, compact = false, onOpenDetail }: GroupStatusBoxProps) {
+export function GroupStatusBox({ view, onAction, compact = false, onOpenDetail, extra }: GroupStatusBoxProps) {
   const tone = PRIVATE_BOOKING_TONE[view.tone]
   if (compact) {
     return (
@@ -39,7 +42,7 @@ export function GroupStatusBox({ view, onAction, compact = false, onOpenDetail }
       </div>
       <div className="p-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
         <p className="text-sm text-foreground leading-snug lg:flex-1" data-testid="group-status-body">{view.body}</p>
-        {(view.primary || view.secondary.length > 0) && (
+        {(view.primary || view.secondary.length > 0 || extra) && (
           <div className="flex flex-col gap-2 lg:flex-row lg:shrink-0">
             {view.primary && (
               <Button
@@ -66,6 +69,7 @@ export function GroupStatusBox({ view, onAction, compact = false, onOpenDetail }
                 ))}
               </div>
             )}
+            {extra}
           </div>
         )}
       </div>

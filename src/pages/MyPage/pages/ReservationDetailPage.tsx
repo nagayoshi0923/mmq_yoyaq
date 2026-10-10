@@ -24,6 +24,8 @@ import { toJstYmd, formatJstTime, formatJstDateJa, formatJstDateTime } from '@/u
 import { DEFAULT_OPEN_CANCEL_DEADLINE_HOURS } from '@/constants/cancellationPolicyDefaults'
 import { formatPolicyHours } from '@/lib/publicCancellationPolicy'
 import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
+import { ScheduleActions, absolutePageUrl } from '@/components/patterns/schedule'
+import { mapSearchUrl, type CalendarEventInput } from '@/lib/calendarEvent'
 
 export function ReservationDetailPage() {
   const navigate = useNavigate()
@@ -168,6 +170,23 @@ export function ReservationDetailPage() {
     ? `キャンセル料金が発生する期間のため、マイページからのキャンセルはできません（${formatPolicyHours(cancelDeadlineHours)}まで）。店舗へご連絡ください。`
     : null
 
+  // 確定した（まだ終わっていない）予約だけ「カレンダーに登録」「地図を開く」
+  const isUpcomingConfirmed = ['confirmed', 'checked_in'].includes(reservation.status) && Boolean(perf.date) && perf.date >= toJstYmd(new Date())
+  const calendarEvent: CalendarEventInput | null = isUpcomingConfirmed && perf.time
+    ? {
+      scenarioTitle: scenario?.title || reservation.title || '公演',
+      kind: isPrivateBookingRequest || reservation.schedule_events?.is_private_booking ? 'private' : 'open',
+      date: perf.date,
+      startTime: perf.time,
+      endTime: reservation.schedule_events?.end_time ?? null,
+      durationMinutes: scenario?.duration ?? null,
+      storeName: store?.name ?? null,
+      address: store?.address ?? null,
+      reservationNumber: reservation.reservation_number ?? null,
+      pageUrl: absolutePageUrl(`/mypage/reservation/${reservation.id}`),
+    }
+    : null
+
   const canEdit = reservation?.status === 'confirmed' && data?.canChangeByPolicy === true
   const canDecrease = reservation?.status === 'confirmed' && canCancel
 
@@ -301,6 +320,9 @@ export function ReservationDetailPage() {
                 {perf.time && <p className="text-base font-medium text-mypage-detail-primary">{perf.time.slice(0, 5)} 開演</p>}
               </div>
             </div>
+            {isUpcomingConfirmed && (
+              <ScheduleActions event={calendarEvent} address={store?.address} stretch className="mt-3" testId="reservation-schedule-actions" />
+            )}
           </div>
         )}
 
@@ -314,8 +336,8 @@ export function ReservationDetailPage() {
                 <p className="text-xs text-gray-500 mb-1">会場</p>
                 <p className="font-bold text-gray-900">{store.name}</p>
                 {store.address && <p className="ts-body text-gray-600 mt-1">{store.address}</p>}
-                {store.address && (
-                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.address)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm mt-2 hover:underline text-mypage-detail-primary">
+                {store.address && !isUpcomingConfirmed && (
+                  <a href={mapSearchUrl(store.address) ?? undefined} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm mt-2 hover:underline text-mypage-detail-primary">
                     <ExternalLink className="w-4 h-4" />地図を開く
                   </a>
                 )}

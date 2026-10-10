@@ -42,6 +42,7 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
           scheduleEvent = {
             date: eventData.date,
             start_time: eventData.start_time,
+            end_time: eventData.end_time ?? null,
             is_private_booking: eventData.category === 'private',
             current_participants: eventData.current_participants,
             max_participants: eventData.max_participants,

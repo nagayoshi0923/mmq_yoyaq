@@ -267,6 +267,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
   // 冪等性: 同一フォーム送信のリトライでは同じ予約番号を使う
   const reservationNumberRef = useRef<string | null>(null)
   const [completedReservation, setCompletedReservation] = useState<{
+    reservationId: string
     reservationNumber: string
     participantCount: number
     totalPrice: number
@@ -424,6 +425,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
 
       // 完了した予約情報を保存（サーバー側で計算された最終金額を使用）
       setCompletedReservation({
+        reservationId: reservationData.id,
         reservationNumber: reservationData.reservation_number,
         participantCount: participantCount,
         totalPrice: reservationData.final_price ?? (calculatedFee * participantCount),

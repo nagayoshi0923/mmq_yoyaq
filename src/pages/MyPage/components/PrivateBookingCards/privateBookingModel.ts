@@ -8,6 +8,7 @@
  */
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { formatJstMonthDay } from '@/utils/jstDate'
+import type { CalendarEventInput } from '@/lib/calendarEvent'
 import type { Reservation } from '@/types'
 import type { PrivateGroupMemberRow, PrivateGroupSummary } from './privateGroupSummary'
 import { privateBookingPhase, type PrivateBookingPhase } from './privateBookingMenu'
@@ -104,6 +105,24 @@ export interface PrivateBookingItem {
   menu: PrivateBookingMenuSource
   /** 進行中の主催者の引き継ぎ依頼（自分が依頼した・頼まれているとき） */
   handover: PrivateGroupHandoverInfo | null
+  /** 確定した（まだ終わっていない）貸切の「カレンダーに登録」「地図を開く」の材料。それ以外は null */
+  calendar: PrivateBookingCalendar | null
+}
+
+/** pageUrl は画面の中のパス（カードで絶対 URL にする） */
+export interface PrivateBookingCalendar {
+  event: CalendarEventInput
+  address: string | null
+}
+
+/** 店舗 id → 名前・住所（マイページで読んだ店舗） */
+export type StoreAddressMap = Record<string, { name: string; address?: string | null }>
+
+function storeAddressOf(stores: StoreAddressMap | undefined, storeId: string | null | undefined, storeName: string | null | undefined): string | null {
+  if (!stores) return null
+  const byId = storeId ? stores[storeId] : undefined
+  const store = byId ?? (storeName ? Object.values(stores).find(s => s.name === storeName) : undefined)
+  return store?.address?.trim() || null
 }
 
 /** カードの「操作」メニューに渡す材料 */
@@ -293,13 +312,32 @@ function primaryOf(action: NextActionKind, base: string): PrivateBookingItem['pr
 
 function fromGroup(
   group: PrivateGroupSummary,
-  options: { todayYmd: string; surveyPending: boolean; fallbackImage: string | null; linked: Reservation | undefined },
+  options: { todayYmd: string; surveyPending: boolean; fallbackImage: string | null; linked: Reservation | undefined; stores?: StoreAddressMap },
 ): PrivateBookingItem {
   const { action, progress } = decideGroupAction(group, { ...options, transferPending: group.handover?.isRecipient === true })
   const base = `/group/invite/${group.invite_code}`
   // 元主催者（依頼した人）のカードは、節はそのままでラベルだけ「○○さんの同意待ち」にする
   const requested = group.handover && !group.handover.isRecipient ? group.handover : null
   const max = group.scenario_player_count_max
+  const reservationNumber = options.linked && options.linked.status !== 'cancelled' ? options.linked.reservation_number ?? null : null
+  const schedule = group.schedule
+  const address = storeAddressOf(options.stores, schedule?.store_id, schedule?.store_name)
+  const calendar: PrivateBookingCalendar | null = group.status === 'confirmed' && action !== 'ended' && schedule?.date && schedule.start_time
+    ? {
+      event: {
+        scenarioTitle: group.scenario_title || '貸切公演',
+        kind: 'private',
+        date: schedule.date,
+        startTime: schedule.start_time,
+        endTime: schedule.end_time ?? null,
+        storeName: schedule.store_name,
+        address,
+        reservationNumber,
+        pageUrl: base,
+      },
+      address,
+    }
+    : null
   return {
     key: `group:${group.id}`,
     groupId: group.id,
@@ -328,7 +366,7 @@ function fromGroup(
     menu: {
       inviteCode: group.invite_code,
       organizationId: group.organization_id,
-      reservationNumber: options.linked && options.linked.status !== 'cancelled' ? options.linked.reservation_number ?? null : null,
+      reservationNumber,
       phase: privateBookingPhase(group.status, options.linked?.status),
       memberCount: group.member_count,
       candidateDates: group.candidate_dates_count,
@@ -340,6 +378,7 @@ function fromGroup(
       handover: requested,
     },
     handover: group.handover,
+    calendar,
   }
 }
 
@@ -349,6 +388,7 @@ function fromReservation(
   scheduleEvents: ScheduleEventMap,
   scenarioImages: Record<string, string>,
   todayYmd: string,
+  stores?: StoreAddressMap,
 ): PrivateBookingItem | null {
   const href = `/mypage/reservation/${reservation.id}`
   const schedule = reservationSchedule(reservation, scheduleEvents)
@@ -370,6 +410,22 @@ function fromReservation(
   } else {
     return null
   }
+  const address = storeAddressOf(stores, reservation.store_id, null)
+  const calendar: PrivateBookingCalendar | null = action === 'upcoming' && schedule.date && schedule.time
+    ? {
+      event: {
+        scenarioTitle: cleanPrivateTitle(reservation.title) || '貸切公演',
+        kind: 'private',
+        date: schedule.date,
+        startTime: schedule.time,
+        storeName: reservation.store_id ? stores?.[reservation.store_id]?.name ?? null : null,
+        address,
+        reservationNumber: reservation.reservation_number ?? null,
+        pageUrl: href,
+      },
+      address,
+    }
+    : null
   return {
     key: `reservation:${reservation.id}`,
     groupId: null,
@@ -408,6 +464,7 @@ function fromReservation(
       handover: null,
     },
     handover: null,
+    calendar,
   }
 }
 
@@ -419,6 +476,8 @@ export interface PrivateBookingBuildInput {
   /** グループ id → 自分のアンケートが未回答か */
   surveyPending: Record<string, boolean>
   todayYmd: string
+  /** 店舗の名前・住所（「地図を開く」・カレンダーの場所に使う。無ければ出さない） */
+  stores?: StoreAddressMap
 }
 
 export interface PrivateBookingView {
@@ -429,7 +488,7 @@ export interface PrivateBookingView {
 
 /** 貸切カードを組み立てて節ごとに並べる */
 export function buildPrivateBookingView(input: PrivateBookingBuildInput): PrivateBookingView {
-  const { groups, reservations, scheduleEvents, scenarioImages, surveyPending, todayYmd } = input
+  const { groups, reservations, scheduleEvents, scenarioImages, surveyPending, todayYmd, stores } = input
   const privateReservations = reservations.filter(r => isPrivateReservation(r, scheduleEvents))
   const linkedReservationIds = new Set<string>()
   const items: PrivateBookingItem[] = []
@@ -439,13 +498,13 @@ export function buildPrivateBookingView(input: PrivateBookingBuildInput): Privat
     if (linked) linkedReservationIds.add(linked.id)
     // グループ側に作品画像が無い旧データは予約の作品画像で補う
     const fallbackImage = linked?.scenario_master_id ? scenarioImages[linked.scenario_master_id] ?? null : null
-    items.push(fromGroup(group, { todayYmd, surveyPending: surveyPending[group.id] === true, fallbackImage, linked }))
+    items.push(fromGroup(group, { todayYmd, surveyPending: surveyPending[group.id] === true, fallbackImage, linked, stores }))
   }
   for (const reservation of privateReservations) {
     if (linkedReservationIds.has(reservation.id)) continue
     // グループが一覧に出ている予約は二重に出さない（グループ側の reservation_id が空でも private_group_id で結ぶ）
     if (reservation.private_group_id && groups.some(g => g.id === reservation.private_group_id)) continue
-    const item = fromReservation(reservation, scheduleEvents, scenarioImages, todayYmd)
+    const item = fromReservation(reservation, scheduleEvents, scenarioImages, todayYmd, stores)
     if (item) items.push(item)
   }
   const bySection: PrivateBookingView['bySection'] = { action: [], waiting_store: [], waiting_organizer: [], confirmed: [], ended: [] }

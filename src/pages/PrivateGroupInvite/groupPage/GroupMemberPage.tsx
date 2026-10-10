@@ -13,6 +13,8 @@ import type { GroupStatusView, GroupTab, StatusAction } from './groupPageModel'
 interface GroupMemberPageProps {
   header: ReactNode
   status: GroupStatusView
+  /** 状態の箱の主ボタンの下に出すボタン（確定後の「カレンダーに登録」「地図を開く」） */
+  statusExtra?: ReactNode
   onStatusAction: (action: StatusAction) => void
   activeTab: GroupTab
   /** PC で左に出す中身（チャットを選んでいるときの代わり） */
@@ -25,7 +27,7 @@ interface GroupMemberPageProps {
   chat: ReactNode
 }
 
-export function GroupMemberPage({ header, status, onStatusAction, activeTab, desktopTab, onTabChange, unread, tabs, panels, chat }: GroupMemberPageProps) {
+export function GroupMemberPage({ header, status, statusExtra, onStatusAction, activeTab, desktopTab, onTabChange, unread, tabs, panels, chat }: GroupMemberPageProps) {
   const chatActive = activeTab === 'chat'
   const leftTab = chatActive ? desktopTab : activeTab
   return (
@@ -44,7 +46,7 @@ export function GroupMemberPage({ header, status, onStatusAction, activeTab, des
               </div>
             )}
             <div className={`px-3.5 pt-3 lg:px-0 ${chatActive ? 'hidden lg:block' : ''}`}>
-              <GroupStatusBox view={status} onAction={onStatusAction} />
+              <GroupStatusBox view={status} onAction={onStatusAction} extra={statusExtra} />
             </div>
           </div>
           <div className={`[grid-area:tabs] px-3.5 lg:px-0 ${chatActive ? 'pt-2 lg:pt-3' : 'pt-3'}`}>

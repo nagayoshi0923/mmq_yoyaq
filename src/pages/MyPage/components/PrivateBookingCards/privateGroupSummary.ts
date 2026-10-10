@@ -24,8 +24,8 @@ export interface PrivateGroupSummary {
   my_unanswered_count: number
   /** 参加中の全員が全候補日に回答済みか（グループ画面の「全員回答済み」と同じ判定） */
   all_members_responded: boolean
-  /** 確定した公演の日時・店舗（確定済みのときだけ） */
-  schedule: { date: string; start_time: string | null; store_name: string | null } | null
+  /** 確定した公演の日時・店舗（確定済みのときだけ）。end_time・store_id は分かるときだけ（カレンダー・地図に使う） */
+  schedule: { date: string; start_time: string | null; store_name: string | null; end_time?: string | null; store_id?: string | null } | null
   organization_id: string | null
   /** 公演前アンケートが有効な作品か */
   survey_enabled: boolean
@@ -85,7 +85,7 @@ function scheduleFromRequested(row: PrivateGroupScheduleRow | undefined, storeNa
   const date = raw.slice(0, 10)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null
   const time = raw.match(/[T ](\d{2}:\d{2})/)?.[1] ?? null
-  return { date, start_time: time, store_name: row.store_name || (row.store_id ? storeNameById[row.store_id] ?? null : null) }
+  return { date, start_time: time, store_name: row.store_name || (row.store_id ? storeNameById[row.store_id] ?? null : null), store_id: row.store_id }
 }
 
 export function summarizePrivateGroup(
@@ -112,7 +112,7 @@ export function summarizePrivateGroup(
   const schedule = group.status !== 'confirmed'
     ? null
     : confirmed?.date
-      ? { date: confirmed.date, start_time: confirmed.start_time?.slice(0, 5) ?? null, store_name: confirmed.store_name }
+      ? { date: confirmed.date, start_time: confirmed.start_time?.slice(0, 5) ?? null, store_name: confirmed.store_name, end_time: confirmed.end_time?.slice(0, 5) ?? null, store_id: scheduleRow?.store_id ?? null }
       : scheduleFromRequested(scheduleRow, storeNameById)
   return {
     id: group.id,

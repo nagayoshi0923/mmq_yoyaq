@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findStoreByName, mapUrl, meetingTime, priceSummary, publicCharacters, scenarioPageUrl, toGroupScenarioInfo, yenRange } from './overviewModel'
+import { findStoreByName, meetingTime, priceSummary, publicCharacters, scenarioPageUrl, toGroupScenarioInfo, yenRange } from './overviewModel'
 import { difficultyText, durationWithWeekendText, playerRangeText } from '@/components/scenario/scenarioFacts'
 
 const costs = [
@@ -31,10 +31,6 @@ describe('概要タブの計算', () => {
     expect(meetingTime('13:00:00')).toBe('12:50')
     expect(meetingTime('09:05')).toBe('08:55')
     expect(meetingTime(null)).toBeNull()
-  })
-
-  it('地図の URL は住所を符号化する', () => {
-    expect(mapUrl('東京都新宿区 1-2')).toBe('https://www.google.com/maps/search/?api=1&query=%E6%9D%B1%E4%BA%AC%E9%83%BD%E6%96%B0%E5%AE%BF%E5%8C%BA%201-2')
   })
 
   it('店舗は正式名・略称のどちらでも見つける', () => {

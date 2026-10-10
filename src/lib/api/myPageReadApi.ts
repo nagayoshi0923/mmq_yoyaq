@@ -178,7 +178,7 @@ export const myPageReservationReadApi = {
   async findPublicEvent(eventId: string) {
     return supabase
       .from('schedule_events_public')
-      .select('date, start_time, category, current_participants, max_participants, store_id')
+      .select('date, start_time, end_time, category, current_participants, max_participants, store_id')
       .eq('id', eventId)
       .maybeSingle()
   },

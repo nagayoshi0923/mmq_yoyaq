@@ -396,10 +396,10 @@ describe('マイページ・予約確認・クーポン', () => {
         "from("organization_scenarios_with_master") .select("id, title, slug, key_visual_url, duration, player_count_min, player_c…) .eq("id", "a1") .eq("organization_id", undefined) .maybeSingle()",
       ],
       "myPageReservationReadApi.findPublicEvent": [
-        "from("schedule_events_public") .select("date, start_time, category, current_participants, max_participants, s…) .eq("id", "a1") .maybeSingle()",
+        "from("schedule_events_public") .select("date, start_time, end_time, category, current_participants, max_parti…) .eq("id", "a1") .maybeSingle()",
       ],
       "myPageReservationReadApi.findPublicEvent (最後の引数なし)": [
-        "from("schedule_events_public") .select("date, start_time, category, current_participants, max_participants, s…) .eq("id", undefined) .maybeSingle()",
+        "from("schedule_events_public") .select("date, start_time, end_time, category, current_participants, max_parti…) .eq("id", undefined) .maybeSingle()",
       ],
       "myPageReservationReadApi.findPublicEventForNotice": [
         "from("schedule_events_public") .select("date, start_time, end_time, scenario, venue, organization_id") .eq("id", "a1") .single()",
