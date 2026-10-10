@@ -1,3 +1,5 @@
+// 貸切の候補日時の選択（空き判定は DB の private_booking_candidate_slot_availability 系）。
+// 仕様の正本: docs/product-spec/貸切受付ルール.md。変更時は同じ PR で更新。
 import { memo, useEffect, useMemo, useCallback } from 'react'
 import type { TimeSlot } from '../utils/types'
 import { StoreSelector } from './StoreSelector'

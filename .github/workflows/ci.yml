@@ -14,6 +14,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # 貸切受付ルールの文書確認（check:private-booking-rules）で HEAD^1 との差分を見る
+          fetch-depth: 2
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -108,6 +111,9 @@ jobs:
 
       - name: Migration rollback pairs
         run: npm run check:migration-rollbacks
+
+      - name: Private booking rules doc
+        run: npm run check:private-booking-rules
 
       - name: JST date guard
         run: npm run check:jst-date

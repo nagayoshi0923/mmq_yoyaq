@@ -1,3 +1,5 @@
+// 貸切の候補日時の枠表（DB の空き判定の結果をそのまま出す）。
+// 仕様の正本: docs/product-spec/貸切受付ルール.md。変更時は同じ PR で更新。
 import { memo, useState, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
@@ -242,7 +244,10 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
     const canSelect = isAvailable && (isSelected || selectedCount < maxSelections)
     // 選べない枠は灰色のまま押せる（理由を出すだけ）
     const explain = !isExisting && !isAvailable ? (reason ?? (tooSoon ? '受付締切を過ぎています' : '選択できません')) : null
+    // 前後の公演から逆算して標準からずらした時刻は「に調整」と添える
+    const adjusted = !isExisting && isAvailable && slot.adjusted === true
     const timeText = isExisting ? '追加済み' : slot.startTime ? `${slot.startTime}〜${slot.endTime}` : '—'
+    const adjustedNote = adjusted ? <span className={`block ${isSelected ? '' : 'text-amber-700'}`}>に調整</span> : null
     const handleClick = () => {
       if (explain) {
         setNotice(`${date.slice(5).replace('-', '/')} ${slot.label}: ${explain}`)
@@ -262,7 +267,7 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
       : canSelect
       ? hoverBg
       : 'cursor-not-allowed border-gray-100 bg-gray-50 opacity-50'
-    const ariaLabel = `${date} ${slot.label}${isExisting ? ' 追加済み' : explain ? ` 選択不可（${explain}）` : ''}`
+    const ariaLabel = `${date} ${slot.label}${isExisting ? ' 追加済み' : explain ? ` 選択不可（${explain}）` : adjusted ? ` ${timeText} に調整` : ''}`
 
     if (compact) {
       return (
@@ -278,6 +283,7 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
           <div className="text-[11px] font-medium sm:text-xs">{slot.label}</div>
           <div className={`mt-0.5 text-[8px] leading-snug sm:text-[9px] ${isSelected ? selectedTimeColor : 'text-muted-foreground'}`}>
             {timeText}
+            {adjustedNote}
           </div>
         </button>
       )
@@ -296,6 +302,7 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
         <div className="text-xs font-medium">{slot.label}</div>
         <div className={`text-[10px] ${isSelected ? selectedTimeColor : 'opacity-70'}`}>
           {timeText}
+          {adjustedNote}
         </div>
       </button>
     )

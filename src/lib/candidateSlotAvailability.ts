@@ -2,6 +2,7 @@
  * 貸切の候補日時（日付 × 午前・午後・夜）の空き状況。判定は DB（private_booking_candidate_slot_availability /
  * private_group_candidate_slot_availability）だけで行い、画面は結果をそのまま出す。
  * 保存 RPC（private_group_add_candidate_dates）と同じ判定なので、選べると表示した枠は保存でも通る。
+ * 仕様の正本: docs/product-spec/貸切受付ルール.md。変更時は同じ PR で更新。
  */
 import { supabase } from '@/lib/supabase'
 import type { PrivateBookingSlot } from '@/lib/computePrivateBookingSlots'
@@ -24,6 +25,10 @@ export interface CandidateSlotAvailabilityRow {
   reason: CandidateSlotReason | null
   start_time: string | null
   end_time: string | null
+  /** conflict の補足（例: 空き 2 時間・必要 5 時間） */
+  detail?: string | null
+  /** 前後の公演から逆算して標準の開始時刻からずらした */
+  adjusted?: boolean | null
 }
 
 export interface CandidateSlotAvailability {
@@ -67,9 +72,12 @@ export function buildCandidateSlotAvailability(rows: CandidateSlotAvailabilityRo
       label,
       startTime: row.start_time ?? '',
       endTime: row.end_time ?? '',
+      ...(row.available && row.adjusted ? { adjusted: true } : {}),
     }
     ;(slotsByDate[date] ??= []).push(slot)
-    if (!row.available || !slot.startTime) unavailableReasons[`${date}-${label}`] = candidateSlotReasonText(row.reason)
+    if (!row.available || !slot.startTime) {
+      unavailableReasons[`${date}-${label}`] = candidateSlotReasonText(row.reason) + (row.detail ? `（${row.detail}）` : '')
+    }
   }
   return { slotsByDate, unavailableReasons }
 }
