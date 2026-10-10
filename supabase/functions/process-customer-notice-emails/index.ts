@@ -1,9 +1,11 @@
 // お客様への知らせのメール（マイページ改修 段階 4）を送る。5 分ごとに定期実行から呼ばれる（2026-10-09）。
 // 送信待ちは DB のトリガー・関数が customer_notice_emails に積む。app_config の customer_notice_email が 'on' の環境だけ取り出される。
 // 形は公演前アンケートのリマインド（process-survey-reminders）と同じ。
+// 呼び出しの確認は CUSTOMER_NOTICE_CRON_SECRET（= app_config の trigger_secret。無ければ CRON_SECRET / service role）。
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, getServiceRoleKey, isCronOrServiceRoleCall, errorResponse, maskEmail, sanitizeErrorMessage } from '../_shared/security.ts'
+import { getCorsHeaders, getServiceRoleKey, errorResponse, maskEmail, sanitizeErrorMessage } from '../_shared/security.ts'
+import { isCustomerNoticeCronCall } from '../_shared/customer-notice-auth.ts'
 import { insertEmailLog, updateEmailLog, type EmailLogType } from '../_shared/email-logs.ts'
 import { buildCustomerNoticeEmail } from '../_shared/customer-notice-email.ts'
 
@@ -14,7 +16,7 @@ serve(async req => {
   const headers = getCorsHeaders(req.headers.get('origin'))
   if (req.method === 'OPTIONS') return new Response('ok', { headers })
   if (req.method !== 'POST') return errorResponse('POSTが必要です', 405, headers)
-  if (!isCronOrServiceRoleCall(req)) return errorResponse('サーバーからの実行が必要です', 401, headers)
+  if (!isCustomerNoticeCronCall(req)) return errorResponse('サーバーからの実行が必要です', 401, headers)
   const db = createClient(Deno.env.get('SUPABASE_URL') ?? '', getServiceRoleKey())
   const senderEmail = Deno.env.get('SENDER_EMAIL') || 'noreply@mmq.game'
   const result = { sent: 0, failed: 0 }

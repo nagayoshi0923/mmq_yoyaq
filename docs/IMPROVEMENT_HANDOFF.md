@@ -1,3 +1,15 @@
+## 2026-10-10 / お知らせメール送信（process-customer-notice-emails）の定期実行の合言葉を専用 secret で確かめる（fix/customer-notice-cron-secret、staging 向け PR）
+
+- 背景: 段階 3（#1017）の作業中に「staging の secrets の CRON_SECRET と DB の app_config.trigger_secret が別の値」と気づいた（上の段階 3 の項）。定期実行は x-cron-secret に trigger_secret を送るため、値が違う環境では 401 になりメールが送られない見込みだった。
+- 確認（2026-10-10 20:00、値は表示せず secrets list の digest と DB 値の sha256 を比較）: staging・本番とも CRON_SECRET の digest = trigger_secret の sha256 で一致していた（APPROVAL_DELIVERY / SURVEY_DELIVERY / RECRUITMENT / REMINDER の各 CRON_SECRET も同じ値）。段階 3 の時点で不一致だった原因は追えていない（その後に secrets が更新された可能性）。現時点では 401 は出ない。
+- 直し: 値が将来ずれても止まらないよう、send-web-push（WEB_PUSH_CRON_SECRET）と同じ形にした。_shared/customer-notice-auth.ts の isCustomerNoticeCronCall が専用の CUSTOMER_NOTICE_CRON_SECRET（= trigger_secret）を先に見て、無ければ従来の CRON_SECRET / service role（isCronOrServiceRoleCall）に落ちる。単体テスト customer-notice-auth.test.ts（recruitment-auth.test.ts と同じ形。`npx deno test --no-check --allow-env supabase/functions/_shared/customer-notice-auth.test.ts`。--no-check なしは @types/node が無く既存テストも同じく落ちる）。
+- staging: secrets に CUSTOMER_NOTICE_CRON_SECRET（DB の trigger_secret をそのまま、値は表示せず投入）を追加し、関数を配備。DB から定期実行と同じ net.http_post で呼び、net._http_response で status 200・{"success":true,"sent":0,"failed":0} を確認（request 43407）。cron 'process-customer-notice-emails' は 5 分ごとに succeeded。送信待ちは 0 件（customer_notice_email は staging も 'on'）。
+- 本番で必要な手順（本番の secrets・関数・DB は未変更）:
+  1. 本番 DB の app_config.trigger_secret を値を表示せずに読み、`supabase secrets set --project-ref cznpcewciwywcqcxktba CUSTOMER_NOTICE_CRON_SECRET=<その値>`（任意だが推奨。無くても CRON_SECRET が一致している間は動く）。
+  2. main 反映時に `npm run functions:deploy:prod`（この関数を含む）。
+  3. 反映後、本番 DB で `SELECT status_code, left(content,120), created FROM net._http_response WHERE content LIKE '%sent%' ORDER BY created DESC LIMIT 3;` などで 200 を確認。401（body「サーバーからの実行が必要です」）が出たら secrets と trigger_secret の不一致なので 1 をやり直す。
+  - 補足: 本番 DB には既に cron 'process-customer-notice-emails' と表 customer_notice_emails があり、customer_notice_email も 'on'（migration 20261009140000 は本番にも適用済みの状態。段階 4 の項の「本番未適用」は古い）。
+
 ## 2026-10-10 / 貸切グループページ刷新 段階 4 公演後の思い出・写真のサムネイル（feat/group-page-phase4、staging 向け PR・未取り込み）
 
 - 方針書 docs/product-spec/グループページ刷新_2026-10.md の「段階 4」。見本 GroupAfter.dc.html（③ 公演後・思い出）。
