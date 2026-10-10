@@ -9,6 +9,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -21,6 +22,7 @@ import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCand
 import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/SurveyResponseForm'
 import { usePreferredStoreEditor } from '@/pages/PrivateGroupInvite/usePreferredStoreEditor'
 import { getErrorMessage } from '@/lib/errorFields'
+import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
 import { getJstParts } from '@/utils/jstDate'
 import type { DateResponse } from '@/types'
 
@@ -39,6 +41,15 @@ const DESCRIPTIONS: Record<PrivateGroupInPlaceMode, string> = {
   answer: '候補日ごとに ○（参加できる）・△（微妙）・×（参加できない）を選んで保存してください。',
   survey: '公演前のアンケートに回答してください。',
 }
+
+/**
+ * 候補日ダイアログ: スマホ（〜640px）は全画面（上に閉じる、下に保存列）、PC は中央で幅 lg・高さ 90vh。
+ * スクロールは本文の 1 つだけ（カレンダーの枠の中ではスクロールさせない）。
+ */
+const DATES_DIALOG_CLASS =
+  'flex flex-col gap-0 overflow-hidden p-0 sm:p-0 md:p-0 sm:max-w-lg sm:max-h-[90vh] ' +
+  'max-sm:inset-0 max-sm:left-0 max-sm:top-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none ' +
+  'max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0'
 
 const LOCKED_TEXT = '店舗の返答待ちのため、候補日の追加・希望店舗の変更はできません。'
 
@@ -69,47 +80,77 @@ export function PrivateGroupInPlaceDialog({ mode, onClose, inviteCode, title, my
     onClose()
     await onSaved()
   }
+  const isDates = mode === 'dates'
+  // 見出しの 2 行目「作品名 ・ 希望店舗: ○○」（グループ画面と同じ問い合わせ・同じキャッシュ）
+  const storeIds = group?.preferred_store_ids
+  const { data: preferredStores = [] } = useQuery({
+    queryKey: ['private-group-invite', 'preferred-stores', storeIds],
+    enabled: isDates && !!storeIds?.length,
+    queryFn: async () => {
+      const { data, error } = await privateGroupPageReadApi.listStoresByIds(storeIds!)
+      if (error) throw error
+      return data || []
+    },
+  })
+  const storeLabel = preferredStores.length > 0 ? `希望店舗: ${preferredStores.map(s => s.name).join('・')}` : ''
+
+  const candidateList = group && (
+    <div>
+      <h4 className="mb-1.5 text-sm font-bold">
+        {isDates ? '登録済みの候補日' : '候補日程'}
+        <span className="ml-1 text-xs font-normal text-muted-foreground">{group.candidate_dates?.length || 0} 件</span>
+      </h4>
+      <CandidateDateRows
+        group={group}
+        memberCount={joinedMembers.length}
+        existingMemberId={null}
+        responses={{}}
+        onResponseChange={() => {}}
+        canWithdraw={canMutate}
+        onWithdrawn={async () => { await Promise.all([refetch(), onSaved()]) }}
+        formatDateJaMd={formatDateJaMd}
+      />
+    </div>
+  )
 
   return (
     <Dialog open={open} onOpenChange={next => { if (!next) onClose() }}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] sm:max-h-[85vh] overflow-y-auto" data-testid="private-group-inplace-dialog" data-mode={mode ?? ''}>
-        <DialogHeader className="text-left pr-6">
-          <DialogTitle>{mode ? TITLES[mode] : ''}</DialogTitle>
-          <DialogDescription>{title}{mode ? `　${DESCRIPTIONS[mode]}` : ''}</DialogDescription>
+      <DialogContent
+        className={isDates ? DATES_DIALOG_CLASS : 'sm:max-w-lg max-h-[85vh] sm:max-h-[85vh] overflow-y-auto'}
+        data-testid="private-group-inplace-dialog"
+        data-mode={mode ?? ''}
+      >
+        <DialogHeader className={isDates ? 'shrink-0 space-y-0.5 border-b px-3.5 py-3 pr-12 text-left' : 'text-left pr-6'}>
+          <DialogTitle className={isDates ? 'text-base font-bold' : undefined}>{mode ? TITLES[mode] : ''}</DialogTitle>
+          <DialogDescription className={isDates ? 'truncate text-xs' : undefined}>
+            {isDates ? [title, storeLabel].filter(Boolean).join(' ・ ') : `${title}${mode ? `　${DESCRIPTIONS[mode]}` : ''}`}
+          </DialogDescription>
         </DialogHeader>
+        <div className={isDates ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain' : 'contents'} data-testid="inplace-dialog-body">
         {!group ? (
           <div className="py-10 text-center text-sm text-muted-foreground">
             <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" aria-hidden="true" />
             読み込み中...
           </div>
         ) : mode === 'dates' ? (
-          <div className="space-y-3">
-            {canMutate ? (
-              <AddCandidateDates
-                groupId={group.id}
-                organizationId={group.organization_id || ''}
-                scenarioId={group.scenario_master_id || ''}
-                storeIds={group.preferred_store_ids || []}
-                existingDates={group.candidate_dates || []}
-                onDatesAdded={() => { void finish() }}
-              />
-            ) : (
+          canMutate ? (
+            <AddCandidateDates
+              groupId={group.id}
+              organizationId={group.organization_id || ''}
+              scenarioId={group.scenario_master_id || ''}
+              storeIds={group.preferred_store_ids || []}
+              existingDates={group.candidate_dates || []}
+              onDatesAdded={() => { void finish() }}
+              layout="dialog"
+              onCancel={onClose}
+              belowCalendar={(group.candidate_dates?.length ?? 0) > 0 ? <div className="border-t border-border pt-3">{candidateList}</div> : null}
+            />
+          ) : (
+            <div className="space-y-3 p-3.5">
               <p className="p-2 border border-amber-200 bg-amber-50 text-xs text-amber-900 leading-snug">{LOCKED_TEXT}</p>
-            )}
-            <div>
-              <h4 className="font-medium text-sm mb-1.5">候補日程（{group.candidate_dates?.length || 0}件）</h4>
-              <CandidateDateRows
-                group={group}
-                memberCount={joinedMembers.length}
-                existingMemberId={null}
-                responses={{}}
-                onResponseChange={() => {}}
-                canWithdraw={canMutate}
-                onWithdrawn={async () => { await Promise.all([refetch(), onSaved()]) }}
-                formatDateJaMd={formatDateJaMd}
-              />
+              {candidateList}
             </div>
-          </div>
+          )
         ) : mode === 'store' ? (
           <StorePanel group={group} canMutate={canMutate} onClose={onClose} onSaved={onSaved} />
         ) : mode === 'answer' ? (
@@ -125,6 +166,7 @@ export function PrivateGroupInPlaceDialog({ mode, onClose, inviteCode, title, my
             onSubmitted={() => { void finish() }}
           />
         ) : null}
+        </div>
       </DialogContent>
     </Dialog>
   )

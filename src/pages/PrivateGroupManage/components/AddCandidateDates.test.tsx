@@ -18,7 +18,7 @@ vi.mock('@/components/private-booking/PrivateBookingSlotGrid', () => ({ PrivateB
 let root: Root
 let container: HTMLDivElement
 const updated = vi.fn()
-const button = (text: string) => [...container.querySelectorAll('button')].find(node => node.textContent === text)!
+const button = (text: string) => [...container.querySelectorAll('button')].find(node => node.textContent === text || node.textContent?.startsWith(`${text}（`))!
 const render = () => act(async () => { root.render(<AddCandidateDates groupId="group" organizationId="org" scenarioId="scenario" storeIds={['store']} existingDates={[]} onDatesAdded={updated} />) })
 beforeEach(() => {
  Object.assign(globalThis,{ IS_REACT_ACT_ENVIRONMENT: true })
@@ -54,4 +54,23 @@ it('休日取得失敗中は候補を保存しない', async () => {
  expect(container.querySelector('[role="alert"]')?.textContent).toContain('休日設定')
  expect(button('候補日を保存').disabled).toBe(true)
  expect(mocks.save).not.toHaveBeenCalled()
+})
+it('ダイアログでは開いた直後からカレンダーを出し、保存列を下に貼り付け、キャンセルでダイアログを閉じる', async () => {
+ const cancel = vi.fn()
+ await act(async () => { root.render(<AddCandidateDates groupId="group" organizationId="org" scenarioId="scenario" storeIds={['store']} existingDates={[]} onDatesAdded={updated} layout="dialog" onCancel={cancel} belowCalendar={<p>登録済みの候補日</p>} />) })
+ expect(button('候補日を保存').disabled).toBe(true)
+ const actions = container.querySelector('[data-testid="candidate-dates-actions"]')!
+ expect(actions.className).toContain('sticky'); expect(actions.className).toContain('bottom-0')
+ // 登録済みの候補日はカレンダーと同じスクロールの中、保存列より前
+ expect(container.textContent?.indexOf('登録済みの候補日')).toBeLessThan(container.textContent!.indexOf('キャンセル'))
+ await act(async () => button('テスト候補').click())
+ expect(button('候補日を保存').textContent).toBe('候補日を保存（1 件）')
+ expect(container.textContent).toContain('選択中 1 件')
+ await act(async () => button('キャンセル').click())
+ expect(cancel).toHaveBeenCalledTimes(1)
+})
+it('ページ埋め込みでは保存列を貼り付けない', async () => {
+ await render()
+ await act(async () => button('候補日を追加').click())
+ expect(container.querySelector('[data-testid="candidate-dates-actions"]')!.className).not.toContain('sticky')
 })
