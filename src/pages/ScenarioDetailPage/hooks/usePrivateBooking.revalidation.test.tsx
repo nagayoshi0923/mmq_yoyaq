@@ -6,6 +6,7 @@ const m=vi.hoisted(()=>({state:{availability:{slotsByDate:{},unavailableReasons:
 vi.mock('@/hooks/useUserPreference',()=>({usePrivateBookingStorePreference:()=>[['store'],m.save],useStoreFilterPreference:()=>[[]]}))
 vi.mock('@/hooks/useCandidateSlotAvailability',()=>({useCandidateSlotAvailability:(target:unknown)=>{m.target(target);return m.state}}))
 vi.mock('@/utils/toast',()=>({showToast:{warning:m.warning}}))
+vi.mock('@/lib/supabase',()=>({supabase:{}}))
 import{usePrivateBooking}from'./usePrivateBooking'
 let root:Root,result:ReturnType<typeof usePrivateBooking>
 const stores=[{id:'store',status:'active',ownership_type:'store',is_temporary:false}]
