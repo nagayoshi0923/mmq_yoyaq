@@ -21,6 +21,7 @@ interface ClassicViewProps {
   stores: PublicStoreRow[]
   storeOptions: StoreOption[]
   scenarios: ScenarioCard[]
+  organizationId: string | null
   organizationSlug: string
   organizationName: string | null
   privateBookingDeadlineDays: number
@@ -75,6 +76,7 @@ export function ClassicCalendar(props: ClassicViewProps) {
       getStoreColor={getStoreColor}
       blockedSlots={blockedSlots}
       privateBookingDeadlineDays={privateBookingDeadlineDays}
+      organizationId={props.organizationId}
       organizationSlug={organizationSlug}
       hideSoldOut={hideSoldOut}
       onHideSoldOutChange={onHideSoldOutChange}
@@ -107,6 +109,7 @@ export function ClassicList(props: ClassicViewProps) {
       onCardClick={onCardClick}
       blockedSlots={blockedSlots}
       privateBookingDeadlineDays={privateBookingDeadlineDays}
+      organizationId={props.organizationId}
       organizationSlug={organizationSlug}
       hideSoldOut={hideSoldOut}
       onHideSoldOutChange={onHideSoldOutChange}

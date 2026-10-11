@@ -186,6 +186,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
           primaryColor={primaryColor}
           onSelect={openPerformance}
           classic={{
+            organizationId,
             allEvents,
             blockedSlots,
             stores,

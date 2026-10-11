@@ -165,17 +165,17 @@ function buildSlotsFromDayConfig(
   dayOfWeek: number,
   dateStr: string,
   isCustomHoliday: (d: string) => boolean,
-  options?: { explicitMorningInDb?: boolean }
+  options?: { explicitMorningInDb?: boolean; respectConfiguredHours?: boolean }
 ): PerStoreSlot[] {
   let availableSlots =
-    dayHours.available_slots && dayHours.available_slots.length > 0
+    dayHours.available_slots && (options?.respectConfiguredHours || dayHours.available_slots.length > 0)
       ? [...dayHours.available_slots]
       : getDefaultAvailableSlots(dayOfWeek, dateStr, isCustomHoliday)
 
-  if (!availableSlots.includes('morning')) {
+  if (!options?.respectConfiguredHours && !availableSlots.includes('morning')) {
     availableSlots = ['morning', ...availableSlots]
   }
-  if (!availableSlots.includes('evening')) {
+  if (!options?.respectConfiguredHours && !availableSlots.includes('evening')) {
     availableSlots = [...availableSlots, 'evening']
   }
 
@@ -212,10 +212,9 @@ function buildSlotsFromDayConfig(
   for (const key of order) {
     if (!availableSlots.includes(key)) continue
 
-    const slotEnd =
-      key === 'evening' ? eveningEndCap : SLOT_END_LIMITS[key]
+    const slotEnd = options?.respectConfiguredHours ? Math.min(eveningEndCap, SLOT_END_LIMITS[key]) : key === 'evening' ? eveningEndCap : SLOT_END_LIMITS[key]
 
-    const startMin = startMinutes[key]
+    const startMin = options?.respectConfiguredHours ? Math.max(startMinutes[key], dayHours.open_time ? timeToMinutes(dayHours.open_time) : 0) : startMinutes[key]
     if (startMin >= slotEnd) continue
 
     out.push({
@@ -231,7 +230,8 @@ function buildSlotsFromDayConfig(
 
 function getSyntheticSlotsWhenNoRow(
   dateStr: string,
-  isCustomHoliday: (d: string) => boolean
+  isCustomHoliday: (d: string) => boolean,
+  respectConfiguredHours = false
 ): PerStoreSlot[] {
   const dayOfWeek = getDayOfWeekJST(dateStr)
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
@@ -240,7 +240,8 @@ function getSyntheticSlotsWhenNoRow(
   const synthetic: DayHoursLike = {
     is_open: true,
     close_time: '23:00',
-    available_slots: getDefaultAvailableSlots(dayOfWeek, dateStr, isCustomHoliday),
+    available_slots: respectConfiguredHours && !isWeekendOrHoliday ? ['afternoon', 'evening'] : getDefaultAvailableSlots(dayOfWeek, dateStr, isCustomHoliday),
+    open_time: respectConfiguredHours && !isWeekendOrHoliday ? '13:00' : '09:00',
     slot_start_times: isWeekendOrHoliday ? defaultSlotTimesWeekend : defaultSlotTimesWeekday,
   }
   return buildSlotsFromDayConfig(
@@ -249,7 +250,7 @@ function getSyntheticSlotsWhenNoRow(
     dayOfWeek,
     dateStr,
     isCustomHoliday,
-    { explicitMorningInDb: true }
+    { explicitMorningInDb: true, respectConfiguredHours }
   )
 }
 
@@ -258,7 +259,7 @@ export function getPerStoreSlotsForDate(
   dateStr: string,
   row: BusinessHoursSettingRow | undefined,
   isCustomHoliday: (d: string) => boolean,
-  options: { allowSyntheticWhenMissingRow: boolean }
+  options: { allowSyntheticWhenMissingRow: boolean; respectConfiguredHours?: boolean }
 ): PerStoreSlot[] | null {
   const dayOfWeek = getDayOfWeekJST(dateStr)
 
@@ -278,7 +279,7 @@ export function getPerStoreSlotsForDate(
     if (!options.allowSyntheticWhenMissingRow) {
       return null
     }
-    return getSyntheticSlotsWhenNoRow(dateStr, isCustomHoliday)
+    return getSyntheticSlotsWhenNoRow(dateStr, isCustomHoliday, options.respectConfiguredHours)
   }
 
   const openingHours = normalizeOpeningHoursKeys(
@@ -288,7 +289,7 @@ export function getPerStoreSlotsForDate(
     if (!options.allowSyntheticWhenMissingRow) {
       return null
     }
-    return getSyntheticSlotsWhenNoRow(dateStr, isCustomHoliday)
+    return getSyntheticSlotsWhenNoRow(dateStr, isCustomHoliday, options.respectConfiguredHours)
   }
 
   let rawDayBlock: DayHoursLike | null | undefined
@@ -312,7 +313,7 @@ export function getPerStoreSlotsForDate(
         dayOfWeek,
         dateStr,
         isCustomHoliday,
-        { explicitMorningInDb: false }
+        { explicitMorningInDb: false, respectConfiguredHours: options.respectConfiguredHours }
       )
     }
   } else {
@@ -345,7 +346,7 @@ export function getPerStoreSlotsForDate(
     dayOfWeek,
     dateStr,
     isCustomHoliday,
-    { explicitMorningInDb }
+    { explicitMorningInDb, respectConfiguredHours: options.respectConfiguredHours }
   )
 }
 

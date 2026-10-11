@@ -1,3 +1,4 @@
+import { usePublicPrivateBookingSlots } from '../hooks/usePublicPrivateBookingSlots'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { memo, useMemo, useCallback } from 'react'
 import React from 'react'
@@ -30,6 +31,7 @@ interface ListViewProps {
   onCardClick: (scenarioId: string) => void
   blockedSlots?: PublicEventRow[]
   privateBookingDeadlineDays?: number
+  organizationId?: string | null
   organizationSlug?: string
   hideSoldOut?: boolean
   onHideSoldOutChange?: (value: boolean) => void
@@ -58,6 +60,7 @@ export const ListView = memo(function ListView({
   onCardClick,
   blockedSlots = [],
   privateBookingDeadlineDays = 14,
+  organizationId,
   organizationSlug,
   hideSoldOut = false,
   onHideSoldOutChange,
@@ -67,6 +70,8 @@ export const ListView = memo(function ListView({
   isLoggedIn = false,
 }: ListViewProps) {
   const navigate = useNavigate()
+  const availabilityStoreIds = selectedStoreIds.length > 0 ? selectedStoreIds : stores.map(store => store.id)
+  const getPrivateOptions = usePublicPrivateBookingSlots(organizationId, availabilityStoreIds, listViewMonth)
   
   // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
   const scenarioMap = useMemo(() => {
@@ -108,27 +113,7 @@ export const ListView = memo(function ListView({
     return blockedEventsByDateStoreSlot.get(key) || []
   }, [blockedEventsByDateStoreSlot, listViewMonth])
   
-  // 前公演のend_time + 1時間から開始時間を計算
-  const defaultStartTimes: Record<string, string> = { morning: '09:00', afternoon: '14:00', evening: '19:00' }
-  const slotEndTimes: Record<string, string> = { morning: '13:00', afternoon: '18:00', evening: '23:00' }
-  
-  const getSuggestedStartTime = (timeSlot: 'morning' | 'afternoon' | 'evening', precedingEvents: PublicEventRow[]) => {
-    if (precedingEvents.length === 0) return defaultStartTimes[timeSlot]
-    const latestEnd = precedingEvents.reduce((latest: string, e) => 
-      (e.end_time || '') > latest ? (e.end_time || '') : latest, '')
-    if (!latestEnd) return defaultStartTimes[timeSlot]
-    // +1時間
-    const [h, m] = latestEnd.split(':').map(Number)
-    const suggested = `${String(h + 1).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`
-    return suggested > defaultStartTimes[timeSlot] ? suggested : defaultStartTimes[timeSlot]
-  }
-  
-  const isSlotAvailable = (timeSlot: 'morning' | 'afternoon' | 'evening', precedingEvents: PublicEventRow[]) => {
-    const startTime = getSuggestedStartTime(timeSlot, precedingEvents)
-    return startTime < slotEndTimes[timeSlot]
-  }
-  
-  const renderEventCell = (events: EnrichedPublicEvent[], store: PublicStoreRow, timeSlot: 'morning' | 'afternoon' | 'evening', date: number, precedingEvents: PublicEventRow[] = []) => {
+  const renderEventCell = (events: EnrichedPublicEvent[], store: PublicStoreRow, timeSlot: 'morning' | 'afternoon' | 'evening', date: number) => {
     // GMテスト等のブロックイベントを取得してマージ
     const blockedEvents = getBlockedEvents(date, store.id, timeSlot)
     const allMerged: PublicCalendarEvent[] = [...events, ...blockedEvents].sort((a, b) => {
@@ -178,40 +163,16 @@ export const ListView = memo(function ListView({
       if (!canApplyPrivateBooking) {
         return <div className="p-1 sm:p-2 text-xs fg-gray-400 text-center">-</div>
       }
-      // GMテスト・MTG等が含まれるスロットは貸切申込を非表示（CalendarViewと同じ判定）
-      const hasNonBookableEvent = allMerged.some((ev) =>
-        ev.category === 'gmtest' || ev.category === 'testplay' || ev.category === 'mtg'
-      )
-      if (hasNonBookableEvent) {
-        return <div className="p-1 sm:p-2 text-xs fg-gray-400 text-center">-</div>
-      }
-      // 前公演の終了時間 + 1時間後が開始時間
-      // 前のスロットのイベント + ブロックイベントを考慮
-      const allPrecedingEvents = [...precedingEvents]
-      // 前スロットのブロックイベントも含める
-      const precedingSlotNames: Record<string, string[]> = {
-        morning: [],
-        afternoon: ['morning'],
-        evening: ['morning', 'afternoon']
-      }
-      precedingSlotNames[timeSlot].forEach(pSlot => {
-        const pBlocked = getBlockedEvents(date, store.id, pSlot as 'morning' | 'afternoon' | 'evening')
-        allPrecedingEvents.push(...pBlocked)
-      })
-      
-      // スロットが利用可能かチェック
-      if (!isSlotAvailable(timeSlot, allPrecedingEvents)) {
-        return <div className="p-1 sm:p-2 text-xs fg-gray-400 text-center">-</div>
-      }
-      
-      const suggestedTime = getSuggestedStartTime(timeSlot, allPrecedingEvents)
+      const options = getPrivateOptions(dateStr, timeSlot, [store.id])
+      if (options.length === 0) return <div className="p-1 sm:p-2 text-xs fg-gray-400 text-center">-</div>
+      const suggestedTime = options[0].startTime
       return (
         <div className="p-1 sm:p-2">
           <button
             className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 fg-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
             onClick={() => {
               const basePath = organizationSlug ? `/${organizationSlug}` : ''
-              const storeParam = selectedStoreIds.length > 0 ? selectedStoreIds.join(',') : store.id
+              const storeParam = options.map(option => option.storeId).join(',')
               navigate(`${basePath}/private-booking-select?date=${dateStr}&store=${storeParam}&slot=${timeSlot}&time=${suggestedTime}`)
             }}
           >
@@ -421,21 +382,21 @@ export const ListView = memo(function ListView({
                 {/* 朝公演セル */}
                 <TableCell className="schedule-table-cell p-0">
                   <div className="flex flex-col">
-                    {renderEventCell(morningEvents, store, 'morning', date, [])}
+                    {renderEventCell(morningEvents, store, 'morning', date)}
                   </div>
                 </TableCell>
 
                 {/* 昼公演セル */}
                 <TableCell className="schedule-table-cell p-0">
                   <div className="flex flex-col">
-                    {renderEventCell(afternoonEvents, store, 'afternoon', date, morningEvents)}
+                    {renderEventCell(afternoonEvents, store, 'afternoon', date)}
                   </div>
                 </TableCell>
 
                 {/* 夜公演セル */}
                 <TableCell className="schedule-table-cell p-0">
                   <div className="flex flex-col">
-                    {renderEventCell(eveningEvents, store, 'evening', date, [...morningEvents, ...afternoonEvents])}
+                    {renderEventCell(eveningEvents, store, 'evening', date)}
                   </div>
                 </TableCell>
               </TableRow>
