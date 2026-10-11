@@ -121,6 +121,12 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     navigate(`/${slug}/scenario/${slugOrId}`)
   }, [navigate, slug])
 
+  // リストで公演を押したとき: 作品ページをその公演を選んだ状態で開く（作品ページの ?event= が受け口）
+  const openScenarioEvent = useCallback((slugOrId: string, eventId: string) => {
+    saveScrollPositionForCurrentUrl()
+    navigate(`/${slug}/scenario/${slugOrId}?event=${encodeURIComponent(eventId)}`)
+  }, [navigate, slug])
+
   const openPerformance = useCallback((p: PublicPerformance) => {
     saveScrollPositionForCurrentUrl()
     navigate(performanceDetailPath(p, search.people))
@@ -194,6 +200,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
             organizationName,
             privateBookingDeadlineDays,
             onCardClick: openScenario,
+            onEventClick: openScenarioEvent,
           }}
         />
         <NearlyFullStrip performances={nearlyFull} onSelect={openPerformance} />
