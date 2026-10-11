@@ -641,7 +641,7 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
       let customerId: string | null = null
       let customerInfo: { name: string | null; email: string | null; phone: string | null } | null = null
       const organizationId =
-        (await getCurrentOrganizationId()) || event?.organization_id || undefined
+        event?.organization_id || (await getCurrentOrganizationId()) || undefined
       
       if (participantName === 'デモ参加者') {
         // デモ参加者の場合はデモ顧客を取得
@@ -791,7 +791,14 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
       
     } catch (error) {
       logger.error('参加者追加エラー:', error)
-      showToast.error('参加者の追加に失敗しました')
+      const saveError = error as { code?: string; message?: string }
+      const knownErrors: Record<string, string> = {
+        '42501': 'この店舗の参加者追加権限、または顧客の所属を確認してください',
+        '28000': 'ログインし直してから参加者を追加してください',
+        'P0002': '対象の公演が見つかりません。画面を開き直してください',
+        '22023': '公演の中止状態、人数、参加者の入力内容を確認してください',
+      }
+      showToast.error(knownErrors[saveError?.code || ''] || '参加者の追加に失敗しました')
     }
   }
 
