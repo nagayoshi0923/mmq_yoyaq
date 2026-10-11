@@ -81,7 +81,8 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     allEvents, 
     blockedSlots, 
     stores, 
-    privateBookingDeadlineDays, 
+    privateBookingDeadlineDays,
+    organizationId,
     isLoading,
     isFetching,
     loadData,
@@ -571,6 +572,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                 getStoreName={getStoreName}
                 getStoreColor={getStoreColor}
                 blockedSlots={blockedSlots}
+                organizationId={organizationId}
                 privateBookingDeadlineDays={privateBookingDeadlineDays}
                 organizationSlug={organizationSlug}
                 hideSoldOut={hideSoldOut}
@@ -596,6 +598,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                 scenarios={scenarios}
                 onCardClick={handleCardClick}
                 blockedSlots={blockedSlots}
+                organizationId={organizationId}
                 privateBookingDeadlineDays={privateBookingDeadlineDays}
                 organizationSlug={organizationSlug}
                 hideSoldOut={hideSoldOut}

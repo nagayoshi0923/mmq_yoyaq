@@ -252,6 +252,11 @@ export function usePrivateBookingSlotData({
   const resolvedTimeSlots = privateBookingTimeSlots ?? scenarioTiming?.private_booking_time_slots ?? undefined
   const resolvedWeekendTimeSlots = privateBookingTimeSlotsWeekend ?? scenarioTiming?.private_booking_time_slots_weekend ?? undefined
 
+  const blockedSlotIndex = useMemo(
+    () => buildPrivateBookingBlockedSlotIndex(blockedSlots),
+    [blockedSlots]
+  )
+
   const computeSlotsByDate = useMemo(() => {
     return (dates: string[]): Record<string, PrivateBookingSlot[]> => {
       if (!scenarioTiming) return {} as Record<string, PrivateBookingSlot[]>
@@ -264,6 +269,7 @@ export function usePrivateBookingSlotData({
         map[date] = computePrivateBookingSlots({
           date,
           storeIds: effectiveStoreIds,
+          blockedSlots,
           businessHoursByStore,
           scenarioTiming,
           allStoreEvents,
@@ -276,12 +282,7 @@ export function usePrivateBookingSlotData({
       }
       return map
     }
-  }, [effectiveStoreIds, businessHoursByStore, scenarioTiming, allStoreEvents, isCustomHoliday, resolvedTimeSlots, resolvedWeekendTimeSlots, scenarioTitle])
-
-  const blockedSlotIndex = useMemo(
-    () => buildPrivateBookingBlockedSlotIndex(blockedSlots),
-    [blockedSlots]
-  )
+  }, [effectiveStoreIds, businessHoursByStore, scenarioTiming, allStoreEvents, isCustomHoliday, resolvedTimeSlots, resolvedWeekendTimeSlots, scenarioTitle, blockedSlots])
 
   const isCandidateBlockedOnAllStores = useMemo(() => {
     return (date: string, timeSlot: string, candidateStoreIds = effectiveStoreIds): boolean =>
