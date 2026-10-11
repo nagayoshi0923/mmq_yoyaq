@@ -600,7 +600,6 @@ export function useBookingData(organizationSlug?: string) {
     scenarios: data?.scenarios ?? [],
     allEvents: data?.allEvents ?? [],
     blockedSlots: data?.blockedSlots ?? [],
-    organizationId: data?.organizationId ?? null,
     stores: data?.stores ?? [],
     privateBookingDeadlineDays: data?.privateBookingDeadlineDays ?? 14,
     isLoading,
