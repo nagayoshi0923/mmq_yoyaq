@@ -1181,5 +1181,15 @@
     "body_md5": "e14affb050e8d787508475ee22c40c95",
     "language": "plpgsql",
     "security_definer": true
+  },
+  "add_manual_reservations(p_rows jsonb)": {
+    "returns": "SETOF reservations",
+    "body_md5": "0852f86b9d4890e32c80d4e7c1251e3d",
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres"
+    ],
+    "language": "plpgsql",
+    "security_definer": true
   }
 }
