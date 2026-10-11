@@ -3,7 +3,7 @@
  * @path /{organizationSlug}
  *
  * 2026-10 刷新（社長承認の見本 Top.dc.html）: 上の帯 → 空いている公演を探す → 残りわずか → 貸切 → 作品から探す → はじめての方へ。
- * 旧ラインナップ／カレンダー／リストの 3 タブは廃止。「空いている公演を探す」に一覧／カレンダーの切り替え。旧 /{org}/calendar はカレンダー表示へ。
+ * 旧 3 タブは「空いている公演を探す」の見方「一覧／カレンダー／リスト」に刷新（絞り込みは共通）。旧 /{org}/calendar・/list はそれぞれの見方へ。
  * 方針: docs/product-spec/トップページ刷新_2026-10.md
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -69,6 +69,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
   const {
     scenarios,
     allEvents,
+    blockedSlots,
     stores,
     isLoading,
     isFetching,
@@ -82,8 +83,8 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
   } = useBookingData(organizationSlug)
 
   const { state: search, update: updateSearch } = usePerformanceSearchParams()
-  const { performances, storeOptions, nextDates } = useStoreTopPerformances({
-    allEvents, stores, organizationId, organizationSlug: slug, organizationName, nowMs,
+  const { performances, storeOptions, nextDates, privateBlocks } = useStoreTopPerformances({
+    allEvents, blockedSlots, stores, organizationId, organizationSlug: slug, organizationName, nowMs,
   })
   const nearlyFull = useMemo(() => nearlyFullPerformances(performances, nowMs), [performances, nowMs])
 
@@ -105,7 +106,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     loadData().catch((error) => logger.error('PublicBookingTop データ取得エラー:', error))
   }, [loadData])
 
-  // 旧 3 タブの URL: /calendar はカレンダー表示、/list は一覧、/private-booking は貸切の区画へ
+  // 旧 3 タブの URL: /calendar はカレンダー、/list はリスト（時間割）、/private-booking は貸切の区画へ
   const legacySub = location.pathname.match(/^\/[^/]+\/(calendar|list|private-booking)\/?$/)?.[1]
   useEffect(() => {
     if (!legacySub || !slug) return
@@ -114,7 +115,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
       window.setTimeout(() => document.getElementById('private-booking')?.scrollIntoView({ behavior: 'smooth' }), 300)
       return
     }
-    navigate(legacySub === 'calendar' ? `/${slug}?view=calendar` : `/${slug}`, { replace: true })
+    navigate(`/${slug}?view=${legacySub}`, { replace: true })
   }, [legacySub, slug, navigate])
 
   const scrollTo = useCallback((id: string) => {
@@ -181,6 +182,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
           state={search}
           onChange={updateSearch}
           storeOptions={storeOptions}
+          privateBlocks={privateBlocks}
           today={today}
           maxDate={maxDate}
           nowMs={nowMs}

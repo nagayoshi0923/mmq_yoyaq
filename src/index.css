@@ -299,6 +299,8 @@ html, body {
   .ts-emph    { @apply text-base font-bold; }
 
   /* 横スクロールのチップ・カードの列（トップページ）。スクロールバーは出さない */
+  /* カレンダーのマスの小さな件数（「+6 空き」）。スマホの狭いマスで折り返さない大きさ */
+  .ts-micro { font-size: 10px; line-height: 1.1; }
   .scroll-row { scrollbar-width: none; }
   .scroll-row::-webkit-scrollbar { display: none; }
 

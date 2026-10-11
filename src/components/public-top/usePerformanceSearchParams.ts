@@ -7,6 +7,8 @@ export const DEFAULT_PEOPLE = 2
 
 const PRESETS: readonly DatePreset[] = ['weekend', 'today', 'tomorrow', 'nextweek', 'date']
 
+export type SearchView = 'cards' | 'calendar' | 'list'
+
 export interface PerformanceSearchState {
   preset: DatePreset
   date: string | null
@@ -15,8 +17,8 @@ export interface PerformanceSearchState {
   beginnerOnly: boolean
   storeIds: string[]
   area: string | null
-  /** 店舗トップの表示（一覧／カレンダー） */
-  view: 'list' | 'calendar'
+  /** 店舗トップの見方（一覧＝カード／カレンダー／リスト＝時間割） */
+  view: SearchView
 }
 
 /**
@@ -42,7 +44,7 @@ export function usePerformanceSearchParams() {
       beginnerOnly: params.get('beginner') === '1',
       storeIds: stores,
       area: params.get('area') || null,
-      view: params.get('view') === 'calendar' ? 'calendar' : 'list',
+      view: params.get('view') === 'calendar' ? 'calendar' : params.get('view') === 'list' ? 'list' : 'cards',
     }
   }, [params])
 
@@ -57,7 +59,7 @@ export function usePerformanceSearchParams() {
       if (patch.beginnerOnly !== undefined) set('beginner', patch.beginnerOnly ? '1' : null)
       if (patch.storeIds !== undefined) set('stores', patch.storeIds.join(','))
       if (patch.area !== undefined) set('area', patch.area)
-      if (patch.view !== undefined) set('view', patch.view === 'calendar' ? 'calendar' : null)
+      if (patch.view !== undefined) set('view', patch.view === 'cards' ? null : patch.view)
       if (patch.preset !== undefined && patch.preset !== 'date') next.delete('date')
       return next
     }, { replace: true })
