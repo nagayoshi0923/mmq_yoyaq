@@ -222,13 +222,17 @@ export const reservationApi = {
     })
   },
 
-  // ─── 管理者・デモ用の直接書き込み（整備 Phase 2: 画面からの直接 INSERT / UPDATE / DELETE をここに集約） ───
+  // ─── 管理者・デモ用の書き込み（参加者追加は認証・組織確認付きRPC） ───
   // RPC（create_reservation_with_lock_v2）の満員・重複判定を意図的に通さない（管理者の手動追加・デモ参加者）。
   // 表示人数（schedule_events.current_participants）は DB トリガーが再計算する（#730 の規則）。
   // 戻り値は supabase の { data, error } をそのまま返す（呼び出し側の扱いを変えないため）。
   async insertDirect(rows: Record<string, unknown> | Record<string, unknown>[], select = 'id'): Promise<{ data: Reservation[] | null; error: { message: string } | null }> {
     // select を文字列変数で渡すと型が決まらないため、呼び出し側が使う形に合わせて明示する
-    const { data, error } = await supabase.from('reservations').insert(rows).select(select)
+    // INSERT の公演確認ポリシーが reservations を再参照するため直接書かない。
+    // RPC 内で対象公演の組織に対する業務権限を確認する。
+    const { data, error } = await supabase.rpc('add_manual_reservations', {
+      p_rows: Array.isArray(rows) ? rows : [rows],
+    }).select(select)
     return { data: (data as unknown as Reservation[] | null), error }
   },
   // デモ・テストプレイ予約の後始末（ScheduleManager の修復処理）。顧客の予約には使わない。

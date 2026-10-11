@@ -49,6 +49,9 @@ jobs:
       - name: Staff account lifecycle database regressions
         run: npm run test:staff-account-db
 
+      - name: 手動参加者追加のRLS循環と組織認可
+        run: node scripts/test-manual-reservations-db.mjs
+
       - name: Verify organization signup ownership
         run: npm run test:organization-signup-db
 
