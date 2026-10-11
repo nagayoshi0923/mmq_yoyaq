@@ -1,3 +1,11 @@
+## 2026-10-11 / トップ刷新の続き: 作品の検索・遊びたい／体験済み、DB とメールの店舗名、問い合わせの種別（fix/top-followups、staging 向け PR・未取り込み）
+
+- 作品から探す（店舗トップ・全体トップ）: 見出しの下に「作品名・作者で検索」（欄内で絞り込み、カタログへは `?q=`。`/{組織}/catalog` も `?q=` を読むようにした）。ログイン中だけ各カードの右上に「遊びたい」「体験済み」（`useScenarioMarks`。体験済みは従来の登録ダイアログ）。
+- DB: migration 20261011220000（同名 rollback）。`public.customer_store_name(店舗, 日付, 予備)` を追加（画面の storeDisplayName と同じ決め方。公開してよい名前だけを返す）し、お客様に届く 11 関数の店舗名を置き換え（一覧は方針書「店舗名」）。各関数は staging の現物から店舗名の部分だけ変更。staging 適用済み・本番未適用。`staging.json`・`expected-function-overrides.json`（既存の権限の記録は残し、本文の md5 だけ更新）。手元で baseline 再現 OK。
+- Edge Function（staging 配備済み）: `_shared/customer-store-name.ts` を追加し前日メール・旧経路の貸切確定メールで使用。`send-cancellation-confirmation` は店舗 ID から `customer_store_name` を引く。`send-contact-inquiry` の日本語の種別名も配備。配備: send-contact-inquiry, send-cancellation-confirmation, auto-send-reminder-emails, schedule-reminder-emails, notify-gm-private-booking-confirmed, send-private-booking-confirmation, reconcile-private-delivery, provision-private-booking-discord。
+- **本番反映は DB → Edge Function → 画面の順**（Edge Function が `customer_store_name` を呼ぶため）。
+- 確認: staging 接続の手元で 375px（`shots/fu_*_scenario_search.png`）、`/queens-waltz/catalog?q=ウサギ` が 1 件。ログイン中の「遊びたい」「体験済み」は画面では未確認（型・試験のみ）。メールの実送信はしていない（DB 関数を staging で直接呼び、「高田馬場店」「フォレスト①」「特設会場」などになることを確認）。
+
 ## 2026-10-11 / トップページ刷新（店舗トップ・MMQ 全体トップ）とお客様向けの店舗名（feat/top-pages-redesign、staging 向け PR・未取り込み）
 
 - 社長承認の見本 `Top.dc.html`・`TopMMQ.dc.html`（追加指示: 全体トップに「残りわずか」「作品から探す」、貸切の位置）。方針書 `docs/product-spec/トップページ刷新_2026-10.md`。点検 2026-10-11 の 7・15・16・19・23・24・33 を対象。
