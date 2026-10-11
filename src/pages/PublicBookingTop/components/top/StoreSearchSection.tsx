@@ -36,6 +36,7 @@ interface StoreSearchSectionProps {
     organizationName: string | null
     privateBookingDeadlineDays: number
     onCardClick: (scenarioId: string) => void
+    onEventClick: (scenarioId: string, eventId: string) => void
   }
 }
 

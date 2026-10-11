@@ -32,6 +32,8 @@ interface ClassicViewProps {
   onHidePlayedChange: (value: boolean) => void
   primaryColor: string
   onCardClick: (scenarioId: string) => void
+  /** リストで公演を押したとき（作品ページを公演選択済みで開く） */
+  onEventClick: (scenarioId: string, eventId: string) => void
 }
 
 /** 過去の月へは戻さない（元の画面と同じ） */
@@ -83,7 +85,7 @@ export function ClassicCalendar(props: ClassicViewProps) {
 
 export function ClassicList(props: ClassicViewProps) {
   const played = usePlayedFilter()
-  const { hidePlayed, onHidePlayedChange, allEvents, blockedSlots, stores, storeOptions, scenarios, organizationSlug, organizationName, privateBookingDeadlineDays, selectedStoreIds, onStoreIdsChange, hideSoldOut, onHideSoldOutChange, primaryColor, onCardClick } = props
+  const { hidePlayed, onHidePlayedChange, allEvents, blockedSlots, stores, storeOptions, scenarios, organizationSlug, organizationName, privateBookingDeadlineDays, selectedStoreIds, onStoreIdsChange, hideSoldOut, onHideSoldOutChange, primaryColor, onEventClick } = props
   const { listViewMonth, setListViewMonth, listViewData, getEventsForDateStore } = useListViewData(allEvents, stores, selectedStoreIds, blockedSlots, `booking-${organizationSlug}-list-month`)
   const onMonthChange = useFutureMonthSetter(setListViewMonth)
   return (
@@ -99,10 +101,8 @@ export function ClassicList(props: ClassicViewProps) {
       listViewData={listViewData}
       getEventsForDateStore={getEventsForDateStore}
       scenarios={scenarios}
-      onCardClick={onCardClick}
+      onEventClick={onEventClick}
       blockedSlots={blockedSlots}
-      privateBookingDeadlineDays={privateBookingDeadlineDays}
-      organizationSlug={organizationSlug}
       hideSoldOut={hideSoldOut}
       onHideSoldOutChange={onHideSoldOutChange}
       hidePlayed={played.isLoggedIn && hidePlayed}
