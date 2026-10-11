@@ -104,7 +104,7 @@ describe('クーポンの予約候補と期限', () => {
     expect(r.status).toHaveBeenCalledWith(200)
     expect(eqCalls).toContainEqual(['organization_id', 'tokyo-org'])
   })
-  it('マイページのクーポンに使える店舗（組織名と店舗数）を付ける', async () => {
+  it('マイページのクーポンに使える店舗（数は出さず、店舗名の一覧）を付ける', async () => {
     seed({
       customers: [{ id: 'customer' }],
       customer_coupons: [{ id: 'c1', organization_id: 'qw', coupon_campaigns: {}, rules_snapshot: {} }],
@@ -125,7 +125,8 @@ describe('クーポンの予約候補と期限', () => {
     const r = response()
     await handler({ method: 'GET', headers: {}, query: { type: 'all' } } as unknown as VercelRequest, r as unknown as VercelResponse)
     expect(r.status).toHaveBeenCalledWith(200)
-    expect(r.json.mock.calls[0][0][0].usable_stores_label).toBe('クインズワルツ（東京・埼玉 2 店舗）')
+    expect(r.json.mock.calls[0][0][0].usable_stores_label).toBe('クインズワルツの全店舗（東京・埼玉）')
+    expect(r.json.mock.calls[0][0][0].usable_store_names).toEqual(['高田馬場店', '埼玉大宮店'])
   })
   it('予約取得の失敗を予約なしの空配列に置き換えない', async () => {
     seed({ customers: [{ id: 'customer' }] })
