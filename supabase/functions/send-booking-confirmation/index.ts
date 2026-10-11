@@ -5,6 +5,7 @@ import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 import { confirmedReservationPrice } from '../_shared/confirmed-reservation-price.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
+import { buildBookingGuide } from '../_shared/booking-confirmation-guide.ts'
 
 interface BookingConfirmationRequest {
   reservationId: string
@@ -201,6 +202,38 @@ serve(async (req) => {
       return timeStr.slice(0, 5)
     }
 
+    // キャンセル期限・当日の支払い・マイページの案内（既定文面に入れる。点検 31）
+    // 実際の取消判定と同じ設定（公演 → 作品 → 店舗 → 組織の順に引き継ぐ）を読む。読めなければ既定値で案内する
+    const resolveSetting = async (key: string) => {
+      if (!resolvedOrganizationId) return null
+      try {
+        const { data } = await serviceClient.rpc('resolve_operating_setting', {
+          p_organization_id: resolvedOrganizationId,
+          p_key: key,
+          p_store_id: bookingData.storeId || null,
+          p_scenario_id: null,
+          p_event_id: reservation.schedule_event_id || null,
+        })
+        return data && typeof data === 'object' ? (data as { value?: unknown }).value ?? null : null
+      } catch (settingError) {
+        console.warn('⚠️ 運営設定の取得に失敗（既定値で案内）:', key, settingError)
+        return null
+      }
+    }
+    const [deadlineHoursSetting, feesSetting, paymentDescriptionSetting] = await Promise.all([
+      resolveSetting('cancellation_deadline_hours'),
+      resolveSetting('cancellation_fees'),
+      resolveSetting('payment_method_description'),
+    ])
+    const guide = buildBookingGuide({
+      eventDate: bookingData.eventDate,
+      startTime: bookingData.startTime,
+      deadlineHours: deadlineHoursSetting,
+      fees: feesSetting,
+      paymentDescription: typeof paymentDescriptionSetting === 'string' ? paymentDescriptionSetting : null,
+      siteUrl: Deno.env.get('SITE_URL') || null,
+    })
+
     // メール本文を作成
     const emailHtml = `
 <!DOCTYPE html>
@@ -258,8 +291,15 @@ serve(async (req) => {
     </table>
   </div>
 
-  <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
-    <p style="margin: 0; color: #92400e;">ご予約に関する詳細・ご注意事項は、公式サイトのご案内をご確認ください。</p>
+  <div style="background-color: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px 25px; margin-bottom: 20px;">
+    <h2 style="color: #1f2937; font-size: 16px; margin-top: 0;">キャンセルについて</h2>
+    <p style="margin: 0 0 16px 0; color: #374151; font-size: 14px;">${guide.cancelDeadline}</p>
+    <h2 style="color: #1f2937; font-size: 16px; margin-top: 0;">当日のお支払い</h2>
+    <p style="margin: 0 0 16px 0; color: #374151; font-size: 14px;">${guide.paymentNote}</p>
+    <h2 style="color: #1f2937; font-size: 16px; margin-top: 0;">予約の確認・人数変更・取消</h2>
+    <p style="margin: 0 0 12px 0; color: #374151; font-size: 14px;">マイページからいつでもご確認いただけます。</p>
+    <p style="margin: 0;"><a href="${guide.mypageUrl}" style="display: inline-block; background-color: #2563eb; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 4px; font-size: 14px;">マイページを開く</a></p>
+    <p style="margin: 8px 0 0 0; color: #6b7280; font-size: 12px;">${guide.mypageUrl}</p>
   </div>
 
   <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 20px;">
@@ -297,7 +337,15 @@ ${bookingData.customerName} 様
 
 ━━━━━━━━━━━━━━━━━━━━
 
-ご予約に関する詳細・ご注意事項は、公式サイトのご案内をご確認ください。
+■ キャンセルについて
+${guide.cancelDeadline}
+
+■ 当日のお支払い
+${guide.paymentNote}
+
+■ 予約の確認・人数変更・取消
+マイページからいつでもご確認いただけます。
+${guide.mypageUrl}
 
 ━━━━━━━━━━━━━━━━━━━━
 
@@ -327,6 +375,10 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
         .replace(/{participants}/g, String(bookingData.participantCount || ''))
         .replace(/{participant_count}/g, String(bookingData.participantCount || ''))
         .replace(/{total_price}/g, (bookingData.totalPrice || 0).toLocaleString())
+        // キャンセル期限・支払い・マイページ（点検 31）
+        .replace(/{cancel_deadline}/g, guide.cancelDeadline)
+        .replace(/{payment_note}/g, guide.paymentNote)
+        .replace(/{mypage_url}/g, guide.mypageUrl)
         // キャンセル関連
         .replace(/{cancellation_fee}/g, '')
         .replace(/{cancellation_reason}/g, '')

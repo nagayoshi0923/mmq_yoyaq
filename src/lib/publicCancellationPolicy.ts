@@ -6,6 +6,7 @@ import {
   DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
 } from '@/constants/cancellationPolicyDefaults'
 import { supabase } from '@/lib/supabase'
+import { storeDisplayName, type StoreNameSource } from '@/lib/publicStoreName'
 import type { CancellationFeeBasis, CancellationFeeRule } from '@/types'
 
 export interface PublicPolicyItem {
@@ -188,6 +189,29 @@ export async function fetchPublicPerformanceJudgments({ slug, storeId, scenarioM
   return judgmentByStore
 }
 
+/**
+ * 店舗名をお客様向けの名前（「お客様向けの名前」→ 組織名を外した店舗名）にする（点検 21）。
+ * 店舗の公開情報が読めなくても規定の表示は続ける（店舗名から組織名を外すだけ）。
+ */
+async function withCustomerStoreNames(policies: PublicCancellationPolicy[]): Promise<PublicCancellationPolicy[]> {
+  const ids = [...new Set(policies.map(policy => policy.store_id).filter(Boolean))]
+  const storeById = new Map<string, StoreNameSource>()
+  if (ids.length > 0) {
+    const { data } = await supabase
+      .from('stores_public')
+      .select('id, name, short_name, public_name, is_temporary')
+      .in('id', ids)
+    for (const row of toArray<StoreNameSource & { id?: string }>(data)) {
+      if (row.id) storeById.set(row.id, row)
+    }
+  }
+  return policies.map(policy => {
+    const store = storeById.get(policy.store_id) ?? { name: policy.store_name, short_name: policy.store_short_name }
+    const display = storeDisplayName(store, { organizationName: policy.organization_name, fallback: policy.store_name })
+    return { ...policy, store_name: display, store_short_name: display }
+  })
+}
+
 export async function fetchPublicCancellationPolicies({
   organizationSlug,
   storeId,
@@ -213,7 +237,7 @@ export async function fetchPublicCancellationPolicies({
     throw error
   }
 
-  const policies = toArray<Record<string, unknown>>(data).map(normalizePublicPolicy)
+  const policies = await withCustomerStoreNames(toArray<Record<string, unknown>>(data).map(normalizePublicPolicy))
   // 中止判定のルールは、実際の判定と同じ設定から作る（#714）。取れなくても規定の表示は続ける
   const judgmentByStore = await fetchPublicPerformanceJudgments({ slug, storeId, scenarioMasterId, eventId })
   const withJudgment = policies.map(policy => ({ ...policy, judgment: (policy.store_id && judgmentByStore.get(policy.store_id)) || null }))

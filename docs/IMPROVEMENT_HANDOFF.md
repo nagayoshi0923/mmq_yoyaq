@@ -1,3 +1,14 @@
+## 2026-10-12 / 公開ページの文言と案内（fix/public-pages-text、staging 向け PR・未取り込み）
+
+- 点検 `脱落ポイント点検_2026-10-11.md` の 21・22・31・32・6（残り）。DB 変更なし。
+- 21 キャンセルポリシー: 組織のページは、規定の中身が同じ店舗をまとめて 1 回だけ出し「対象店舗（N店舗）」に店舗名を並べる（`src/lib/cancellationPolicyGroups.ts`。比べないのは店舗の id・名前・最終更新日だけ。最終更新日はまとめた中で一番新しい日）。店舗名はお客様向けの名前（`stores_public.public_name` → 組織名を外した名前、臨時会場は「特設会場」）。staging の queens-waltz は 12 件 → 2 件。全体の `/cancel-policy` は組織ごとのページへのリンク一覧。
+- 22 使い方ガイド: 今の画面に合わせて全面的に書き直し（1,459 行 → 252 行）。ログイン不要の画面は staging につないだ手元の 375px の実画面（`public/guide-images/*.webp`、`/guide` と重ならないよう別名）。マイページの貸切カードとグループページの上部は、ログインが要るため実際の部品（`PrivateBookingCard`・`GroupStatusBox`・`GroupTabBar`）に見本の値を入れて出す（`src/pages/static/guide/GuideDemos.tsx`、押しても動かない）。画面を変えたら画像を撮り直す。
+- 31 予約完了メール: 店舗が文面を設定していないときの既定文面に「キャンセルについて（無料で取り消せる期限の日時）」「当日のお支払い（税込・店舗で現金またはカード。店舗が支払い案内を設定していればそれ＋税込）」「マイページへのリンク」を追加。期限は実際の取消判定と同じ設定（`resolve_operating_setting` で公演 → 作品 → 店舗 → 組織）から `supabase/functions/_shared/booking-confirmation-guide.ts` で計算（画面の `freeSelfCancelHours` と同じ考え方、テストで一致を確認）。店舗の独自文面でも `{cancel_deadline}`・`{payment_note}`・`{mypage_url}` を書けば差し込まれる（管理画面の既定テンプレも同じ 3 つを使う形に）。Edge Function の配備は `npm run functions:deploy:staging`（send-booking-confirmation）。
+- 32 利用規約: 案だけ `docs/legal/利用規約_改訂案_2026-10.md`（ゲスト・PIN、チャットと写真、事前配役アンケート、通知、主催者の引き継ぎ、キャンセルと人数変更。法務に確かめてほしい 8 点つき）。画面（`TermsPage.tsx`）は変えていない。
+- 6（残り）FAQ: 本番・staging の「設定 › FAQ」（queens-waltz の `common_faq_items`）に貼る完成文と staging 用 SQL を `docs/ops/FAQ_貼り替え文_2026-10.md` に。誤字 2 か所・貸切 14 日前・変更は人数とキャンセル・期限後は問い合わせフォーム・「事前配役アンケートとは」を追加。ついでに、個別 FAQ の「開催判断は前日 23:30〜24:00 頃」がキャンセルポリシーの「公演開始の 4 時間前」と食い違うことを記載（要判断）。
+- 確認: 手元（vite 5181 → staging）で 375px。`shots/public_cancel_policy_*.png`・`shots/public_guide_*.png`（作業ツリーのみ、コミットしない）。
+- **残り**: 予約完了メールの実送信の確認（staging 配備後）。利用規約は社長・法務の確認後に画面へ差し替え。FAQ の本番貼り替えは社長の承認後。
+
 ## 2026-10-12 / 予約の確認・詳細・取消の情報と店舗への連絡手段（fix/booking-cancel-info、staging 向け PR・未取り込み）
 
 - 点検 `脱落ポイント点検_2026-10-11.md` の 34・2・20・39・41・5・18・14・13・36・38・37・30・40・29。社長決定: 人数を減らせる期限はキャンセルポリシーの「24 時間前」、店舗の電話番号は出さず問い合わせフォーム、料金注記は「税込。当日、店舗で現金またはカードでお支払いください。」（`src/lib/priceNote.ts`）。
