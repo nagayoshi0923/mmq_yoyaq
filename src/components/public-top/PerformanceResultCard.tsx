@@ -25,7 +25,7 @@ export function PerformanceResultCard({ performance: p, showOrganization = false
       onClick={() => onSelect(p)}
       className="flex w-full min-w-0 items-stretch gap-2.5 rounded-lg border border-border bg-white p-2.5 text-left transition-colors hover:bg-muted/40"
     >
-      <KeyVisualThumb src={p.key_visual_url} alt={p.title} seed={p.scenario_id} width={120} className="h-[76px] w-14 shrink-0" />
+      <KeyVisualThumb src={p.key_visual_url} alt={p.title} seed={p.scenario_id} width={120} className="aspect-[3/4] w-14 shrink-0 self-start" />
       <div className="min-w-0 flex-1">
         {/* 日時と場所。場所（組織名・店舗名）は切らずに 2 行まで折り返す */}
         <div className="line-clamp-2 text-xs text-muted-foreground">

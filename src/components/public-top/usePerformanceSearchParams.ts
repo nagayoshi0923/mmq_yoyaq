@@ -15,10 +15,12 @@ export interface PerformanceSearchState {
   beginnerOnly: boolean
   storeIds: string[]
   area: string | null
+  /** 店舗トップの表示（一覧／カレンダー） */
+  view: 'list' | 'calendar'
 }
 
 /**
- * 絞り込みを URL（?when=&date=&people=&stores=&avail=&beginner=&area=）に持つ。
+ * 絞り込みを URL（?when=&date=&people=&stores=&avail=&beginner=&area=&view=）に持つ。
  * 作品ページから戻ったときに同じ条件で開き直せ、旧 /calendar からも ?when=date で渡せる。
  */
 export function usePerformanceSearchParams() {
@@ -40,6 +42,7 @@ export function usePerformanceSearchParams() {
       beginnerOnly: params.get('beginner') === '1',
       storeIds: stores,
       area: params.get('area') || null,
+      view: params.get('view') === 'calendar' ? 'calendar' : 'list',
     }
   }, [params])
 
@@ -54,6 +57,7 @@ export function usePerformanceSearchParams() {
       if (patch.beginnerOnly !== undefined) set('beginner', patch.beginnerOnly ? '1' : null)
       if (patch.storeIds !== undefined) set('stores', patch.storeIds.join(','))
       if (patch.area !== undefined) set('area', patch.area)
+      if (patch.view !== undefined) set('view', patch.view === 'calendar' ? 'calendar' : null)
       if (patch.preset !== undefined && patch.preset !== 'date') next.delete('date')
       return next
     }, { replace: true })

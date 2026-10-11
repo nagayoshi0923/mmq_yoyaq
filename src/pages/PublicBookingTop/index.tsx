@@ -3,7 +3,7 @@
  * @path /{organizationSlug}
  *
  * 2026-10 刷新（社長承認の見本 Top.dc.html）: 上の帯 → 空いている公演を探す → 残りわずか → 貸切 → 作品から探す → はじめての方へ。
- * 旧ラインナップ／カレンダー／リストの 3 タブは廃止。旧 /{org}/calendar・/{org}/list は「日付を選ぶ」へ送る。
+ * 旧ラインナップ／カレンダー／リストの 3 タブは廃止。「空いている公演を探す」に一覧／カレンダーの切り替え。旧 /{org}/calendar はカレンダー表示へ。
  * 方針: docs/product-spec/トップページ刷新_2026-10.md
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -105,7 +105,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     loadData().catch((error) => logger.error('PublicBookingTop データ取得エラー:', error))
   }, [loadData])
 
-  // 旧 3 タブの URL（/calendar・/list）は「日付を選ぶ」へ、/private-booking は貸切の区画へ
+  // 旧 3 タブの URL: /calendar はカレンダー表示、/list は一覧、/private-booking は貸切の区画へ
   const legacySub = location.pathname.match(/^\/[^/]+\/(calendar|list|private-booking)\/?$/)?.[1]
   useEffect(() => {
     if (!legacySub || !slug) return
@@ -114,7 +114,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
       window.setTimeout(() => document.getElementById('private-booking')?.scrollIntoView({ behavior: 'smooth' }), 300)
       return
     }
-    navigate(`/${slug}?when=date`, { replace: true })
+    navigate(legacySub === 'calendar' ? `/${slug}?view=calendar` : `/${slug}`, { replace: true })
   }, [legacySub, slug, navigate])
 
   const scrollTo = useCallback((id: string) => {
