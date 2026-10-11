@@ -1,3 +1,9 @@
+## 2026-10-12 / 元のカレンダー・リストの手直し（fix/calendar-list-polish、staging 向け PR・未取り込み）
+
+- 「体験済みを非表示」（ログイン中だけ）をカレンダー・リストの操作列に戻した（チップ。体験済みの作品は `usePlayedScenarios`）。
+- カレンダーの今日より前の日: 「店舗を選択して貸切申込」を出さず薄い地色だけ、過去だけの週は低く（PC も同じ）。今日以降で公演の無い日は小さく 1 行「貸切申込」→ `/{組織}/private-booking-select?date=`。
+- 確認: staging 接続の手元で 375px・1280px（作業メモの `shots/polish_*.png`）。ログイン中の「体験済みを非表示」は画面では未確認（型・試験のみ）。DB 変更なし。
+
 ## 2026-10-12 / カレンダー・リストを元の実装に戻す（fix/restore-original-calendar-list、staging 向け PR・未取り込み）
 
 - 社長決定: カレンダーとリストは元のほうがよい（画面への収まりも）。#1051・#1053 の刷新版は廃止し、#1046 より前の `CalendarView`・`ListView`・`useCalendarData`・`useListViewData`・`bookingViewPersistence` を履歴（7c312a77c）から戻した。「作品名 2 行」の PR #1055 は閉じた。

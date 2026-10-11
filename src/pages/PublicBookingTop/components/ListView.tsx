@@ -36,7 +36,9 @@ interface ListViewProps {
   hideSoldOut?: boolean
   onHideSoldOutChange?: (value: boolean) => void
   hidePlayed?: boolean
+  onHidePlayedChange?: (value: boolean) => void
   playedScenarioIds?: Set<string>
+  isLoggedIn?: boolean
 }
 
 /**
@@ -61,7 +63,9 @@ export const ListView = memo(function ListView({
   hideSoldOut = false,
   onHideSoldOutChange,
   hidePlayed = false,
+  onHidePlayedChange,
   playedScenarioIds = new Set(),
+  isLoggedIn = false,
 }: ListViewProps) {
   const navigate = useNavigate()
   
@@ -311,6 +315,9 @@ export const ListView = memo(function ListView({
         storeOptions={storeOptions}
         hideSoldOut={hideSoldOut}
         onHideSoldOutChange={onHideSoldOutChange}
+        hidePlayed={hidePlayed}
+        onHidePlayedChange={onHidePlayedChange}
+        isLoggedIn={isLoggedIn}
         primaryColor={primaryColor}
       />
 

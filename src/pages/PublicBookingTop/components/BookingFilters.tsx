@@ -14,6 +14,10 @@ interface BookingFiltersProps {
   storeOptions: StoreOption[]
   hideSoldOut?: boolean
   onHideSoldOutChange?: (value: boolean) => void
+  /** ログイン中だけ「体験済みを非表示」 */
+  hidePlayed?: boolean
+  onHidePlayedChange?: (value: boolean) => void
+  isLoggedIn?: boolean
   /** 選べる月の数（今月から） */
   monthCount?: number
   primaryColor: string
@@ -24,7 +28,7 @@ function monthStart(d: Date): Date {
 }
 
 /**
- * 予約サイトのカレンダー・リスト共通の操作（年月・店舗・満席を非表示）。
+ * 予約サイトのカレンダー・リスト共通の操作（年月・店舗・満席を非表示・ログイン中は体験済みを非表示）。
  * 元の操作のまま、見た目は新しいトップのチップに合わせた（2026-10-12 社長決定）。
  */
 export function BookingFilters({
@@ -35,6 +39,9 @@ export function BookingFilters({
   storeOptions,
   hideSoldOut = false,
   onHideSoldOutChange,
+  hidePlayed = false,
+  onHidePlayedChange,
+  isLoggedIn = false,
   monthCount = 3,
   primaryColor,
 }: BookingFiltersProps) {
@@ -86,6 +93,11 @@ export function BookingFilters({
       {onHideSoldOutChange && (
         <ChipButton selected={hideSoldOut} primaryColor={primaryColor} onClick={() => onHideSoldOutChange(!hideSoldOut)}>
           <EyeOff className="h-3.5 w-3.5" aria-hidden />満席を非表示
+        </ChipButton>
+      )}
+      {onHidePlayedChange && isLoggedIn && (
+        <ChipButton selected={hidePlayed} tone="green" onClick={() => onHidePlayedChange(!hidePlayed)}>
+          <EyeOff className="h-3.5 w-3.5" aria-hidden />体験済みを非表示
         </ChipButton>
       )}
     </div>
