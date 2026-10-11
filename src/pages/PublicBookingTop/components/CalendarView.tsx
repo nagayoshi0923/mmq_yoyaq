@@ -69,7 +69,12 @@ export const CalendarView = memo(function CalendarView({
   isLoggedIn = false,
 }: CalendarViewProps) {
   const navigate = useNavigate()
-  const getPrivateOptions = usePublicPrivateBookingSlots(organizationId, selectedStoreIds, currentMonth)
+  // 店舗未選択のときは、お客様向けの通常店舗すべて（臨時会場は含まない）で貸切申込の空きを判定する（ListView と同じ考え方）
+  const availabilityStoreIds = useMemo(
+    () => (selectedStoreIds.length > 0 ? selectedStoreIds : storeOptions.map(option => option.id)),
+    [selectedStoreIds, storeOptions],
+  )
+  const getPrivateOptions = usePublicPrivateBookingSlots(organizationId, availabilityStoreIds, currentMonth)
   const todayStr = formatDateJST(new Date())
   
   // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
@@ -255,15 +260,8 @@ export const CalendarView = memo(function CalendarView({
                       evening: allDisplayEvents.filter((e) => getTimeSlot(e.start_time) === 'evening')
                     }
                     
-                    // 全店舗表示で何もない場合
-                    if (allDisplayEvents.length === 0 && !selectedStore) {
-                      if (isPast) return null
-                      return (
-                        <div className="p-1 sm:p-2 text-xs fg-gray-400 text-center">
-                          店舗を選択して貸切申込
-                        </div>
-                      )
-                    }
+                    // 店舗未選択なら対象店舗すべてで判定済み。選択中の店舗が見つからないときは申込枠を出さない
+                    const canShowPrivateEntry = selectedStoreIds.length === 0 || !!selectedStore
                     
                     // 時間帯順にイベントと貸切ボタンを表示
                     const renderEvent = (event: PublicCalendarEvent, idx: number) => {
@@ -372,7 +370,7 @@ export const CalendarView = memo(function CalendarView({
 
                         // 営業設定・募集停止・非公開イベントも店舗ごとに判定
                         const options = getPrivateOptions(dateStr, slot)
-                        const showPrivateButton = selectedStore && canApplyPrivateBooking && options.length > 0
+                        const showPrivateButton = canShowPrivateEntry && !isPast && canApplyPrivateBooking && options.length > 0
 
                         if (hasEvents && showPrivateButton) {
                           const suggestedTime = options[0].startTime
