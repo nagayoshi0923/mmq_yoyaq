@@ -9,8 +9,9 @@ vi.mock('@/lib/supabase', () => ({ supabase: {} }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 vi.mock('@/lib/api/privateGroupPageReadApi', () => ({ privateGroupPageReadApi: { findOwnCustomerPhone: async () => ({ data: { phone: '09012345678' } }) } }))
 vi.mock('@/pages/ScenarioDetailPage/components/BookingNotice', () => ({ BookingNotice: () => <div data-testid="notice">注意事項</div> }))
+const range = vi.hoisted(() => ({ playerMin: 4, playerMax: 6 }))
 vi.mock('../useGroupScenarioInfo', () => ({
-  useGroupScenarioInfo: () => ({ data: { orgSlug: 'qw', stores: [], scenario: { playerMin: 4, playerMax: 6, hasPreReading: false, participationFee: 4500, participationCosts: [] } } }),
+  useGroupScenarioInfo: () => ({ data: { orgSlug: 'qw', stores: [], scenario: { ...range, hasPreReading: false, participationFee: 4500, participationCosts: [] } } }),
 }))
 const availability = {
   taka: { '2026-10-23|afternoon': { available: true, reason: null }, '2026-10-30|afternoon': { available: true, reason: null }, '2026-10-29|evening': { available: true, reason: null } },
@@ -37,7 +38,7 @@ const group = {
   ],
 } as unknown as PrivateGroup
 
-beforeEach(() => { submit.mockReset(); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }) })
+beforeEach(() => { submit.mockReset(); range.playerMin = 4; range.playerMax = 6; Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }) })
 
 async function render() {
   const host = document.createElement('div')
@@ -83,13 +84,18 @@ it('見本どおり: 題名・作品と人数・紫の帯、初期値は全員�
     // 大塚店は選んだ日どれも空きなし
     const stores = [...host.querySelectorAll<HTMLButtonElement>('[data-testid="request-store"]')]
     expect(stores.map(s => [s.textContent, s.disabled])).toEqual([['高田馬場店', false], ['大塚店（選んだ日はどれも空きなし）', true]])
-    expect(host.querySelector('[data-testid="request-participants"]')!.textContent).toBe('4 名')
-    expect(host.querySelector('[data-testid="request-price"]')!.textContent).toContain('¥4,500 × 4 名 = ¥18,000')
+    // 作品 4〜6 名: 選択肢のチップ、既定は最大。＋− と「当日来る」は出さない
+    const chips = [...host.querySelectorAll<HTMLButtonElement>('[data-testid="request-participants"] [role="radio"]')]
+    expect(chips.map(c => [c.textContent, c.getAttribute('aria-checked')])).toEqual([['4 名', 'false'], ['5 名', 'false'], ['6 名', 'true']])
+    expect(host.textContent).toContain('料金は参加人数分です。当日の人数が変わる場合は店舗にご連絡ください。')
+    expect(host.textContent).not.toContain('当日来る')
+    expect(host.querySelector('[aria-label="1 人増やす"]')).toBeNull()
+    expect(host.querySelector('[data-testid="request-price"]')!.textContent).toContain('¥4,500 × 6 名 = ¥27,000')
     expect(host.querySelector('[data-testid="request-next"]')!.textContent).toBe('注意事項を確認して申し込む（候補日 2 件）')
   } finally { await act(async () => root.unmount()) }
 })
 
-it('並べ替え・× の日の注記・人数を増やすと「当日来る」、同意してから優先順のまま送る', async () => {
+it('並べ替え・× の日の注記・人数を選ぶと料金も変わり、同意してから優先順のまま送る', async () => {
   const { host, root, onSubmitted } = await render()
   try {
     // 2 番目を上へ
@@ -98,8 +104,8 @@ it('並べ替え・× の日の注記・人数を増やすと「当日来る」�
     // × の人がいる日を選ぶと注記。大塚店はこの日空いているので選べるようになる
     await click(rows(host)[2])
     expect(host.querySelector('[data-testid="request-ng-note"]')).not.toBeNull()
-    await click(host.querySelector('[aria-label="1 人増やす"]'))
-    expect(host.textContent).toContain('登録メンバー 4 名＋当日来る 1 名')
+    await click([...host.querySelectorAll('[data-testid="request-participants"] [role="radio"]')].find(c => c.textContent === '5 名'))
+    expect(host.querySelector('[data-testid="request-price"]')!.textContent).toContain('× 5 名')
     await click(host.querySelector('[data-testid="request-next"]'))
     expect(host.querySelector('[data-testid="request-confirm"]')!.textContent).toContain('第 1 希望 10/30(金)')
     const send = host.querySelector<HTMLButtonElement>('[data-testid="request-submit"]')!
@@ -114,5 +120,22 @@ it('並べ替え・× の日の注記・人数を増やすと「当日来る」�
     expect(ctx.participantCount).toBe(5)
     expect(ctx.bookingPhone).toBe('09012345678')
     expect(onSubmitted).toHaveBeenCalled()
+  } finally { await act(async () => root.unmount()) }
+})
+
+it('作品の人数が固定なら選ばせず「参加人数 6 名（作品の定員）」の 1 行だけ、その人数で送る', async () => {
+  range.playerMin = 6; range.playerMax = 6
+  const { host, root } = await render()
+  try {
+    const line = host.querySelector('[data-testid="request-participants"]')!
+    expect(line.textContent).toBe('参加人数 6 名（作品の定員）')
+    expect(line.querySelector('[role="radio"]')).toBeNull()
+    expect(host.textContent).toContain('3. 店舗への連絡')
+    expect(host.querySelector('[data-testid="request-price"]')!.textContent).toContain('× 6 名')
+    await click(host.querySelector('[data-testid="request-next"]'))
+    await click(host.querySelector('#request-agree'))
+    submit.mockResolvedValue(true)
+    await click(host.querySelector('[data-testid="request-submit"]'))
+    expect(submit.mock.calls[0][0].participantCount).toBe(6)
   } finally { await act(async () => root.unmount()) }
 })

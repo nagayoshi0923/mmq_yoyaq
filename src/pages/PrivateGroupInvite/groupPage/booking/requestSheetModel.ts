@@ -114,18 +114,17 @@ export function movePick(picks: ReadonlyArray<string>, from: number, to: number)
   return next
 }
 
-/** 参加人数の初期値: 登録メンバー数を作品の最低〜最大人数に収めたもの */
-export function defaultParticipants(members: number, min: number | null, max: number | null): number {
-  const lo = min && min > 0 ? min : 1
-  const hi = max && max >= lo ? max : Math.max(lo, members)
-  return Math.min(hi, Math.max(lo, members))
-}
-
-/** 「登録メンバー 4 名＋当日来る 2 名」 */
-export function participantsNote(count: number, members: number): string {
-  if (count > members) return `登録メンバー ${members} 名＋当日来る ${count - members} 名`
-  if (count < members) return `登録メンバー ${members} 名より少ない人数です`
-  return `登録メンバー ${members} 名`
+/**
+ * 申込の参加人数（2026-10-11 社長決定: お客様が自由に増減するものではない）。
+ * 作品の人数が固定（最低＝最大）なら選ばせずその人数（fixed）。可変（最低＜最大）なら最低〜最大を選択肢に出し、既定は最大人数
+ * （従来の申込と同じ扱い。あとからメンバーが増えても困らない）。作品の人数が読めないときは登録メンバー数で固定。
+ */
+export function participantChoice(min: number | null, max: number | null, members: number): { fixed: boolean; options: number[]; initial: number } {
+  const lo = min && min > 0 ? min : null
+  const hi = max && max > 0 ? max : null
+  if (lo && hi && hi > lo) return { fixed: false, options: Array.from({ length: hi - lo + 1 }, (_, i) => lo + i), initial: hi }
+  const n = hi ?? lo ?? Math.max(1, members)
+  return { fixed: true, options: [n], initial: n }
 }
 
 // ─── 店舗ごとの空き（#1021/#1023 の判定 private_booking_candidate_slot_availability を店舗 1 つずつ） ───

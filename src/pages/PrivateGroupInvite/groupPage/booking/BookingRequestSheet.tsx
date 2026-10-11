@@ -8,7 +8,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, Loader2, Minus, Plus, X } from 'lucide-react'
+import { ChevronLeft, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -22,7 +22,7 @@ import { useGroupScenarioInfo } from '../useGroupScenarioInfo'
 import { BookingRequestConfirm } from './BookingRequestConfirm'
 import { RequestCandidateList } from './RequestCandidateList'
 import {
-  MAX_REQUEST_DATES, candidateBlockedReason, defaultParticipants, initialPicks, movePick, participantsNote, sheetCandidates,
+  MAX_REQUEST_DATES, candidateBlockedReason, initialPicks, movePick, participantChoice, sheetCandidates,
   storeChips, storesToSend, togglePick,
 } from './requestSheetModel'
 import { useStoreAvailability } from './useStoreAvailability'
@@ -110,9 +110,8 @@ export function BookingRequestSheet(props: BookingRequestSheetProps) {
     if (!c) return null
     return candidateBlockedReason(availability, sendStoreIds, c) ? '選んだ店舗にはこの日の空きがありません' : null
   }
-  const count = participants ?? defaultParticipants(members, min, max)
-  const lo = min && min > 0 ? min : 1
-  const hi = max && max >= lo ? max : Math.max(lo, members)
+  const choice = participantChoice(min, max, members)
+  const count = participants !== null && choice.options.includes(participants) ? participants : choice.initial
 
   const fee = info?.participationFee ?? null
   const fees = fee && fee > 0 && picked.length
@@ -227,25 +226,39 @@ export function BookingRequestSheet(props: BookingRequestSheetProps) {
                 {preferredStores.length === 0 && <p className="text-xs text-amber-700">希望店舗がありません。概要タブの「日程と場所」から店舗を選んでください。</p>}
               </section>
 
-              <section aria-label="参加人数">
-                <h2 className="mb-2 text-sm font-bold">3. 参加人数 <span className="text-xs font-normal text-muted-foreground">料金の計算に使います</span></h2>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button type="button" variant="outline" size="sm" className="h-9 w-11 border-zinc-300" onClick={() => setParticipants(Math.max(lo, count - 1))} disabled={count <= lo} aria-label="1 人減らす"><Minus className="h-4 w-4" aria-hidden="true" /></Button>
-                  <span className="min-w-12 text-center text-base font-bold tabular-nums" data-testid="request-participants">{count} 名</span>
-                  <Button type="button" variant="outline" size="sm" className="h-9 w-11 border-zinc-300" onClick={() => setParticipants(Math.min(hi, count + 1))} disabled={count >= hi} aria-label="1 人増やす"><Plus className="h-4 w-4" aria-hidden="true" /></Button>
-                  <span className="text-xs text-muted-foreground">{participantsNote(count, members)}</span>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">作品の人数は {lo === hi ? `${lo}` : `${lo}〜${hi}`} 名です。</p>
-              </section>
+              {choice.fixed ? (
+                <p className="text-sm" data-testid="request-participants">
+                  <span className="font-bold">参加人数</span> {count} 名{min && max && min === max ? '（作品の定員）' : ''}
+                </p>
+              ) : (
+                <section aria-label="参加人数">
+                  <h2 className="mb-2 text-sm font-bold">3. 参加人数</h2>
+                  <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="参加人数" data-testid="request-participants">
+                    {choice.options.map(n => (
+                      <button
+                        key={n}
+                        type="button"
+                        role="radio"
+                        aria-checked={n === count}
+                        onClick={() => setParticipants(n)}
+                        className={`rounded-full px-3 py-1.5 text-sm tabular-nums ${n === count ? 'border-2 border-violet-600 bg-violet-50 font-bold text-violet-800' : 'border border-zinc-300 bg-background hover:bg-muted'}`}
+                      >
+                        {n} 名
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">料金は参加人数分です。当日の人数が変わる場合は店舗にご連絡ください。</p>
+                </section>
+              )}
 
               <section aria-label="店舗への連絡">
-                <h2 className="mb-2 text-sm font-bold">4. 店舗への連絡 <span className="text-xs font-normal text-muted-foreground">任意</span></h2>
+                <h2 className="mb-2 text-sm font-bold">{choice.fixed ? 3 : 4}. 店舗への連絡 <span className="text-xs font-normal text-muted-foreground">任意</span></h2>
                 <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="初めての方が 2 名います、など" rows={2} className="resize-none text-sm" aria-label="店舗への連絡" />
               </section>
 
               {priceText && (
                 <div className="rounded-lg bg-muted px-3 py-2.5 text-xs" data-testid="request-price">
-                  <div className="flex justify-between gap-2"><span>料金の目安</span><span className="font-bold tabular-nums">{priceText}</span></div>
+                  <div className="flex justify-between gap-2"><span className="shrink-0">料金の目安</span><span className="text-right font-bold tabular-nums">{priceText}</span></div>
                   <p className="text-muted-foreground">税込・当日店舗払い。確定した日の料金になります。</p>
                 </div>
               )}
