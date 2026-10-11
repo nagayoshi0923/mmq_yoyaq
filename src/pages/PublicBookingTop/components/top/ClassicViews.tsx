@@ -103,6 +103,8 @@ export function ClassicList(props: ClassicViewProps) {
       scenarios={scenarios}
       onEventClick={onEventClick}
       blockedSlots={blockedSlots}
+      privateBookingDeadlineDays={privateBookingDeadlineDays}
+      organizationSlug={organizationSlug}
       hideSoldOut={hideSoldOut}
       onHideSoldOutChange={onHideSoldOutChange}
       hidePlayed={played.isLoggedIn && hidePlayed}
