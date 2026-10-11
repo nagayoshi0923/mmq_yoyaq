@@ -28,6 +28,7 @@ interface StoreSearchSectionProps {
   onSelect: (p: PublicPerformance) => void
   /** 元のカレンダー・リスト用 */
   classic: {
+    organizationId: string | null
     allEvents: EnrichedPublicEvent[]
     blockedSlots: PublicEventRow[]
     stores: PublicStoreRow[]

@@ -1,3 +1,4 @@
+import { usePublicPrivateBookingSlots } from '../hooks/usePublicPrivateBookingSlots'
 import { memo, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { formatDateJST } from '@/utils/dateUtils'
@@ -28,6 +29,7 @@ interface CalendarViewProps {
   getStoreColor: (event: PublicCalendarEvent) => string
   blockedSlots?: PublicEventRow[]
   privateBookingDeadlineDays?: number
+  organizationId?: string | null
   organizationSlug?: string
   hideSoldOut?: boolean
   onHideSoldOutChange?: (value: boolean) => void
@@ -57,6 +59,7 @@ export const CalendarView = memo(function CalendarView({
   getStoreColor,
   blockedSlots = [],
   privateBookingDeadlineDays = 14,
+  organizationId,
   organizationSlug,
   hideSoldOut = false,
   onHideSoldOutChange,
@@ -66,6 +69,7 @@ export const CalendarView = memo(function CalendarView({
   isLoggedIn = false,
 }: CalendarViewProps) {
   const navigate = useNavigate()
+  const getPrivateOptions = usePublicPrivateBookingSlots(organizationId, selectedStoreIds, currentMonth)
   const todayStr = formatDateJST(new Date())
   
   // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
@@ -251,37 +255,6 @@ export const CalendarView = memo(function CalendarView({
                       evening: allDisplayEvents.filter((e) => getTimeSlot(e.start_time) === 'evening')
                     }
                     
-                    // 前公演のend_time + 1時間を開始時間として計算
-                    const defaultStartTimes: Record<string, string> = { morning: '09:00', afternoon: '14:00', evening: '19:00' }
-                    const slotEndTimes: Record<string, string> = { morning: '13:00', afternoon: '18:00', evening: '23:00' }
-                    const precedingSlotMap: Record<string, string[]> = {
-                      morning: [],
-                      afternoon: ['morning'],
-                      evening: ['morning', 'afternoon']
-                    }
-                    const getSuggestedStartTime = (slot: 'morning' | 'afternoon' | 'evening') => {
-                      const preceding = precedingSlotMap[slot]
-                      if (preceding.length === 0) return defaultStartTimes[slot]
-                      // 前のスロットにあるイベントの最遅end_timeを取得
-                      const relevantEvents = allDisplayEvents.filter((e) => {
-                        const eSlot = getTimeSlot(e.start_time)
-                        return preceding.includes(eSlot)
-                      })
-                      if (relevantEvents.length === 0) return defaultStartTimes[slot]
-                      const latestEnd = relevantEvents.reduce((latest: string, e) => 
-                        (e.end_time || '') > latest ? (e.end_time || '') : latest, '')
-                      if (!latestEnd) return defaultStartTimes[slot]
-                      // +1時間
-                      const [h, m] = latestEnd.split(':').map(Number)
-                      const suggested = `${String(h + 1).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`
-                      return suggested > defaultStartTimes[slot] ? suggested : defaultStartTimes[slot]
-                    }
-                    // スロットが利用可能かチェック（開始時間がスロット終了時間を超えたら非表示）
-                    const isSlotAvailable = (slot: 'morning' | 'afternoon' | 'evening') => {
-                      const startTime = getSuggestedStartTime(slot)
-                      return startTime < slotEndTimes[slot]
-                    }
-                    
                     // 全店舗表示で何もない場合
                     if (allDisplayEvents.length === 0 && !selectedStore) {
                       if (isPast) return null
@@ -397,19 +370,12 @@ export const CalendarView = memo(function CalendarView({
                           ? slotEvents.map((event, idx: number) => renderEvent(event, idx))
                           : []
 
-                        // 非表示イベントも含めて占有・ブロック判定する（allMergedEventsを使用）
-                        const allSlotEvents = allMergedEvents.filter((e) => getTimeSlot(e.start_time) === slot)
-                        const occupiedStoreIds = new Set(allSlotEvents.map((e) => e.store_id))
-                        const hasAvailableStores = selectedStoreIds.length > 0 &&
-                          selectedStoreIds.some(id => !occupiedStoreIds.has(id))
-                        // GMテスト・MTG等が含まれるスロットは貸切申込を非表示
-                        const hasNonBookableEvent = allSlotEvents.some((e) =>
-                          e.category === 'gmtest' || e.category === 'testplay' || e.category === 'mtg'
-                        )
-                        const showPrivateButton = selectedStore && canApplyPrivateBooking && isSlotAvailable(slot) && !hasNonBookableEvent
+                        // 営業設定・募集停止・非公開イベントも店舗ごとに判定
+                        const options = getPrivateOptions(dateStr, slot)
+                        const showPrivateButton = selectedStore && canApplyPrivateBooking && options.length > 0
 
-                        if (hasEvents && hasAvailableStores && showPrivateButton) {
-                          const suggestedTime = getSuggestedStartTime(slot)
+                        if (hasEvents && showPrivateButton) {
+                          const suggestedTime = options[0].startTime
                           return (
                             <div key={slot}>
                               {renderedEvents}
@@ -417,7 +383,7 @@ export const CalendarView = memo(function CalendarView({
                                 className="w-full ts-10 leading-tight py-1 px-1 bg-gray-50 border border-gray-200 fg-gray-600 hover:bg-gray-100 hover:border-gray-300 transition-colors touch-manipulation"
                                 onClick={() => {
                                   const basePath = organizationSlug ? `/${organizationSlug}` : ''
-                                  const storeParam = selectedStoreIds.join(',')
+                                  const storeParam = options.map(option => option.storeId).join(',')
                                   navigate(`${basePath}/private-booking-select?date=${dateStr}&store=${storeParam}&slot=${slot}&time=${suggestedTime}`)
                                 }}
                               >
@@ -428,14 +394,14 @@ export const CalendarView = memo(function CalendarView({
                         } else if (hasEvents) {
                           return renderedEvents
                         } else if (showPrivateButton) {
-                          const suggestedTime = getSuggestedStartTime(slot)
+                          const suggestedTime = options[0].startTime
                           return (
                             <button
                               key={slot}
                               className="w-full ts-10 leading-tight py-1 px-1 bg-gray-50 border border-gray-200 fg-gray-600 hover:bg-gray-100 hover:border-gray-300 transition-colors touch-manipulation"
                               onClick={() => {
                                 const basePath = organizationSlug ? `/${organizationSlug}` : ''
-                                const storeParam = selectedStoreIds.length > 0 ? selectedStoreIds.join(',') : selectedStore.id
+                                const storeParam = options.map(option => option.storeId).join(',')
                                 navigate(`${basePath}/private-booking-select?date=${dateStr}&store=${storeParam}&slot=${slot}&time=${suggestedTime}`)
                               }}
                             >
