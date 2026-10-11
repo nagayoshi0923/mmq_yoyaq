@@ -88,6 +88,45 @@ describe('クーポンの予約候補と期限', () => {
     expect(r.status).toHaveBeenCalledWith(200)
     expect(r.json.mock.calls[0][0]).toHaveLength(1)
   })
+  it('予約確認画面の候補は、公演の組織のクーポンだけに絞る（別の組織のクーポンは出さない）', async () => {
+    seed({ schedule_events: [{ organization_id: 'tokyo-org' }], customers: [{ id: 'customer' }], customer_coupons: [] })
+    const eqCalls: unknown[][] = []
+    const original = mock.from.getMockImplementation()!
+    mock.from.mockImplementation((table: string) => {
+      const query = original(table)
+      if (table === 'schedule_events') query.maybeSingle = vi.fn(() => Promise.resolve({ data: { organization_id: 'tokyo-org' }, error: null }))
+      if (table === 'customers') query.maybeSingle = vi.fn(() => Promise.resolve({ data: { id: 'customer' }, error: null }))
+      if (table === 'customer_coupons') query.eq = vi.fn((...args: unknown[]) => { eqCalls.push(args); return query })
+      return query
+    })
+    const r = response()
+    await handler({ method: 'GET', headers: {}, query: { type: 'available', event_id: 'event' } } as unknown as VercelRequest, r as unknown as VercelResponse)
+    expect(r.status).toHaveBeenCalledWith(200)
+    expect(eqCalls).toContainEqual(['organization_id', 'tokyo-org'])
+  })
+  it('マイページのクーポンに使える店舗（組織名と店舗数）を付ける', async () => {
+    seed({
+      customers: [{ id: 'customer' }],
+      customer_coupons: [{ id: 'c1', organization_id: 'qw', coupon_campaigns: {}, rules_snapshot: {} }],
+      coupon_usages: [],
+      organizations: [{ id: 'qw', name: 'クインズワルツ' }],
+      stores: [
+        { id: 's1', organization_id: 'qw', name: 'クインズワルツ高田馬場店', region: '東京都' },
+        { id: 's2', organization_id: 'qw', name: 'クインズワルツ埼玉大宮店', region: '埼玉県' },
+        { id: 's3', organization_id: 'qw', name: '臨時会場1', is_temporary: true },
+      ],
+    })
+    const original = mock.from.getMockImplementation()!
+    mock.from.mockImplementation((table: string) => {
+      const query = original(table)
+      if (table === 'customers') query.maybeSingle = vi.fn(() => Promise.resolve({ data: { id: 'customer' }, error: null }))
+      return query
+    })
+    const r = response()
+    await handler({ method: 'GET', headers: {}, query: { type: 'all' } } as unknown as VercelRequest, r as unknown as VercelResponse)
+    expect(r.status).toHaveBeenCalledWith(200)
+    expect(r.json.mock.calls[0][0][0].usable_stores_label).toBe('クインズワルツ（東京・埼玉 2 店舗）')
+  })
   it('予約取得の失敗を予約なしの空配列に置き換えない', async () => {
     seed({ customers: [{ id: 'customer' }] })
     const original = mock.from.getMockImplementation()!
