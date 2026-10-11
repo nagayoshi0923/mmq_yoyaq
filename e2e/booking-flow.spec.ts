@@ -33,8 +33,8 @@ test.describe('予約サイト', () => {
     await expect(page).toHaveTitle(/MMQ|予約|Queens Waltz/)
   })
 
-  test('旧カレンダー・リストの URL は店舗トップの見方へ送られる', async ({ page }) => {
-    // 3 タブは「空いている公演を探す」の見方（一覧／カレンダー／リスト）に刷新した（2026-10）
+  test('旧カレンダー・リストの URL は店舗トップのカレンダー・リストのチップで開く', async ({ page }) => {
+    // カレンダー・リストは元の部品を「空いている公演を探す」のチップから出す（2026-10-12 社長決定）
     await page.goto('/queens-waltz/calendar')
     await expect(page).toHaveURL(/\/queens-waltz\?view=calendar$/)
     await page.goto('/queens-waltz/list')
