@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-10T23:56:41.733Z",
+  "captured_at": "2026-10-11T08:29:51.006Z",
   "table_count": 156,
   "function_count": 430,
-  "digest": "5e0b2d68678954f4d3a2250e49934d8a41d0c3115e67aa44137ac2866b4229fe"
+  "digest": "4269b3e0644422d2025159af9570284243bf7af5fd246408f3e8703c85754c03"
  },
  "tables": {
   "staff": {
@@ -655,6 +655,12 @@
     {
      "name": "franchise_fee_percent",
      "type": "numeric(5,2)",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "public_name",
+     "type": "text",
      "default": null,
      "not_null": false
     }
@@ -24933,7 +24939,7 @@
    "kind": "v"
   },
   "stores_public": {
-   "def": " SELECT id,\n    name,\n    short_name,\n    address,\n    opening_date,\n    status,\n    capacity,\n    rooms,\n    color,\n    is_temporary,\n    temporary_date,\n    temporary_dates,\n    organization_id,\n    display_order,\n    region,\n    temporary_venue_names,\n    kit_group_id,\n    access_info,\n    created_at,\n    updated_at,\n    ownership_type\n   FROM stores\n  WHERE ownership_type IS NULL OR ownership_type <> 'office'::text;",
+   "def": " SELECT id,\n    name,\n    short_name,\n    address,\n    opening_date,\n    status,\n    capacity,\n    rooms,\n    color,\n    is_temporary,\n    temporary_date,\n    temporary_dates,\n    organization_id,\n    display_order,\n    region,\n    temporary_venue_names,\n    kit_group_id,\n    access_info,\n    created_at,\n    updated_at,\n    ownership_type,\n    public_name\n   FROM stores\n  WHERE ownership_type IS NULL OR ownership_type <> 'office'::text;",
    "kind": "v"
   },
   "public_scenarios": {

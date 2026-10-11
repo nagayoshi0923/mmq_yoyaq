@@ -298,6 +298,10 @@ html, body {
   .ts-caption { @apply text-xs text-muted-foreground; }
   .ts-emph    { @apply text-base font-bold; }
 
+  /* 横スクロールのチップ・カードの列（トップページ）。スクロールバーは出さない */
+  .scroll-row { scrollbar-width: none; }
+  .scroll-row::-webkit-scrollbar { display: none; }
+
   .mypage-avatar-gradient {
     background: linear-gradient(to bottom right, var(--mypage-gradient-from), var(--mypage-gradient-to));
   }

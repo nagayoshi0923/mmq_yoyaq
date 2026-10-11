@@ -1,4 +1,5 @@
 import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
+import { storeDisplayName } from '@/lib/publicStoreName'
 import { registerPlayedScenario } from '@/lib/registerPlayedScenario'
 import { publicBookingReadApi } from '@/lib/api/publicBookingReadApi'
 import { storeHasRecruitmentPause, type StoreRecruitmentPausePeriod } from '@/lib/storeRecruitmentPause'
@@ -210,7 +211,7 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
   if (eventError) logger.error('Failed to fetch events:', eventError)
 
   const storeIds = [...new Set((eventData || []).map((e) => e.store_id).filter(Boolean))]
-  const storeMap: Record<string, { id: string; name: string; short_name: string; color: string | null; region: string | null }> = {}
+  const storeMap: Record<string, { id: string; name: string; short_name: string; color: string | null; region: string | null; public_name?: string | null; is_temporary?: boolean | null; temporary_venue_names?: unknown }> = {}
   if (storeIds.length > 0) {
     const { data: storesData } = await scenarioDetailGlobalReadApi.listPublicStoresByIds(storeIds)
     storesData?.forEach((s) => { storeMap[s.id] = s })
@@ -235,7 +236,7 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
         current_participants: e.current_participants || 0,
         player_count_max: e.max_participants ?? e.capacity ?? masterData.player_count_max,
         organization_id: e.organization_id || '', organization_slug: org?.slug || '', organization_name: org?.name || '不明',
-        store_id: store?.id || '', store_name: store?.name || '', store_short_name: store?.short_name || store?.name || '',
+        store_id: store?.id || '', store_name: storeDisplayName(store, { organizationName: org?.name, date: e.date }), store_short_name: storeDisplayName(store, { organizationName: org?.name, date: e.date }),
         store_color: store?.color || null, store_region: store?.region || null,
       }
     })

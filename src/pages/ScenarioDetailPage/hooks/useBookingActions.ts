@@ -40,7 +40,9 @@ export function useBookingActions({ events, onReload }: UseBookingActionsProps) 
         if (countParam) {
           const count = parseInt(countParam, 10)
           if (!isNaN(count) && count > 0) {
-            setParticipantCount(count)
+            // トップの検索から来た人数は、その公演の残席までに収める（人数の選択肢に無い値を入れない）
+            const seats = event.available_seats
+            setParticipantCount(seats > 0 ? Math.min(count, seats) : count)
           }
         }
         // URLからパラメータを削除（履歴を汚さないためreplace）
@@ -49,6 +51,10 @@ export function useBookingActions({ events, onReload }: UseBookingActionsProps) 
         setSearchParams(searchParams, { replace: true })
         
         hasRestoredFromUrl.current = true
+        // トップの検索から来たときは、選んだ公演が見える位置まで送る（スマホでは日程が画面の下にあるため）
+        window.setTimeout(() => {
+          document.querySelector(`[data-event-id="${CSS.escape(eventParam)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }, 400)
       }
     }
   }, [events, searchParams, setSearchParams])

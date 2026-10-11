@@ -11,6 +11,7 @@ on:
       - 'supabase/structure/prod.json'
       - 'supabase/structure/expected-function-overrides.json'
       - 'supabase/structure/expected-table-overrides.json'
+      - 'supabase/structure/expected-view-overrides.json'
       - 'scripts/check-db-baseline.sh'
       - 'scripts/db-structure-snapshot.mjs'
       - 'supabase/tests/yoyaq_004_private_booking_blocked_slots_test.sql'

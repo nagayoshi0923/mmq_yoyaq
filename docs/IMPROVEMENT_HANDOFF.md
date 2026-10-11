@@ -1,3 +1,18 @@
+## 2026-10-11 / トップページ刷新（店舗トップ・MMQ 全体トップ）とお客様向けの店舗名（feat/top-pages-redesign、staging 向け PR・未取り込み）
+
+- 社長承認の見本 `Top.dc.html`・`TopMMQ.dc.html`（追加指示: 全体トップに「残りわずか」「作品から探す」、貸切の位置）。方針書 `docs/product-spec/トップページ刷新_2026-10.md`。点検 2026-10-11 の 7・15・16・19・23・24・33 を対象。
+- 店舗トップ `/{組織}`: 3 タブを廃止し、上の帯 → 空いている公演を探す（日付チップ・月カレンダー・人数・店舗・空席あり・初心者向け、条件は URL）→ 残りわずか → 貸切 → 作品から探す → はじめての方へ。旧 `/calendar`・`/list` は `?when=date` へ。旧部品（CalendarView・ListView・LineupView・BookingFilters・SearchBar・ScenarioCard ほか）は削除。
+- 全体トップ `/`: 横断検索（エリア・日付・人数）→ 公演一覧（組織名＋店舗名）→ 残りわずか → 貸切 → 作品から探す（全国、`/scenario` へ）→ 参加店舗 → はじめての方へ → 店舗の方へ（`/contact?type=partnership`）。公開ビューだけを読む（公演は 1000 件ずつ最大 5 回）。旧の遊びたい・体験済みボタン、ブログ欄は見本に無いため外した。
+- 共通部品 `src/components/public-top/`、決まり `src/lib/publicPerformanceSearch.ts`（日付範囲・残席の言い方・検索・残りわずか・作品ページの URL）、`src/lib/publicStoreName.ts`（店舗名・店舗数・地域）。単体試験あり。
+- 作品ページ: `?event=&count=` の人数を残席までに収め、選んだ公演の位置まで送る（24）。
+- 店舗名（社長決定）: DB に `stores.public_name`（お客様向けの名前、NULL 可）。migration 20261011210000（同名 rollback。`stores_public` の末尾に列を追加、`GRANT SELECT (public_name)` を anon/authenticated に）。staging 適用済み・本番未適用。`staging.json`・`expected-table-overrides.json`・新設 `expected-view-overrides.json`（`check-db-baseline.sh` がビューの差し替えも読むよう変更）。管理画面の店舗編集に「お客様向けの名前」。`/api/stores` の読み書き列に追加。**本番反映は DB 先行**（画面が `public_name` を読むため）。
+- 設定が必要な店舗: クインズワルツ仮設店① → フォレスト①、仮設店② → フォレスト②（staging は統括が SQL で入れる。本番は DB 反映後に管理画面の店舗編集で入力）。
+- 数字の統一（33）: 店舗数は `countPublicStores`（臨時・休止・オフィスを除く）。`/scenario` の件数から休止中の組織の作品を外し、全体トップの「全国 N」と一致（staging で 188）。
+- `/stores`（参加店舗一覧）が未ログインでログイン画面に飛ぶ件（7）: AppRoot の旧管理 URL 判定から公開の `/stores` を除外。フッターの文言「参加団体」→「参加店舗一覧」。
+- 問い合わせ: 種別「MMQ への参加（店舗の方）」（partnership）。Edge Function `send-contact-inquiry` の種別名の表に、画面の種別をすべて追加（未配備。配備までメールの種別は英字のまま）。
+- 未対応: グループページ・マイページ貸切カードで RPC が返す店舗名、DB 関数・Edge Function が組み立てるメールの店舗名は従来の name。/guide の本文は旧 3 タブの説明のまま（別作業）。
+- 確認: staging 接続の手元（vite --mode staging）で 375px・1280px を撮影（作業メモの `shots/top_*.png`、見本 `top_mock_*.png`）。横はみ出しなし（375px で scrollWidth=375）。
+
 ## 2026-10-11 / 申込シートの参加人数を「作品の人数」で決める形に（fix/request-sheet-participants、staging 向け PR・未取り込み）
 
 - 社長決定: 申込の人数はお客様が増減するものではない。#1042 の＋−と「登録メンバー N 名＋当日来る M 名」をやめた。

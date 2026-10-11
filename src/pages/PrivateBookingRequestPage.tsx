@@ -125,7 +125,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       const orgIdForStores = foundScenario.organization_id
       if (orgIdForStores) {
         try {
-          storesData = await storeApi.getAllPublic(orgIdForStores)
+          storesData = await storeApi.getAllPublicForCustomer(orgIdForStores)
         } catch {
           // フォールバック: スタッフとしてログイン中ならバックエンド API も試みる
           try { storesData = await storeApi.getAll() } catch { /* ignore */ }

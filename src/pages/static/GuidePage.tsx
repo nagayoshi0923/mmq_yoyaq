@@ -3,7 +3,7 @@
  * @path /guide
  * 実際のUIコンポーネントを使ったインタラクティブなマニュアル
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PublicLayout } from '@/components/layout/PublicLayout'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Button } from '@/components/ui/button'
@@ -552,6 +552,12 @@ function DemoListContent() {
 }
 
 export function GuidePage() {
+  // トップの「貸切の流れ」から ?section=private で来たら貸切予約ガイドへ（# のリンクはアプリがパスに変えるため使わない）
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('section') !== 'private') return
+    const t = window.setTimeout(() => document.getElementById('private-booking-guide')?.scrollIntoView({ behavior: 'smooth' }), 200)
+    return () => window.clearTimeout(t)
+  }, [])
   const [activeTab, setActiveTab] = useState('lineup')
   const [privateMethod, setPrivateMethod] = useState<'scenario-direct' | 'scenario-group' | 'calendar'>('scenario-direct')
   const meta = STATIC_PUBLIC_META.guide
@@ -876,7 +882,7 @@ export function GuidePage() {
       </section>
 
       {/* ===== 貸切予約ガイド ===== */}
-      <section className="bg-purple-50/50 py-8 md:py-10">
+      <section id="private-booking-guide" className="scroll-mt-4 bg-purple-50/50 py-8 md:py-10">
         <div className="max-w-3xl mx-auto px-4">
           <div className="flex items-center gap-3 mb-2">
             <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-white font-bold text-lg bg-purple-600">

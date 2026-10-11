@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import { isCustomerProfileComplete } from '@/utils/customerProfileGate'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
+import { isPublicStoresPath } from '@/lib/seo'
 import { useFavicon } from '@/hooks/useFavicon'
 import { GlobalCommandPalette } from '@/components/GlobalCommandPalette'
 
@@ -555,7 +556,11 @@ function AppRoutes() {
         '/sales',
         '/settings',
       ]
-      if (adminPaths.some((path) => location.pathname.startsWith(path))) {
+      // `/stores` は公開の参加店舗一覧（フッターの「参加店舗一覧」）。管理画面の旧 URL と同じ綴りなのでここで除く
+      if (
+        !isPublicStoresPath('stores', location.pathname)
+        && adminPaths.some((path) => location.pathname.startsWith(path))
+      ) {
         // 未ログインはログインへ（戻り先保持）。顧客は予約サイトへ。
         if (!user) {
           const redirect = encodeURIComponent(location.pathname + location.search)

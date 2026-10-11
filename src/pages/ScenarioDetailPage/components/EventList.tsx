@@ -51,6 +51,7 @@ export const EventList = memo(function EventList({
         return (
           <Card 
             key={event.event_id}
+            data-event-id={event.event_id}
             className={`transition-all cursor-pointer ${
               isSoldOut
                 ? `${isSelected ? 'border-2 border-amber-500 bg-amber-50' : 'opacity-70 bg-gray-50 hover:bg-gray-100'}`
