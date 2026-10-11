@@ -791,6 +791,54 @@ BEGIN
 END;
 $$;
 
+-- 申込シート（20261011200000）: グループの希望店舗の一部だけで申し込める。候補日の order は送られた並び（優先順）。
+-- グループ外の店舗は従来どおり P0042（上の注入テスト）。ここで作った申請は下の承認テストに残さない（内側で取り消す）。
+DO $$
+DECLARE
+  v_reservation_id UUID;
+  v_cd JSONB;
+BEGIN
+  BEGIN
+    v_reservation_id := public.create_private_booking_request(
+      '44000000-0000-0000-0000-000000000001',
+      '84000000-0000-0000-0000-000000000001',
+      'fixture',
+      'fixture@example.invalid',
+      '09000000000',
+      4,
+      '{
+        "requestedStores":[
+          {"storeId":"24000000-0000-0000-0000-000000000001"}
+        ],
+        "candidates":[
+          {"date":"2027-01-14","startTime":"10:00","endTime":"14:00","timeSlot":"morning"},
+          {"date":"2027-01-13","startTime":"18:00","endTime":"22:00","timeSlot":"evening"}
+        ]
+      }'::JSONB,
+      NULL,
+      'YOYAQ-004-SHEET-ORDER',
+      '94000000-0000-0000-0000-000000000001'
+    );
+    SELECT candidate_datetimes INTO STRICT v_cd FROM public.reservations WHERE id = v_reservation_id;
+    IF jsonb_array_length(v_cd->'requestedStores') IS DISTINCT FROM 1
+       OR v_cd->'requestedStores'->0->>'storeId' IS DISTINCT FROM '24000000-0000-0000-0000-000000000001'
+    THEN
+      RAISE EXCEPTION '希望店舗の一部だけの申請が保持されません: %', v_cd;
+    END IF;
+    IF v_cd->'candidates'->0->>'date' IS DISTINCT FROM '2027-01-14'
+       OR (v_cd->'candidates'->0->>'order')::INTEGER IS DISTINCT FROM 1
+       OR v_cd->'candidates'->1->>'date' IS DISTINCT FROM '2027-01-13'
+       OR (v_cd->'candidates'->1->>'order')::INTEGER IS DISTINCT FROM 2
+    THEN
+      RAISE EXCEPTION '候補日の order が送られた並びになっていません: %', v_cd;
+    END IF;
+    RAISE EXCEPTION 'undo' USING ERRCODE = 'P9001';
+  EXCEPTION WHEN SQLSTATE 'P9001' THEN
+    NULL;
+  END;
+END;
+$$;
+
 -- 承認成功時はclient偽JSONを無視し、locked reservation候補からconfirmed状態を再構築する。
 DO $$
 DECLARE

@@ -316,9 +316,7 @@ export function groupDescription(group: GroupDescriptionInput, action: NextActio
     case 'answer_dates':
       return `候補日 ${c} 件のうち ${group.my_unanswered_count} 件が未回答です。都合を回答してください`
     case 'proceed_booking':
-      return group.all_members_responded
-        ? `全員の回答がそろいました。候補日 ${c} 件で店舗へ申し込めます`
-        : `候補日 ${c} 件・参加 ${group.member_count} 人。回答を確かめて店舗へ申し込みましょう`
+      return `${group.all_members_responded ? `候補日 ${c} 件の回答がそろいました。` : `候補日 ${c} 件・参加 ${group.member_count} 人。`}店舗に送る候補日を選んで申し込みます。複数の候補日を送ると、店舗がその中から 1 つ確定します。`
     case 'waiting_store':
       return c > 0
         ? `候補日 ${c} 件で申込中。店舗が日程を確定すると連絡が届きます`
@@ -331,6 +329,9 @@ export function groupDescription(group: GroupDescriptionInput, action: NextActio
       return group.schedule ? `${formatJstMonthDay(group.schedule.date, true)}に開催しました` : '開催済みです'
   }
 }
+
+/** 申込の入口の文言（マイページのカードの主ボタン・グループ画面の箱の主ボタンで同じ。2026-10-11 社長指摘で入口を 1 つに） */
+export const BOOK_ACTION_LABEL = '候補日を選んで店舗に申し込む'
 
 /** ラベルの文言（マイページのカードとグループ画面で共通） */
 export function labelOf(action: NextActionKind, date: string | null | undefined): string {
@@ -345,7 +346,8 @@ function primaryOf(action: NextActionKind, base: string): PrivateBookingItem['pr
     case 'pick_dates':
       return { label: NEXT_ACTION_LABELS[action], href: base, inPlace: 'dates' }
     case 'proceed_booking':
-      return { label: NEXT_ACTION_LABELS[action], href: base }
+      // グループ画面の申込シート（候補日を複数選んで優先順を付ける）。箱の主ボタンと同じ文言
+      return { label: BOOK_ACTION_LABEL, href: `${base}?sheet=booking` }
     case 'answer_survey':
       return { label: NEXT_ACTION_LABELS[action], href: `${base}?tab=survey`, inPlace: 'survey' }
     case 'choose_casting':

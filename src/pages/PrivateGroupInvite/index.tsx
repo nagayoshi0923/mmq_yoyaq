@@ -23,7 +23,7 @@ import { canMutateScheduleBeforeStoreReply as canMutateScheduleRule, privateGrou
 import { InviteCancelledScreen, InviteJoinSuccessScreen, InviteLoadingScreen, InviteNotFoundScreen } from './components/InviteStatusScreens'
 import { getJstParts } from '@/utils/jstDate'
 import { getErrorMessage } from '@/lib/errorFields'
-import { submitGroupBookingRequest } from './submitBookingRequest'
+import { BookingRequestSheet } from './groupPage/booking/BookingRequestSheet'
 import { usePreferredStoreEditor } from './usePreferredStoreEditor'
 import { authenticateGroupGuestByPin } from './pinAuth'
 import { useGroupBookingActions } from './useGroupBookingActions'
@@ -129,7 +129,6 @@ export function PrivateGroupInvite() {
   const showPinAuth = activeSheet === 'pin'
   const showSettingsSheet = activeSheet === 'settings'
   const showStoreEditSheet = activeSheet === 'store-edit'
-  const showBookingDialog = activeSheet === 'booking'
 
   // シートを開く（ブラウザ履歴に追加 → バックで閉じられる）
   const openSheet = (name: string, extra: Record<string, string> = {}) => setSearchParams(prev => {
@@ -186,12 +185,6 @@ export function PrivateGroupInvite() {
 
   // 希望店舗の編集
   const { prepareStoreEdit, allStores, isFilteredByScenario, loadingStoresForEdit, selectedStoreIds, setSelectedStoreIds, savingStores, handleSavePreferredStores, openStoreEditSheet } = usePreferredStoreEditor({ group, canMutateScheduleBeforeStoreReply, openSheet, closeSheetReplace, refetch })
-
-  // 申請ダイアログ（日程選択 + 送信）
-  const [bookingSelectedDates, setBookingSelectedDates] = useState<Set<string>>(new Set())
-  const [bookingPhone, setBookingPhone] = useState('')
-  const [bookingNotes, setBookingNotes] = useState('')
-  const [isSubmittingBooking, setIsSubmittingBooking] = useState(false)
 
   // SessionStorageキー
   const getStorageKey = (inviteCode: string) => `guest_session_${inviteCode}`
@@ -534,53 +527,16 @@ export function PrivateGroupInvite() {
     window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank')
   }
 
-  // 日程選択のトグル
-  // 貸切申込ダイアログを開く
-  // preselect: 回答表の「この日で申し込む」・状態の箱の「○○ で店舗に申し込む」から来たとき、その候補日を選んでおく
-  const handleOpenBookingDialog = async (preselect?: string) => {
+  // 店舗への申込シート（?sheet=booking）を開く。入口は「いまの状態」の箱（チャットでは 1 行）・日程タブの表の下・
+  // マイページのカードの「候補日を選んで店舗に申し込む」（2026-10-11 社長決定で行ごとの「この日で申し込む」はやめた）
+  const handleOpenBookingDialog = () => {
     if (!isOrganizer || !group || !user) return
     if (!canMutateScheduleBeforeStoreReply) {
       toast.error('店舗の返答待ちのため、候補日の追加や予約リクエストの作成はできません')
       return
     }
-    setBookingSelectedDates(new Set(preselect ? [preselect] : []))
-    setBookingNotes('')
-    
-    // 既存の電話番号を取得
-    let phone = organizerMember?.guest_phone || ''
-    if (!phone) {
-      // お客様の customers 行は組織に属さない（organization_id NULL）ので user_id だけで引く
-      const { data: customer } = await privateGroupPageReadApi.findOwnCustomerPhone(user.id)
-      phone = customer?.phone || ''
-    }
-    setBookingPhone(phone)
     openSheet('booking')
   }
-  
-  // ダイアログ内での日程選択トグル（最大6件まで）
-  const MAX_BOOKING_DATES = 6
-  const toggleBookingDate = (dateId: string) => {
-    setBookingSelectedDates(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(dateId)) {
-        newSet.delete(dateId)
-      } else {
-        if (newSet.size >= MAX_BOOKING_DATES) {
-          toast.error(`候補日程は最大${MAX_BOOKING_DATES}件まで選択できます`)
-          return prev
-        }
-        newSet.add(dateId)
-      }
-      return newSet
-    })
-  }
-  
-  // 貸切申込を実行
-  const handleSubmitBooking = () => submitGroupBookingRequest({
-    group, user, isOrganizer, canMutateScheduleBeforeStoreReply, bookingSelectedDates, bookingPhone, bookingNotes,
-    preferredStoreNames, organizerMember, isCustomHoliday, setIsSubmittingBooking, closeSheetReplace, setBookingNotes,
-    setBookingSelectedDates, refetch,
-  })
 
   const bookingSummary = (
     <BookingSummaryBox
@@ -614,6 +570,25 @@ export function PrivateGroupInvite() {
         playerRange={{ min: scenarioMin, max: scenarioMax }}
         refetch={refetch}
         onBack={closeSheet}
+      />
+    )
+  }
+
+  // 店舗への申込シート（主催者・店舗への申込前。マイページのカードから ?sheet=booking で直接来ることもある）
+  if (activeSheet === 'booking' && existingMemberId && group && user && isOrganizer) {
+    return (
+      <BookingRequestSheet
+        group={group}
+        myMemberId={existingMemberId}
+        user={user}
+        scenarioTitle={scenario?.title || ''}
+        playerRange={{ min: scenarioMin, max: scenarioMax }}
+        preferredStores={preferredStoreNames}
+        organizerMember={organizerMember}
+        canMutateSchedule={canMutateScheduleBeforeStoreReply}
+        isCustomHoliday={isCustomHoliday}
+        onClose={closeSheet}
+        onSubmitted={() => { closeSheetReplace(); void refetch() }}
       />
     )
   }
@@ -705,7 +680,7 @@ export function PrivateGroupInvite() {
           setTab={setActiveTab}
           openSheet={openSheet}
           closeSheet={closeSheet}
-          openBooking={candidateId => void handleOpenBookingDialog(candidateId)}
+          openBooking={handleOpenBookingDialog}
           openStoreEdit={openStoreEditSheet}
           copyInvite={handleCopyUrl}
           shareLine={handleShareLine}
@@ -716,11 +691,10 @@ export function PrivateGroupInvite() {
           isCustomHoliday={isCustomHoliday}
         />
 
-        {/* シート（グループ設定・希望店舗の編集・予約申請） */}
+        {/* シート（グループ設定・希望店舗の編集） */}
         <GroupChatSheets
           showSettingsSheet={showSettingsSheet}
           showStoreEditSheet={showStoreEditSheet}
-          showBookingDialog={showBookingDialog}
           group={group}
           scenario={scenario}
           joinedMembers={joinedMembers}
@@ -733,18 +707,11 @@ export function PrivateGroupInvite() {
           isScheduleConfirmedUi={isScheduleConfirmedUi}
           canMutateScheduleBeforeStoreReply={canMutateScheduleBeforeStoreReply}
           actionLoading={actionLoading}
-          isSubmittingBooking={isSubmittingBooking}
           loadingStoresForEdit={loadingStoresForEdit}
           savingStores={savingStores}
-          bookingNotes={bookingNotes}
-          bookingPhone={bookingPhone}
-          bookingSelectedDates={bookingSelectedDates}
           selectedStoreIds={selectedStoreIds}
           preferredStoreNames={preferredStoreNames}
           allStores={allStores}
-          MAX_BOOKING_DATES={MAX_BOOKING_DATES}
-          setBookingNotes={setBookingNotes}
-          setBookingPhone={setBookingPhone}
           setExistingMemberId={setExistingMemberId}
           setSelectedStoreIds={setSelectedStoreIds}
           navigate={navigate}
@@ -755,9 +722,7 @@ export function PrivateGroupInvite() {
           closeSheetReplace={closeSheetReplace}
           openStoreEditSheet={openStoreEditSheet}
           clearGuestSession={clearGuestSession}
-          toggleBookingDate={toggleBookingDate}
           handleSavePreferredStores={handleSavePreferredStores}
-          handleSubmitBooking={handleSubmitBooking}
           onOpenInquiry={() => { closeSheetReplace(); bookingActions.openInquiry() }}
         />
         {bookingActions.dialogs}

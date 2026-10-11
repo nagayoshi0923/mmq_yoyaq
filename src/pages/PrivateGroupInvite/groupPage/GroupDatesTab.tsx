@@ -1,6 +1,8 @@
 /**
- * 日程タブ: 回答表・候補日の追加と編集・未回答の人に知らせる・希望店舗。
+ * 日程タブ: 回答表・表の下の「候補日を選んで店舗に申し込む」（主催者・申込前。箱の主ボタンと同じ申込シート）・
+ * 候補日の追加と編集・未回答の人に知らせる・希望店舗。行には申込ボタンを置かない（2026-10-11 社長決定）。
  */
+import { BOOK_ACTION_LABEL } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingModel'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CandidateDateRows } from '@/components/patterns/privateGroup/CandidateDateRows'
@@ -20,7 +22,6 @@ interface GroupDatesTabProps {
   /** 自分が参加中（回答できる） */
   isMember: boolean
   onAnswer: (candidateId: string, response: DateResponse) => Promise<void>
-  onBook: (candidateId?: string) => void
   /** 候補日の追加・編集（?sheet=dates） */
   editorOpen: boolean
   onOpenEditor: () => void
@@ -31,10 +32,12 @@ interface GroupDatesTabProps {
   preferredStoreNames: string[]
   onEditStore: () => void
   formatDateJaMd: (dateStr: string) => string
+  /** 表の下の「候補日を選んで店舗に申し込む」（主催者・申込前・候補日があるとき。箱の主ボタンと同じシート） */
+  onBook?: (() => void) | null
 }
 
 export function GroupDatesTab(props: GroupDatesTabProps) {
-  const { group, table, isOrganizer, canMutateSchedule, isMember, onAnswer, onBook, editorOpen, onOpenEditor, onCloseEditor, onDatesChanged, onRemind, preferredStoreNames, onEditStore, formatDateJaMd } = props
+  const { group, table, isOrganizer, canMutateSchedule, isMember, onAnswer, editorOpen, onOpenEditor, onCloseEditor, onDatesChanged, onRemind, preferredStoreNames, onEditStore, formatDateJaMd, onBook = null } = props
   const [reminding, setReminding] = useState(false)
   // 「候補日を追加」「候補日を編集」で開いたら、表の下の編集欄まで動かす
   const editorRef = useRef<HTMLElement>(null)
@@ -72,7 +75,6 @@ export function GroupDatesTab(props: GroupDatesTabProps) {
           table={table}
           canAnswer={isMember && canMutateSchedule}
           onAnswer={onAnswer}
-          onBook={isOrganizer && canMutateSchedule ? id => onBook(id) : null}
         />
         {table.rows.length > 0 && !history && (
           <p className="mt-2 text-xs text-muted-foreground">
@@ -80,15 +82,20 @@ export function GroupDatesTab(props: GroupDatesTabProps) {
             {guestsUnanswered.length > 0 && `${guestsUnanswered.map(c => `${c.name}さん`).join('、')}には招待リンクから回答をお願いしてください。`}
           </p>
         )}
+        {!history && onBook && table.rows.some(r => !r.rejected) && (
+          <Button type="button" className="mt-3 h-auto w-full rounded-md bg-violet-600 px-3.5 py-2.5 text-sm font-bold text-white hover:bg-violet-700" onClick={onBook} data-testid="dates-book">
+            {BOOK_ACTION_LABEL}
+          </Button>
+        )}
         {!history && (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className={`flex gap-2 ${onBook ? 'mt-2' : 'mt-3 flex-wrap'}`}>
             {isOrganizer && (
-              <Button type="button" variant="outline" size="sm" className="h-auto py-1.5 px-2.5 text-xs rounded-md bg-background border-zinc-300" onClick={editorOpen ? onCloseEditor : onOpenEditor} data-testid="toggle-date-editor">
+              <Button type="button" variant="outline" size="sm" className={`h-auto py-1.5 px-2.5 text-xs rounded-md bg-background border-zinc-300 ${onBook ? 'flex-1' : ''}`} onClick={editorOpen ? onCloseEditor : onOpenEditor} data-testid="toggle-date-editor">
                 {editorOpen ? '候補日の編集を閉じる' : table.rows.length > 0 ? '候補日を追加・編集' : '候補日を追加'}
               </Button>
             )}
             {isMember && isOrganizer && unanswered.length > 0 && (
-              <Button type="button" variant="outline" size="sm" className="h-auto py-1.5 px-2.5 text-xs rounded-md bg-background border-zinc-300" onClick={() => void remind()} disabled={reminding} data-testid="remind-unanswered">
+              <Button type="button" variant="outline" size="sm" className={`h-auto py-1.5 px-2.5 text-xs rounded-md bg-background border-zinc-300 ${onBook ? 'flex-1' : ''}`} onClick={() => void remind()} disabled={reminding} data-testid="remind-unanswered">
                 {reminding ? '送信中…' : '未回答の人に知らせる'}
               </Button>
             )}

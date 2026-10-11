@@ -84,7 +84,8 @@ interface GroupMemberScreenProps {
   setTab: (tab: GroupTab | 'survey') => void
   openSheet: (name: string, extra?: Record<string, string>) => void
   closeSheet: () => void
-  openBooking: (candidateId?: string) => void
+  /** 店舗への申込シートを開く（入口は「いまの状態」の箱・チャットの 1 行・日程タブの表の下） */
+  openBooking: () => void
   openStoreEdit: () => void
   copyInvite: () => Promise<void>
   shareLine: () => void
@@ -228,7 +229,7 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
       case 'edit_dates':
         return openSheet('dates')
       case 'book':
-        return openBooking(action.candidateId)
+        return openBooking()
       case 'answer':
         return setTab('dates')
       case 'send_invite':
@@ -433,7 +434,7 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
             canMutateSchedule={canMutateSchedule}
             isMember
             onAnswer={onAnswer}
-            onBook={openBooking}
+            onBook={isOrganizer && canMutateSchedule ? openBooking : null}
             editorOpen={dateEditorOpen}
             onOpenEditor={() => openSheet('dates')}
             onCloseEditor={closeSheet}

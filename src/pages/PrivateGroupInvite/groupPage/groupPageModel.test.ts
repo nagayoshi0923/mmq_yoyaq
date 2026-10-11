@@ -71,13 +71,15 @@ describe('いまの状態の箱（マイページのカードと同じラベル�
     table: buildAnswerTable(group, 'org'), myMemberId: 'org', confirmed: null, requestedAt: null, surveyPending: false,
     handover: null, canMutateSchedule: true, todayYmd: '2026-10-10', ...over,
   })
-  it('主催者・候補日あり: 最有力の日で申し込む', () => {
+  it('主催者・候補日あり: 入口は 1 つ（候補日を選んで店舗に申し込む）。チャットの 1 行も同じ', () => {
     const v = buildGroupStatus(base())
     expect(v.chip).toBe('申込に進む')
     expect(v.sub).toBe('3人中 1人が回答済み')
-    expect(v.body).toBe('候補日 3 件のうち 10/30(金) 午後 が最も集まっています（○2・△1）。')
-    expect(v.primary).toEqual({ kind: 'book', label: '10/30(金) 午後 で店舗に申し込む', candidateId: 'c2' })
+    expect(v.body).toBe('候補日 3 件・参加 3 人。店舗に送る候補日を選んで申し込みます。複数の候補日を送ると、店舗がその中から 1 つ確定します。')
+    expect(v.primary).toEqual({ kind: 'book', label: '候補日を選んで店舗に申し込む' })
     expect(v.secondary.map(s => s.label)).toEqual(['候補日を編集', '招待リンクを送る'])
+    expect(v.barAction).toEqual(v.primary)
+    expect(v.barLabel).toBe('申し込む ›')
   })
   it('主催者・候補日なし: 候補日を追加', () => {
     const v = buildGroupStatus(base({ table: buildAnswerTable({ ...group, candidate_dates: [] } as unknown as PrivateGroup, 'org') }))

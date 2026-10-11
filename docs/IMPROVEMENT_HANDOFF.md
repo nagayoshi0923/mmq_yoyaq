@@ -1,3 +1,12 @@
+## 2026-10-11 / 店舗への申込を 1 つの入口にし、候補日を複数選んで優先順を付けて送る形に（feat/booking-request-sheet、staging 向け PR・未取り込み）
+
+- 社長の指摘: 日程タブの行ごとの「この日で申し込む」→ 次の画面で複数選べる、の二段構えが分かりにくい。見本 `RequestSheet.dc.html`（A 日程タブ・B 申込シート）。詳細は方針書 `docs/product-spec/グループページ刷新_2026-10.md` の末尾「申込の入口を 1 つに」。
+- 入口は「候補日を選んで店舗に申し込む」: 状態の箱の主ボタン（チャットタブの 1 行は「申し込む ›」）、日程タブの表の下（社長の追加指示。その下に「候補日を追加・編集」「未回答の人に知らせる」）、マイページの貸切カード（`?sheet=booking`）。行の申込ボタンは削除。箱・カードの本文に「複数の候補日を送ると、店舗がその中から 1 つ確定します」。
+- 申込シート `groupPage/booking/BookingRequestSheet.tsx`（全画面）: 候補日の複数選択（初期値は全員○の日＋それ以外で○最多の日、選んだ順＝優先順、ドラッグ・上下ボタンで並べ替え、× の日の注記）、希望店舗のチップ（空きは `private_booking_candidate_slot_availability` を店舗ごとに。空きなしは灰色で送らない）、参加人数の＋−（既定は登録メンバー数を作品の人数に収めた数）、店舗への連絡、料金の目安 → 2 段目で電話番号・注意事項とキャンセル規定・同意 → 送信（従来の `submitGroupBookingRequest`）。旧シート `BookingSheet`（GroupChatSheetPanels）は削除。
+- DB（migration 20261011200000、同名 rollback、staging 適用済み・本番未適用）: `create_private_booking_request` の候補の `order` を送られた並び（優先順）に、グループ経路の希望店舗を「完全一致」から「グループの希望店舗の中から 1 店舗以上」に。`expected-function-overrides.json`／`staging.json` 更新。DB の試験 yoyaq_004 に 2 件追加。
+- 参加人数は従来「作品の最大人数」固定で送っていたのを、シートで決めた人数に変更（申込後のメンバー追加は作品の最大人数で止めており、予約の人数では止めていない）。
+- 確認: 手元 DB（qa-customer の local supabase。グループ「試験作品・揺れる人数」に候補日 1 件・回答・希望店舗 2 つ・二号店の既存公演を手元だけに追加、migration も手元に適用）で 375px を撮影（作業メモの `shots/g9_request_*.png`）。送った予約は order 1〜3 が選んだ順、第 1 希望が requested_datetime。確認メールは手元からは送れない（従来どおり）。
+
 ## 2026-10-11 / 事前配役アンケートの回答画面を全画面シートの形に（feat/survey-sheet-ui、staging 向け PR・未取り込み）
 
 - 社長承認の見本 `SurveySheet.dc.html`（375×812）に合わせ、回答フォーム `SurveyResponseForm` を全画面シートに作り替えた（読み書き・診断記録は `useSurveyResponse.ts` に分離）。入口は従来の `?tab=survey`（メール・通知のリンク）に加え `?sheet=survey` も同じ画面。マイページの貸切カード（その場で開く）とチャットの予備の枠も同じシート。会員・ゲスト（PIN）共通。

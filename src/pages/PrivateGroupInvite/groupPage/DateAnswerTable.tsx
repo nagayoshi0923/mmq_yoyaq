@@ -1,11 +1,11 @@
 /**
  * 日程タブの回答表（刷新 段階 1 の主役）。行＝候補日、列＝メンバー、セル＝○△×（未回答は「–」）。
  * 最も集まっている行を薄紫にする。自分の列のセルを押すと ○→△→×→○ と変わり、その場で保存する。
+ * 行には申込ボタンを置かない（申込の入口は「いまの状態」の箱と、表の下の「候補日を選んで店舗に申し込む」の 2 か所。2026-10-11 社長決定）。
  * 列が多いときは横に動かせる（1 列目は固定）。
  */
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import type { DateResponse } from '@/types'
 import { RESPONSE_MARK, nextResponse, rowTally, type AnswerTable } from './groupPageModel'
 
@@ -21,11 +21,9 @@ interface DateAnswerTableProps {
   /** 自分の列を押して回答できるか（参加中・店舗への申込前） */
   canAnswer: boolean
   onAnswer: (candidateId: string, response: DateResponse) => Promise<void>
-  /** 行末の「この日で申し込む」（主催者・申込前のみ） */
-  onBook: ((candidateId: string) => void) | null
 }
 
-export function DateAnswerTable({ table, canAnswer, onAnswer, onBook }: DateAnswerTableProps) {
+export function DateAnswerTable({ table, canAnswer, onAnswer }: DateAnswerTableProps) {
   // 押した直後の見た目（保存が終わるまで）。失敗したら戻す
   const [pending, setPending] = useState<Record<string, DateResponse>>({})
   const [saving, setSaving] = useState<string | null>(null)
@@ -65,7 +63,6 @@ export function DateAnswerTable({ table, canAnswer, onAnswer, onBook }: DateAnsw
               </th>
             ))}
             <th scope="col" className="px-2 py-2 text-center text-xs font-medium text-muted-foreground border-b border-border whitespace-nowrap">集計</th>
-            {onBook && <th scope="col" className="hidden sm:table-cell border-b border-border"><span className="sr-only">申込</span></th>}
           </tr>
         </thead>
         <tbody>
@@ -79,12 +76,6 @@ export function DateAnswerTable({ table, canAnswer, onAnswer, onBook }: DateAnsw
                   <span className="block text-xs text-muted-foreground">
                     {row.rejected ? '店舗が見送り' : `${row.slotLabel} ${row.startTime}`}
                   </span>
-                  {/* スマホは行末の列が画面の外に出るので、日付の下に置く */}
-                  {onBook && !row.rejected && (
-                    <button type="button" onClick={() => onBook(row.id)} className={`sm:hidden mt-0.5 text-xs font-bold ${best ? 'text-violet-700' : 'text-foreground/70'} hover:underline`}>
-                      この日で申し込む ›
-                    </button>
-                  )}
                 </td>
                 {table.columns.map(col => {
                   const value = (col.isMe ? pending[row.id] : undefined) ?? row.cells[col.memberId]
@@ -110,21 +101,6 @@ export function DateAnswerTable({ table, canAnswer, onAnswer, onBook }: DateAnsw
                   )
                 })}
                 <td className="px-2 py-2 text-center text-xs whitespace-nowrap border-b border-border">{row.rejected ? '—' : rowTally(row, ' ') || '—'}</td>
-                {onBook && (
-                  <td className="hidden sm:table-cell px-2 py-2 text-right border-b border-border">
-                    {!row.rejected && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={best ? 'default' : 'outline'}
-                        className={`h-auto py-1.5 px-2.5 text-xs rounded-md whitespace-nowrap ${best ? 'bg-violet-600 hover:bg-violet-700 text-white' : 'bg-background border-zinc-300'}`}
-                        onClick={() => onBook(row.id)}
-                      >
-                        この日で申し込む
-                      </Button>
-                    )}
-                  </td>
-                )}
               </tr>
             )
           })}
