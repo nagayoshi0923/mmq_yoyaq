@@ -801,6 +801,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
       {/* フッター */}
       <Footer organizationSlug={organizationSlug} minimal />
+      {/* スマホで予約ボタンを画面下に固定している間、フッターが隠れないよう空ける（点検 18） */}
+      {activeTab === 'schedule' && selectedEventId && <div className="h-24 md:hidden" aria-hidden="true" />}
     </div>
   )
 }

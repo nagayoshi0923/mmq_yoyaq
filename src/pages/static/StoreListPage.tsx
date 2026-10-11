@@ -6,7 +6,7 @@ import { logger } from '@/utils/logger'
 import { useState, useEffect } from 'react'
 import { PublicLayout } from '@/components/layout/PublicLayout'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
-import { Building2, ChevronRight } from 'lucide-react'
+import { Building2, ChevronRight, Mail } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { publicPageReadApi } from '@/lib/api/publicPageReadApi'
 
@@ -130,12 +130,22 @@ export function StoreListPage() {
                   <div className="flex gap-3 pt-4 border-t">
                     <Link
                       to={`/${org.slug}`}
-                      className="flex-1 py-2 text-center text-sm font-medium text-white transition-colors hover:opacity-90 flex items-center justify-center gap-2"
+                      className="flex-1 min-h-11 py-2 text-center text-sm font-medium text-white transition-colors hover:opacity-90 flex items-center justify-center gap-2"
                       style={{ backgroundColor: THEME.primary }}
                       onClick={(e) => e.stopPropagation()}
                     >
                       予約サイトを見る
                       <ChevronRight className="w-4 h-4" />
+                    </Link>
+                    {/* 店舗への連絡は問い合わせフォーム（電話番号は出さない。点検 2） */}
+                    <Link
+                      to={`/org/${org.slug}/contact`}
+                      className="flex-1 min-h-11 py-2 text-center text-sm font-medium border transition-colors hover:bg-muted flex items-center justify-center gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                      data-testid="store-list-contact"
+                    >
+                      <Mail className="w-4 h-4" aria-hidden="true" />
+                      問い合わせる
                     </Link>
                   </div>
                 </div>

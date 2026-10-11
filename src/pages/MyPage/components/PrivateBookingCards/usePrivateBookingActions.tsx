@@ -82,12 +82,12 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
     if (!needsPolicy || policy.isLoading) return { loading: needsPolicy, allowed: false, reason: null }
     const data = policy.data
     if (!data) return { loading: false, allowed: false, reason: '予約の情報を読めませんでした。店舗へご連絡ください。' }
-    if (data.reservation.status !== 'confirmed') return { loading: false, allowed: false, reason: 'この予約はマイページからキャンセルできません。店舗へご連絡ください。' }
+    if (data.reservation.status !== 'confirmed') return { loading: false, allowed: false, reason: 'この予約はマイページからキャンセルできません。「店舗に問い合わせる」からご連絡ください。' }
     if (!data.canCancelByPolicy) {
       return {
         loading: false,
         allowed: false,
-        reason: `キャンセル料金が発生する期間のため、マイページからのキャンセルはできません（${formatPolicyHours(data.cancelDeadlineHours)}まで）。店舗へご連絡ください。`,
+        reason: `キャンセル料金が発生する期間のため、マイページからのキャンセルはできません（${formatPolicyHours(data.cancelDeadlineHours)}まで）。「店舗に問い合わせる」からご連絡ください。`,
       }
     }
     return { loading: false, allowed: true, reason: null }

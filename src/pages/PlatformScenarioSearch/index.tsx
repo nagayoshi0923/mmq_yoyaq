@@ -751,6 +751,8 @@ export function PlatformScenarioSearch() {
                       <button
                         onClick={(e) => handleToggleFavorite(scenario.id, e)}
                         className="flex-shrink-0 p-1 transition-colors hover:bg-red-50 rounded"
+                        aria-label={isFavorite(scenario.id) ? `${scenario.title}を遊びたいから外す` : `${scenario.title}を遊びたいに入れる`}
+                        aria-pressed={isFavorite(scenario.id)}
                       >
                         <Heart className={`h-4 w-4 fill-current text-red-500 ${
                           isFavorite(scenario.id) ? 'opacity-100' : 'opacity-30 hover:opacity-50'

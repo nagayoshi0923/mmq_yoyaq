@@ -245,3 +245,45 @@ export function formatCancellationFeePeriod(
   if (!nextFee || nextFee.hours_before < 0) return `${start}開演時刻まで`
   return `${start}${formatPolicyHours(nextFee.hours_before)}になるまで`
 }
+
+export interface PublicCancellationTerms {
+  deadlineHours: number | null
+  fees: CancellationFeeRule[]
+  /** 人数を変更できる期限（公演の何時間前まで）。未設定は null */
+  changeDeadlineHours: number | null
+  /** 店舗の規定を読めなかったので既定値を出している */
+  isFallback: boolean
+}
+
+/**
+ * 予約確認画面の要点表示用（オープン公演）。規定全文の取得（中止判定・返金案内まで読む）より軽い。
+ * 読めないときは既定値（マイページの取消判定の既定と同じ）を返し、isFallback を立てる。
+ */
+export async function fetchPublicCancellationTerms({
+  organizationSlug,
+  storeId,
+  eventId,
+}: { organizationSlug?: string | null; storeId?: string | null; eventId?: string | null }): Promise<PublicCancellationTerms> {
+  const fallback: PublicCancellationTerms = {
+    deadlineHours: DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
+    fees: DEFAULT_OPEN_CANCELLATION_FEES.map(fee => ({ ...fee })),
+    changeDeadlineHours: null,
+    isFallback: true,
+  }
+  const slug = organizationSlug?.trim()
+  if (!slug) return fallback
+  const { data, error } = await supabase.rpc('get_public_cancellation_policy_for_context', {
+    p_organization_slug: slug, p_store_id: storeId || null,
+    p_scenario_master_id: null, p_event_id: eventId || null,
+  })
+  if (error) return fallback
+  const rows = toArray<Record<string, unknown>>(data).map(normalizePublicPolicy)
+  const policy = rows.find(row => storeId && row.store_id === storeId) ?? rows[0]
+  if (!policy || !policy.is_configured) return fallback
+  return {
+    deadlineHours: policy.cancellation_deadline_hours,
+    fees: policy.cancellation_fees.length > 0 ? policy.cancellation_fees : fallback.fees,
+    changeDeadlineHours: policy.reservation_change_deadline_hours,
+    isFallback: false,
+  }
+}

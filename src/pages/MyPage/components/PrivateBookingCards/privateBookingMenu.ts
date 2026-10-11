@@ -181,6 +181,10 @@ export interface PrivateGroupInquiryInfo {
   /** いまの状態（例「人集め中」「店舗の返事待ち」「確定 10/25(土)」） */
   statusLabel: string
   inviteCode: string | null
+  /** 公演日時（例「10/29(木) 19:00 開演」）。通常の予約の問い合わせで入れる */
+  datetimeLabel?: string | null
+  /** 会場名 */
+  storeName?: string | null
 }
 
 /** 問い合わせ本文の初期値。予約情報を先頭に入れ、その下にお客様が書く欄を空けておく */
@@ -188,6 +192,8 @@ export function buildInquiryMessage(info: PrivateGroupInquiryInfo): string {
   const lines = ['【予約情報】']
   if (info.reservationNumber) lines.push(`予約番号: ${info.reservationNumber}`)
   lines.push(`作品: ${info.title || '-'}`)
+  if (info.datetimeLabel) lines.push(`日時: ${info.datetimeLabel}`)
+  if (info.storeName) lines.push(`会場: ${info.storeName}`)
   lines.push(`状態: ${info.statusLabel}`)
   if (info.inviteCode) lines.push(`招待コード: ${info.inviteCode}`)
   lines.push('', '【お問い合わせ内容】', '')

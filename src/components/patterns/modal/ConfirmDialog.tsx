@@ -98,10 +98,12 @@ export const ConfirmDialog = memo(function ConfirmDialog({
           </div>
         )}
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        {/* 危ない操作は、スマホでは「やめる」を上・赤いボタンを下に置く（押し間違い防止。点検 41）。
+            スマホでは押しやすい高さ 44px（点検 30）。PC は従来どおり右寄せの横並び */}
+        <DialogFooter className={confirmVariant === 'destructive' ? 'flex-col gap-2 sm:flex-row sm:gap-0' : 'gap-2 sm:gap-0'}>
           <Button
             variant="outline"
-            className="text-sm"
+            className="text-sm min-h-11 sm:min-h-0"
             onClick={close}
             disabled={loading}
           >
@@ -109,7 +111,7 @@ export const ConfirmDialog = memo(function ConfirmDialog({
           </Button>
           <Button
             variant={confirmVariant}
-            className="text-sm"
+            className="text-sm min-h-11 sm:min-h-0"
             onClick={handleConfirm}
             disabled={loading || disabled}
           >
