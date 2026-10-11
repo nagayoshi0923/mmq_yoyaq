@@ -1,6 +1,7 @@
 /**
  * チャットの入力欄（グループページ刷新 段階 2）。カメラ・写真（1 回 10 枚まで）・絵文字・送信。
  * 返信中は上に引用を出す。写真を選ぶと送る前に並べて見せ、外せる。
+ * 初めての人には「長押しで返信・リアクション」の小さな案内を入力欄の上に出す（× で閉じたら出さない。点検 55）。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Camera, ImagePlus, Loader2, Reply, Send, Smile, X } from 'lucide-react'
@@ -8,6 +9,14 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { MAX_PHOTOS_PER_MESSAGE } from './chatModel'
 import { EmojiGrid } from './EmojiPicker'
+
+const HINT_KEY = 'mmq_chat_longpress_hint_closed'
+function readHintClosed(): boolean {
+  try { return localStorage.getItem(HINT_KEY) === '1' } catch { return false }
+}
+function saveHintClosed() {
+  try { localStorage.setItem(HINT_KEY, '1') } catch { /* 保存できない端末は毎回出す */ }
+}
 
 interface ChatComposerProps {
   disabled: boolean
@@ -24,6 +33,7 @@ export function ChatComposer({ disabled, blockMessage, replyQuote, onCancelReply
   const [files, setFiles] = useState<File[]>([])
   const [sending, setSending] = useState(false)
   const [emojiOpen, setEmojiOpen] = useState(false)
+  const [hintClosed, setHintClosed] = useState(readHintClosed)
   const cameraRef = useRef<HTMLInputElement>(null)
   const libraryRef = useRef<HTMLInputElement>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
@@ -89,6 +99,14 @@ export function ChatComposer({ disabled, blockMessage, replyQuote, onCancelReply
   return (
     <div className="shrink-0 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]" data-testid="chat-composer">
       {blockMessage && <p className="text-xs text-muted-foreground px-3 pt-2">{blockMessage}</p>}
+      {!hintClosed && !disabled && (
+        <div className="flex items-center gap-2 px-3 pt-2 text-xs text-muted-foreground" data-testid="chat-longpress-hint">
+          <span className="flex-1">メッセージを長押しすると、返信・リアクション・コピーができます（パソコンは右クリック）</span>
+          <button type="button" onClick={() => { saveHintClosed(); setHintClosed(true) }} className="w-6 h-6 shrink-0 flex items-center justify-center rounded-full hover:bg-muted" aria-label="案内を閉じる">
+            <X className="w-3.5 h-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      )}
       {replyQuote && (
         <div className="flex items-center gap-2 px-3 pt-2 text-xs text-purple-800" data-testid="chat-reply-preview">
           <Reply className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />

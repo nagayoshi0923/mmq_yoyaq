@@ -94,17 +94,22 @@ interface GroupMemberScreenProps {
   submitDateResponses: (groupId: string, memberId: string, responses: Array<{ candidateDateId: string; response: DateResponse }>) => Promise<void>
   formatDateJaMd: (dateStr: string) => string
   isCustomHoliday?: (date: string) => boolean
+  /** ゲストの「この端末から退出」（会員は null） */
+  onGuestSignOut?: (() => void) | null
 }
 
 export function GroupMemberScreen(props: GroupMemberScreenProps) {
   const {
     group, scenario, playerRange, isLoggedIn, userId, reservationStatus, existingMemberId, isOrganizer, organizerName, memberCount, inviteMemberCap, linkedReservation, handover,
     bookingPhase, canMutateSchedule, survey, preferredStores, copied, tabParam, dateEditorOpen, chatMessages, chatState, listSheet, setListSheet, bookingActions, bookingSummary, chat,
-    navigate, setTab, openSheet, closeSheet, openBooking, openStoreEdit, copyInvite, shareLine, getInviteUrl, refetch, submitDateResponses, formatDateJaMd, isCustomHoliday,
+    navigate, setTab, openSheet, closeSheet, openBooking, openStoreEdit, copyInvite, shareLine, getInviteUrl, refetch, submitDateResponses, formatDateJaMd, isCustomHoliday, onGuestSignOut = null,
   } = props
   const preferredStoreNames = useMemo(() => preferredStores.map(s => s.name), [preferredStores])
 
-  const table = useMemo(() => buildAnswerTable(group, existingMemberId), [group, existingMemberId])
+  // 申込済み（返事待ち・確定）は回答の段階は済み。主催者の空欄は申し込んだ候補日を ○ とみなす（点検 42）
+  const table = useMemo(() => buildAnswerTable(group, existingMemberId, {
+    organizerRequested: bookingPhase === 'pre_request' ? null : (linkedReservation?.candidates.length ? linkedReservation.candidates : 'all'),
+  }), [group, existingMemberId, bookingPhase, linkedReservation])
   // 公演後か（終了時刻を過ぎた・完了扱い）。開いたままでも 1 分ごとに見直す
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
@@ -313,6 +318,7 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
       onPhotos={() => setListSheet('photos')}
       onPins={() => setListSheet('pins')}
       push={push.available ? { on: push.on, busy: push.busy, onToggle: () => void push.toggle() } : null}
+      guest={!isLoggedIn && onGuestSignOut ? { onSignOut: onGuestSignOut } : null}
       onActions={() => {
         if (!isOrganizer) return openSheet('settings')
         bookingActions.preparePolicy()
@@ -448,7 +454,7 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
         members: (
           <GroupMembersTab
             table={table}
-            hasCandidates={table.rows.some(r => !r.rejected)}
+            hasCandidates={bookingPhase === 'pre_request' && table.rows.some(r => !r.rejected)}
             inviteCap={inviteMemberCap}
             copied={copied}
             onCopyInvite={() => void copyInvite()}

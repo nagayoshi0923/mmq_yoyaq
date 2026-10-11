@@ -76,6 +76,13 @@ export function GroupDatesTab(props: GroupDatesTabProps) {
           canAnswer={isMember && canMutateSchedule}
           onAnswer={onAnswer}
         />
+        {table.rows.length > 0 && history && isMember && (
+          <p className="mt-2 text-xs text-muted-foreground" data-testid="dates-closed-note">
+            {group.confirmed_performance || group.status === 'confirmed'
+              ? '日程が確定したため、日程の回答は締め切りました。'
+              : '店舗へ申込済みのため、日程の回答は締め切りました。店舗の返事をお待ちください。'}
+          </p>
+        )}
         {table.rows.length > 0 && !history && (
           <p className="mt-2 text-xs text-muted-foreground">
             「–」は未回答。

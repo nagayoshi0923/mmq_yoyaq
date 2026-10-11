@@ -5,6 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { BookingNotice } from '@/pages/ScenarioDetailPage/components/BookingNotice'
+import { privateCancelNoticeText } from '@/lib/privateCancelNotice'
 import type { SheetCandidate } from './requestSheetModel'
 
 interface BookingRequestConfirmProps {
@@ -49,6 +50,10 @@ export function BookingRequestConfirm(props: BookingRequestConfirmProps) {
         <p className="text-xs text-muted-foreground">店舗から日程の確認などで連絡することがあります。</p>
         <Input id="request-phone" type="tel" value={phone} onChange={e => onPhoneChange(e.target.value)} placeholder="090-1234-5678" autoComplete="tel" className="text-sm" disabled={disabled} />
       </section>
+
+      <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 leading-relaxed" data-testid="request-cancel-notice">
+        <span className="font-bold">取消について: </span>{privateCancelNoticeText()}
+      </p>
 
       <BookingNotice mode="private" organizationSlug={orgSlug} scenarioMasterId={scenarioMasterId} storeId={policyStoreId} hasPreReading={hasPreReading} defaultPolicyOpen={Boolean(policyStoreId)} />
 

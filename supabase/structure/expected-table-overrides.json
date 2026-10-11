@@ -3653,6 +3653,12 @@
     "type": "text",
     "default": null,
     "not_null": false
+   },
+   {
+    "name": "byte_size",
+    "type": "bigint",
+    "default": null,
+    "not_null": false
    }
   ],
   "indexes": [
@@ -3674,7 +3680,12 @@
    }
   ],
   "policies": [],
-  "triggers": [],
+  "triggers": [
+   {
+    "def": "CREATE TRIGGER private_group_message_photo_set_size BEFORE INSERT ON public.private_group_message_photos FOR EACH ROW EXECUTE FUNCTION private_group_message_photo_set_size()",
+    "name": "private_group_message_photo_set_size"
+   }
+  ],
   "constraints": [
    {
     "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",

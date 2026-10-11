@@ -221,3 +221,39 @@ describe('いまの状態の箱: 配役（日程確定後）', () => {
     expect(v.barAction).toBeUndefined()
   })
 })
+
+describe('申込済みの主催者の欄（点検 42）', () => {
+  const direct = {
+    members: [member('org', { is_organizer: true }), member('jiro')],
+    candidate_dates: [cand('d1', '2026-11-03', '13:00', []), cand('d2', '2026-11-04', '18:00', []), cand('d3', '2026-11-05', '13:00', [], { status: 'rejected' })],
+  } as unknown as PrivateGroup
+
+  it('申込前は主催者の空欄は未回答のまま', () => {
+    const t = buildAnswerTable(direct, 'org')
+    expect(t.rows.every(r => r.cells.org === null)).toBe(true)
+    expect(t.columns.find(c => c.memberId === 'org')?.answeredAll).toBe(false)
+  })
+
+  it('申込済みは申し込んだ候補日を ○ とみなし、回答済みにする', () => {
+    const t = buildAnswerTable(direct, 'org', { organizerRequested: [{ date: '2026-11-03', startTime: '13:00:00' }, { date: '2026-11-04', startTime: '18:00' }] })
+    expect(t.rows.find(r => r.id === 'd1')?.cells.org).toBe('ok')
+    expect(t.rows.find(r => r.id === 'd2')?.cells.org).toBe('ok')
+    expect(t.rows.find(r => r.id === 'd3')?.cells.org).toBeNull()
+    expect(t.columns.find(c => c.memberId === 'org')?.answeredAll).toBe(true)
+    // メンバーの空欄はそのまま
+    expect(t.rows.find(r => r.id === 'd1')?.cells.jiro).toBeNull()
+  })
+
+  it('申し込んだ候補日が一部なら、それ以外は空欄のまま', () => {
+    const t = buildAnswerTable(direct, 'org', { organizerRequested: [{ date: '2026-11-04', startTime: '18:00' }] })
+    expect(t.rows.find(r => r.id === 'd1')?.cells.org).toBeNull()
+    expect(t.rows.find(r => r.id === 'd2')?.cells.org).toBe('ok')
+    expect(t.columns.find(c => c.memberId === 'org')?.answeredAll).toBe(false)
+  })
+
+  it('主催者が回答していればその回答を使う', () => {
+    const answered = { ...direct, candidate_dates: [cand('d1', '2026-11-03', '13:00', [['org', 'ng']])] } as unknown as PrivateGroup
+    const t = buildAnswerTable(answered, 'org', { organizerRequested: 'all' })
+    expect(t.rows[0].cells.org).toBe('ng')
+  })
+})

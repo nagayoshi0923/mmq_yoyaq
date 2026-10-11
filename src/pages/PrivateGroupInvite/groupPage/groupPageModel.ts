@@ -143,8 +143,27 @@ export interface AnswerTable {
 
 type TableGroup = Pick<PrivateGroup, 'members' | 'candidate_dates'>
 
+export interface AnswerTableOptions {
+  /**
+   * 店舗へ申込済み（返事待ち・確定）のとき、主催者が回答していない候補日のうち申し込んだ日は ○ とみなす（点検 42）。
+   * 作品ページから直接申し込んだ主催者は日程表に回答していないため「未回答」に見えていた。
+   * 'all' は申し込んだ候補日が分からないとき（見送られた日を除く全部）。
+   */
+  organizerRequested?: ReadonlyArray<{ date: string | null; startTime: string | null }> | 'all' | null
+}
+
+/** 申込済みのとき主催者の空欄を ○ とみなす候補日か */
+function isRequestedByOrganizer(
+  cd: { date: string; start_time: string; status?: string | null },
+  requested: AnswerTableOptions['organizerRequested'],
+): boolean {
+  if (!requested || cd.status === 'rejected') return false
+  if (requested === 'all') return true
+  return requested.some(r => r.date === cd.date && (r.startTime ?? '').slice(0, 5) === (cd.start_time ?? '').slice(0, 5))
+}
+
 /** 候補日 × メンバーの回答表。列は自分を先頭に、あとは主催者・参加順 */
-export function buildAnswerTable(group: TableGroup, myMemberId: string | null): AnswerTable {
+export function buildAnswerTable(group: TableGroup, myMemberId: string | null, options: AnswerTableOptions = {}): AnswerTable {
   const memberRows = toMemberRows(group)
   const ordered = [
     ...memberRows.filter(m => m.id === myMemberId),
@@ -158,6 +177,7 @@ export function buildAnswerTable(group: TableGroup, myMemberId: string | null): 
     answeredAll: m.total > 0 && m.answered >= m.total,
   }))
   const memberIds = new Set(columns.map(c => c.memberId))
+  const organizerId = columns.find(c => c.role === 'organizer')?.memberId ?? null
   const responseOf = (memberId: string, candidateId: string, fromCandidate: Array<{ member_id: string; response: DateResponse }> | undefined | null): DateResponse | null => {
     const r = fromCandidate?.find(x => x.member_id === memberId)
     if (r) return r.response
@@ -171,8 +191,9 @@ export function buildAnswerTable(group: TableGroup, myMemberId: string | null): 
       let ok = 0
       let maybe = 0
       let ng = 0
+      const implied = isRequestedByOrganizer(cd, options.organizerRequested)
       for (const id of memberIds) {
-        const v = responseOf(id, cd.id, cd.responses)
+        const v = responseOf(id, cd.id, cd.responses) ?? (implied && id === organizerId ? 'ok' : null)
         cells[id] = v
         if (v === 'ok') ok++
         else if (v === 'maybe') maybe++
@@ -191,6 +212,12 @@ export function buildAnswerTable(group: TableGroup, myMemberId: string | null): 
         ng,
       }
     })
+  // 申込済みで主催者の空欄を ○ とみなした場合は、回答済みの判定も表に合わせる
+  if (options.organizerRequested && organizerId) {
+    const activeRows = rows.filter(r => !r.rejected)
+    const col = columns.find(c => c.memberId === organizerId)
+    if (col && activeRows.length > 0) col.answeredAll = activeRows.every(r => r.cells[organizerId] != null)
+  }
   let bestRowId: string | null = null
   let bestScore = 0
   for (const row of rows) {

@@ -34,6 +34,11 @@ export function MembersSummarySection({ table, inviteCap, copied, onCopyInvite, 
         </div>
         <p className="min-w-0 text-sm leading-snug break-words">{names.join('・')}</p>
       </div>
+      {onCopyInvite && table.memberCount <= 1 && (
+        <p className="mt-2 text-xs text-purple-800 leading-snug" data-testid="overview-invite-hint">
+          まだあなただけです。招待リンクを送ると、メンバーはお名前だけで（ログインしなくても）参加できます。
+        </p>
+      )}
       <div className="mt-2.5 flex flex-wrap gap-2">
         {onCopyInvite && (
           <Button type="button" variant="outline" size="sm" className="h-auto py-1.5 px-2.5 text-xs rounded-md bg-background border-zinc-300 gap-1" onClick={onCopyInvite}>

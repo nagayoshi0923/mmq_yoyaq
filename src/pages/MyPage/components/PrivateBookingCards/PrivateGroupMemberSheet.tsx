@@ -27,7 +27,9 @@ const ROLE_BADGE: Record<PrivateGroupMemberRow['role'], string> = {
   guest: 'bg-amber-50 text-amber-800 border-amber-200',
 }
 
-function answerStatus(row: PrivateGroupMemberRow): string {
+function answerStatus(row: PrivateGroupMemberRow, phase: PrivateBookingPhase): string {
+  // 店舗へ申込済み・確定後は回答の段階は済み（点検 42。直接申し込んだ主催者が「未回答」に見えていた）
+  if (phase !== 'pre_request') return '申込済み'
   if (row.total === 0) return '候補日なし'
   if (row.answered >= row.total) return '回答済み'
   if (row.answered === 0) return '未回答'
@@ -110,7 +112,7 @@ export function PrivateGroupMemberSheet({ open, onOpenChange, groupId, members, 
                       <Badge variant="outline" className={ROLE_BADGE[row.role]}>{ROLE_LABEL[row.role]}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      日程: {answerStatus(row)}
+                      日程: {answerStatus(row, phase)}
                       {row.joined_at ? ` ・ ${formatJstMonthDay(row.joined_at)} 参加` : ''}
                     </p>
                     {row.role === 'guest' && (
