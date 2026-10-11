@@ -27,7 +27,10 @@ export const supabase = {
   const chain:any = {select(v:string){columns=v;return chain},eq(){return chain},neq(){return chain},in(){return chain},limit(){return chain},order(){return chain},update(){updating=true;return chain},single:async()=>{const r=result();return table==='customers'&&Array.isArray(r.data)?{...r,data:r.data[0]}:r},maybeSingle:async()=>{const r=result();return table==='customers'&&Array.isArray(r.data)?{...r,data:r.data[0]}:r},then(resolve:any){return Promise.resolve(result()).then(resolve)}}
   return chain
  },
- rpc:async(name:string)=>({data:name==='get_performance_booking_window'?[{effective_booking_deadline:'2099-01-01T00:00:00Z'}]:[],error:null}),
+ rpc:async(name:string)=>{
+  if(name==='get_public_cancellation_policy_for_context') return state.mode==='terms-error'?{data:null,error:{message:'offline'}}:{data:[{store_id:'qa-store',is_configured:true,cancellation_deadline_hours:48,cancellation_fees:[{hours_before:48,fee_percentage:50},{hours_before:24,fee_percentage:100},{hours_before:-1,fee_percentage:100}],reservation_change_deadline_hours:24}],error:null}
+  return {data:name==='get_performance_booking_window'?[{effective_booking_deadline:'2099-01-01T00:00:00Z'}]:[],error:null}
+ },
  functions:{async invoke(){state.sends++;if(state.mode==='email-throw')throw Error('offline');return {data:{success:state.mode!=='email-false',skipped:state.mode==='email-skip'},error:state.mode==='email-error'?{message:'offline'}:null}}}
 }
 export const reservationApi = { async create(payload:any) {state.writes++;state.payload=payload;await new Promise(r=>setTimeout(r,80));if(state.mode==='offline')throw Error('通信に失敗しました');if(state.mode==='server-race')throw Error('残席が足りません');localStorage.setItem('qa-reservation',JSON.stringify({...payload,id:'qa-reservation'}));return {id:'qa-reservation',reservation_number:payload.reservation_number,final_price:8000,discount_amount:1000}} }

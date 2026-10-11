@@ -19,6 +19,10 @@ interface Props {
   /** 例「10/28(水) 19:00」 */
   decreaseDeadlineLabel: string | null
   unitPrice: number
+  /** いまの合計（サーバー確定金額 final_price。割引後） */
+  currentTotal?: number
+  /** いまの割引額（0 なら割引なし） */
+  currentDiscount?: number
   canSubmit: boolean
   isPending: boolean
   onConfirm: () => void
@@ -28,7 +32,7 @@ const yen = (value: number) => `¥${value.toLocaleString()}`
 
 export function ParticipantCountDialog({
   open, onOpenChange, currentCount, value, onValueChange, maxSelectableCount, canDecrease,
-  decreaseDeadlineLabel, unitPrice, canSubmit, isPending, onConfirm,
+  decreaseDeadlineLabel, unitPrice, currentTotal, currentDiscount = 0, canSubmit, isPending, onConfirm,
 }: Props) {
   const options = Array.from({ length: maxSelectableCount }, (_, i) => i + 1)
     .filter((num) => canDecrease || num >= (currentCount || 1))
@@ -59,8 +63,11 @@ export function ParticipantCountDialog({
               </div>
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>{yen(unitPrice)} × {value}名</span>
-                <span>いまの合計 {yen(unitPrice * currentCount)}</span>
+                <span>いまの合計 {yen(currentTotal ?? unitPrice * currentCount)}</span>
               </div>
+              {currentDiscount > 0 && (
+                <p className="text-xs text-muted-foreground" data-testid="participant-count-discount-note">いまの予約の割引（−{yen(currentDiscount)}）は、変更後の合計に含めていません。</p>
+              )}
               <p className="text-xs text-muted-foreground">税込。当日、店舗でお支払いください。</p>
             </div>
           )}

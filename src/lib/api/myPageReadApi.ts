@@ -171,7 +171,7 @@ export const myPageReservationReadApi = {
   async findReservationDetail(reservationId: string) {
     return supabase
       .from('reservations')
-      .select(`id, reservation_number, title, requested_datetime, participant_count, unit_price, final_price, total_price, status, payment_status, notes, scenario_id, scenario_master_id, store_id, organization_id, created_at, schedule_event_id, reservation_source, candidate_datetimes, customer_name, customer_email, customer_phone, private_group_id, reservation_change_deadline_hours_snapshot, cancellation_policy_snapshot_version, cancellation_policy_store_id, cancellation_policy_performance_type, cancellation_policy_deadline_hours, cancellation_policy_fees, cancellation_policy_fee_basis, cancellation_policy_updated_at`)
+      .select(`id, reservation_number, title, requested_datetime, participant_count, unit_price, final_price, total_price, discount_amount, status, payment_status, notes, scenario_id, scenario_master_id, store_id, organization_id, created_at, schedule_event_id, reservation_source, candidate_datetimes, customer_name, customer_email, customer_phone, private_group_id, reservation_change_deadline_hours_snapshot, cancellation_policy_snapshot_version, cancellation_policy_store_id, cancellation_policy_performance_type, cancellation_policy_deadline_hours, cancellation_policy_fees, cancellation_policy_fee_basis, cancellation_policy_updated_at`)
       .eq('id', reservationId)
       .maybeSingle()
   },

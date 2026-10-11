@@ -11,6 +11,7 @@ import { InviteShareButton } from '@/components/InviteShareButton'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import { ReservationCancelDialog } from './reservationDetail/ReservationCancelDialog'
 import { ParticipantCountDialog } from './reservationDetail/ParticipantCountDialog'
+import { reservationPriceBreakdown } from '../utils/reservationPriceBreakdown'
 import { PrivateGroupInquiryDialog } from '../components/PrivateBookingCards/PrivateGroupInquiryDialog'
 import { formatDeadline } from '@/lib/cancellationSummary'
 import { formatJstMonthDay } from '@/utils/jstDate'
@@ -172,7 +173,9 @@ export function ReservationDetailPage() {
     ? `無料で取消できる期限${freeCancelDeadlineLabel ? `（${freeCancelDeadlineLabel}）` : ''}を過ぎたため、マイページからは取消できません。取消・変更は「店舗に問い合わせる」からご連絡ください（キャンセル料がかかります${data?.cancelFeeSteps ? `: ${data.cancelFeeSteps}` : ''}）。`
     : null
   const datetimeLabel = perf.date ? `${formatJstMonthDay(perf.date, true)}${perf.time ? ` ${perf.time.slice(0, 5)} 開演` : ''}` : ''
-  const unitPrice = reservation.unit_price || 0
+  // 通常予約の金額はサーバー確定金額（final_price）を正とする（公開前検証 P2）
+  const price = reservationPriceBreakdown(reservation)
+  const unitPrice = price.unitPrice
 
   // 確定した（まだ終わっていない）予約だけ「カレンダーに登録」「地図を開く」
   const isUpcomingConfirmed = ['confirmed', 'checked_in'].includes(reservation.status) && Boolean(perf.date) && perf.date >= toJstYmd(new Date())
@@ -403,12 +406,21 @@ export function ReservationDetailPage() {
                   )}
                 </>
               ) : (
-                <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                  <span className="text-sm text-gray-500 flex items-center gap-2"><CreditCard className="w-4 h-4" />参加料金</span>
-                  <div className="text-right">
-                    <span className="font-bold text-lg text-mypage-detail-primary" data-testid="reservation-total">¥{(unitPrice * reservation.participant_count).toLocaleString()}</span>
-                    <span className="block text-xs text-muted-foreground">¥{unitPrice.toLocaleString()} × {reservation.participant_count}名・{paymentMethodLabel}（税込）</span>
+                <div className="py-2 border-b border-gray-100" data-testid="reservation-price">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500 flex items-center gap-2"><CreditCard className="w-4 h-4" />参加料金</span>
+                    <div className="text-right">
+                      <span className="font-bold text-lg text-mypage-detail-primary" data-testid="reservation-total">¥{price.total.toLocaleString()}</span>
+                      <span className="block text-xs text-muted-foreground">{paymentMethodLabel}（税込）</span>
+                    </div>
                   </div>
+                  <dl className="mt-1 space-y-0.5 text-xs text-muted-foreground" data-testid="reservation-price-breakdown">
+                    <div className="flex justify-between"><dt>¥{price.unitPrice.toLocaleString()} × {price.participantCount}名</dt><dd>¥{price.subtotal.toLocaleString()}</dd></div>
+                    {price.discount > 0 && (
+                      <div className="flex justify-between text-green-700"><dt>割引</dt><dd data-testid="reservation-discount">−¥{price.discount.toLocaleString()}</dd></div>
+                    )}
+                    <div className="flex justify-between font-medium text-foreground"><dt>合計</dt><dd>¥{price.total.toLocaleString()}</dd></div>
+                  </dl>
                 </div>
               )}
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
@@ -542,6 +554,8 @@ export function ReservationDetailPage() {
         canDecrease={canDecrease}
         decreaseDeadlineLabel={decreaseDeadlineLabel}
         unitPrice={unitPrice}
+        currentTotal={price.total}
+        currentDiscount={price.discount}
         canSubmit={canEdit}
         isPending={updateCountMutation.isPending}
         onConfirm={handleEditConfirm}
