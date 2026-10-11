@@ -48,7 +48,7 @@ function useFutureMonthSetter(set: (d: Date) => void) {
 
 export function ClassicCalendar(props: ClassicViewProps) {
   const played = usePlayedFilter()
-  const { hidePlayed, onHidePlayedChange, allEvents, blockedSlots, stores, storeOptions, scenarios, organizationSlug, organizationName, privateBookingDeadlineDays, selectedStoreIds, onStoreIdsChange, hideSoldOut, onHideSoldOutChange, primaryColor, onCardClick } = props
+  const { hidePlayed, onHidePlayedChange, allEvents, blockedSlots, stores, storeOptions, scenarios, organizationSlug, organizationName, privateBookingDeadlineDays, selectedStoreIds, onStoreIdsChange, hideSoldOut, onHideSoldOutChange, primaryColor, onCardClick, onEventClick } = props
   const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate } = useCalendarData(allEvents, selectedStoreIds, stores, `booking-${organizationSlug}-calendar-month`)
   const onMonthChange = useFutureMonthSetter(setCurrentMonth)
   const storesById = new Map(stores.map((s) => [s.id, s]))
@@ -69,6 +69,7 @@ export function ClassicCalendar(props: ClassicViewProps) {
       primaryColor={primaryColor}
       scenarios={scenarios}
       onCardClick={onCardClick}
+      onEventClick={onEventClick}
       getStoreName={getStoreName}
       blockedSlots={blockedSlots}
       privateBookingDeadlineDays={privateBookingDeadlineDays}

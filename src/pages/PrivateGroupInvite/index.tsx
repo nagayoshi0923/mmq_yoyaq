@@ -36,6 +36,7 @@ import { usePrivateGroupChatState } from '@/hooks/usePrivateGroupChatState'
 import { GroupMemberScreen } from './groupPage/GroupMemberScreen'
 import { parseGroupTab, type GroupTab } from './groupPage/groupPageModel'
 import { markPromptPending } from '@/lib/webPushSupport'
+import { useRequireCompleteProfile } from '@/hooks/useRequireCompleteProfile'
 
 interface Coupon {
   id: string
@@ -61,6 +62,7 @@ export function PrivateGroupInvite() {
   }, [location.pathname])
 
   const { user } = useAuth()
+  const requireCompleteProfile = useRequireCompleteProfile()
   const queryClient = useQueryClient()
   const [existingMemberId, setExistingMemberId] = useState<string | null>(null)
   const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus, linkedReservation, handover } = usePrivateGroupByInviteCode(code || null, existingMemberId)
@@ -326,6 +328,11 @@ export function PrivateGroupInvite() {
     }
 
     // 候補日への回答は任意（後から回答可能）
+
+    // ログイン中で新しく参加するときは、プロフィール登録が済んでいなければ先に登録へ（登録後はこの招待ページへ戻る。点検 9）
+    if (user && !existingMemberId && !(await requireCompleteProfile(`${window.location.pathname}${window.location.search}`))) {
+      return
+    }
 
     try {
       let memberId = existingMemberId

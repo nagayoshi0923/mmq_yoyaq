@@ -12,6 +12,7 @@ import {
 } from './authContextHelpers'
 import { resolveUserFromSession, type ResolveUserDeps } from './resolveUserFromSession'
 import { reportAuthFailure } from './authDiagnostics'
+import { buildCompleteProfilePath } from '@/lib/authReturn'
 
 /**
  * AuthProvider のマウント時ライフサイクル effect を切り出したフック。
@@ -151,7 +152,7 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
                   sessionStorage.removeItem('oauth_mode')
                   setLoading(false)
                   setIsInitialized(true)
-                  window.location.href = '/complete-profile'
+                  window.location.href = buildCompleteProfilePath(sessionStorage.getItem('returnUrl'))
                   return
                 }
               }

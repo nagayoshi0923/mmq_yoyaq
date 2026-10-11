@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { loginUrlWithIntent } from '@/lib/authReturn'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -43,9 +44,8 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
     const groupCreateUrl = `/group/create?${params.toString()}`
     
     if (!isLoggedIn) {
-      // ログイン後にグループ作成ページに戻るようreturnUrlを設定
-      sessionStorage.setItem('returnUrl', groupCreateUrl)
-      navigate('/login')
+      // 戻り先（グループ作成ページ）を付けてログインへ
+      navigate(loginUrlWithIntent('login', groupCreateUrl, '貸切グループの作成'))
       return
     }
     navigate(groupCreateUrl)

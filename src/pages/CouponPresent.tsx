@@ -243,6 +243,20 @@ export function CouponPresent() {
             </CardContent>
           </Card>
 
+          {/* 予約の途中で登録した人には、すぐ戻れるボタンを使い方より上に出す（点検 1） */}
+          {nextUrl !== '/' && (
+            <Button
+              asChild
+              className="w-full h-12 text-base font-semibold flex items-center justify-center gap-2"
+              style={{ backgroundColor: THEME.primary }}
+            >
+              <Link to={nextUrl}>
+                元の画面に戻って続ける
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            </Button>
+          )}
+
           {/* ===== クーポンの使い方ガイド ===== */}
           <Card className="border border-gray-200 shadow-lg overflow-hidden">
             <div
@@ -360,14 +374,15 @@ export function CouponPresent() {
           </Card>
 
           {/* ===== CTAボタン ===== */}
+          {/* 予約の途中で登録した人は、元の画面（選んでいた公演・招待ページ）へ戻るのを主にする（点検 1） */}
           <div className="space-y-3 pt-2">
             <Button
               asChild
               className="w-full h-12 text-base font-semibold flex items-center justify-center gap-2"
               style={{ backgroundColor: THEME.primary }}
             >
-              <Link to="/mypage">
-                マイページでクーポンを確認する
+              <Link to={nextUrl === '/' ? '/mypage' : nextUrl}>
+                {nextUrl === '/' ? 'マイページでクーポンを確認する' : '元の画面に戻って続ける'}
                 <ChevronRight className="w-4 h-4" />
               </Link>
             </Button>
@@ -377,8 +392,8 @@ export function CouponPresent() {
               variant="outline"
               className="w-full h-12"
             >
-              <Link to={nextUrl}>
-                {nextUrl === '/' ? '公演を探す' : '続ける'}
+              <Link to={nextUrl === '/' ? '/' : '/mypage'}>
+                {nextUrl === '/' ? '公演を探す' : 'マイページでクーポンを確認する'}
               </Link>
             </Button>
           </div>

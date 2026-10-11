@@ -25,6 +25,8 @@ interface CalendarViewProps {
   primaryColor: string
   scenarios: ScenarioCard[]
   onCardClick: (scenarioId: string) => void
+  /** 公演を押したとき（作品ページをその公演を選んだ状態で開く。点検 24） */
+  onEventClick?: (scenarioId: string, eventId: string) => void
   getStoreName: (event: PublicCalendarEvent) => string
   blockedSlots?: PublicEventRow[]
   privateBookingDeadlineDays?: number
@@ -52,6 +54,7 @@ export const CalendarView = memo(function CalendarView({
   primaryColor,
   scenarios,
   onCardClick,
+  onEventClick,
   getStoreName,
   blockedSlots = [],
   privateBookingDeadlineDays = 14,
@@ -339,7 +342,11 @@ export const CalendarView = memo(function CalendarView({
                       return (
                         <div
                           key={`${event.id || idx}`}
-                          onClick={() => scenario && onCardClick(scenarioCardId(scenario))}
+                          onClick={() => {
+                            if (!scenario) return
+                            if (onEventClick && event.id) onEventClick(scenarioCardId(scenario), event.id)
+                            else onCardClick(scenarioCardId(scenario))
+                          }}
                           className={cn('ts-micro cursor-pointer touch-manipulation rounded-md border border-border transition-colors hover:bg-muted/40', isFull ? 'bg-muted' : 'bg-white')}
                           style={{ padding: '2px 3px' }}
                         >

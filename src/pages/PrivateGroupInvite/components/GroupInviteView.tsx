@@ -25,6 +25,7 @@ import { leaveStoreNotice, privateBookingPhase } from '@/pages/MyPage/components
 import { ScenarioAboutSection } from '../groupPage/overview/ScenarioAboutSection'
 import { useGroupScenarioInfo } from '../groupPage/useGroupScenarioInfo'
 import { scenarioPageUrl } from '../groupPage/overviewModel'
+import { loginUrlWithIntent } from '@/lib/authReturn'
 
 type GroupType = NonNullable<ReturnType<typeof usePrivateGroupByInviteCode>['group']>
 interface Coupon {
@@ -97,6 +98,8 @@ export function GroupInviteView({
   navigate, refetch, leaveGroup, openSheet, closeSheet, clearGuestSession,
   handlePinAuth, handleSubmit,
 }: GroupInviteViewProps) {
+  // ログイン・新規登録画面に「何に参加しようとしているか」を出す（点検 25）
+  const inviteIntentLabel = `「${scenario?.title || '貸切'}」の貸切グループへの参加`
   // 確認ダイアログ（グループから退出）
   const [showLeaveGroupConfirm, setShowLeaveGroupConfirm] = useState(false)
   // 作品の公開情報（作品ページと同じ読み取り。招待リンクだけの人・未ログインも読める）
@@ -164,14 +167,14 @@ export function GroupInviteView({
               <div className="flex gap-2 mt-3">
                 <Button
                   className="flex-1"
-                  onClick={() => navigate(`/signup?redirect=${encodeURIComponent(location.pathname)}`)}
+                  onClick={() => navigate(loginUrlWithIntent('signup', location.pathname, inviteIntentLabel))}
                 >
                   新規登録
                 </Button>
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={() => navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)}
+                  onClick={() => navigate(loginUrlWithIntent('login', location.pathname, inviteIntentLabel))}
                 >
                   ログイン
                 </Button>
@@ -309,7 +312,7 @@ export function GroupInviteView({
                   variant="link"
                   size="sm"
                   className="text-purple-600 hover:text-purple-700 p-0 h-auto"
-                  onClick={() => navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)}
+                  onClick={() => navigate(loginUrlWithIntent('login', location.pathname, inviteIntentLabel))}
                 >
                   ログインして参加 →
                 </Button>

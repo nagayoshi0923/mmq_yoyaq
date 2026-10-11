@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { VenueAccess } from './VenueAccess'
@@ -8,8 +8,12 @@ import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { useOrgThemePreset } from '@/hooks/useOrgThemePreset'
 import type { EventSchedule } from '../utils/types'
 import { isWeekendOrHoliday } from '../utils/pricingUtils'
+import { formatJstMonthDay } from '@/utils/jstDate'
+import { loginUrlWithIntent } from '@/lib/authReturn'
 
 interface BookingPanelProps {
+  /** ログイン画面に「何を予約しようとしているか」を出すため（点検 25） */
+  scenarioTitle: string
   participantCount: number
   maxParticipants: number
   participationFee: number
@@ -23,6 +27,7 @@ interface BookingPanelProps {
 }
 
 export const BookingPanel = memo(function BookingPanel({
+  scenarioTitle,
   participantCount,
   maxParticipants,
   participationFee,
@@ -44,6 +49,22 @@ export const BookingPanel = memo(function BookingPanel({
     : maxParticipants
   // 選択可能な最大人数（残席数とシナリオ最大人数の小さい方）
   const selectableMax = Math.min(availableSeats, maxParticipants)
+
+  // ログイン・新規登録へ行くときの戻り先（選んだ公演と人数は URL に入っている。点検 1・12）と、何を予約しようとしているか
+  // URL への書き戻しは描画の後なので、押した時点の選択から組み立てる
+  const authReturnTo = () => {
+    const params = new URLSearchParams(window.location.search)
+    params.delete('step')
+    if (selectedEventId) {
+      params.set('event', selectedEventId)
+      params.set('count', String(participantCount))
+    }
+    const query = params.toString()
+    return `${window.location.pathname}${query ? `?${query}` : ''}`
+  }
+  const authIntentLabel = selectedEvent
+    ? `「${scenarioTitle}」${formatJstMonthDay(selectedEvent.date, true)} ${selectedEvent.start_time.slice(0, 5)}〜・${participantCount}名`
+    : `「${scenarioTitle}」`
 
   // 選択した日付が土日祝かどうか
   const isWeekendOrHolidayDate = useMemo(() => {
@@ -136,12 +157,8 @@ export const BookingPanel = memo(function BookingPanel({
         className="w-full h-10 text-base"
         onClick={() => {
           if (!isLoggedIn) {
-            // 未ログイン時は戻り先URLと予約状態を保存してログインページへ遷移
-            const returnUrl = selectedEventId 
-              ? `${window.location.pathname}?event=${selectedEventId}&count=${participantCount}`
-              : window.location.pathname + window.location.search
-            sessionStorage.setItem('returnUrl', returnUrl)
-            navigate('/login')
+            // 未ログイン時は戻り先（選んだ公演と人数入りの URL）を付けてログインへ
+            navigate(loginUrlWithIntent('login', authReturnTo(), authIntentLabel))
             return
           }
           onBooking()
@@ -160,8 +177,15 @@ export const BookingPanel = memo(function BookingPanel({
 
       {/* 未ログイン時の追加案内 */}
       {!isLoggedIn && selectedEventId && (
-        <p className="text-xs text-center text-gray-500">
-          予約にはログインが必要です。<Link to="/signup" className="text-primary underline">新規登録はこちら</Link>
+        <p className="ts-caption text-center">
+          予約にはログインが必要です。
+          <button
+            type="button"
+            onClick={() => navigate(loginUrlWithIntent('signup', authReturnTo(), authIntentLabel))}
+            className="text-primary underline"
+          >
+            新規登録はこちら
+          </button>
         </p>
       )}
     </div>

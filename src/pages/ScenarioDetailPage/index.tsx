@@ -39,6 +39,7 @@ import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorati
 import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { scenarioPageDescription, scenarioPageTitle } from '@/lib/seo'
+import { loginUrlWithIntent } from '@/lib/authReturn'
 
 interface ScenarioDetailPageProps {
   scenarioId: string
@@ -638,8 +639,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                         const groupCreateUrl = `/group/create?${params.toString()}`
                         
                         if (!user) {
-                          sessionStorage.setItem('returnUrl', groupCreateUrl)
-                          navigate('/login')
+                          navigate(loginUrlWithIntent('login', groupCreateUrl, `「${scenario.scenario_title}」の貸切グループ作成`))
                           return
                         }
                         navigate(groupCreateUrl)
@@ -705,6 +705,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               <div className="mt-4">
                 {activeTab === 'schedule' && (
                   <BookingPanel
+                    scenarioTitle={scenario.scenario_title}
                     participantCount={participantCount}
                     maxParticipants={scenario.player_count_max}
                     participationFee={calculatedParticipationFee}
@@ -764,7 +765,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                         selectedTimeSlotsCount={selectedTimeSlots.length}
                         isLoggedIn={!!user}
                         availabilityReady={isAvailabilityReady}
-                        onRequestBooking={() => handlePrivateBookingRequest(!!user)}
+                        onRequestBooking={() => { void handlePrivateBookingRequest(!!user, `「${scenario.scenario_title}」の貸切リクエスト`) }}
                         reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
                         hasPreReading={scenario.has_pre_reading}
                         scenarioId={scenario.scenario_master_id}
