@@ -8,7 +8,7 @@ import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Header } from '@/components/layout/Header'
 import { ArrowLeft, Search, MapPin } from 'lucide-react'
 import { scenarioApi, storeApi } from '@/lib/api'
-import { formatJstDateJa } from '@/utils/jstDate'
+import { formatJstDateJa, formatJstMonthDay } from '@/utils/jstDate'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { BookingNotice } from './ScenarioDetailPage/components/BookingNotice'
@@ -81,6 +81,8 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   const preselectedStoreParam = urlParams.get('store') || ''
   const preselectedSlot = urlParams.get('slot') || ''
   const preselectedTime = urlParams.get('time') || ''
+  // 店舗トップのリストの空き枠から来たとき（from=list）は、どこから来たかを上の帯で示す
+  const fromList = urlParams.get('from') === 'list'
   
   // URLの店舗パラメータ（カンマ区切り対応）
   const preselectedStoreIds = useMemo(() => 
@@ -194,6 +196,17 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     }
   }, [organizationSlug, preselectedStoreIds])
 
+  // リストから来たときの帯: 「10/17(土) 夜 ・ 空いている店舗 5 店舗 から申し込みます」
+  const fromListBanner = useMemo(() => {
+    if (!fromList || !preselectedDate) return null
+    const slotLabel = ({ morning: '朝', afternoon: '昼', evening: '夜' } as Record<string, string>)[preselectedSlot] ?? ''
+    const names = preselectedStoreIds
+      .map((id) => allStores.find((s) => s.id === id)?.name)
+      .filter((n): n is string => !!n)
+    const storesText = names.length === 1 ? `空いている店舗: ${names[0]}` : `空いている店舗 ${preselectedStoreIds.length} 店舗`
+    return `${formatJstMonthDay(preselectedDate, true)} ${slotLabel} ・ ${storesText} から申し込みます`
+  }, [fromList, preselectedDate, preselectedSlot, preselectedStoreIds, allStores])
+
   const handleProceed = () => {
     if (!selectedScenarioId) {
       showToast.warning('シナリオを選択してください')
@@ -225,6 +238,13 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
           <ArrowLeft className="w-4 h-4" />
           戻る
         </button>
+
+        {fromListBanner && (
+          <p className="mb-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-900">
+            {fromListBanner}
+            <span className="block text-xs text-violet-800/80">店舗は下の「希望店舗」で変えられます。</span>
+          </p>
+        )}
 
         <Card>
           <CardHeader>

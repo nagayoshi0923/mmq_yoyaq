@@ -1,6 +1,5 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ChevronRight } from 'lucide-react'
 import { BookingFilters } from './BookingFilters'
 import { KeyVisualThumb } from '@/components/public-top/KeyVisualThumb'
@@ -59,8 +58,6 @@ const HIDDEN_CATEGORIES = new Set(['mtg', 'gmtest', 'testplay', 'venue_rental', 
 const DEFAULT_START: Record<TimeSlotEn, string> = { morning: '09:00', afternoon: '14:00', evening: '19:00' }
 const SLOT_END: Record<TimeSlotEn, string> = { morning: '13:00', afternoon: '18:00', evening: '23:00' }
 const PRECEDING: Record<TimeSlotEn, TimeSlotEn[]> = { morning: [], afternoon: ['morning'], evening: ['morning', 'afternoon'] }
-/** 空き店舗がこの数以上なら 1 つのチップにまとめる */
-const GROUP_EMPTY_FROM = 3
 
 /** 前の時間帯の公演の終わり＋1 時間（標準より早くはしない） */
 function suggestedStart(slot: TimeSlotEn, preceding: PublicCalendarEvent[]): string {
@@ -86,8 +83,9 @@ interface SlotItem {
 /**
  * リスト（2026-10-12 社長指示: 朝・昼・夜を列ではなく行に。見本 ListRows.dc.html）。
  * 日付の見出し（固定）→ その日の「朝／昼／夜」の行 → 各行に公演を店舗名付きのカードで縦に（店舗の並び順・時刻順）。
- * 貸切で埋まった枠は行の末尾に灰色の小さなチップ、公演も貸切も無い店舗の枠は紫の「○○店 空き ・ 貸切で申し込む ›」
- * （3 店舗以上はまとめる。今日以降で受付締切より先の日だけ）。公演も貸切も空きも無い時間帯の行は出さない。
+ * 貸切で埋まった枠は行の末尾に灰色の小さなチップ。公演も貸切も無い店舗があれば紫のチップ
+ * 「この時間帯で貸切を申し込む（空き N 店舗）›」を 1 つ（今日以降で受付締切より先の日だけ）。押すと空いている店舗すべてを
+ * 希望店舗の初期値にして貸切の作品選びへ。公演も貸切も空きも無い時間帯の行は出さない。
  * 年月・店舗・満席を非表示・体験済みを非表示の操作は元のまま。
  */
 export const ListView = memo(function ListView({
@@ -114,9 +112,13 @@ export const ListView = memo(function ListView({
 }: ListViewProps) {
   const navigate = useNavigate()
   const todayStr = formatDateJST(new Date())
-  const openPrivate = (dateStr: string, slot: TimeSlotEn, empty: EmptySlot) => {
+  // 空き枠のチップ: 空いている店舗すべてを希望店舗の初期値にして貸切の作品選びへ（店舗はその先で自由に変えられる）
+  const openPrivate = (dateStr: string, slot: TimeSlotEn, empties: EmptySlot[]) => {
     const base = organizationSlug ? `/${organizationSlug}` : ''
-    navigate(`${base}/private-booking-select?date=${dateStr}&store=${empty.storeId}&slot=${slot}&time=${empty.time}`)
+    const params = new URLSearchParams({ date: dateStr, store: empties.map((e) => e.storeId).join(','), slot, from: 'list' })
+    // 開始の目安はどの店舗も同じときだけ渡す（違えば申込の画面で店舗ごとに決まる）
+    if (empties.every((e) => e.time === empties[0].time)) params.set('time', empties[0].time)
+    navigate(`${base}/private-booking-select?${params.toString()}`)
   }
   const scenarioMap = useMemo(() => {
     const map = new Map<string, ScenarioCard>()
@@ -233,7 +235,8 @@ export const ListView = memo(function ListView({
                           <span className="flex-1 border-t border-border" />
                         </div>
                         {performances.length > 0 && (
-                          <div className="mt-1.5 grid grid-cols-1 gap-1.5 md:grid-cols-2">
+                          // 公演は枠の無い行（罫線区切り・上下 6px）で詰めて並べる。1 行目は時刻・店舗と残席、2 行目は作品名（2026-10-12 社長指摘）
+                          <div className="mt-1 grid grid-cols-1 md:grid-cols-2 md:gap-x-4">
                             {performances.map(({ event, storeName }) => {
                               const max = event.player_count_max || 8
                               const available = Math.max(0, max - (event.current_participants || 0))
@@ -246,20 +249,24 @@ export const ListView = memo(function ListView({
                                   type="button"
                                   disabled={!scenarioId}
                                   onClick={() => scenarioId && onEventClick(scenarioId, event.id)}
-                                  className={cn('flex w-full min-w-0 items-center gap-2.5 rounded-lg border border-border bg-white p-2 text-left hover:bg-muted/40', isFull && 'opacity-70')}
+                                  className={cn('flex w-full min-w-0 items-center gap-2 border-b border-border/70 py-1.5 text-left hover:bg-muted/40', isFull && 'opacity-70')}
                                 >
-                                  <KeyVisualThumb src={event.key_visual_url} alt="" seed={event.scenario_master_id || event.id} width={100} className="aspect-[3/4] w-10 shrink-0" />
+                                  <KeyVisualThumb src={event.key_visual_url} alt="" seed={event.scenario_master_id || event.id} width={80} className="aspect-[3/4] w-8 shrink-0 rounded-sm" />
                                   <span className="min-w-0 flex-1">
-                                    <span className="block truncate text-xs text-muted-foreground">{event.start_time?.slice(0, 5)} ・ {storeName}</span>
-                                    <span className="block truncate text-sm font-bold">{event.scenario}</span>
-                                    <span className={cn(
-                                      'mt-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-medium',
-                                      isFull ? 'bg-muted text-muted-foreground' : available <= 2 ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700',
-                                    )}>
-                                      {isFull ? '満席・キャンセル待ち' : `残 ${available}`}
+                                    <span className="flex items-center gap-2">
+                                      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{event.start_time?.slice(0, 5)} ・ {storeName}</span>
+                                      <span className={cn(
+                                        'shrink-0 rounded-full px-1.5 text-xs font-medium leading-5',
+                                        isFull ? 'bg-muted text-muted-foreground' : available <= 2 ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700',
+                                      )}>
+                                        {isFull ? '満席' : `残 ${available}`}
+                                      </span>
+                                    </span>
+                                    <span className="flex items-center gap-2">
+                                      <span className="min-w-0 flex-1 truncate text-sm font-bold">{event.scenario}</span>
+                                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                                     </span>
                                   </span>
-                                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                                 </button>
                               )
                             })}
@@ -272,13 +279,11 @@ export const ListView = memo(function ListView({
                                 {storeName} {event.start_time?.slice(0, 5)} 貸切
                               </span>
                             ))}
-                            {empties.length >= GROUP_EMPTY_FROM ? (
-                              <EmptyStoresChip empties={empties} onPick={(e) => openPrivate(day.dateStr, slot.key, e)} />
-                            ) : empties.map((e) => (
-                              <button key={e.storeId} type="button" className={EMPTY_CHIP} onClick={() => openPrivate(day.dateStr, slot.key, e)}>
-                                {e.storeName} 空き ・ 貸切で申し込む ›
+                            {empties.length > 0 && (
+                              <button type="button" className={EMPTY_CHIP} onClick={() => openPrivate(day.dateStr, slot.key, empties)}>
+                                この時間帯で貸切を申し込む（{empties.length === 1 ? `空き: ${empties[0].storeName}` : `空き ${empties.length} 店舗`}）›
                               </button>
-                            ))}
+                            )}
                           </div>
                         )}
                       </div>
@@ -295,29 +300,3 @@ export const ListView = memo(function ListView({
 })
 
 const EMPTY_CHIP = 'rounded-full border border-violet-600 bg-white px-2 py-0.5 text-xs font-bold text-violet-800 hover:bg-violet-50'
-
-/** 空きが 3 店舗以上のときのまとめたチップ。押すと店舗を選ぶ小さな一覧 */
-function EmptyStoresChip({ empties, onPick }: { empties: EmptySlot[]; onPick: (e: EmptySlot) => void }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button type="button" className={EMPTY_CHIP}>空き {empties.length} 店舗 ・ 貸切で申し込む ›</button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-60 rounded-lg p-1.5">
-        <p className="px-2 py-1 text-xs text-muted-foreground">貸切で申し込む店舗を選んでください</p>
-        {empties.map((e) => (
-          <button
-            key={e.storeId}
-            type="button"
-            onClick={() => { setOpen(false); onPick(e) }}
-            className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-sm hover:bg-muted"
-          >
-            <span>{e.storeName}</span>
-            <span className="text-xs text-muted-foreground">{e.time}〜 ›</span>
-          </button>
-        ))}
-      </PopoverContent>
-    </Popover>
-  )
-}
