@@ -10,6 +10,7 @@
  * - getPerformanceDurationMinutesForDate  (平日/土日祝で所要時間を決定)
  */
 
+import { buildPrivateBookingBlockedSlotIndex, getPrivateBookingCandidateBlockedState, type PrivateBookingBlockedSlotRow } from '@/lib/privateBookingBlockedSlotAvailability'
 import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
 import { getDayOfWeekJST } from '@/utils/dateUtils'
 import {
@@ -48,6 +49,7 @@ export interface ComputePrivateBookingSlotsParams {
     preparation_minutes_by_event?: Record<string, number>
   }
   allStoreEvents: ScheduleEventLike[]
+  blockedSlots?: PrivateBookingBlockedSlotRow[]
   isCustomHoliday: (date: string) => boolean
   privateBookingTimeSlots?: string[]
   /** 土日・祝日（独自休日を含む）に受け付ける時間帯。未設定・空なら全枠。平日の設定は流用しない（#345） */
@@ -126,7 +128,7 @@ function getBestSlotCandidateAcrossStores(
     const preparation = preparationByStore?.[storeId]
     const extraPrepTime = preparation === undefined ? legacyExtraPrepTime : 0
     const row = businessHoursByStore.get(storeId)
-    const bands = getPerStoreSlotsForDate(targetDate, row, isCustomHoliday, { allowSyntheticWhenMissingRow: allowSynthetic })
+    const bands = getPerStoreSlotsForDate(targetDate, row, isCustomHoliday, { allowSyntheticWhenMissingRow: allowSynthetic, respectConfiguredHours: true })
     const eveningDeadline = (bands?.find(band => band.key === 'evening')?.startMin ?? 1140)
       - (preparation ?? PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES)
     const afternoonStart = bands?.find(band => band.key === 'afternoon')?.startMin ?? 780
@@ -134,7 +136,7 @@ function getBestSlotCandidateAcrossStores(
     if (!isWeekendOrHoliday && ((slotKey === 'morning' && !weekdayMorningOnly)
       || (slotKey === 'afternoon' && weekdayMorningOnly))) continue
     let f = getPrivateBookingStoreSlotFeasibility(
-      targetDate, storeId, slotKey, row, allStoreEvents, isCustomHoliday, allowSynthetic, preparation,
+      targetDate, storeId, slotKey, row, allStoreEvents, isCustomHoliday, allowSynthetic, preparation, true,
     )
     if (!f) continue
     if (slotKey === 'evening' && eveningStartFloorMinutes != null) {
@@ -220,6 +222,8 @@ function getBestSlotCandidateAcrossStores(
       startForFeasibility = f.minAllowedStart
     }
 
+    if (!bands?.some(band => band.key === slotKey) || startForFeasibility < Math.min(...bands.map(band => band.startMin))) continue
+
     // 各店舗の締切まで検証してから、全店舗中の最早候補を選ぶ。
     if (!isWeekendOrHoliday && slotKey === 'afternoon'
       && startForFeasibility + durationMinutes + extraPrepTime > eveningDeadline) continue
@@ -276,6 +280,7 @@ export function computePrivateBookingSlots(
     businessHoursByStore,
     scenarioTiming,
     allStoreEvents: rawEvents,
+    blockedSlots = [],
     isCustomHoliday,
     privateBookingTimeSlots,
     privateBookingTimeSlotsWeekend,
@@ -317,10 +322,11 @@ export function computePrivateBookingSlots(
   )
   const extraPrepTime = scenarioTiming.preparation_minutes_by_store ? 0 : scenarioTiming.extra_preparation_time || 0
 
+  const blockedIndex = buildPrivateBookingBlockedSlotIndex(blockedSlots)
   const getFeasibility = (slotKey: SlotKey) =>
     getBestSlotCandidateAcrossStores(
       targetDate,
-      storeIds,
+      getPrivateBookingCandidateBlockedState({ date: targetDate, timeSlot: slotKey }, storeIds, blockedIndex).availableStoreIds,
       slotKey,
       businessHoursForScenario,
       allStoreEvents,

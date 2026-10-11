@@ -375,7 +375,7 @@ export function getPrivateGroupCandidateSlotsForDate(
   for (const storeId of storeIds) {
     const row = hoursByStoreId.get(storeId)
     const slots = getPerStoreSlotsForDate(dateStr, row, isCustomHoliday, {
-      allowSyntheticWhenMissingRow: allowSynthetic,
+      allowSyntheticWhenMissingRow: allowSynthetic, respectConfiguredHours: true,
     })
     if (!slots) continue
 
@@ -399,7 +399,7 @@ export function getPrivateGroupCandidateSlotsForDate(
       id => !!hoursByStoreId.get(id)?.opening_hours
     )
     if (!anyOpeningHoursJson) {
-      for (const s of getSyntheticSlotsWhenNoRow(dateStr, isCustomHoliday)) {
+      for (const s of getSyntheticSlotsWhenNoRow(dateStr, isCustomHoliday, true)) {
         merged.set(s.key, { startMax: s.startMin, endMin: s.endMin })
       }
     }
