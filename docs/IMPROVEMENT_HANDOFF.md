@@ -1,3 +1,13 @@
+## 2026-10-12 / RPC の点検で以前から落ちていた 2 件（fix/rpc-tests-cancellation-fee、staging 向け PR）
+
+- `npm run test:rpcs` の失敗 2 件は、どちらもテストではなく DB 側の古い関数が原因。値の食い違いではなく「呼ぶと必ずエラー」だった。
+- `calculate_cancellation_fee(uuid)`: reservations に無い列 `is_private_booking`（この列は schedule_events 側）を読み、作られた 20260404100000 から一度も動いていない（42703）。中身も現行の規定と違う（通常の既定が 24 時間前 50%・開演 100%、貸切も参加者合計で計算、予約時に固定した規定ではなく今の店舗設定を読む）。どこからも呼んでいない。キャンセル料の正は予約時の固定規定（`reservations.cancellation_policy_*`）と `src/lib/cancellationPolicy.ts` の `calculateCancellation`（請求は `cancellationBilling.ts`、お客様の取消可否は DB の `assert_customer_cancellation_policy`）。直さずに消した。
+- `admin_recalculate_reservation_prices(uuid)`: 20260201210000 で、既にあった `(uuid, text[] DEFAULT NULL)` 版と並べて作られ、引数 1 つで呼ぶと版を決められず（42725）呼べなかった。サーバー（`api/_lib/reservations/update.ts`）は 2 つの版を呼ぶ。1 つの版を消し、1 引数の呼び出しも組織確認つきの 2 引数版に届くようにした。`scripts/staging_security_test.sql` D.2 はこれまで「版を決められない」エラーで PASS になっていた（見かけの合格）。今後は FORBIDDEN_ORG で拒否されて PASS。
+- DB: migration 20261012140000（同名 rollback は消す前と同じ中身・権限で作り直す。手元で 削除→戻す→削除 の往復と md5・権限の一致を確認）。staging 適用済み。`smoke_test_rpcs.sql` の 3 は「古い版を作り直していない」確認に変更。`expected-function-overrides.json` の値 `null` を「migration で消した関数」と読むよう `scripts/check-db-baseline.sh` を変更。
+- 確認: `test:rpcs` 全件、`verify`、取消規定まわりの単体テスト 6 ファイル 47 件、`db:status:staging`、`db:drift:staging`（#1089 の取り込み後に staging.json を取り直して差なし）。
+- 予約確認画面の表示（`cancellationSummary.ts`・`useBookingCancellationTerms`）と計算の一致: 表示の規定は `get_public_cancellation_policy_for_context`、予約時の固定は `set_reservation_cancellation_policy_snapshot` で、どちらも `resolve_operating_setting` を同じ順（組織→店舗→作品→公演）で解く。料率の段の判定（開演までの時間 ≤ hours_before）と「無料で取消できる期限」（受付期限と料金が始まる時刻の遅くない方）は `calculateCancellation`・`evaluateCustomerSelfCancel`・DB の `assert_customer_cancellation_policy` と同じ。
+- **本番で必要なこと**: migration 20261012140000 を本番へ（本番の 2 関数は staging と同じ中身。どこからも呼ばれていない）。本番適用の日に `supabase/structure/prod.json` から 2 関数を外し、`expected-function-overrides.json` の null 2 件を外す。
+
 ## 2026-10-12 / 公開前検証の指摘（fix/release-audit-findings、staging 向け PR・未取り込み）
 
 - 出典: 独立検証の報告（`release-audit-report.md` の「現コードの問題と根拠」）。受付連動（公開トップの貸切入口）は別担当（fix/private-entry-availability）なので触っていない。
