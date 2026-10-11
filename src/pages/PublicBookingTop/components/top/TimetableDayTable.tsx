@@ -4,6 +4,9 @@ import { TIMETABLE_SLOTS, timetableSeatTone, type TimetableCell, type TimetableD
 import { formatJstMonthDay, getJstWeekdayIndex } from '@/utils/jstDate'
 import { cn } from '@/lib/utils'
 
+/** 枠の最低高さ（時刻 1 行・作品名 2 行・残席 1 行）。貸切・「–」の枠も同じ高さにそろえる */
+const CELL_MIN_H = 'min-h-[76px]'
+
 const TONE_CLASS = { open: 'text-emerald-700', few: 'text-red-700', full: 'text-muted-foreground' } as const
 
 function seatLabel(p: PublicPerformance): string {
@@ -12,20 +15,21 @@ function seatLabel(p: PublicPerformance): string {
 
 function Cell({ cell, onSelect }: { cell: TimetableCell; onSelect: (p: PublicPerformance) => void }) {
   if (cell.kind === 'private') {
-    return <div className="rounded-md bg-muted px-1 py-2 text-center text-xs text-muted-foreground">貸切</div>
+    return <div className={cn(CELL_MIN_H, 'flex items-center justify-center rounded-md bg-muted px-1 text-xs text-muted-foreground')}>貸切</div>
   }
   const p = cell.performance
   return (
     <button
       type="button"
       onClick={() => onSelect(p)}
-      className="flex w-full min-w-0 items-center gap-1 rounded-md border border-border bg-white p-1 text-left text-xs hover:bg-muted/40"
+      className={cn(CELL_MIN_H, 'flex w-full min-w-0 items-start gap-1 rounded-md border border-border bg-white p-1 text-left text-xs hover:bg-muted/40')}
     >
-      <KeyVisualThumb src={p.key_visual_url} alt="" seed={p.scenario_id} width={60} className="aspect-[3/4] w-5 shrink-0 rounded-sm" />
-      <span className="min-w-0 flex-1">
+      <KeyVisualThumb src={p.key_visual_url} alt="" seed={p.scenario_id} width={60} className="mt-0.5 aspect-[3/4] w-4 shrink-0 rounded-sm" />
+      <span className="flex min-w-0 flex-1 flex-col">
         <span className="block text-muted-foreground">{hhmm(p.start_time)}</span>
-        <span className="block truncate font-bold" title={p.title}>{p.title}</span>
-        <span className={cn('block', TONE_CLASS[timetableSeatTone(p.available_seats)])}>{seatLabel(p)}</span>
+        {/* 作品名は 2 行まで折り返し、3 行目以降は省略（375px で 2〜3 文字に切れないように） */}
+        <span className="line-clamp-2 break-words font-bold leading-tight" title={p.title}>{p.title}</span>
+        <span className={cn('mt-auto block pt-0.5', TONE_CLASS[timetableSeatTone(p.available_seats)])}>{seatLabel(p)}</span>
       </span>
     </button>
   )
@@ -62,7 +66,7 @@ export function TimetableDayTable({ day, stickyHeader = false, onSelect }: Timet
                 {TIMETABLE_SLOTS.map((s) => (
                   <td key={s.key} className="p-0.5">
                     {row.slots[s.key].length === 0
-                      ? <div className="py-2 text-center text-muted-foreground/50">–</div>
+                      ? <div className={cn(CELL_MIN_H, 'flex items-center justify-center text-muted-foreground/50')}>–</div>
                       : <div className="flex flex-col gap-0.5">{row.slots[s.key].map((cell, i) => <Cell key={i} cell={cell} onSelect={onSelect} />)}</div>}
                   </td>
                 ))}
