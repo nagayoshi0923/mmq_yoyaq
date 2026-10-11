@@ -112,6 +112,11 @@ export const COMMON_FAQ_DATA: FAQItem[] = [
     question: '年齢制限はありますか？',
     answer: 'シナリオによって推奨年齢が異なります。一般的には中学生以上を推奨しています。成人向けのシナリオもありますので、各シナリオの詳細をご確認ください。',
   },
+  {
+    category: 'その他',
+    question: 'クーポンはどの店舗で使えますか？',
+    answer: 'クーポンは、発行された店舗グループの店舗でのみご利用いただけます。使える店舗はマイページのクーポンに表示しています。',
+  },
 ]
 
 export function FAQPage({ organizationSlug: propSlug }: FAQPageProps = {}) {

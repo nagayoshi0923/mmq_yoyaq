@@ -75,6 +75,8 @@ export interface CustomerCoupon {
   coupon_campaigns?: CouponCampaign | null
   /** getAllCoupons 時のみ: 各使用ごとの予約（公演）情報 */
   coupon_usages?: CustomerCouponUsageWithReservation[] | null
+  /** getAllCoupons 時のみ: 使える店舗（例「クインズワルツ（東京・埼玉 7 店舗）」） */
+  usable_stores_label?: string | null
 }
 
 // クーポン使用履歴
