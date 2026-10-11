@@ -16,6 +16,8 @@ import {
   type PublicPerformance,
 } from '@/lib/publicPerformanceSearch'
 import { formatJstMonthDay } from '@/utils/jstDate'
+import { cn } from '@/lib/utils'
+import { StoreCalendarView } from './StoreCalendarView'
 
 interface StoreSearchSectionProps {
   performances: PublicPerformance[]
@@ -46,7 +48,27 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
   const resetKey = `${range.from}_${range.to}_${state.people}_${state.onlyAvailable}_${state.beginnerOnly}_${state.storeIds.join(',')}`
 
   return (
-    <TopSection id="search" title="空いている公演を探す">
+    <TopSection
+      id="search"
+      title="空いている公演を探す"
+      aside={(
+        <div role="group" aria-label="表示の切り替え" className="flex overflow-hidden rounded-md border border-input text-xs">
+          {(['list', 'calendar'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={state.view === v}
+              onClick={() => onChange({ view: v })}
+              className={cn('px-2.5 py-1', state.view === v ? 'font-bold text-white' : 'bg-white text-foreground hover:bg-muted')}
+              style={state.view === v ? { backgroundColor: primaryColor } : undefined}
+            >
+              {v === 'list' ? '一覧' : 'カレンダー'}
+            </button>
+          ))}
+        </div>
+      )}
+    >
+      {state.view === 'list' && (
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 scroll-row">
         {DATE_PRESETS.map((d) => (
           <ChipButton key={d.value} selected={state.preset === d.value} primaryColor={primaryColor} onClick={() => onChange({ preset: d.value })}>
@@ -68,7 +90,8 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
           </ChipButton>
         </DatePickerPopover>
       </div>
-      <div className="mt-2 flex flex-wrap gap-1.5">
+      )}
+      <div className={cn('flex flex-wrap gap-1.5', state.view === 'list' && 'mt-2')}>
         <PeoplePicker value={state.people} onChange={(people) => onChange({ people })} />
         {storeOptions.length > 1 && (
           <StorePicker options={storeOptions} value={state.storeIds} onChange={(storeIds) => onChange({ storeIds })} primaryColor={primaryColor} />
@@ -82,6 +105,24 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
           </ChipButton>
         )}
       </div>
+      {state.view === 'calendar' ? (
+        <StoreCalendarView
+          performances={performances}
+          isLoading={isLoading}
+          people={state.people}
+          onlyAvailable={state.onlyAvailable}
+          beginnerOnly={state.beginnerOnly}
+          storeIds={state.storeIds}
+          selectedDate={state.date}
+          today={today}
+          maxDate={maxDate}
+          nowMs={nowMs}
+          primaryColor={primaryColor}
+          onSelectDate={(date) => onChange({ date })}
+          onSelect={onSelect}
+        />
+      ) : (
+        <>
       <p className="mt-2 text-xs text-muted-foreground">
         {describeDateRange(range)} {state.onlyAvailable ? `に ${state.people} 名で入れる公演` : 'の公演'}{' '}
         <b className="text-sm text-foreground">{isLoading && results.length === 0 ? '…' : `${results.length} 件`}</b>
@@ -94,6 +135,8 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
         empty={<>条件に合う公演がありません。日付や人数を変えてみてください。</>}
       />
       {results.length > 0 && <p className="mt-1.5 text-xs text-muted-foreground">押すと作品ページが、その公演を選んだ状態で開きます。</p>}
+        </>
+      )}
     </TopSection>
   )
 }

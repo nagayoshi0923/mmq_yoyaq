@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  calendarDaySummaries,
   datePresetRange,
   describeDateRange,
   formatDurationJa,
@@ -97,5 +98,22 @@ describe('作品ページへの URL', () => {
     expect(formatDurationJa(240)).toBe('4 時間')
     expect(formatDurationJa(210)).toBe('3.5 時間')
     expect(formatDurationJa(160)).toBe('2 時間 40 分')
+  })
+})
+
+describe('カレンダー表示の日ごとのまとめ', () => {
+  it('満席も数え、空きのある公演数を分ける。店舗の絞り込みも効く', () => {
+    const list = [
+      perf({ id: 'a', date: '2026-10-17', available_seats: 4 }),
+      perf({ id: 'b', date: '2026-10-17', available_seats: 0 }),
+      perf({ id: 'c', date: '2026-10-18', available_seats: 1 }),
+      perf({ id: 'd', date: '2026-10-18', available_seats: 5, store_id: 's2' }),
+    ]
+    const range = { from: '2026-10-01', to: '2026-10-31' }
+    const all = calendarDaySummaries(list, { range, people: 2 }, NOW)
+    expect(all.get('2026-10-17')).toEqual({ count: 2, open: 1 })
+    expect(all.get('2026-10-18')).toEqual({ count: 2, open: 1 })
+    const s1 = calendarDaySummaries(list, { range, people: 2, storeIds: ['s1'] }, NOW)
+    expect(s1.get('2026-10-18')).toEqual({ count: 1, open: 0 })
   })
 })

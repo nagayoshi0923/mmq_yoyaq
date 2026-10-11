@@ -24,9 +24,9 @@ export function NearlyFullStrip({ performances, showOrganization = false, aside 
             key={p.id}
             type="button"
             onClick={() => onSelect(p)}
-            className="w-36 shrink-0 overflow-hidden rounded-lg border border-border bg-white text-left hover:bg-muted/40"
+            className="w-32 shrink-0 overflow-hidden rounded-lg border border-border bg-white text-left hover:bg-muted/40"
           >
-            <KeyVisualThumb src={p.key_visual_url} alt={p.title} seed={p.scenario_id} width={300} className="h-[90px] w-full rounded-none" />
+            <KeyVisualThumb src={p.key_visual_url} alt={p.title} seed={p.scenario_id} width={300} className="aspect-[3/4] w-full rounded-none" />
             <div className="p-2">
               <div className="line-clamp-2 text-xs text-muted-foreground">
                 {formatJstMonthDay(p.date, true)} {hhmm(p.start_time)} ・ {showOrganization && <b className="font-bold text-foreground">{p.organization_name} </b>}{p.store_name}
