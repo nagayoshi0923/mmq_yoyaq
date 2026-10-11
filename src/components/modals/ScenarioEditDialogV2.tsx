@@ -739,6 +739,9 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
             ) : formData.title ? (
               <span className="scenario-edit-dialog__scenario">{formData.title}</span>
             ) : null}
+            {isScenarioLoaded && <span className={`scenario-edit-dialog__status shrink-0 whitespace-nowrap ${formData.status === 'available' ? 'is-public' : formData.status === 'unavailable' ? 'is-private' : 'is-draft'}`}>
+              予約サイト：{formData.status === 'available' ? '公開中' : formData.status === 'unavailable' ? '非公開' : scenarioId ? '近日公開' : '未公開（下書き）'}
+            </span>}
           </div>
           <button type="button" className="scenario-edit-dialog__close" onClick={onClose}>
             閉じる
@@ -764,6 +767,15 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
           </nav>
 
           <div key={activeTab} className="scenario-edit-dialog__content">
+            {isScenarioLoaded && formData.status === 'unavailable' && (
+              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3" role="note">
+                <p>この組織の予約サイトでは非公開です。</p>
+                <p className="text-muted-foreground">
+                  {currentScenario?.master_status === 'approved' ? 'MMQマスタは承認済みですが、店舗の公開設定は別です。' : 'MMQマスタの承認と、店舗の公開設定は別です。'}
+                  公開するには「保存」から「公開して保存」を選んでください。
+                </p>
+              </div>
+            )}
             <h2 className="scenario-edit-dialog__page-title">
               {TABS.find((tab) => tab.id === activeTab)?.label}
             </h2>
