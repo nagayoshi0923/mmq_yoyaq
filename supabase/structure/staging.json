@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-11T14:08:47.143Z",
+  "captured_at": "2026-10-11T20:59:27.569Z",
   "table_count": 156,
-  "function_count": 433,
-  "digest": "7329a1e087089b11807304fc35c784ebd70f37cc46fd1f7e4f5e5281314c1fa2"
+  "function_count": 434,
+  "digest": "76549e7408313b5a96dddc5ec26b67ad48c97779756511de4795f40994f8a6f6"
  },
  "tables": {
   "staff": {
@@ -26322,6 +26322,16 @@
    "body_md5": "301a884953d37769916294bb60562e05",
    "language": "plpgsql",
    "security_definer": false
+  },
+  "add_manual_reservations(p_rows jsonb)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres"
+   ],
+   "returns": "SETOF reservations",
+   "body_md5": "0852f86b9d4890e32c80d4e7c1251e3d",
+   "language": "plpgsql",
+   "security_definer": true
   },
   "audit_organization_settings_changes()": {
    "acl": [
