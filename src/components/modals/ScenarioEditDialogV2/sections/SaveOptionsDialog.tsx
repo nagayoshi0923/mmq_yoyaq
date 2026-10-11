@@ -26,7 +26,7 @@ export function SaveOptionsDialog({ open, onOpenChange, savePublishChoice, setSa
         <DialogHeader>
           <DialogTitle className="text-base">保存オプション</DialogTitle>
           <DialogDescription className="text-xs">
-            この組織の予約サイトへの公開設定です。MMQマスタの承認とは別に設定します。
+            自組織の予約サイトへの表示設定を選択してください
           </DialogDescription>
         </DialogHeader>
 
@@ -42,7 +42,7 @@ export function SaveOptionsDialog({ open, onOpenChange, savePublishChoice, setSa
               <RadioGroupItem value="available" id="opt-available" className="mt-0.5" />
               <div>
                 <Label htmlFor="opt-available" className="font-medium text-sm cursor-pointer">公開して保存</Label>
-                <p className="text-xs text-muted-foreground">この組織の予約サイトで作品の詳細を開けるようにします</p>
+                <p className="text-xs text-muted-foreground">予約サイトのシナリオ一覧に表示されます</p>
               </div>
             </div>
             <div className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/30"
@@ -50,7 +50,7 @@ export function SaveOptionsDialog({ open, onOpenChange, savePublishChoice, setSa
               <RadioGroupItem value="unavailable" id="opt-unavailable" className="mt-0.5" />
               <div>
                 <Label htmlFor="opt-unavailable" className="font-medium text-sm cursor-pointer">非公開で保存</Label>
-                <p className="text-xs text-muted-foreground">マスタが承認済みでも、この組織の予約サイトでは作品の詳細を開けません</p>
+                <p className="text-xs text-muted-foreground">管理者のみ確認できます（予約サイトには表示されません）</p>
               </div>
             </div>
           </RadioGroup>

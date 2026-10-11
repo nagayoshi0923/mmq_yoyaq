@@ -282,7 +282,7 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
     {
       key: 'org_status',
       header: '予約サイト',
-      helpText: '組織の予約サイトへの公開状態。マスタ承認とは別です。変更は作品を編集して「公開して保存」または「非公開で保存」',
+      helpText: '組織の予約サイトへの公開状態。マスタ承認とは別です。変更は作品編集ヘッダーで公開状態を選び「保存」',
       width: 'w-24',
       sortable: true,
       required: true,

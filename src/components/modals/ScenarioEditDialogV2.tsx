@@ -17,7 +17,6 @@ import { scenarioMasterApi, type ScenarioMaster } from '@/lib/api/scenarioMaster
 import { invalidateAssignmentQueries } from '@/lib/queryInvalidation'
 
 // V2セクションコンポーネント（カード形式でレイアウト改善）
-import { SaveOptionsDialog } from './ScenarioEditDialogV2/sections/SaveOptionsDialog'
 import { ScenarioTabContent } from './ScenarioEditDialogV2/sections/ScenarioTabContent'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditDialogV2/types'
 import { initialScenarioFormData, newScenarioFormData, scenarioToFormData } from './ScenarioEditDialogV2/utils/formData'
@@ -294,10 +293,6 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
   // 新規作成後のシナリオIDを追跡（2回目以降の保存で update にするため）
   const [createdScenarioId, setCreatedScenarioId] = useState<string | null>(null)
   
-  // 保存オプションダイアログ
-  const [saveOptionsOpen, setSaveOptionsOpen] = useState(false)
-  const [savePublishChoice, setSavePublishChoice] = useState<'available' | 'unavailable'>('available')
-  const [submitToMMQ, setSubmitToMMQ] = useState(false)
   const [isSubmittingToMMQ, setIsSubmittingToMMQ] = useState(false)
 
   // マスタ選択ダイアログ
@@ -739,9 +734,23 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
             ) : formData.title ? (
               <span className="scenario-edit-dialog__scenario">{formData.title}</span>
             ) : null}
-            {isScenarioLoaded && <span className={`scenario-edit-dialog__status shrink-0 whitespace-nowrap ${formData.status === 'available' ? 'is-public' : formData.status === 'unavailable' ? 'is-private' : 'is-draft'}`}>
-              予約サイト：{formData.status === 'available' ? '公開中' : formData.status === 'unavailable' ? '非公開' : scenarioId ? '近日公開' : '未公開（下書き）'}
-            </span>}
+            <div className="flex items-center gap-2 shrink-0">
+              <span id="scenario-publication-label">予約サイト</span>
+              <Select
+                value={formData.status}
+                onValueChange={(status) => setFormData(prev => ({ ...prev, status: status as ScenarioFormData['status'] }))}
+                disabled={!isScenarioLoaded || isSaving || scenarioMutation.isPending}
+              >
+                <SelectTrigger className="w-auto min-w-32" aria-labelledby="scenario-publication-label" title="選択した公開状態は保存すると反映されます">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="available">公開</SelectItem>
+                  <SelectItem value="unavailable">非公開</SelectItem>
+                  <SelectItem value="draft">{scenarioId ? '近日公開' : '下書き'}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <button type="button" className="scenario-edit-dialog__close" onClick={onClose}>
             閉じる
@@ -769,10 +778,10 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
           <div key={activeTab} className="scenario-edit-dialog__content">
             {isScenarioLoaded && formData.status === 'unavailable' && (
               <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3" role="note">
-                <p>この組織の予約サイトでは非公開です。</p>
+                <p>予約サイトの公開設定：非公開</p>
                 <p className="text-muted-foreground">
                   {currentScenario?.master_status === 'approved' ? 'MMQマスタは承認済みですが、店舗の公開設定は別です。' : 'MMQマスタの承認と、店舗の公開設定は別です。'}
-                  公開するには「保存」から「公開して保存」を選んでください。
+                  公開するにはヘッダーで「公開」を選び、「保存」を押してください。
                 </p>
               </div>
             )}
@@ -809,15 +818,6 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
             </span>
           </div>
           <div className="scenario-edit-dialog__actions">
-            {formData.status === 'draft' && (
-              <span className="scenario-edit-dialog__status is-draft">下書き</span>
-            )}
-            {formData.status === 'available' && (
-              <span className="scenario-edit-dialog__status is-public">公開中</span>
-            )}
-            {formData.status === 'unavailable' && (
-              <span className="scenario-edit-dialog__status is-private">非公開</span>
-            )}
             {saveMessage && <span className="scenario-edit-dialog__status is-public">{saveMessage}</span>}
             {scenarioId && publicBookingOrgSlug && (
               <button
@@ -901,12 +901,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
             <button
               type="button"
               className="scenario-edit-dialog__btn-primary"
-              onClick={() => {
-                const currentStatus = formData.status === 'draft' ? 'available' : (formData.status as 'available' | 'unavailable')
-                setSavePublishChoice(currentStatus === 'available' ? 'available' : 'unavailable')
-                setSubmitToMMQ(false)
-                setSaveOptionsOpen(true)
-              }}
+              onClick={() => handleSave()}
               disabled={isSaving || scenarioMutation.isPending || !assignmentsReady || (!!scenarioId && !!currentMasterId && !sourceState)}
             >
               保存
@@ -914,30 +909,6 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
           </div>
         </footer>
       </DialogContent>
-
-      {/* 保存オプションダイアログ */}
-      <SaveOptionsDialog
-        open={saveOptionsOpen}
-        onOpenChange={setSaveOptionsOpen}
-        savePublishChoice={savePublishChoice}
-        setSavePublishChoice={setSavePublishChoice}
-        isDraftMaster={currentScenario?.master_status === 'draft'}
-        submitToMMQ={submitToMMQ}
-        setSubmitToMMQ={setSubmitToMMQ}
-        isSaving={scenarioMutation.isPending}
-        onConfirmSave={async () => {
-          setSaveOptionsOpen(false)
-          await handleSave(savePublishChoice)
-          if (submitToMMQ && currentMasterId) {
-            try {
-              await scenarioMasterApi.publish(currentMasterId)
-              showToast.success('MMQへの掲載を申請しました', '審査後に掲載されます')
-            } catch {
-              showToast.error('MMQへの申請に失敗しました', '後ほどシナリオ一覧から申請してください')
-            }
-          }
-        }}
-      />
 
       {/* マスタ選択ダイアログ */}
       <MasterSelectDialog
