@@ -32,7 +32,9 @@ interface CalendarViewProps {
   hideSoldOut?: boolean
   onHideSoldOutChange?: (value: boolean) => void
   hidePlayed?: boolean
+  onHidePlayedChange?: (value: boolean) => void
   playedScenarioIds?: Set<string>
+  isLoggedIn?: boolean
 }
 
 /**
@@ -57,9 +59,12 @@ export const CalendarView = memo(function CalendarView({
   hideSoldOut = false,
   onHideSoldOutChange,
   hidePlayed = false,
+  onHidePlayedChange,
   playedScenarioIds = new Set(),
+  isLoggedIn = false,
 }: CalendarViewProps) {
   const navigate = useNavigate()
+  const todayStr = formatDateJST(new Date())
   
   // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
   const scenarioMap = useMemo(() => {
@@ -96,6 +101,9 @@ export const CalendarView = memo(function CalendarView({
         storeOptions={storeOptions}
         hideSoldOut={hideSoldOut}
         onHideSoldOutChange={onHideSoldOutChange}
+        hidePlayed={hidePlayed}
+        onHidePlayedChange={onHidePlayedChange}
+        isLoggedIn={isLoggedIn}
         primaryColor={primaryColor}
       />
       
@@ -122,13 +130,15 @@ export const CalendarView = memo(function CalendarView({
             const dateNum = day.date.getDate()
             const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6
             const isSunday = day.date.getDay() === 0
+            // 今日より前の日は文言を出さず薄い地色だけ。過去だけの週は低くする（2026-10-12、スマホで画面の大半を占めていた）
+            const isPast = formatDateJST(day.date) < todayStr
             
             return (
               <div
                 key={index}
                 className={`border-r border-b ${
-                  !day.isCurrentMonth ? 'bg-muted/20' : ''
-                } flex flex-col min-h-[110px] sm:min-h-[150px]`}
+                  isPast ? 'bg-muted/50' : !day.isCurrentMonth ? 'bg-muted/20' : ''
+                } flex flex-col ${isPast ? 'min-h-[32px]' : 'min-h-[110px] sm:min-h-[150px]'}`}
               >
                 {/* 日付 */}
                 <div 
@@ -270,12 +280,20 @@ export const CalendarView = memo(function CalendarView({
                       return startTime < slotEndTimes[slot]
                     }
                     
-                    // 全店舗表示で何もない場合
+                    // 全店舗表示で何もない場合: 過去日は何も出さず、今日以降は小さく 1 行「貸切申込」（押すと貸切の流れへ）
                     if (allDisplayEvents.length === 0 && !selectedStore) {
+                      if (isPast) return null
                       return (
-                        <div className="p-1 sm:p-2 text-xs text-muted-foreground text-center">
-                          店舗を選択して貸切申込
-                        </div>
+                        <button
+                          type="button"
+                          className="ts-micro w-full whitespace-nowrap px-0.5 py-0.5 text-center text-muted-foreground hover:underline"
+                          onClick={() => {
+                            const basePath = organizationSlug ? `/${organizationSlug}` : ''
+                            navigate(`${basePath}/private-booking-select?date=${dateStr}`)
+                          }}
+                        >
+                          貸切申込
+                        </button>
                       )
                     }
                     

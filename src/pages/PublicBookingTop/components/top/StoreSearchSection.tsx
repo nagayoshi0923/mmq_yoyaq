@@ -48,6 +48,7 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
   // 元のカレンダー・リストの操作（両方で共通にし、切り替えても保つ）
   const [classicStoreIds, setClassicStoreIds] = useState<string[]>([])
   const [hideSoldOut, setHideSoldOut] = useState(false)
+  const [hidePlayed, setHidePlayed] = useState(false)
   const isCards = state.view === 'cards'
   // カレンダー・リストから日付のチップに戻るときは「今週末」から（日付の指定は持ち越さない）
   const preset = state.preset === 'date' ? 'weekend' : state.preset
@@ -68,6 +69,8 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
     onStoreIdsChange: setClassicStoreIds,
     hideSoldOut,
     onHideSoldOutChange: setHideSoldOut,
+    hidePlayed,
+    onHidePlayedChange: setHidePlayed,
     primaryColor,
   }
 
