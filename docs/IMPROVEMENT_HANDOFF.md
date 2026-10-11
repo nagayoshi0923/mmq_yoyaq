@@ -1705,4 +1705,4 @@ mainの既反映履歴/本人切替/予約全体日時順を保持し、staging�
 - 本番の参加者INSERTが42P17で失敗。reservationsのINSERT判定→schedule_eventsのSELECT判定→reservationsへの参照が循環する。マスタ引用作品にも発生し、作品マスタの不整合ではない。
 - 手動追加・保存後の保留参加者・デモ追加の共通APIを、認証と対象組織の業務権限を確認するadd_manual_reservationsへ変更。RLSは変更しない。公演の組織・店舗・日時・マスタIDはDBで確定し、顧客の別組織流用を拒否する。従来の管理者手入力の料金・人数の扱いは保持する。
 - 外部通信なしのPostgreSQLで同じ循環を再現、スタッフ/顧客/デモ保存と読み戻し・人数集計・未認証/顧客権限/別組織/不正入力/中止/バッチ失敗の拒否・rollback/再適用を検証。API経路の回帰2件、verify成功。本番の実予約を試験追加しない。
-- main向け #1045 を 2026-10-12 に staging へ載せ直し。DB先行適用と本番反映の実施状況は案件台帳・PRで確認する。
+- main向け #1045 を 2026-10-12 に staging へ載せ直し。migration は 20261012130000_operator_add_participants（rollback 同名）に改名し staging 適用済み。本番は DB 先行で適用してからリリース。DB先行適用と本番反映の実施状況は案件台帳・PRで確認する。

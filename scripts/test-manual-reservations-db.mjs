@@ -65,7 +65,7 @@ const run = async (uid, query, role='authenticated') => {
 await assert.rejects(run(actor,`INSERT INTO reservations(organization_id,schedule_event_id,title,requested_datetime,duration) VALUES('${org}','${event}','fixture',now(),120) RETURNING id`),error=>error.code==='42P17')
 console.log('PASS 本番の予約→公演→予約の循環で直接INSERTが失敗することを再現')
 const policies = (await db.query('SELECT * FROM pg_policies ORDER BY tablename,policyname')).rows
-const migration = fs.readFileSync('supabase/migrations/20261011081929_operator_add_participants.sql','utf8')
+const migration = fs.readFileSync('supabase/migrations/20261012130000_operator_add_participants.sql','utf8')
 await db.exec(migration)
 assert.deepEqual((await db.query('SELECT * FROM pg_policies ORDER BY tablename,policyname')).rows,policies)
 const row = { schedule_event_id:event, organization_id:other, title:'偽装', requested_datetime:'2099-10-11T19:00:00+09:00',
@@ -101,7 +101,7 @@ await denied(actor,[row,{...row,schedule_event_id:otherEvent}],'42501')
 await db.exec(`UPDATE schedule_events SET is_cancelled=true WHERE id='${event}'`)
 await denied(actor,[row],'22023')
 console.log('PASS 未認証・顧客・別組織の公演/顧客・不正人数・中止公演・バッチ途中失敗を拒否し予約は不変')
-await db.exec(fs.readFileSync('supabase/rollbacks/20261011081929_operator_add_participants.sql','utf8'))
+await db.exec(fs.readFileSync('supabase/rollbacks/20261012130000_operator_add_participants.sql','utf8'))
 assert.equal((await db.query("SELECT to_regprocedure('add_manual_reservations(jsonb)') AS signature")).rows[0].signature,null)
 await db.exec(migration)
 console.log('PASS ロールバック・再適用。RLSポリシーは変更なし')
