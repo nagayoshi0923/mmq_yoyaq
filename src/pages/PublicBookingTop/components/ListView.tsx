@@ -62,7 +62,8 @@ export const ListView = memo(function ListView({
   isLoggedIn = false,
 }: ListViewProps) {
   const navigate = useNavigate()
-  const getPrivateOptions = usePublicPrivateBookingSlots(organizationId, selectedStoreIds, listViewMonth)
+  const availabilityStoreIds = selectedStoreIds.length > 0 ? selectedStoreIds : stores.map(store => store.id)
+  const getPrivateOptions = usePublicPrivateBookingSlots(organizationId, availabilityStoreIds, listViewMonth)
   
   // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
   const scenarioMap = useMemo(() => {

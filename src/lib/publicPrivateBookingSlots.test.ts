@@ -34,6 +34,10 @@ describe('公開スケジュールの貸切受付', () => {
   it('非公開の占有公演も除外する', () => {
     expect(options('afternoon', [row('a')], [], [{date,store_id:'a',start_time:'15:00',end_time:'18:00'}])).toEqual([])
   })
+  it('設定開始より早い同時間帯の公演も占有として扱う', () => {
+    expect(options('afternoon', [row('a')], [], [{date,store_id:'a',start_time:'13:30',end_time:'16:00'}])).toEqual([])
+    expect(options('evening', [row('a')], [], [{date,store_id:'a',start_time:'18:30',end_time:'21:00'}])).toEqual([])
+  })
   it('選択後の作品候補でも停止した最早店舗を使わない', () => {
     const a = row('a', {slot_start_times:{afternoon:'13:00',evening:'19:00'}})
     const b = row('b', {slot_start_times:{afternoon:'15:00',evening:'21:00'}})
