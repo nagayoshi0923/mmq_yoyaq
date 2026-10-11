@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-11T20:59:27.569Z",
+  "captured_at": "2026-10-11T21:17:54.624Z",
   "table_count": 156,
-  "function_count": 434,
-  "digest": "bfc715d9920e2b1a2a73a1b6e635d9ac12563c8dd04d08a401b1af0415cb0f19"
+  "function_count": 432,
+  "digest": "2d56af34388f78737bcca7972304bb233366b0a28a9dddec073d91e9c02cc445"
  },
  "tables": {
   "staff": {
@@ -27212,16 +27212,6 @@
    "language": "plpgsql",
    "security_definer": false
   },
-  "calculate_cancellation_fee(p_reservation_id uuid)": {
-   "acl": [
-    "postgres=X/postgres",
-    "service_role=X/postgres"
-   ],
-   "returns": "TABLE(fee_amount integer, fee_percentage integer, hours_until_event numeric, is_private_booking boolean, policy_description text)",
-   "body_md5": "a77280c463733e81ce51e6bcd4d0b0ae",
-   "language": "plpgsql",
-   "security_definer": true
-  },
   "cancel_unrequested_private_group(p_group_id uuid)": {
    "acl": [
     "authenticated=X/postgres",
@@ -27741,16 +27731,6 @@
    "returns": "SETOF blog_posts",
    "body_md5": "a3aab6ee79a8c8ee84530fb21a3b1b3b",
    "language": "sql",
-   "security_definer": true
-  },
-  "admin_recalculate_reservation_prices(p_reservation_id uuid)": {
-   "acl": [
-    "postgres=X/postgres",
-    "service_role=X/postgres"
-   ],
-   "returns": "jsonb",
-   "body_md5": "54f601b03e54ca9a517955fc7475dff2",
-   "language": "plpgsql",
    "security_definer": true
   },
   "assignment_state(p_org uuid, p_staff uuid, p_scenario uuid)": {

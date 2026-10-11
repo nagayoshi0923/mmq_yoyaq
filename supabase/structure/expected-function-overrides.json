@@ -1202,5 +1202,7 @@
     "body_md5": "fe0272026eca95df14c882cbc9abad69",
     "language": "plpgsql",
     "security_definer": true
-  }
+  },
+  "calculate_cancellation_fee(p_reservation_id uuid)": null,
+  "admin_recalculate_reservation_prices(p_reservation_id uuid)": null
 }
