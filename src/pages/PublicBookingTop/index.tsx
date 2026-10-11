@@ -25,6 +25,7 @@ import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
 import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
 import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
+import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
 import { useBookingData } from './hooks/useBookingData'
 import { useStoreTopPerformances } from './hooks/useStoreTopPerformances'
 import { StoreHero } from './components/top/StoreHero'
@@ -91,6 +92,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     [organizationPublicBookingHeroDescription, stores],
   )
   const primaryColor = BOOKING_THEME.primary
+  const { marks, dialog: marksDialog } = useScenarioMarks()
 
   usePageMeta({
     title: organizationName ? orgBookingTitle(organizationName) : 'マーダーミステリー予約 | MMQ',
@@ -129,6 +131,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     return {
       id: s.scenario_id,
       title: s.scenario_title,
+      author: s.author ?? '',
       key_visual_url: s.key_visual_url,
       genres: s.genre,
       player_count_min: s.player_count_min,
@@ -191,12 +194,19 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
           primaryColor={primaryColor}
         />
         {scenarios.length > 0 && (
-          <ScenarioBrowseSection scenarios={browseScenarios} catalogPath={`/${slug}/catalog`} primaryColor={primaryColor} />
+          <ScenarioBrowseSection
+            scenarios={browseScenarios}
+            catalogPath={`/${slug}/catalog`}
+            searchPath={(q) => `/${slug}/catalog?q=${encodeURIComponent(q)}`}
+            marks={marks}
+            primaryColor={primaryColor}
+          />
         )}
         <FirstTimeSection faqPath={slug ? `/${slug}/faq` : '/faq'} />
       </main>
 
       <Footer organizationSlug={organizationSlug} organizationName={organizationName ?? undefined} stores={stores} />
+      {marksDialog}
     </div>
   )
 }

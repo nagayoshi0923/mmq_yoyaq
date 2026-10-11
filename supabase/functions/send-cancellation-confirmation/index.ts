@@ -68,7 +68,7 @@ serve(async (req) => {
     // 予約の正当性を検証
     const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
-      .select('id, status, customer_email, customer_id, organization_id, schedule_events!reservations_schedule_event_id_fkey(is_cancelled,store_id)')
+      .select('id, status, customer_email, customer_id, organization_id, schedule_events!reservations_schedule_event_id_fkey(is_cancelled,store_id,date)')
       .eq('id', cancellationData.reservationId)
       .single()
 
@@ -156,6 +156,14 @@ serve(async (req) => {
       getServiceRoleKey()
     )
     
+    // 店舗名はお客様向けの名前（stores.public_name 優先・組織名の接頭辞なし）。DB の customer_store_name で決める
+    if (cancellationData.storeId) {
+      const { data: customerStoreName } = await serviceClient.rpc('customer_store_name', {
+        p_store_id: cancellationData.storeId, p_date: storedEvent?.date ?? null, p_fallback: cancellationData.storeName || null,
+      })
+      if (typeof customerStoreName === 'string' && customerStoreName) cancellationData.storeName = customerStoreName
+    }
+
     const resolvedOrganizationId = cancellationData.organizationId || reservation.organization_id
     const emailSettings = resolvedOrganizationId 
       ? await getEmailSettings(serviceClient, resolvedOrganizationId)

@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-11T08:29:51.006Z",
+  "captured_at": "2026-10-11T08:48:25.552Z",
   "table_count": 156,
-  "function_count": 430,
-  "digest": "4269b3e0644422d2025159af9570284243bf7af5fd246408f3e8703c85754c03"
+  "function_count": 431,
+  "digest": "47c4645a322381a2a3a863ef999516466fd8cba70765591c48fe0c387c56455d"
  },
  "tables": {
   "staff": {
@@ -25747,7 +25747,7 @@
     "postgres=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "abd667f7a801e4d10c7ff797706aaa96",
+   "body_md5": "f002e455d2fc626161544ed4adc80f5a",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26019,7 +26019,7 @@
     "postgres=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "57555f6ded9f2dd2960a69f4310aa707",
+   "body_md5": "01c889c2b661875ef6cacb5825cc0386",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27091,7 +27091,7 @@
     "service_role=X/postgres"
    ],
    "returns": "TABLE(group_id uuid, requested_datetime text, store_id uuid, store_name text)",
-   "body_md5": "8cf53e10f4a6126f871cd8fc24a5f167",
+   "body_md5": "70d10e62aa76ee9cd0d99b7c12a768d6",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27133,7 +27133,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "6138443f5aabdbdce1cf74860f592803",
+   "body_md5": "458cadc26f0ef86d2fb5c00e824f60b2",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27420,7 +27420,7 @@
     "service_role=X/postgres"
    ],
    "returns": "TABLE(id uuid, organization_id uuid, kind text, to_email text, to_name text, scenario_title text, performance_date date, start_time time without time zone, venue text, deadline_at timestamp with time zone, invite_code text, company_name text, reply_to text)",
-   "body_md5": "3a2e61cf2ee843c9393d40683e91bb84",
+   "body_md5": "6c85354c526db061c6495213559b5818",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27529,7 +27529,7 @@
     "postgres=X/postgres"
    ],
    "returns": "integer",
-   "body_md5": "7072a307c05c25fd65e6694d9da9ed8c",
+   "body_md5": "665ee7a8c8a7ded2253abefe00c6add1",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27998,6 +27998,18 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "customer_store_name(p_store_id uuid, p_date date, p_fallback text)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "text",
+   "body_md5": "b458930dfe6d8f72667d1fec8f0a25de",
+   "language": "sql",
+   "security_definer": true
+  },
   "private_group_feedback_staff(p_group_ids uuid[], p_detail boolean)": {
    "acl": [
     "authenticated=X/postgres",
@@ -28314,7 +28326,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "e13aae8bfa4f4fd2f65e339fb9561f53",
+   "body_md5": "eeb0dc2719910e21265ce1ad65ac1a9f",
    "language": "sql",
    "security_definer": true
   },
@@ -28883,7 +28895,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "af5e0e83b16558e7e248523b90dc09ef",
+   "body_md5": "75fa17202ae53158d211c8a7806a0555",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28914,7 +28926,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "ab6beaff501ec1d6a8045c52260d4620",
+   "body_md5": "f33ca40fdf6760266007c82576baa998",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -29209,7 +29221,7 @@
     "service_role=X/postgres"
    ],
    "returns": "TABLE(organization_id uuid, organization_slug text, organization_name text, store_id uuid, store_name text, store_short_name text, is_configured boolean, cancellation_policy text, cancellation_policy_items jsonb, cancellation_deadline_hours integer, cancellation_fees jsonb, cancellation_fee_basis text, private_cancellation_policy text, private_cancellation_policy_items jsonb, private_cancellation_deadline_hours integer, private_cancellation_fees jsonb, private_cancellation_fee_basis text, organizer_cancel_reasons jsonb, organizer_cancel_refund_note text, cancellation_judgment_rules jsonb, cancellation_notice_note text, reservation_change_deadline_hours integer, reservation_change_note text, private_reservation_change_deadline_hours integer, private_reservation_change_note text, refund_method_note text, policy_updated_at date)",
-   "body_md5": "b8e46e119fd66c880f09b983c3552b49",
+   "body_md5": "678267721afc0166d86a3c7eea85cb3e",
    "language": "sql",
    "security_definer": true
   },
@@ -29717,7 +29729,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "d0d7fe907479a59eb4d41462fa29c91c",
+   "body_md5": "d2cbee31066b17e6ea6b97d33a4f55b8",
    "language": "plpgsql",
    "security_definer": true
   },

@@ -163,7 +163,8 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
     isLoading: isPending,
     isFetching,
   })
-  const [searchTerm, setSearchTerm] = useState('')
+  // トップの「作品から探す」から ?q= で来たらその言葉で検索した状態で開く
+  const [searchTerm, setSearchTerm] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
   /** カテゴリ複数: URL の繰り返し `genre=` */
   const selectedCategories = useMemo(
     () => [...new Set(searchParams.getAll('genre').filter(Boolean))],
