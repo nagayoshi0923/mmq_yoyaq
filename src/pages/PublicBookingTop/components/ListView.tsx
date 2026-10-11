@@ -6,6 +6,7 @@ import { BookingFilters } from './BookingFilters'
 import { KeyVisualThumb } from '@/components/public-top/KeyVisualThumb'
 import type { StoreOption } from '@/components/public-top/StorePicker'
 import { storeShortDisplayName } from '@/lib/publicStoreName'
+import { isFewSeats, seatCountText } from '@/lib/seatLabel'
 import { formatDateJST } from '@/utils/dateUtils'
 import { scenarioCardId, scenarioCardTitle, type EnrichedPublicEvent, type PublicCalendarEvent, type PublicEventRow, type PublicStoreRow, type ScenarioCard } from '../hooks/useBookingData'
 
@@ -300,8 +301,13 @@ export const ListView = memo(function ListView({
                     開催決定
                   </span>
                 )}
+                {isFewSeats(available) && (
+                  <span className="ts-10 font-bold px-1 py-0.5 bg-orange-100 text-orange-600">
+                    残少
+                  </span>
+                )}
                 <span className={isFull ? 'fg-gray-500' : 'fg-gray-600'}>
-                  {isFull ? '満席' : `残${available}`}
+                  {isFull ? '満席' : seatCountText(currentParticipants, maxParticipants)}
                 </span>
               </div>
             </div>

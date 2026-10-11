@@ -49,7 +49,9 @@ describe('日付チップの範囲', () => {
 describe('残席の言い方', () => {
   it('満席・成立間近・残りわずか', () => {
     expect(seatState(perf({ available_seats: 0 })).label).toBe('満席・キャンセル待ち')
-    expect(seatState(perf({ available_seats: 2, current_participants: 4, player_count_min: 6 })).label).toBe('残 2・成立間近')
+    expect(seatState(perf({ available_seats: 2, current_participants: 4, player_count_min: 6 })).label).toBe('4/6・残少・成立間近')
+    expect(seatState(perf({ available_seats: 3, current_participants: 5, player_count_min: 4 })).label).toBe('5/8・残少')
+    expect(seatState(perf({ available_seats: 6, current_participants: 2 })).label).toBe('2/8')
     expect(seatState(perf({ available_seats: 3, current_participants: 7, player_count_min: 6, player_count_max: 10 })).kind).toBe('few')
     expect(seatState(perf({ available_seats: 6 })).kind).toBe('available')
   })

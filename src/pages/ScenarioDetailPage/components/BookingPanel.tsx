@@ -11,6 +11,7 @@ import { isWeekendOrHoliday } from '../utils/pricingUtils'
 import { formatJstMonthDay } from '@/utils/jstDate'
 import { loginUrlWithIntent } from '@/lib/authReturn'
 import { PRICE_NOTE } from '@/lib/priceNote'
+import { isFewSeats, seatCountText } from '@/lib/seatLabel'
 
 interface BookingPanelProps {
   /** ログイン画面に「何を予約しようとしているか」を出すため（点検 25） */
@@ -110,7 +111,8 @@ export const BookingPanel = memo(function BookingPanel({
             {/* 残席表示 */}
             {selectedEventId && availableSeats > 0 && (
               <p className="ts-caption mt-1.5">
-                残り{availableSeats}席
+                {seatCountText(selectedEvent?.current_participants, selectedEvent?.max_participants || maxParticipants)}
+                {isFewSeats(availableSeats) && <span className="ml-1.5 font-bold text-orange-600">残少</span>}
               </p>
             )}
           </CardContent>

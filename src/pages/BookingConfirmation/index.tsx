@@ -35,6 +35,7 @@ import { upsertOwnCustomer } from '@/lib/api/customerApi'
 import { waitlistApi } from '@/lib/api/globalSettingsApi'
 import { getErrorMessage } from '@/lib/errorFields'
 import { AddToCalendarButton, absolutePageUrl } from '@/components/patterns/schedule'
+import { isFewSeats, seatCountText } from '@/lib/seatLabel'
 
 export function BookingConfirmation({
   eventId,
@@ -584,7 +585,7 @@ export function BookingConfirmation({
 
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-muted-foreground" />
-                      <span>残り {availableSeats} 席</span>
+                      <span>{seatCountText(currentParticipants, maxParticipants)}{isFewSeats(availableSeats) && <span className="ml-1.5 font-bold text-orange-600">残少</span>}</span>
                     </div>
                   </div>
                 </CardContent>

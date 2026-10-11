@@ -6,6 +6,7 @@
  * 画面ごとに数え方が変わらないよう、件数・残席の言い方もここで決める（点検 2026-10-11 の 19・23・33）。
  */
 import { addJstDays, formatJstMonthDay, getJstWeekdayIndex, toJstYmd } from '@/utils/jstDate'
+import { FEW_SEATS_THRESHOLD, seatCountText } from '@/lib/seatLabel'
 
 export interface PublicPerformance {
   id: string
@@ -120,13 +121,15 @@ function playersUntilConfirmed(p: Pick<PublicPerformance, 'current_participants'
   return need > 0 ? need : null
 }
 
-/** 残席の言い方: 残 N／残 N・成立間近／満席・キャンセル待ち */
+/** 残席の言い方: 予約済み/定員（2/8）・残少・成立間近／満席・キャンセル待ち（2026-10-12 カレンダーの形にそろえた） */
 export function seatState(p: Pick<PublicPerformance, 'available_seats' | 'current_participants' | 'player_count_min'>): { kind: SeatStateKind; label: string } {
   if (p.available_seats <= 0) return { kind: 'full', label: '満席・キャンセル待ち' }
+  const count = seatCountText(p.current_participants, p.current_participants + p.available_seats)
+  const few = p.available_seats <= FEW_SEATS_THRESHOLD
   const need = playersUntilConfirmed(p)
-  if (need !== null && need <= 2) return { kind: 'nearly_confirmed', label: `残 ${p.available_seats}・成立間近` }
-  if (p.available_seats <= 3) return { kind: 'few', label: `残 ${p.available_seats}` }
-  return { kind: 'available', label: `残 ${p.available_seats}` }
+  if (need !== null && need <= 2) return { kind: 'nearly_confirmed', label: `${count}${few ? '・残少' : ''}・成立間近` }
+  if (few) return { kind: 'few', label: `${count}・残少` }
+  return { kind: 'available', label: count }
 }
 
 export interface PerformanceCriteria {
