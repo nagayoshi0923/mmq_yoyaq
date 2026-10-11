@@ -291,12 +291,7 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
       render: (scenario) => {
         const statusConfig = STATUS_LABELS[scenario.org_status]
         return (
-          <div className="flex flex-col items-start gap-1">
-            <Badge className={`px-1.5 py-0 ${statusConfig.color}`}>{statusConfig.label}</Badge>
-            {scenario.org_status === 'unavailable' && scenario.master_status === 'approved' && (
-              <span className="text-muted-foreground">マスタ承認済み</span>
-            )}
-          </div>
+          <Badge className={`px-1.5 py-0 ${statusConfig.color}`}>{statusConfig.label}</Badge>
         )
       }
     },
@@ -832,9 +827,6 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
                         <h3 className="font-bold text-sm truncate pr-2">{scenario.title}</h3>
                         <Badge className={`shrink-0 text-[10px] px-1.5 py-0 ${statusConfig.color}`}>予約サイト：{statusConfig.label}</Badge>
                       </div>
-                      {scenario.org_status === 'unavailable' && scenario.master_status === 'approved' && (
-                        <p className="text-muted-foreground mb-1">マスタ承認済み・店舗では非公開</p>
-                      )}
                       <p className="text-xs text-gray-500 truncate mb-1">作: {scenario.author || '不明'}</p>
                       <div className="flex items-center gap-3 text-xs text-gray-500 mb-1">
                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{scenario.duration}分</span>
