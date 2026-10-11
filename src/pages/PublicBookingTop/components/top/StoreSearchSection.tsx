@@ -6,7 +6,7 @@ import { PeoplePicker } from '@/components/public-top/PeoplePicker'
 import { PerformanceResultList } from '@/components/public-top/PerformanceResultList'
 import { StorePicker, type StoreOption } from '@/components/public-top/StorePicker'
 import { TopSection } from '@/components/public-top/TopSection'
-import type { PerformanceSearchState } from '@/components/public-top/usePerformanceSearchParams'
+import type { PerformanceSearchState, SearchView } from '@/components/public-top/usePerformanceSearchParams'
 import {
   DATE_PRESETS,
   datePresetRange,
@@ -15,9 +15,17 @@ import {
   searchPerformances,
   type PublicPerformance,
 } from '@/lib/publicPerformanceSearch'
+import type { PrivateBlock } from '@/lib/publicTimetable'
 import { formatJstMonthDay } from '@/utils/jstDate'
 import { cn } from '@/lib/utils'
 import { StoreCalendarView } from './StoreCalendarView'
+import { StoreListView } from './StoreListView'
+
+const VIEWS: { value: SearchView; label: string }[] = [
+  { value: 'cards', label: '一覧' },
+  { value: 'calendar', label: 'カレンダー' },
+  { value: 'list', label: 'リスト' },
+]
 
 interface StoreSearchSectionProps {
   performances: PublicPerformance[]
@@ -25,6 +33,7 @@ interface StoreSearchSectionProps {
   state: PerformanceSearchState
   onChange: (patch: Partial<PerformanceSearchState>) => void
   storeOptions: StoreOption[]
+  privateBlocks: PrivateBlock[]
   today: string
   maxDate: string
   nowMs: number
@@ -32,8 +41,11 @@ interface StoreSearchSectionProps {
   onSelect: (p: PublicPerformance) => void
 }
 
-/** 店舗トップ「空いている公演を探す」 */
-export function StoreSearchSection({ performances, isLoading, state, onChange, storeOptions, today, maxDate, nowMs, primaryColor, onSelect }: StoreSearchSectionProps) {
+/**
+ * 店舗トップ「空いている公演を探す」。絞り込み（日付・人数・店舗・空席あり・初心者向け）の下で
+ * 3 つの見方「一覧（カード）／カレンダー／リスト（店舗 × 朝昼夜の時間割）」を切り替える。
+ */
+export function StoreSearchSection({ performances, isLoading, state, onChange, storeOptions, privateBlocks, today, maxDate, nowMs, primaryColor, onSelect }: StoreSearchSectionProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const range = useMemo(() => datePresetRange(state.preset, today, state.date), [state.preset, state.date, today])
   const results = useMemo(() => searchPerformances(performances, {
@@ -43,32 +55,24 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
     beginnerOnly: state.beginnerOnly,
     storeIds: state.storeIds,
   }, nowMs), [performances, range, state.people, state.onlyAvailable, state.beginnerOnly, state.storeIds, nowMs])
+  // カレンダー・リスト: 満席も残席の色で見せるため、空席の有無では絞らない（人数・店舗・初心者向けは効く）
+  const timetablePerformances = useMemo(() => searchPerformances(performances, {
+    range: { from: today, to: maxDate },
+    people: state.people,
+    onlyAvailable: false,
+    beginnerOnly: state.beginnerOnly,
+    storeIds: state.storeIds,
+  }, nowMs), [performances, today, maxDate, state.people, state.beginnerOnly, state.storeIds, nowMs])
+  const timetableStores = useMemo(
+    () => (state.storeIds.length > 0 ? storeOptions.filter((s) => state.storeIds.includes(s.id)) : storeOptions),
+    [storeOptions, state.storeIds],
+  )
   const openDates = useMemo(() => datesWithOpenings(performances, state.people, nowMs), [performances, state.people, nowMs])
   const hasBeginner = useMemo(() => performances.some((p) => p.beginner_friendly), [performances])
   const resetKey = `${range.from}_${range.to}_${state.people}_${state.onlyAvailable}_${state.beginnerOnly}_${state.storeIds.join(',')}`
 
   return (
-    <TopSection
-      id="search"
-      title="空いている公演を探す"
-      aside={(
-        <div role="group" aria-label="表示の切り替え" className="flex overflow-hidden rounded-md border border-input text-xs">
-          {(['list', 'calendar'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={state.view === v}
-              onClick={() => onChange({ view: v })}
-              className={cn('px-2.5 py-1', state.view === v ? 'font-bold text-white' : 'bg-white text-foreground hover:bg-muted')}
-              style={state.view === v ? { backgroundColor: primaryColor } : undefined}
-            >
-              {v === 'list' ? '一覧' : 'カレンダー'}
-            </button>
-          ))}
-        </div>
-      )}
-    >
-      {state.view === 'list' && (
+    <TopSection id="search" title="空いている公演を探す">
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 scroll-row">
         {DATE_PRESETS.map((d) => (
           <ChipButton key={d.value} selected={state.preset === d.value} primaryColor={primaryColor} onClick={() => onChange({ preset: d.value })}>
@@ -90,8 +94,7 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
           </ChipButton>
         </DatePickerPopover>
       </div>
-      )}
-      <div className={cn('flex flex-wrap gap-1.5', state.view === 'list' && 'mt-2')}>
+      <div className="mt-2 flex flex-wrap gap-1.5">
         <PeoplePicker value={state.people} onChange={(people) => onChange({ people })} />
         {storeOptions.length > 1 && (
           <StorePicker options={storeOptions} value={state.storeIds} onChange={(storeIds) => onChange({ storeIds })} primaryColor={primaryColor} />
@@ -105,36 +108,62 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
           </ChipButton>
         )}
       </div>
-      {state.view === 'calendar' ? (
+
+      <div role="group" aria-label="見方の切り替え" className="mt-2.5 flex overflow-hidden rounded-lg border border-input text-sm">
+        {VIEWS.map((v, i) => (
+          <button
+            key={v.value}
+            type="button"
+            aria-pressed={state.view === v.value}
+            onClick={() => onChange({ view: v.value })}
+            className={cn('flex-1 py-2', i > 0 && 'border-l border-input', state.view === v.value ? 'font-bold text-white' : 'bg-white hover:bg-muted')}
+            style={state.view === v.value ? { backgroundColor: primaryColor } : undefined}
+          >
+            {v.label}
+          </button>
+        ))}
+      </div>
+
+      {state.view === 'calendar' && (
         <StoreCalendarView
-          performances={performances}
-          isLoading={isLoading}
+          performances={timetablePerformances}
+          privateBlocks={privateBlocks}
+          stores={timetableStores}
           people={state.people}
-          onlyAvailable={state.onlyAvailable}
-          beginnerOnly={state.beginnerOnly}
-          storeIds={state.storeIds}
-          selectedDate={state.date}
+          selectedDate={range.from}
           today={today}
           maxDate={maxDate}
-          nowMs={nowMs}
           primaryColor={primaryColor}
-          onSelectDate={(date) => onChange({ date })}
+          onSelectDate={(date) => onChange({ preset: 'date', date })}
           onSelect={onSelect}
         />
-      ) : (
+      )}
+      {state.view === 'list' && (
+        <StoreListView
+          performances={timetablePerformances}
+          privateBlocks={privateBlocks}
+          stores={timetableStores}
+          from={range.from}
+          maxDate={maxDate}
+          people={state.people}
+          isLoading={isLoading}
+          onSelect={onSelect}
+        />
+      )}
+      {state.view === 'cards' && (
         <>
-      <p className="mt-2 text-xs text-muted-foreground">
-        {describeDateRange(range)} {state.onlyAvailable ? `に ${state.people} 名で入れる公演` : 'の公演'}{' '}
-        <b className="text-sm text-foreground">{isLoading && results.length === 0 ? '…' : `${results.length} 件`}</b>
-      </p>
-      <PerformanceResultList
-        performances={results}
-        isLoading={isLoading}
-        resetKey={resetKey}
-        onSelect={onSelect}
-        empty={<>条件に合う公演がありません。日付や人数を変えてみてください。</>}
-      />
-      {results.length > 0 && <p className="mt-1.5 text-xs text-muted-foreground">押すと作品ページが、その公演を選んだ状態で開きます。</p>}
+          <p className="mt-2 text-xs text-muted-foreground">
+            {describeDateRange(range)} {state.onlyAvailable ? `に ${state.people} 名で入れる公演` : 'の公演'}{' '}
+            <b className="text-sm text-foreground">{isLoading && results.length === 0 ? '…' : `${results.length} 件`}</b>
+          </p>
+          <PerformanceResultList
+            performances={results}
+            isLoading={isLoading}
+            resetKey={resetKey}
+            onSelect={onSelect}
+            empty={<>条件に合う公演がありません。日付や人数を変えてみてください。</>}
+          />
+          {results.length > 0 && <p className="mt-1.5 text-xs text-muted-foreground">押すと作品ページが、その公演を選んだ状態で開きます。</p>}
         </>
       )}
     </TopSection>

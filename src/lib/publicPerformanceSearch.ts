@@ -209,29 +209,3 @@ export function datesWithOpenings(list: readonly PublicPerformance[], people: nu
   }
   return dates
 }
-
-export interface CalendarDaySummary {
-  /** 条件（人数・店舗・初心者向け）に合う予約受付中の公演数（満席を含む） */
-  count: number
-  /** そのうち人数分の空席がある公演数 */
-  open: number
-}
-
-/**
- * カレンダー表示の 1 日ごとのまとめ（店舗トップ）。空席の有無に関わらず数え、
- * 空きのある日（緑）と満席のみの日（灰色）を分けられるようにする。
- */
-export function calendarDaySummaries(
-  list: readonly PublicPerformance[],
-  criteria: Omit<PerformanceCriteria, 'range' | 'onlyAvailable'> & { range: DateRange },
-  nowMs: number,
-): Map<string, CalendarDaySummary> {
-  const map = new Map<string, CalendarDaySummary>()
-  for (const p of searchPerformances(list, { ...criteria, onlyAvailable: false }, nowMs)) {
-    const day = map.get(p.date) ?? { count: 0, open: 0 }
-    day.count += 1
-    if (p.available_seats >= criteria.people) day.open += 1
-    map.set(p.date, day)
-  }
-  return map
-}

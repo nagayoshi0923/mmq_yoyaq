@@ -3,10 +3,13 @@ import { isPublicRegularStore, storeDisplayName } from '@/lib/publicStoreName'
 import { isBookableNow, type PublicPerformance } from '@/lib/publicPerformanceSearch'
 import type { StoreOption } from '@/components/public-top/StorePicker'
 import { buildPublicPerformance } from '../utils/performanceRows'
-import type { EnrichedPublicEvent, PublicStoreRow } from './useBookingData'
+import type { PrivateBlock } from '@/lib/publicTimetable'
+import type { EnrichedPublicEvent, PublicEventRow, PublicStoreRow } from './useBookingData'
 
 interface Params {
   allEvents: EnrichedPublicEvent[]
+  /** 貸切などで埋まった枠（公開ビューの行。中身は使わず「貸切」とだけ見せる） */
+  blockedSlots: PublicEventRow[]
   stores: PublicStoreRow[]
   organizationId: string | null
   organizationSlug: string
@@ -15,7 +18,7 @@ interface Params {
 }
 
 /** 店舗トップの公演（お客様向け 1 件ずつ）・店舗の選択肢・作品ごとの次回公演日 */
-export function useStoreTopPerformances({ allEvents, stores, organizationId, organizationSlug, organizationName, nowMs }: Params) {
+export function useStoreTopPerformances({ allEvents, blockedSlots, stores, organizationId, organizationSlug, organizationName, nowMs }: Params) {
   const storesById = useMemo(() => new Map(stores.map((s) => [s.id, s])), [stores])
 
   const performances = useMemo<PublicPerformance[]>(() => {
@@ -43,5 +46,10 @@ export function useStoreTopPerformances({ allEvents, stores, organizationId, org
     return map
   }, [performances, nowMs])
 
-  return { performances, storeOptions, nextDates }
+  /** 時間割に「貸切」と出す枠（貸切公演だけ。GM テスト・MTG などの社内予定は出さない） */
+  const privateBlocks = useMemo<PrivateBlock[]>(() => blockedSlots
+    .filter((e) => e.category === 'private' || e.is_private_booking === true)
+    .map((e) => ({ store_id: e.store_id, date: e.date, start_time: e.start_time })), [blockedSlots])
+
+  return { performances, storeOptions, nextDates, privateBlocks }
 }
