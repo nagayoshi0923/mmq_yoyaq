@@ -58,3 +58,12 @@ describe('店舗数・地域（1 つの計算元）', () => {
     expect(autoOrganizationTagline([{ name: '札幌店', address: '北海道札幌市' }])).toBe('北海道のマーダーミステリー専門店')
   })
 })
+
+describe('狭い欄の短い店舗名（storeShortDisplayName）', () => {
+  it('お客様向けの名前、無ければ略称、臨時会場はその日の会場名', async () => {
+    const { storeShortDisplayName } = await import('./publicStoreName')
+    expect(storeShortDisplayName({ name: 'クインズワルツ仮設店①', short_name: '仮設①', public_name: 'フォレスト①' })).toBe('フォレスト①')
+    expect(storeShortDisplayName({ name: 'クインズワルツ高田馬場店', short_name: '馬場' })).toBe('馬場')
+    expect(storeShortDisplayName({ name: '臨時会場1', short_name: '臨時1', is_temporary: true, temporary_venue_names: { '2026-10-24': '別会場' } }, '2026-10-24')).toBe('別会場')
+  })
+})

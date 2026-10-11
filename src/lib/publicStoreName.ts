@@ -145,3 +145,14 @@ export function toCustomerStoreRow<T extends StoreNameSource & { organizations?:
   const display = storeDisplayName(row, { organizationName: org?.name ?? null })
   return { ...row, name: display, short_name: display }
 }
+
+/**
+ * 狭い欄（元のカレンダー・リストの会場）に出す短い店舗名。
+ * お客様向けの名前（public_name）があればそれ、無ければ略称（short_name）。臨時会場はその日の会場名か「特設会場」。
+ */
+export function storeShortDisplayName(store: StoreNameSource | null | undefined, date?: string | null, fallback?: string | null): string {
+  if (store?.is_temporary) return storeDisplayName(store, { date })
+  const publicName = store?.public_name?.trim()
+  if (publicName) return publicName
+  return (store?.short_name || store?.name || fallback || '店舗未定').trim()
+}

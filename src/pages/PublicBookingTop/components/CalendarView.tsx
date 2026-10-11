@@ -4,7 +4,6 @@ import { formatDateJST } from '@/utils/dateUtils'
 import { BookingFilters } from './BookingFilters'
 import { KeyVisualThumb } from '@/components/public-top/KeyVisualThumb'
 import type { StoreOption } from '@/components/public-top/StorePicker'
-import { cn } from '@/lib/utils'
 import { scenarioCardId, scenarioCardTitle, type EnrichedPublicEvent, type PublicCalendarEvent, type PublicEventRow, type PublicStoreRow, type ScenarioCard } from '../hooks/useBookingData'
 
 interface CalendarDay {
@@ -20,14 +19,13 @@ interface CalendarViewProps {
   selectedStoreIds: string[]
   onStoreIdsChange: (storeIds: string[]) => void
   stores: PublicStoreRow[]
-  /** お客様向けの店舗名にした店舗の選択肢 */
+  /** 上の操作列の店舗の選択肢（お客様向けの名前） */
   storeOptions: StoreOption[]
   primaryColor: string
   scenarios: ScenarioCard[]
   onCardClick: (scenarioId: string) => void
-  /** 公演を押したとき（作品ページをその公演を選んだ状態で開く。点検 24） */
-  onEventClick?: (scenarioId: string, eventId: string) => void
   getStoreName: (event: PublicCalendarEvent) => string
+  getStoreColor: (event: PublicCalendarEvent) => string
   blockedSlots?: PublicEventRow[]
   privateBookingDeadlineDays?: number
   organizationSlug?: string
@@ -41,6 +39,7 @@ interface CalendarViewProps {
 
 /**
  * カレンダービューコンポーネント
+ * 2026-10-12 社長決定: 元の見た目を維持。変えたのは店舗名（お客様向け）・上の操作列のチップ・過去日の文言を出さない・作品画像の比率だけ。
  */
 export const CalendarView = memo(function CalendarView({
   currentMonth,
@@ -54,8 +53,8 @@ export const CalendarView = memo(function CalendarView({
   primaryColor,
   scenarios,
   onCardClick,
-  onEventClick,
   getStoreName,
+  getStoreColor,
   blockedSlots = [],
   privateBookingDeadlineDays = 14,
   organizationSlug,
@@ -111,7 +110,7 @@ export const CalendarView = memo(function CalendarView({
       />
       
       {/* カレンダーグリッド */}
-      <div className="overflow-hidden rounded-lg border border-border bg-white">
+      <div className="bg-white border overflow-hidden">
         {/* 曜日ヘッダー（日曜始まり） */}
         <div className="grid grid-cols-7 border-b bg-muted/30">
           {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
@@ -133,7 +132,7 @@ export const CalendarView = memo(function CalendarView({
             const dateNum = day.date.getDate()
             const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6
             const isSunday = day.date.getDay() === 0
-            // 今日より前の日は文言を出さず薄い地色だけ。過去だけの週は低くする（2026-10-12、スマホで画面の大半を占めていた）
+            // 今日より前の日は文言を出さず薄い地色だけ。過去だけの週は低くする（#1057）
             const isPast = formatDateJST(day.date) < todayStr
             
             return (
@@ -158,7 +157,7 @@ export const CalendarView = memo(function CalendarView({
                   <span>{dateNum}</span>
                   {events.length > 3 && (
                     <span 
-                      className="cursor-help rounded-full bg-muted px-1 py-0.5 text-xs text-muted-foreground"
+                      className="text-xs bg-blue-100 text-blue-600 px-0.5 sm:px-1 py-0.5 cursor-help"
                       title={`他${events.length - 3}件の公演あり`}
                     >
                       +{events.length - 3}
@@ -283,20 +282,13 @@ export const CalendarView = memo(function CalendarView({
                       return startTime < slotEndTimes[slot]
                     }
                     
-                    // 全店舗表示で何もない場合: 過去日は何も出さず、今日以降は小さく 1 行「貸切申込」（押すと貸切の流れへ）
+                    // 全店舗表示で何もない場合
                     if (allDisplayEvents.length === 0 && !selectedStore) {
                       if (isPast) return null
                       return (
-                        <button
-                          type="button"
-                          className="ts-micro w-full whitespace-nowrap px-0.5 py-0.5 text-center text-muted-foreground hover:underline"
-                          onClick={() => {
-                            const basePath = organizationSlug ? `/${organizationSlug}` : ''
-                            navigate(`${basePath}/private-booking-select?date=${dateStr}`)
-                          }}
-                        >
-                          貸切申込
-                        </button>
+                        <div className="p-1 sm:p-2 text-xs fg-gray-400 text-center">
+                          店舗を選択して貸切申込
+                        </div>
                       )
                     }
                     
@@ -310,6 +302,7 @@ export const CalendarView = memo(function CalendarView({
                       const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
                       const isReserved = isPrivateBooking
                       const storeName = getStoreName(event)
+                      const storeColor = getStoreColor(event)
                       
                       const scenario = scenarioMap.get(event.scenario_id) || 
                                      scenarioMap.get(event.scenario) ||
@@ -325,67 +318,66 @@ export const CalendarView = memo(function CalendarView({
                         return (
                           <div
                             key={`${event.id || idx}`}
-                            className="ts-micro w-full cursor-not-allowed rounded-md bg-muted px-1 py-0.5 text-muted-foreground"
+                            className="w-full ts-10 leading-tight py-0.5 px-1 border border-gray-200 bg-gray-100 fg-gray-400 cursor-not-allowed"
                           >
                             <span className="whitespace-nowrap">{event.start_time?.slice(0, 5)}</span>
                             {' '}
-                            <span className="whitespace-nowrap">貸切</span>
+                            <span className="whitespace-nowrap">貸切満席</span>
                           </div>
                         )
                       }
 
+                      const metaColor = isFull ? '#6B7280' : storeColor
                       const title = event.scenario
-                      // 残席の言い方・色は新しいトップと同じ（残 3 以上は緑、残 2 以下は赤、満席は灰）
-                      const capacityLabel = isFull ? '満席' : `残${available}`
-                      const capacityClass = isFull ? 'text-muted-foreground' : available <= 2 ? 'text-red-700' : 'text-emerald-700'
+                      const capacityLabel = isFull ? '満席' : `${currentParticipants}/${maxParticipants}`
 
                       return (
                         <div
                           key={`${event.id || idx}`}
-                          onClick={() => {
-                            if (!scenario) return
-                            if (onEventClick && event.id) onEventClick(scenarioCardId(scenario), event.id)
-                            else onCardClick(scenarioCardId(scenario))
+                          onClick={() => scenario && onCardClick(scenarioCardId(scenario))}
+                          className="ts-10 leading-tight transition-colors border-l-2 touch-manipulation cursor-pointer hover:bg-gray-50"
+                          style={{
+                            borderLeftColor: isFull ? '#9CA3AF' : storeColor,
+                            backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`,
+                            padding: '2px 3px'
                           }}
-                          className={cn('ts-micro cursor-pointer touch-manipulation rounded-md border border-border transition-colors hover:bg-muted/40', isFull ? 'bg-muted' : 'bg-white')}
-                          style={{ padding: '2px 3px' }}
                         >
                           <div className="flex gap-1 min-w-0">
                             {/* 左カラム: 画像（PC版のみ）。高さはテキスト2行に合わせる */}
-                            <div className="hidden sm:block flex-shrink-0 w-7 self-stretch">
+                            <div className="hidden sm:block flex-shrink-0 w-7 self-stretch overflow-hidden bg-gray-200">
                               <KeyVisualThumb
                                 src={imageUrl}
                                 alt={title || (scenario && scenarioCardTitle(scenario)) || 'シナリオ画像'}
                                 seed={event.scenario_master_id || event.id || String(idx)}
                                 width={60}
-                                className="h-full w-full rounded-sm"
+                                className="h-full w-full rounded-none bg-gray-200"
                               />
                             </div>
 
                             {/* 右カラム: 1行目=時間・場所・人数 / 2行目=タイトル */}
                             <div className="flex flex-col min-w-0 flex-1">
                               <div className="flex items-baseline gap-1 min-w-0">
-                                <span className="whitespace-nowrap flex-shrink-0 text-muted-foreground">
+                                <span className="whitespace-nowrap flex-shrink-0" style={{ color: metaColor }}>
                                   {event.start_time?.slice(0, 5)}
                                 </span>
-                                <span className="truncate text-muted-foreground">
+                                <span className="truncate" style={{ color: metaColor }}>
                                   {storeName}
                                 </span>
                                 {isConfirmed && (
-                                  <span className="flex-shrink-0 whitespace-nowrap rounded-sm bg-emerald-50 px-0.5 font-bold text-emerald-700">
+                                  <span className="ts-8 font-bold px-0.5 bg-blue-100 text-blue-700 whitespace-nowrap flex-shrink-0">
                                     決定
                                   </span>
                                 )}
                                 {isNearlyFull && (
-                                  <span className="flex-shrink-0 whitespace-nowrap rounded-sm bg-red-50 px-0.5 font-bold text-red-700">
+                                  <span className="ts-8 font-bold px-0.5 bg-orange-100 text-orange-600 whitespace-nowrap flex-shrink-0">
                                     残少
                                   </span>
                                 )}
-                                <span className={cn('ml-auto flex-shrink-0 whitespace-nowrap', capacityClass)}>
+                                <span className={`ml-auto whitespace-nowrap flex-shrink-0 ${isFull ? 'fg-gray-500' : 'fg-gray-600'}`}>
                                   {capacityLabel}
                                 </span>
                               </div>
-                              <div className="font-bold text-foreground overflow-hidden whitespace-nowrap" style={{ textOverflow: 'clip' }}>
+                              <div className="fg-gray-800 overflow-hidden whitespace-nowrap" style={{ textOverflow: 'clip' }}>
                                 {title}
                               </div>
                             </div>
@@ -422,7 +414,7 @@ export const CalendarView = memo(function CalendarView({
                             <div key={slot}>
                               {renderedEvents}
                               <button
-                                className="ts-micro w-full rounded-md border border-dashed border-input bg-white py-1 px-1 text-muted-foreground transition-colors hover:bg-muted touch-manipulation"
+                                className="w-full ts-10 leading-tight py-1 px-1 bg-gray-50 border border-gray-200 fg-gray-600 hover:bg-gray-100 hover:border-gray-300 transition-colors touch-manipulation"
                                 onClick={() => {
                                   const basePath = organizationSlug ? `/${organizationSlug}` : ''
                                   const storeParam = selectedStoreIds.join(',')
@@ -440,7 +432,7 @@ export const CalendarView = memo(function CalendarView({
                           return (
                             <button
                               key={slot}
-                              className="ts-micro w-full rounded-md border border-dashed border-input bg-white py-1 px-1 text-muted-foreground transition-colors hover:bg-muted touch-manipulation"
+                              className="w-full ts-10 leading-tight py-1 px-1 bg-gray-50 border border-gray-200 fg-gray-600 hover:bg-gray-100 hover:border-gray-300 transition-colors touch-manipulation"
                               onClick={() => {
                                 const basePath = organizationSlug ? `/${organizationSlug}` : ''
                                 const storeParam = selectedStoreIds.length > 0 ? selectedStoreIds.join(',') : selectedStore.id

@@ -1,13 +1,14 @@
 /**
  * 元のカレンダー・リスト（#1046 より前の部品）を「空いている公演を探す」の下に出す包み。
- * 2026-10-12 社長決定: カレンダー・リストは元の実装を維持（構造・寸法は元のまま、見た目は新しいトップに合わせる）。
+ * 2026-10-12 社長決定: カレンダー・リストは元の見た目を維持（店舗名・上の操作列・過去日・画像の比率だけ変更）。
  * 操作は元のまま（年月・店舗・満席を非表示・ログイン中は体験済みを非表示）。人数などの新しい絞り込みは効かせない。
  */
 import { useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
 import type { StoreOption } from '@/components/public-top/StorePicker'
-import { storeDisplayName } from '@/lib/publicStoreName'
+import { storeShortDisplayName } from '@/lib/publicStoreName'
+import { getColorFromName } from '@/lib/utils'
 import { CalendarView } from '../CalendarView'
 import { ListView } from '../ListView'
 import { useCalendarData } from '../../hooks/useCalendarData'
@@ -32,8 +33,6 @@ interface ClassicViewProps {
   onHidePlayedChange: (value: boolean) => void
   primaryColor: string
   onCardClick: (scenarioId: string) => void
-  /** リストで公演を押したとき（作品ページを公演選択済みで開く） */
-  onEventClick: (scenarioId: string, eventId: string) => void
 }
 
 /** 過去の月へは戻さない（元の画面と同じ） */
@@ -48,14 +47,17 @@ function useFutureMonthSetter(set: (d: Date) => void) {
 
 export function ClassicCalendar(props: ClassicViewProps) {
   const played = usePlayedFilter()
-  const { hidePlayed, onHidePlayedChange, allEvents, blockedSlots, stores, storeOptions, scenarios, organizationSlug, organizationName, privateBookingDeadlineDays, selectedStoreIds, onStoreIdsChange, hideSoldOut, onHideSoldOutChange, primaryColor, onCardClick, onEventClick } = props
+  const { hidePlayed, onHidePlayedChange, allEvents, blockedSlots, stores, storeOptions, scenarios, organizationSlug, privateBookingDeadlineDays, selectedStoreIds, onStoreIdsChange, hideSoldOut, onHideSoldOutChange, primaryColor, onCardClick } = props
   const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate } = useCalendarData(allEvents, selectedStoreIds, stores, `booking-${organizationSlug}-calendar-month`)
   const onMonthChange = useFutureMonthSetter(setCurrentMonth)
   const storesById = new Map(stores.map((s) => [s.id, s]))
-  // 店舗名はお客様向けの名前（フォレスト①など）
-  const getStoreName = (event: PublicCalendarEvent) => storeDisplayName(event.store_id ? storesById.get(event.store_id) : null, {
-    organizationName, date: event.date, fallback: event.venue,
-  })
+  // 店舗名はお客様向けの短い名前（フォレスト①・馬場(レ)など。無ければ元どおり略称）
+  const getStoreName = (event: PublicCalendarEvent) => storeShortDisplayName(event.store_id ? storesById.get(event.store_id) : null, event.date, event.venue)
+  // 店舗の色（元の見た目）
+  const getStoreColor = (event: PublicCalendarEvent) => {
+    const color = event.store_id ? storesById.get(event.store_id)?.color : null
+    return color ? getColorFromName(color) : '#4F46E5'
+  }
   return (
     <CalendarView
       currentMonth={currentMonth}
@@ -69,8 +71,8 @@ export function ClassicCalendar(props: ClassicViewProps) {
       primaryColor={primaryColor}
       scenarios={scenarios}
       onCardClick={onCardClick}
-      onEventClick={onEventClick}
       getStoreName={getStoreName}
+      getStoreColor={getStoreColor}
       blockedSlots={blockedSlots}
       privateBookingDeadlineDays={privateBookingDeadlineDays}
       organizationSlug={organizationSlug}
@@ -86,7 +88,7 @@ export function ClassicCalendar(props: ClassicViewProps) {
 
 export function ClassicList(props: ClassicViewProps) {
   const played = usePlayedFilter()
-  const { hidePlayed, onHidePlayedChange, allEvents, blockedSlots, stores, storeOptions, scenarios, organizationSlug, organizationName, privateBookingDeadlineDays, selectedStoreIds, onStoreIdsChange, hideSoldOut, onHideSoldOutChange, primaryColor, onEventClick } = props
+  const { hidePlayed, onHidePlayedChange, allEvents, blockedSlots, stores, storeOptions, scenarios, organizationSlug, privateBookingDeadlineDays, selectedStoreIds, onStoreIdsChange, hideSoldOut, onHideSoldOutChange, primaryColor, onCardClick } = props
   const { listViewMonth, setListViewMonth, listViewData, getEventsForDateStore } = useListViewData(allEvents, stores, selectedStoreIds, blockedSlots, `booking-${organizationSlug}-list-month`)
   const onMonthChange = useFutureMonthSetter(setListViewMonth)
   return (
@@ -97,12 +99,12 @@ export function ClassicList(props: ClassicViewProps) {
       onStoreIdsChange={onStoreIdsChange}
       stores={stores}
       storeOptions={storeOptions}
-      organizationName={organizationName}
       primaryColor={primaryColor}
       listViewData={listViewData}
       getEventsForDateStore={getEventsForDateStore}
+      getColorFromName={getColorFromName}
       scenarios={scenarios}
-      onEventClick={onEventClick}
+      onCardClick={onCardClick}
       blockedSlots={blockedSlots}
       privateBookingDeadlineDays={privateBookingDeadlineDays}
       organizationSlug={organizationSlug}
