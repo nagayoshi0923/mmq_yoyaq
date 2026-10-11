@@ -74,10 +74,11 @@ export function getPrivateBookingStoreSlotFeasibility(
   allEvents: EventWithStore[],
   isCustomHoliday: (d: string) => boolean,
   allowSyntheticWhenMissingRow: boolean,
-  preparationMinutes: number = PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
+  preparationMinutes: number = PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES,
+  respectConfiguredHours = false
 ): PrivateBookingStoreSlotFeasibility | null {
   const perSlots = getPerStoreSlotsForDate(targetDateYmd, row, isCustomHoliday, {
-    allowSyntheticWhenMissingRow,
+    allowSyntheticWhenMissingRow, respectConfiguredHours,
   })
   if (!perSlots) return null
   const bounds = perSlots.find((s) => s.key === slotKey)
