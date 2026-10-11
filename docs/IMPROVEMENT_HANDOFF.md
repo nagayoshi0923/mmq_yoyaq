@@ -1,3 +1,9 @@
+## 2026-10-12 / クーポンの「使える店舗」から店舗数を外す（fix/coupon-store-count、staging 向け PR・未取り込み）
+
+- #1070 の「使える店舗: クインズワルツ（東京・埼玉 7 店舗）」がトップの「6 店舗」と食い違った（点検 33 の再発。トップはレンタルスペースを数えない）。数は出さず「使える店舗: クインズワルツの全店舗（東京・埼玉）」にし、押すと店舗名の一覧（お客様向けの名前、馬場(レ)を含む。臨時会場・休止中は除く）が開く（`src/pages/MyPage/components/CouponUsableStores.tsx`）。
+- API は `usable_stores_label` に加えて `usable_store_names` を返す（`src/lib/couponUsableStores.ts` の `couponUsableStores`）。使える店舗を絞ったクーポンは今のまま店舗名を並べ、押せない。
+- 決まり: お客様向けの画面で店舗数を出すときは `countPublicStores`（トップと同じ数え方）だけを使う。別の数え方の数は出さない。
+
 ## 2026-10-12 / クーポンを使える店舗の案内（fix/faq-coupon-scope、staging 向け PR・未取り込み）
 
 - 社長要望: 「本店のクーポンは札幌店では使えない」ことが分かるように。お客様向けの文に「運営」の語は使わない（社長指示）。
