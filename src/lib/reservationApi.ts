@@ -294,7 +294,7 @@ export const reservationApi = {
   },
 
   // 参加人数を変更（顧客向けシンプルAPI）
-  async updateParticipantCount(reservationId: string, newCount: number, sendEmail: boolean = true): Promise<boolean> {
+  async updateParticipantCount(reservationId: string, newCount: number, sendEmail: boolean = true, options?: { onSaved?: () => void; afterSaved?: () => Promise<void> }): Promise<boolean> {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       throw new Error('ログインが必要です')
@@ -302,16 +302,25 @@ export const reservationApi = {
 
     logger.log('人数変更開始:', { reservationId, newCount })
 
-    // 予約情報を取得して料金を再計算
-    const { data: reservation, error: fetchError } = await supabase
-      .from('reservations')
-      .select(`
-        id, reservation_number, unit_price, schedule_event_id, participant_count, customer_id,
-        customer_email, customer_name, title, organization_id, final_price, total_price,
-        schedule_events!schedule_event_id(date, start_time, end_time, scenario, store_id)
-      `)
-      .eq('id', reservationId)
-      .single()
+    // 予約情報と顧客レコードは互いに依存しないので同時に取る（点検 36）
+    const [{ data: reservation, error: fetchError }, { data: customerRow, error: customerErr }] = await Promise.all([
+      // 予約情報を取得して料金を再計算
+      supabase
+        .from('reservations')
+        .select(`
+          id, reservation_number, unit_price, schedule_event_id, participant_count, customer_id,
+          customer_email, customer_name, title, organization_id, final_price, total_price,
+          schedule_events!schedule_event_id(date, start_time, end_time, scenario, store_id)
+        `)
+        .eq('id', reservationId)
+        .single(),
+      // user_id でプラットフォーム共通の顧客レコードを取得（organization_id は不要）
+      supabase
+        .from('customers')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+    ])
 
     if (fetchError || !reservation) {
       logger.error('予約情報取得エラー:', fetchError)
@@ -320,12 +329,6 @@ export const reservationApi = {
 
     logger.log('予約情報取得:', reservation)
 
-    // user_id でプラットフォーム共通の顧客レコードを取得（organization_id は不要）
-    const { data: customerRow, error: customerErr } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle()
     if (customerErr) {
       logger.error('顧客ID取得エラー:', customerErr)
       throw new Error('顧客情報の取得に失敗しました')
@@ -360,17 +363,19 @@ export const reservationApi = {
     }
 
     logger.log('人数変更成功（RPC内で完了）')
+    // 人数は保存済み。画面はここで先へ進めてよい（再計算・メールはこのあと送る。点検 36）
+    try { options?.onSaved?.() } catch (callbackError) { logger.warn('人数変更保存後の画面更新に失敗:', callbackError) }
 
     // schedule_eventsのcurrent_participantsを再計算
-    // ※ RPCで既に更新されているが、念のため再計算
-    if (reservation.schedule_event_id) {
-      try {
-        await recalculateCurrentParticipants(reservation.schedule_event_id)
-        logger.log('参加者数再計算完了')
-      } catch (recalcError) {
-        logger.warn('current_participants再計算エラー:', recalcError)
-      }
-    }
+    // ※ RPCで既に更新されているが、念のため再計算。メールとは独立なので同時に進める
+    const recalc = reservation.schedule_event_id
+      ? recalculateCurrentParticipants(reservation.schedule_event_id)
+        .then(() => logger.log('参加者数再計算完了'))
+        .catch((recalcError) => logger.warn('current_participants再計算エラー:', recalcError))
+      : Promise.resolve()
+    const after = options?.afterSaved
+      ? options.afterSaved().catch((afterError) => logger.error('人数変更後の処理エラー:', afterError))
+      : Promise.resolve()
 
     // 人数変更確認メールを送信
     if (sendEmail && reservation.customer_email) {
@@ -422,6 +427,7 @@ export const reservationApi = {
       }
     }
 
+    await Promise.all([recalc, after])
     return true
   },
 
@@ -527,7 +533,7 @@ export const reservationApi = {
   // メール送信 / Discord 通知 / waitlist 通知などの Edge Function 呼び出しは
   // 引き続きクライアント側で実行する（既存挙動の維持）。
   // options.cancelPrivateEvent: true のとき、紐づく貸切公演(category='private')も中止にする
-  async cancel(id: string, cancellationReason?: string, options?: { skipGroupCancel?: boolean; customEmailBody?: string; skipCancellationEmail?: boolean; cancelledBy?: 'customer' | 'store'; cancelPrivateEvent?: boolean; privateRejectionBody?: string }): Promise<Reservation> {
+  async cancel(id: string, cancellationReason?: string, options?: { skipGroupCancel?: boolean; customEmailBody?: string; skipCancellationEmail?: boolean; cancelledBy?: 'customer' | 'store'; cancelPrivateEvent?: boolean; privateRejectionBody?: string; onSaved?: (reservation: Reservation) => void }): Promise<Reservation> {
     // ⚠️ P1-12: 相関ID — キャンセル→メール→通知を一つのフローとして追跡
     const clog = createCorrelatedLogger(generateCorrelationId(), 'cancel')
     clog.info('キャンセル開始', { reservationId: id })
@@ -560,6 +566,8 @@ export const reservationApi = {
     const data = orchestrated.reservation
     const ctx = orchestrated.contextForNotifications
     const reservation = ctx.reservation
+    // 取消は保存済み。画面はここで先へ進めてよい（通知はこのあと同じ順で送る。点検 36）
+    try { options?.onSaved?.(data) } catch (callbackError) { logger.warn('取消保存後の画面更新に失敗:', callbackError) }
 
     if (reservation?.private_group_id && !options?.skipGroupCancel) {
       clog.info('予約+グループをatomicにキャンセル + システムメッセージ送信', {

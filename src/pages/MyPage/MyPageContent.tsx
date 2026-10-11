@@ -548,18 +548,19 @@ export function MyPageContent({
                   aria-selected={isActive}
                   aria-label={count !== null && count > 0 && COUNT_MEANINGS[item.id] ? `${item.label}（${COUNT_MEANINGS[item.id](count)}）` : item.label}
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-medium transition-all relative ${
+                  className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 min-h-14 py-2 sm:py-4 text-xs sm:text-sm font-medium transition-all relative ${
                     isActive 
                       ? 'text-mypage-primary' 
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   <Icon className="w-5 h-5" aria-hidden="true" />
-                  <span className="hidden sm:inline">{item.label}</span>
+                  {/* スマホでもアイコンの下に文字を出す（点検 40） */}
+                  <span>{item.label}</span>
                   {count !== null && count > 0 && (
                     <span 
                       aria-hidden="true"
-                      className={`text-xs px-1.5 py-0.5 rounded-full ${
+                      className={`absolute top-1 right-1 sm:static text-xs px-1.5 py-0.5 rounded-full ${
                         isActive ? 'text-white bg-mypage-primary' : 'bg-gray-200 text-gray-600'
                       }`}
                     >
@@ -759,13 +760,13 @@ export function MyPageContent({
       {/* フローティングアクションボタン - シャープデザイン */}
       <div className="fixed bottom-6 right-6 z-20">
         <Button 
-          className="w-14 h-14 text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-mypage-primary hover:bg-mypage-primary-hover rounded-none"
-          size="icon"
+          className="h-12 px-4 gap-2 text-sm font-bold text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-mypage-primary hover:bg-mypage-primary-hover rounded-none"
           onClick={() => navigate('/')}
           aria-label="公演を探す（トップへ）"
           title="公演を探す"
         >
-          <Sparkles className="w-6 h-6" aria-hidden="true" />
+          <Sparkles className="w-5 h-5" aria-hidden="true" />
+          公演を探す
         </Button>
       </div>
 

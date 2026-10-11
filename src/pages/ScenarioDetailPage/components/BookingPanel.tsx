@@ -10,6 +10,7 @@ import type { EventSchedule } from '../utils/types'
 import { isWeekendOrHoliday } from '../utils/pricingUtils'
 import { formatJstMonthDay } from '@/utils/jstDate'
 import { loginUrlWithIntent } from '@/lib/authReturn'
+import { PRICE_NOTE } from '@/lib/priceNote'
 
 interface BookingPanelProps {
   /** ログイン画面に「何を予約しようとしているか」を出すため（点検 25） */
@@ -71,6 +72,15 @@ export const BookingPanel = memo(function BookingPanel({
     if (!selectedEvent?.date) return false
     return isWeekendOrHoliday(selectedEvent.date)
   }, [selectedEvent?.date])
+
+  const handleClick = () => {
+    if (!isLoggedIn) {
+      // 未ログイン時は戻り先（選んだ公演と人数入りの URL）を付けてログインへ（#1062）
+      navigate(loginUrlWithIntent('login', authReturnTo(), authIntentLabel))
+      return
+    }
+    onBooking()
+  }
 
   return (
     <div className="space-y-4">
@@ -138,6 +148,7 @@ export const BookingPanel = memo(function BookingPanel({
                   ¥{(participationFee * participantCount).toLocaleString()}
                 </span>
               </div>
+              <p className="ts-caption mt-1" data-testid="scenario-price-note">{PRICE_NOTE}</p>
             </div>
           </CardContent>
         </Card>
@@ -152,29 +163,34 @@ export const BookingPanel = memo(function BookingPanel({
         eventId={selectedEventId}
       />
 
-      {/* 予約確認ボタン */}
-      <Button 
-        className="w-full h-10 text-base"
-        onClick={() => {
-          if (!isLoggedIn) {
-            // 未ログイン時は戻り先（選んだ公演と人数入りの URL）を付けてログインへ
-            navigate(loginUrlWithIntent('login', authReturnTo(), authIntentLabel))
-            return
-          }
-          onBooking()
-        }}
-        disabled={!selectedEventId}
-        style={selectedEventId ? { backgroundColor: selectableMax <= 0 ? '#d97706' : preset.primary } : {}}
+      {/* 予約確認ボタン（スマホでは公演を選ぶと画面下に固定。注意事項の下に埋もれない／点検 18） */}
+      <div
+        className={selectedEventId
+          ? 'fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 px-4 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-lg backdrop-blur md:static md:z-auto md:border-0 md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-none'
+          : undefined}
+        data-testid="booking-cta-bar"
       >
-        {!isLoggedIn 
-          ? 'ログインして予約する' 
-          : !selectedEventId 
-            ? '↓ 日程を選択してください' 
-            : selectableMax <= 0 
-              ? 'キャンセル待ちに登録' 
-              : '予約確認へ進む'}
-      </Button>
-
+        {selectedEventId && (
+          <p className="mb-1 flex items-center justify-between ts-caption md:hidden">
+            <span>{participantCount}名</span>
+            <span className="font-medium text-foreground">合計 ¥{(participationFee * participantCount).toLocaleString()}（税込）</span>
+          </p>
+        )}
+        <Button 
+          className="w-full h-11 text-base"
+          onClick={handleClick}
+          disabled={!selectedEventId}
+          style={selectedEventId ? { backgroundColor: selectableMax <= 0 ? '#d97706' : preset.primary } : {}}
+        >
+          {!isLoggedIn 
+            ? 'ログインして予約する' 
+            : !selectedEventId 
+              ? '↓ 日程を選択してください' 
+              : selectableMax <= 0 
+                ? 'キャンセル待ちに登録' 
+                : '予約確認へ進む'}
+        </Button>
+      </div>
       {/* 未ログイン時の追加案内 */}
       {!isLoggedIn && selectedEventId && (
         <p className="ts-caption text-center">
