@@ -1,4 +1,5 @@
--- 正本: 顧客QA回帰修正（本番取得定義から最小変更）＋ 20261011200000（候補日の order＝送られた優先順・希望店舗は部分集合で可）
+-- 20261011200000 の取り消し: 候補日の order をグループの order_num に、希望店舗をグループの希望店舗と完全一致に戻す（staging の実物と同じ）。
+BEGIN;
 CREATE OR REPLACE FUNCTION public.create_private_booking_request(p_scenario_id uuid, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_participant_count integer, p_candidate_datetimes jsonb, p_notes text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_private_group_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -292,10 +293,9 @@ BEGIN
     RAISE EXCEPTION 'CANDIDATES_AND_REQUESTED_STORES_REQUIRED' USING ERRCODE = 'P0023';
   END IF;
 
-  -- store名を含む保存payloadはDBから再構築する。group経路ではpreferred_store_idsの中から1店舗以上（重複なし）を必須化。
-  -- 2026-10-11: 申込シートで希望店舗の一部だけを送れるようにした（完全一致 → 部分集合）。
+  -- store名を含む保存payloadはDBから再構築する。group経路ではpreferred_store_idsと完全一致を必須化。
   IF p_private_group_id IS NOT NULL
-     AND v_requested_store_count > cardinality(
+     AND v_requested_store_count IS DISTINCT FROM cardinality(
        COALESCE(v_group.preferred_store_ids, '{}'::UUID[])
      )
   THEN
@@ -441,7 +441,7 @@ BEGIN
         WHEN '夜間' THEN 'evening'
         ELSE NULL
       END;
-      -- 2026-10-11: order は送られた並び（主催者が付けた優先順、1 から）。グループの候補日の order_num は使わない。
+      v_candidate_order := v_group_candidate_order;
     END IF;
 
     v_unit_price := public.calculate_booking_participation_fee(
@@ -689,6 +689,4 @@ BEGIN
   RETURN v_reservation_id;
 END;
 $function$;
-
--- 予約画面は通知付き入口へ統一。旧本体の直接呼び出しを許可しない。
-REVOKE EXECUTE ON FUNCTION public.create_private_booking_request(uuid,uuid,text,text,text,integer,jsonb,text,text,uuid) FROM PUBLIC,anon,authenticated;
+COMMIT;

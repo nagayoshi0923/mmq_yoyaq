@@ -1,4 +1,10 @@
--- 正本: 顧客QA回帰修正（本番取得定義から最小変更）＋ 20261011200000（候補日の order＝送られた優先順・希望店舗は部分集合で可）
+-- 貸切グループの申込シート（2026-10-11 社長指摘「必ず 1 つ選んでから次のページで複数選ぶ」をやめる）に合わせた変更。
+-- 1) 候補日の order を「送られた並び（主催者が付けた優先順）」にする。従来はグループの候補日の order_num（登録順）で、
+--    並べ替えても店舗の画面では登録順の番号になっていた。配列の並び・requested_datetime（第 1 候補）は従来から送られた並び。
+--    承認（approve_private_booking）は order ではなく日付・時刻で候補を照合するので影響しない。
+-- 2) グループ経路の希望店舗を「グループの希望店舗と完全一致」から「グループの希望店舗の中から 1 店舗以上（重複なし）」にする。
+--    その日に空きのない店舗を外して送れるようにするため。各店舗がグループの希望店舗に含まれることの確認は従来どおり。
+-- ほかは 20261007100004 の定義（staging の実物）と同じ。
 CREATE OR REPLACE FUNCTION public.create_private_booking_request(p_scenario_id uuid, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_participant_count integer, p_candidate_datetimes jsonb, p_notes text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_private_group_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -689,6 +695,3 @@ BEGIN
   RETURN v_reservation_id;
 END;
 $function$;
-
--- 予約画面は通知付き入口へ統一。旧本体の直接呼び出しを許可しない。
-REVOKE EXECUTE ON FUNCTION public.create_private_booking_request(uuid,uuid,text,text,text,integer,jsonb,text,text,uuid) FROM PUBLIC,anon,authenticated;

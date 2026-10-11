@@ -8,6 +8,7 @@ import { formatJstMonthDay } from '@/utils/jstDate'
 import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
 import type { DateResponse, PrivateGroup } from '@/types'
 import {
+  BOOK_ACTION_LABEL,
   decideGroupAction,
   groupDescription,
   labelOf,
@@ -260,9 +261,8 @@ export type StatusActionKind =
 export interface StatusAction {
   kind: StatusActionKind
   label: string
-  /** book のとき、申込シートで先に選んでおく候補日 */
-  candidateId?: string
 }
+
 
 export interface GroupStatusView {
   action: NextActionKind
@@ -402,13 +402,14 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
       break
     case 'proceed_booking':
       sub = answeredSub
-      highlight = bestLine
+      // 本文はマイページのカードと同じ説明文（複数の候補日を送ると店舗が 1 つ確定する）。最有力の日の 1 文は出さない
       if (input.canMutateSchedule) {
-        primary = best
-          ? { kind: 'book', label: `${rowShortLabel(best)} で店舗に申し込む`, candidateId: best.id }
-          : { kind: 'book', label: '申込に進む' }
+        primary = { kind: 'book', label: BOOK_ACTION_LABEL }
         secondary = [{ kind: 'edit_dates', label: '候補日を編集' }, invite]
+        barAction = primary
+        barLabel = '申し込む ›'
       } else {
+        highlight = bestLine
         secondary = [invite]
       }
       oneLine = [chip, answeredSub, best ? `${rowShortLabel(best)}が有力` : null].filter(Boolean).join('・')

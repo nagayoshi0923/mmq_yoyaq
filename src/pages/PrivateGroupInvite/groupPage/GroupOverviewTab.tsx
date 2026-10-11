@@ -94,7 +94,7 @@ export function GroupOverviewTab(props: GroupOverviewTabProps) {
       <OverviewSection label="店舗とのやりとり" testId="overview-booking" title="店舗とのやりとり">
         {phase === 'pre_request' ? (
           <p className="text-sm text-muted-foreground leading-snug">
-            まだ店舗へ申し込んでいません。日程が決まったら、主催者が「この日で申し込む」から申し込めます。申込後はここに申込日・店舗の返事・予約番号を出します。
+            まだ店舗へ申し込んでいません。日程が決まったら、主催者が「候補日を選んで店舗に申し込む」から候補日を選んで申し込めます。申込後はここに申込日・店舗の返事・予約番号を出します。
           </p>
         ) : bookingSummary}
       </OverviewSection>

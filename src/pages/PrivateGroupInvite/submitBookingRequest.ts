@@ -1,6 +1,8 @@
 /**
- * 貸切グループから店舗へ予約リクエストを送る（主催者の操作）。index.tsx の handleSubmitBooking から中身を変えずに移したもの。
- * 判断は ./bookingRequest.ts の関数、通信と画面の表示（トースト・シートの開閉）はここで行う。
+ * 貸切グループから店舗へ予約リクエストを送る（主催者の操作。申込シート groupPage/booking/BookingRequestSheet から呼ぶ）。
+ * 判断は ./bookingRequest.ts の関数、通信と画面の表示（トースト）はここで行う。
+ * 候補日は選んだ順＝優先順で送る（DB は送られた並びを order 1, 2, … として保存。20261011200000）。
+ * 希望店舗はグループの希望店舗のうち申込シートで選んだもの（DB はグループの希望店舗の中から 1 店舗以上を受け付ける）。
  */
 import { addJstDays } from '@/utils/jstDate'
 import { toast } from 'sonner'
@@ -14,7 +16,6 @@ import { validateCustomerContact } from '@/lib/customerContactValidation'
 import { notificationOutcome } from '@/lib/notificationResult'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import { fetchScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
-import { resolvePrivateGroupBookingParticipantCount } from '@/lib/privateGroupPlayerCap'
 import { formatBlockedCandidateLabel, type PrivateBookingBlockedSlotRow } from '@/lib/privateBookingBlockedSlotAvailability'
 import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
 import { upsertOwnCustomer } from '@/lib/api/customerApi'
@@ -29,60 +30,60 @@ export interface SubmitBookingRequestContext {
   user: { id: string; email?: string | null } | null
   isOrganizer: unknown
   canMutateScheduleBeforeStoreReply: boolean
-  bookingSelectedDates: Set<string>
+  /** 送る候補日の id（優先順） */
+  orderedCandidateIds: ReadonlyArray<string>
   bookingPhone: string
   bookingNotes: string
-  preferredStoreNames: Array<{ id: string; name: string }>
+  /** 送る店舗（グループの希望店舗のうち選んだもの） */
+  requestedStores: Array<{ id: string; name: string }>
+  /** 参加人数（作品の最低〜最大人数の範囲。DB でも確かめる） */
+  participantCount: number
   organizerMember: GroupMember | undefined
   isCustomHoliday: (date: string) => boolean
   setIsSubmittingBooking: (v: boolean) => void
-  closeSheetReplace: () => void
-  setBookingNotes: (v: string) => void
-  setBookingSelectedDates: (v: Set<string>) => void
-  refetch: () => void
 }
 
+/** 送れたら true（シートを閉じて読み直すのは呼び出し側） */
 export async function submitGroupBookingRequest({
-  group, user, isOrganizer, canMutateScheduleBeforeStoreReply, bookingSelectedDates, bookingPhone, bookingNotes,
-  preferredStoreNames, organizerMember, isCustomHoliday, setIsSubmittingBooking, closeSheetReplace, setBookingNotes,
-  setBookingSelectedDates, refetch,
-}: SubmitBookingRequestContext): Promise<void> {
-  if (!isOrganizer || !group || !user) return
+  group, user, isOrganizer, canMutateScheduleBeforeStoreReply, orderedCandidateIds, bookingPhone, bookingNotes,
+  requestedStores, participantCount, organizerMember, isCustomHoliday, setIsSubmittingBooking,
+}: SubmitBookingRequestContext): Promise<boolean> {
+  if (!isOrganizer || !group || !user) return false
   if (!canMutateScheduleBeforeStoreReply) {
     toast.error('店舗の返答待ちのため、予約リクエストを送信できません')
-    return
+    return false
   }
 
-  const selectedCandidateDates = selectBookableCandidates(group.candidate_dates, bookingSelectedDates)
+  const selectedCandidateDates = selectBookableCandidates(group.candidate_dates, orderedCandidateIds)
 
   if (selectedCandidateDates.length === 0) {
     toast.error(
-      bookingSelectedDates.size > 0
+      orderedCandidateIds.length > 0
         ? '却下済みの日程は申請に含められません。有効な候補を選び直してください'
         : '申請する日程を選択してください'
     )
-    return
+    return false
   }
   
   // 電話番号の検証
   if (!bookingPhone.trim()) {
     toast.error('電話番号を入力してください')
-    return
+    return false
   }
   
   try { validateCustomerContact(user.email, bookingPhone) }
-  catch (error) { toast.error((error as Error).message); return }
+  catch (error) { toast.error((error as Error).message); return false }
   setIsSubmittingBooking(true)
   
   try {
     const orgId = group.organization_id
     if (!orgId) {
       toast.error('組織情報が取得できません。ページを再読み込みしてください。')
-      return
+      return false
     }
-    if (preferredStoreNames.length === 0) {
+    if (requestedStores.length === 0) {
       toast.error('希望店舗を1店舗以上選択してください')
-      return
+      return false
     }
 
     // 受付締切（公演日の何日前まで）を過ぎた候補があると、申込全体が DB で拒否される。送る前に知らせる（#506）
@@ -92,10 +93,10 @@ export async function submitGroupBookingRequest({
     const pastDeadline = findPastDeadlineCandidates(selectedCandidateDates, deadlineDays)
     if (pastDeadline.length > 0) {
       toast.error(pastDeadlineMessage(pastDeadline, deadlineDays))
-      return
+      return false
     }
 
-    const requestedStoreIds = preferredStoreNames.map((store) => store.id)
+    const requestedStoreIds = requestedStores.map((store) => store.id)
     const selectedDates = selectedCandidateDates.map((candidate) => candidate.date).sort()
     const availabilityParams: RpcGetPublicPrivateBookingAvailabilityParams = {
       p_organization_id: orgId,
@@ -122,11 +123,11 @@ export async function submitGroupBookingRequest({
       const details = unavailableCandidates.map((candidate) =>
         formatBlockedCandidateLabel(
           { date: candidate.date, timeSlot: candidate.time_slot },
-          preferredStoreNames.map((store) => store.name)
+          requestedStores.map((store) => store.name)
         )
       ).join('、')
       toast.error(`${details} は現在受付停止中または既存公演と競合しています。候補を再選択してください`)
-      return
+      return false
     }
 
     // 顧客情報を取得または作成
@@ -155,21 +156,11 @@ export async function submitGroupBookingRequest({
 
 
     // 候補日時をJSONB形式で準備（終了は営業枠ではなくシナリオ公演時間）
-    const candidateDatetimes = buildCandidateDatetimes(selectedCandidateDates, preferredStoreNames, scenarioTiming, isCustomHoliday)
+    const candidateDatetimes = buildCandidateDatetimes(selectedCandidateDates, requestedStores, scenarioTiming, isCustomHoliday)
     
-    // 参加人数は作品定員。今いるメンバー数で受けると、あとから追加できなくなる。
-    const scenarioForBookingCap = group.scenario_masters as {
-      effective_player_count_max?: number
-      player_count_max?: number
-    } | undefined
-    const scenarioPlayerMax =
-      scenarioForBookingCap?.effective_player_count_max ??
-      scenarioForBookingCap?.player_count_max ??
-      null
-    const bookingParticipantCount = resolvePrivateGroupBookingParticipantCount({
-      scenarioPlayerMax,
-      targetParticipantCount: group.target_participant_count,
-    })
+    // 参加人数は申込シートで決めた人数（登録メンバー＋当日来る人。作品の最低〜最大人数の範囲は DB でも確かめる）。
+    // 申込後のメンバー追加は作品の最大人数まで（予約の人数では止めない）。
+    const bookingParticipantCount = Math.floor(participantCount)
 
     // パラメータの検証
     if (!group.scenario_master_id) {
@@ -217,14 +208,13 @@ export async function submitGroupBookingRequest({
     // 貸切申し込み確認メールを送信
     if (parentReservationId && customerEmail) {
       try {
-        const candidateDatesForEmail = group.candidate_dates
-          ?.filter((cd) => bookingSelectedDates.has(cd.id))
+        const candidateDatesForEmail = selectedCandidateDates
           .map((cd) => ({
             date: cd.date,
             timeSlot: cd.time_slot,
             startTime: cd.start_time,
             endTime: cd.end_time
-          })) || []
+          }))
         
         const { data: emailData, error: emailError } = await supabase.functions.invoke('send-private-booking-request-confirmation', {
           body: {
@@ -235,7 +225,7 @@ export async function submitGroupBookingRequest({
             scenarioTitle: group.scenario_masters?.title || 'シナリオ',
             reservationNumber: baseReservationNumber,
             candidateDates: candidateDatesForEmail,
-            requestedStores: group.preferred_store_ids || [],
+            requestedStores: requestedStoreIds,
             participantCount: bookingParticipantCount,
             estimatedPrice: 0,
             notes: bookingNotes || undefined
@@ -255,14 +245,11 @@ export async function submitGroupBookingRequest({
     }
     
     toast.success('予約リクエストを送信しました')
-    closeSheetReplace()
-    setBookingNotes('')
-    setBookingSelectedDates(new Set())
-    refetch()
-    
+    return true
   } catch (err) {
     logger.error('予約リクエストエラー:', err)
     toast.error(err instanceof Error ? err.message : '予約リクエストの送信に失敗しました')
+    return false
   } finally {
     setIsSubmittingBooking(false)
   }

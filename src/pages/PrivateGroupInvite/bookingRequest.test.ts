@@ -8,10 +8,11 @@ const cand = (id: string, date: string, over: Record<string, unknown> = {}) =>
   ({ id, date, time_slot: '夜', start_time: '19:00', end_time: '22:00', status: 'pending', ...over })
 
 describe('貸切グループからの予約リクエストの判断', () => {
-  it('選んだ候補から却下済みを除く', () => {
+  it('選んだ候補から却下済みを除き、選んだ順（優先順）のまま返す', () => {
     const list = [cand('a', '2026-11-01'), cand('b', '2026-11-02', { status: 'rejected' }), cand('c', '2026-11-03')]
-    expect(selectBookableCandidates(list, new Set(['a', 'b'])).map(c => c.id)).toEqual(['a'])
-    expect(selectBookableCandidates(undefined, new Set(['a']))).toEqual([])
+    expect(selectBookableCandidates(list, ['a', 'b']).map(c => c.id)).toEqual(['a'])
+    expect(selectBookableCandidates(list, ['c', 'x', 'a']).map(c => c.id)).toEqual(['c', 'a'])
+    expect(selectBookableCandidates(undefined, ['a'])).toEqual([])
   })
 
   it('締切日数は読めたときだけ使う', () => {
