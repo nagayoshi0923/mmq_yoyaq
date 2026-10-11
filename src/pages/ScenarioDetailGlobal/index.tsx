@@ -37,6 +37,7 @@ import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { getAvailableSeats } from '@/lib/participantUtils'
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { JsonLd } from '@/components/seo/JsonLd'
+import { isFewSeats, seatCountText } from '@/lib/seatLabel'
 import {
   buildCreativeWorkJsonLd,
   buildEventJsonLd,
@@ -638,7 +639,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                                 </div>
                               </div>
                               <div className="flex items-center gap-3">
-                                {isFull ? <span className="text-sm text-gray-500">満席</span> : <span className={`text-sm font-medium ${available <= 2 ? 'text-red-600' : 'text-gray-600'}`}>残り{available}席</span>}
+                                {isFull ? <span className="text-sm text-gray-500">満席</span> : <span className={`text-sm font-medium ${isFewSeats(available) ? 'text-orange-600' : 'text-gray-600'}`}>{seatCountText(event.current_participants, event.player_count_max)}{isFewSeats(available) && <b className="ml-1">残少</b>}</span>}
                                 <ChevronRight className="w-4 h-4 text-gray-400" />
                               </div>
                             </div>
@@ -672,7 +673,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-3">
-                                    {isFull ? <span className="text-sm text-gray-500">満席</span> : <span className={`text-sm font-medium ${available <= 2 ? 'text-red-600' : 'text-gray-600'}`}>残り{available}席</span>}
+                                    {isFull ? <span className="text-sm text-gray-500">満席</span> : <span className={`text-sm font-medium ${isFewSeats(available) ? 'text-orange-600' : 'text-gray-600'}`}>{seatCountText(event.current_participants, event.player_count_max)}{isFewSeats(available) && <b className="ml-1">残少</b>}</span>}
                                     <ChevronRight className="w-4 h-4 text-gray-400" />
                                   </div>
                                 </div>

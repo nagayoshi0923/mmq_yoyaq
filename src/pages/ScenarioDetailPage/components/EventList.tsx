@@ -6,6 +6,7 @@ import { Bell } from 'lucide-react'
 import type { EventSchedule } from '../utils/types'
 import { formatTime } from '../utils/formatters'
 import { formatJstMonthDay, formatJstWeekday, getJstWeekdayIndex } from '@/utils/jstDate'
+import { isFewSeats, seatCountText } from '@/lib/seatLabel'
 
 interface EventListProps {
   events: EventSchedule[]
@@ -115,8 +116,13 @@ export const EventList = memo(function EventList({
                           開催決定
                         </Badge>
                       )}
+                      {isFewSeats(event.available_seats) && (
+                        <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-600 border-orange-200">
+                          残少
+                        </Badge>
+                      )}
                       <div className="text-xs text-muted-foreground whitespace-nowrap">
-                        残り<span className="font-semibold text-foreground">{event.available_seats}</span>人
+                        <span className="font-semibold text-foreground">{seatCountText(event.current_participants, event.max_participants)}</span>
                       </div>
                     </div>
                     <Button
