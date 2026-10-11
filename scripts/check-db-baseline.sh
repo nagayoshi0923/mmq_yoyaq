@@ -29,6 +29,8 @@ base['functions'].update(overrides)
 from pathlib import Path
 table_fixture=Path('supabase/structure/expected-table-overrides.json')
 if table_fixture.exists(): base['tables'].update(json.loads(table_fixture.read_text()))
+view_fixture=Path('supabase/structure/expected-view-overrides.json')
+if view_fixture.exists(): base['views'].update(json.loads(view_fixture.read_text()))
 with open(sys.argv[3], 'w') as out: json.dump(base,out)
 PY_EXPECTED
   EXPECTED_STRUCTURE="$EXPECTED_TEMP"

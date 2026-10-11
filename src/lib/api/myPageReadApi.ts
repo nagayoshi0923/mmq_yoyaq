@@ -5,6 +5,7 @@
  * 絞り込み条件・select の列・戻り値（{ data, error }）は元の呼び出しのまま。
  */
 import { supabase } from '@/lib/supabase'
+import { toCustomerStoreRow } from '@/lib/publicStoreName'
 import { RESERVATION_STATUSES_BLOCKING_WITHDRAWAL } from '@/lib/reservationWithdrawalGuard'
 
 export const myPageSettingsReadApi = {
@@ -148,9 +149,10 @@ export const myPageDataReadApi = {
     return supabase.rpc('get_private_group_schedules', { p_group_ids: groupIds })
   },
 
-  /** 店舗の名前・住所・色を id で */
+  /** 店舗の名前・住所・色を id で（名前はお客様向けの名前に置き換える） */
   async listStoresByIds(ids: string[]) {
-    return supabase.from('stores').select('id, name, address, color').in('id', ids)
+    const result = await supabase.from('stores').select('id, name, address, color, public_name, organizations(name)').in('id', ids)
+    return { ...result, data: result.data ? result.data.map(toCustomerStoreRow) : result.data }
   },
 
   /** 公開中のシナリオ（題名順） */
@@ -183,9 +185,10 @@ export const myPageReservationReadApi = {
       .maybeSingle()
   },
 
-  /** 店舗の名前・住所 */
+  /** 店舗の名前・住所（名前はお客様向けの名前に置き換える） */
   async findStore(storeId: string) {
-    return supabase.from('stores').select('id, name, address').eq('id', storeId).single()
+    const result = await supabase.from('stores').select('id, name, address, public_name, organizations(name)').eq('id', storeId).single()
+    return { ...result, data: result.data ? toCustomerStoreRow(result.data) : result.data }
   },
 
   /** 店舗の予約設定（キャンセル規定・期限） */

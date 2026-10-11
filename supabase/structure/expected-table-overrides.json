@@ -4239,5 +4239,348 @@
     "type": "f"
    }
   ]
+ },
+ "stores": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "name",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "short_name",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "address",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "phone_number",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "email",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "opening_date",
+    "type": "date",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "manager_name",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "status",
+    "type": "text",
+    "default": "'active'::text",
+    "not_null": true
+   },
+   {
+    "name": "capacity",
+    "type": "integer",
+    "default": "0",
+    "not_null": true
+   },
+   {
+    "name": "rooms",
+    "type": "integer",
+    "default": "1",
+    "not_null": true
+   },
+   {
+    "name": "notes",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "color",
+    "type": "text",
+    "default": "'#3B82F6'::text",
+    "not_null": true
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": false
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": false
+   },
+   {
+    "name": "fixed_costs",
+    "type": "jsonb",
+    "default": "'[]'::jsonb",
+    "not_null": false
+   },
+   {
+    "name": "ownership_type",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "franchise_fee",
+    "type": "integer",
+    "default": "1000",
+    "not_null": false
+   },
+   {
+    "name": "is_temporary",
+    "type": "boolean",
+    "default": "false",
+    "not_null": false
+   },
+   {
+    "name": "temporary_date",
+    "type": "date",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "temporary_dates",
+    "type": "jsonb",
+    "default": "'[]'::jsonb",
+    "not_null": false
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "display_order",
+    "type": "integer",
+    "default": "999",
+    "not_null": false
+   },
+   {
+    "name": "region",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "temporary_venue_names",
+    "type": "jsonb",
+    "default": "'{}'::jsonb",
+    "not_null": false
+   },
+   {
+    "name": "transport_allowance",
+    "type": "integer",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "kit_group_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "venue_cost_per_performance",
+    "type": "integer",
+    "default": "0",
+    "not_null": false
+   },
+   {
+    "name": "access_info",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "kit_fixed",
+    "type": "boolean",
+    "default": "false",
+    "not_null": false
+   },
+   {
+    "name": "franchise_fee_type",
+    "type": "text",
+    "default": "'fixed'::text",
+    "not_null": true
+   },
+   {
+    "name": "franchise_fee_percent",
+    "type": "numeric(5,2)",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "public_name",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_stores_display_order ON public.stores USING btree (display_order)",
+    "name": "idx_stores_display_order"
+   },
+   {
+    "def": "CREATE INDEX idx_stores_kit_group_id ON public.stores USING btree (kit_group_id)",
+    "name": "idx_stores_kit_group_id"
+   },
+   {
+    "def": "CREATE INDEX idx_stores_organization_id ON public.stores USING btree (organization_id)",
+    "name": "idx_stores_organization_id"
+   },
+   {
+    "def": "CREATE INDEX idx_stores_status ON public.stores USING btree (status)",
+    "name": "idx_stores_status"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX stores_id_organization_id_key ON public.stores USING btree (id, organization_id)",
+    "name": "stores_id_organization_id_key"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX stores_pkey ON public.stores USING btree (id)",
+    "name": "stores_pkey"
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "d",
+    "name": "org_scope_restrict_delete",
+    "check": null,
+    "roles": [
+     "authenticated"
+    ],
+    "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+    "permissive": false
+   },
+   {
+    "cmd": "a",
+    "name": "org_scope_restrict_insert",
+    "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+    "roles": [
+     "authenticated"
+    ],
+    "using": null,
+    "permissive": false
+   },
+   {
+    "cmd": "w",
+    "name": "org_scope_restrict_update",
+    "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+    "roles": [
+     "authenticated"
+    ],
+    "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+    "permissive": false
+   },
+   {
+    "cmd": "d",
+    "name": "stores_delete_admin",
+    "check": null,
+    "roles": null,
+    "using": "(is_admin() AND (organization_id = get_user_organization_id()))",
+    "permissive": true
+   },
+   {
+    "cmd": "a",
+    "name": "stores_insert_org_scoped",
+    "check": "((organization_id = get_user_organization_id()) AND is_admin())",
+    "roles": null,
+    "using": null,
+    "permissive": true
+   },
+   {
+    "cmd": "r",
+    "name": "stores_select_public",
+    "check": null,
+    "roles": null,
+    "using": "true",
+    "permissive": true
+   },
+   {
+    "cmd": "r",
+    "name": "stores_select_public_safe",
+    "check": null,
+    "roles": null,
+    "using": "true",
+    "permissive": true
+   },
+   {
+    "cmd": "w",
+    "name": "stores_update_admin",
+    "check": null,
+    "roles": null,
+    "using": "(is_admin() AND (organization_id = get_user_organization_id()))",
+    "permissive": true
+   }
+  ],
+  "triggers": [
+   {
+    "def": "CREATE TRIGGER trigger_audit_stores AFTER INSERT OR DELETE OR UPDATE ON public.stores FOR EACH ROW EXECUTE FUNCTION audit_generic_changes()",
+    "name": "trigger_audit_stores"
+   },
+   {
+    "def": "CREATE TRIGGER update_stores_updated_at BEFORE UPDATE ON public.stores FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "name": "update_stores_updated_at"
+   }
+  ],
+  "constraints": [
+   {
+    "def": "CHECK ((franchise_fee_type = ANY (ARRAY['fixed'::text, 'percent'::text])))",
+    "name": "stores_franchise_fee_type_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (kit_group_id) REFERENCES stores(id) ON DELETE SET NULL",
+    "name": "stores_kit_group_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id)",
+    "name": "stores_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((ownership_type = ANY (ARRAY['corporate'::text, 'franchise'::text, 'office'::text])))",
+    "name": "stores_ownership_type_check",
+    "type": "c"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "stores_pkey",
+    "type": "p"
+   },
+   {
+    "def": "CHECK ((status = ANY (ARRAY['active'::text, 'temporarily_closed'::text, 'closed'::text])))",
+    "name": "stores_status_check",
+    "type": "c"
+   }
+  ]
  }
 }

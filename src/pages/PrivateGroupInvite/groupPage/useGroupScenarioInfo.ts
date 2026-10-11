@@ -30,7 +30,7 @@ async function fetchGroupScenarioData(scenarioMasterId: string | null, organizat
       })
       : Promise.resolve(null),
     privateGroupPageReadApi.findOrganizationSlug(organizationId),
-    storeApi.getAllPublic(organizationId).catch(err => {
+    storeApi.getAllPublicForCustomer(organizationId).catch(err => {
       logger.warn('[group-scenario-info] 店舗の公開情報を読めませんでした', err)
       return []
     }),

@@ -1,627 +1,202 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+/**
+ * 店舗（組織）の予約サイトトップ
+ * @path /{organizationSlug}
+ *
+ * 2026-10 刷新（社長承認の見本 Top.dc.html）: 上の帯 → 空いている公演を探す → 残りわずか → 貸切 → 作品から探す → はじめての方へ。
+ * 旧ラインナップ／カレンダー／リストの 3 タブは廃止。旧 /{org}/calendar・/{org}/list は「日付を選ぶ」へ送る。
+ * 方針: docs/product-spec/トップページ刷新_2026-10.md
+ */
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { logger } from '@/utils/logger'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { useAuth } from '@/contexts/AuthContext'
-import { getColorFromName } from '@/lib/utils'
-import { BOOKING_THEME, MYPAGE_THEME as THEME } from '@/lib/theme'
-import { Sparkles, MapPin, Store, BookOpen, Flame, RefreshCw, HelpCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { useBookingData } from './hooks/useBookingData'
-import { useCalendarData } from './hooks/useCalendarData'
-import { useListViewData } from './hooks/useListViewData'
-import { useBookingFilters } from './hooks/useBookingFilters'
-import { useFavorites } from '@/hooks/useFavorites'
-import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
-import { PlayedRegistrationDialog } from '@/components/modals/PlayedRegistrationDialog'
-import { showToast } from '@/utils/toast'
-import { useStoreFilterPreference } from '@/hooks/useUserPreference'
-import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
-import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
-import { SearchBar } from './components/SearchBar'
-import { LineupView } from './components/LineupView'
-import { CalendarView } from './components/CalendarView'
-import { ListView } from './components/ListView'
-import { ScenarioCard } from './components/ScenarioCard'
 import { Footer } from '@/components/layout/Footer'
-import { getOptimizedImageUrl } from '@/utils/imageUtils'
+import { useAuth } from '@/contexts/AuthContext'
+import { BOOKING_THEME } from '@/lib/theme'
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { orgBookingDescription, orgBookingTitle } from '@/lib/seo'
+import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
+import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
+import { autoOrganizationTagline } from '@/lib/publicStoreName'
+import { nearlyFullPerformances, performanceDetailPath, todayJst, type PublicPerformance } from '@/lib/publicPerformanceSearch'
+import { formatJstMonthDay, jstMonthDateRange } from '@/utils/jstDate'
+import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top/InfoSections'
+import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
+import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
+import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
+import { useBookingData } from './hooks/useBookingData'
+import { useStoreTopPerformances } from './hooks/useStoreTopPerformances'
+import { StoreHero } from './components/top/StoreHero'
+import { StoreSearchSection } from './components/top/StoreSearchSection'
 
-const DEFAULT_PUBLIC_BOOKING_HERO =
-  'リアルな謎解き体験。あなたは事件の真相を暴けるか？'
+const DEFAULT_HERO_COLOR = '#1f2a2e'
+/** 遊びたいリストの登録がこの数以上なら「人気」 */
+const POPULAR_FAVORITES = 10
 
 interface PublicBookingTopProps {
+  /** 旧 3 タブ時代の受け口（作品カードは URL で開くので使わない） */
   onScenarioSelect?: (scenarioId: string) => void
-  organizationSlug?: string  // 組織slug（パス方式用）
+  organizationSlug?: string
 }
 
-export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicBookingTopProps) {
-  const { user, isStaff } = useAuth()
+/** 取得範囲（今日から 3 か月後の月末まで。useBookingData と同じ） */
+function dataEndDate(today: string): string {
+  const y = Number(today.slice(0, 4))
+  const m = Number(today.slice(5, 7)) + 2
+  return jstMonthDateRange(y + Math.floor((m - 1) / 12), ((m - 1) % 12) + 1).end
+}
+
+function useNowMs(): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(t)
+  }, [])
+  return now
+}
+
+export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
+  const { isStaff } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const shouldShowNavigation = isStaff
+  const slug = organizationSlug ?? ''
+  const nowMs = useNowMs()
+  const today = todayJst(new Date(nowMs))
+  const maxDate = useMemo(() => dataEndDate(today), [today])
 
-  // 詳細ページから戻ったときカレンダー／リストの表示月を維持する（sessionStorage）
-  const bookingViewPersistSlug = organizationSlug ?? 'platform'
-  const calendarMonthStorageKey = `booking-${bookingViewPersistSlug}-calendar-month`
-  const listMonthStorageKey = `booking-${bookingViewPersistSlug}-list-month`
-  
-  // 使い方ガイド
-  
-  // タブ状態（URLパスと連携）
-  const [activeTab, setActiveTab] = useState(() => {
-    const pathname = window.location.pathname
-    if (pathname.includes('/calendar')) return 'calendar'
-    if (pathname.includes('/list')) return 'list'
-    return 'lineup'
-  })
-
-  // URLパス変更時にタブ状態を同期（ブラウザバック対応）
-  useEffect(() => {
-    const pathname = location.pathname
-    if (pathname.includes('/calendar')) {
-      setActiveTab('calendar')
-    } else if (pathname.includes('/list')) {
-      setActiveTab('list')
-    } else {
-      setActiveTab('lineup')
-    }
-  }, [location.pathname])
-
-  // 店舗フィルター（アカウントごとに保存、複数選択対応）
-  const [selectedStoreIds, setSelectedStoreIds] = useStoreFilterPreference([])
-  const [isStoreFilterInitialized, setIsStoreFilterInitialized] = useState(false)
-
-  // データ取得フック
-  const { 
-    scenarios, 
-    allEvents, 
-    blockedSlots, 
-    stores, 
-    privateBookingDeadlineDays, 
+  const {
+    scenarios,
+    allEvents,
+    stores,
     isLoading,
     isFetching,
     loadData,
     organizationNotFound,
+    organizationId,
     organizationName,
     organizationHeaderImageUrl,
     organizationPublicBookingHeroDescription,
     organizationThemeColor,
   } = useBookingData(organizationSlug)
 
-  // 組織設定のテーマカラーがあればそれを使用、なければデフォルト
-  const heroBgColor = organizationThemeColor || THEME.primary
+  const { state: search, update: updateSearch } = usePerformanceSearchParams()
+  const { performances, storeOptions, nextDates } = useStoreTopPerformances({
+    allEvents, stores, organizationId, organizationSlug: slug, organizationName, nowMs,
+  })
+  const nearlyFull = useMemo(() => nearlyFullPerformances(performances, nowMs), [performances, nowMs])
 
-  const heroDescription = useMemo(() => {
-    return organizationPublicBookingHeroDescription?.trim() || DEFAULT_PUBLIC_BOOKING_HERO
-  }, [organizationPublicBookingHeroDescription])
+  const tagline = useMemo(
+    () => organizationPublicBookingHeroDescription?.trim() || autoOrganizationTagline(stores),
+    [organizationPublicBookingHeroDescription, stores],
+  )
+  const primaryColor = BOOKING_THEME.primary
 
   usePageMeta({
     title: organizationName ? orgBookingTitle(organizationName) : 'マーダーミステリー予約 | MMQ',
-    description: organizationName ? orgBookingDescription(organizationName) : heroDescription,
+    description: organizationName ? orgBookingDescription(organizationName) : tagline,
     canonicalPath: organizationSlug ? `/${organizationSlug}` : '/',
   })
-  
-  useReportRouteScrollRestoration('public-booking-top', {
-    isLoading,
-    isFetching,
-  })
-  
-  // 店舗データがロードされたら、保存されたフィルターを検証（存在しない店舗IDの場合はリセット）
-  useEffect(() => {
-    if (stores.length > 0 && !isStoreFilterInitialized) {
-      // 保存されたフィルターが有効か確認（存在しない店舗IDを除外）
-      if (selectedStoreIds.length > 0) {
-        const validIds = selectedStoreIds.filter(id => stores.some(s => s.id === id))
-        if (validIds.length !== selectedStoreIds.length) {
-          setSelectedStoreIds(validIds)
-        }
-      }
-      // 保存がない場合はデフォルトで全店舗選択（臨時会場を除く）
-      if (selectedStoreIds.length === 0) {
-        const regularStores = stores.filter(s => !s.is_temporary)
-        setSelectedStoreIds(regularStores.map(s => s.id))
-      }
-      setIsStoreFilterInitialized(true)
-    }
-  }, [stores, isStoreFilterInitialized, selectedStoreIds, setSelectedStoreIds])
-
-  // 店舗フィルター変更ハンドラ（useStoreFilterPreferenceで自動保存）
-  const handleStoreIdsChange = useCallback((storeIds: string[]) => {
-    setSelectedStoreIds(storeIds)
-  }, [setSelectedStoreIds])
-
-  // カレンダーデータフック
-  const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate, canGoToPrevMonth } = useCalendarData(
-    allEvents,
-    selectedStoreIds,
-    stores,
-    calendarMonthStorageKey
-  )
-
-  // 過去月へのナビゲーションを防止するラッパー関数
-  const handleMonthChange = useCallback((newMonth: Date) => {
-    const today = new Date()
-    const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-    const targetMonthStart = new Date(newMonth.getFullYear(), newMonth.getMonth(), 1)
-    
-    // 過去月への変更を防止
-    if (targetMonthStart < currentMonthStart) {
-      return
-    }
-    setCurrentMonth(newMonth)
-  }, [setCurrentMonth])
-
-  // リストビューデータフック
-  const { listViewMonth, setListViewMonth, listViewData, getEventsForDateStore } = useListViewData(
-    allEvents,
-    stores,
-    selectedStoreIds,
-    blockedSlots,
-    listMonthStorageKey
-  )
-
-  // リストビュー用の過去月ナビゲーション防止
-  const handleListViewMonthChange = useCallback((newMonth: Date) => {
-    const today = new Date()
-    const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-    const targetMonthStart = new Date(newMonth.getFullYear(), newMonth.getMonth(), 1)
-    
-    if (targetMonthStart < currentMonthStart) {
-      return
-    }
-    setListViewMonth(newMonth)
-  }, [setListViewMonth])
-
-  // 検索キーワード（詳細から戻ったときに復元）
-  const lineupSearchStorageKey = `booking-${bookingViewPersistSlug}-lineup-search`
-  const [searchTerm, setSearchTerm] = useState(() => {
-    try {
-      return sessionStorage.getItem(lineupSearchStorageKey) ?? ''
-    } catch {
-      return ''
-    }
-  })
+  useReportRouteScrollRestoration('public-booking-top', { isLoading, isFetching })
 
   useEffect(() => {
-    const t = window.setTimeout(() => {
-      try {
-        sessionStorage.setItem(lineupSearchStorageKey, searchTerm)
-      } catch {
-        /* ignore */
-      }
-    }, 300)
-    return () => window.clearTimeout(t)
-  }, [searchTerm, lineupSearchStorageKey])
-  
-  // お気に入り機能
-  const { isFavorite, toggleFavorite } = useFavorites()
-  const { isPlayed, customerId: playedCustomerId, customerIds: playedCustomerIds, markAsPlayed, unmarkAsPlayed, playedScenarioIds } = usePlayedScenarios()
-  const [playedDialogTarget, setPlayedDialogTarget] = useState<{ id: string; title: string } | null>(null)
-  const [togglingPlayedIds, setTogglingPlayedIds] = useState<Set<string>>(new Set())
-
-  const handleTogglePlayed = useCallback((id: string, title: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!user) {
-      showToast.error('ログインが必要です')
-      return
-    }
-    if (isPlayed(id)) {
-      if (togglingPlayedIds.has(id)) return
-      setTogglingPlayedIds(prev => new Set(prev).add(id))
-      unmarkAsPlayed(id)
-        .then(() => showToast.success('未体験に戻しました'))
-        .catch((error) => {
-          logger.error('未体験変更エラー:', error)
-          showToast.error('未体験への変更に失敗しました')
-        })
-        .finally(() => setTogglingPlayedIds(prev => {
-          const next = new Set(prev)
-          next.delete(id)
-          return next
-        }))
-      return
-    }
-    setPlayedDialogTarget({ id, title })
-  }, [user, isPlayed, togglingPlayedIds, unmarkAsPlayed])
-
-  // カレンダー・リスト用の表示フィルタ
-  const [hideSoldOut, setHideSoldOut] = useState(false)
-  const [hidePlayed, setHidePlayed] = useState(false)
-  
-  // 組織情報（店舗数・所在地）
-  const orgInfo = useMemo(() => {
-    const regularStores = stores.filter((s) => !s.is_temporary && s.status !== 'inactive')
-    const storeCount = regularStores.length
-    // 重複しない地域名を取得
-    const regions = Array.from(new Set(
-      regularStores
-        .map((s) => s.region)
-        .filter((r: string | null): r is string => !!r)
-    ))
-    // 住所から地域を抽出（regionがない場合のフォールバック）
-    const addresses = regions.length > 0 ? regions : Array.from(new Set(
-      regularStores
-        .map((s) => {
-          if (!s.address) return null
-          // 「東京都新宿区...」→「東京都新宿区」のように市区町村まで抽出
-          const match = s.address.match(/^(.+?[都道府県])(.+?[市区町村郡])/)
-          return match ? `${match[1]}${match[2]}` : s.address.slice(0, 10)
-        })
-        .filter((a: string | null): a is string => !!a)
-    ))
-    return { storeCount, regions: addresses, scenarioCount: scenarios.length }
-  }, [stores, scenarios])
-  
-  // フィルタリングフック
-  const { newScenarios, upcomingScenarios, allScenarios, nearlyConfirmed } = useBookingFilters(scenarios, searchTerm)
-  
-  // お気に入りトグルハンドラ（メモ化）
-  const handleToggleFavorite = useCallback((scenarioId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    toggleFavorite(scenarioId)
-  }, [toggleFavorite])
-
-  // 初期データロード
-  useEffect(() => {
-    loadData().catch((error) => {
-      logger.error('PublicBookingTop データ取得エラー:', error)
-    })
+    loadData().catch((error) => logger.error('PublicBookingTop データ取得エラー:', error))
   }, [loadData])
 
-  // タブ変更時にURL更新（メモ化）
-  const handleTabChange = useCallback((value: string) => {
-    setActiveTab(value)
-    const basePath = organizationSlug ? `/${organizationSlug}` : ''
-    if (value === 'calendar') {
-      navigate(`${basePath}/calendar`)
-    } else if (value === 'list') {
-      navigate(`${basePath}/list`)
-    } else {
-      navigate(basePath)
+  // 旧 3 タブの URL（/calendar・/list）は「日付を選ぶ」へ、/private-booking は貸切の区画へ
+  const legacySub = location.pathname.match(/^\/[^/]+\/(calendar|list|private-booking)\/?$/)?.[1]
+  useEffect(() => {
+    if (!legacySub || !slug) return
+    if (legacySub === 'private-booking') {
+      navigate(`/${slug}`, { replace: true })
+      window.setTimeout(() => document.getElementById('private-booking')?.scrollIntoView({ behavior: 'smooth' }), 300)
+      return
     }
-  }, [organizationSlug, navigate])
+    navigate(`/${slug}?when=date`, { replace: true })
+  }, [legacySub, slug, navigate])
 
-  // シナリオカードクリック（メモ化）
-  // ScenarioCardからはslug（またはID）が渡される
-  const handleCardClick = useCallback((slugOrId: string, eventDate?: string, eventTime?: string) => {
+  const scrollTo = useCallback((id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+  }, [])
+
+  const openPerformance = useCallback((p: PublicPerformance) => {
     saveScrollPositionForCurrentUrl()
-    if (onScenarioSelect) {
-      onScenarioSelect(slugOrId)
-    } else {
-      // 日付・時間パラメータがあれば追加
-      const params = new URLSearchParams()
-      if (eventDate) params.set('date', eventDate)
-      if (eventTime) params.set('time', eventTime)
-      const query = params.toString() ? `?${params.toString()}` : ''
-      // 組織slugがあれば予約サイト形式、なければグローバル形式
-      if (organizationSlug) {
-        navigate(`/${organizationSlug}/scenario/${slugOrId}${query}`)
-      } else {
-        navigate(`/scenario-detail/${slugOrId}${query}`)
-      }
-    }
-  }, [onScenarioSelect, organizationSlug, navigate])
+    navigate(performanceDetailPath(p, search.people))
+  }, [navigate, search.people])
 
-  // 店舗名取得（メモ化）- 組織ページでは略称を優先
-  const getStoreName = useCallback((event: any): string => {
-    if (event.stores) {
-      return event.stores.short_name || event.stores.name || '店舗不明'
+  const browseScenarios = useMemo<BrowseScenario[]>(() => scenarios.map((s) => {
+    const next = nextDates.get(s.scenario_id) ?? null
+    return {
+      id: s.scenario_id,
+      title: s.scenario_title,
+      key_visual_url: s.key_visual_url,
+      genres: s.genre,
+      player_count_min: s.player_count_min,
+      player_count_max: s.player_count_max,
+      is_new: !!s.is_new || s.genre.includes('新作'),
+      is_popular: !!s.is_recommended || (s.favorite_count ?? 0) >= POPULAR_FAVORITES || s.genre.includes('オススメ'),
+      next_date: next,
+      note: next ? `次回 ${formatJstMonthDay(next)}` : '貸切で遊べます',
+      path: `/${slug}/scenario/${s.scenario_slug || s.scenario_id}`,
     }
-    return event.store_short_name || event.store_name || '店舗不明'
-  }, [])
+  }), [scenarios, nextDates, slug])
 
-  // 店舗カラー取得（メモ化）
-  const getStoreColor = useCallback((event: any): string => {
-    if (event.stores?.color) {
-      return getColorFromName(event.stores.color)
-    }
-    if (event.store_color) {
-      return getColorFromName(event.store_color)
-    }
-    return '#4F46E5'
-  }, [])
-
-
-  // 組織が見つからない場合のエラー表示
   if (organizationNotFound) {
     return (
       <div className="booking-shell min-h-screen bg-background">
         <Header />
-        <div className="container mx-auto max-w-7xl px-4 md:px-6 py-16">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">ページが見つかりません</h1>
-            <p className="text-gray-600 mb-8">
-              指定されたページは存在しないか、現在利用できません。
-            </p>
-            <a 
-              href="/" 
-              className={`inline-flex items-center justify-center px-6 py-3 transition-colors ${BOOKING_THEME.classes.button}`}
-            >
-              MMQトップページへ
-            </a>
-          </div>
+        <div className="container mx-auto max-w-7xl px-4 py-16 text-center md:px-6">
+          <h1 className="mb-4 text-2xl font-bold">ページが見つかりません</h1>
+          <p className="mb-8 text-muted-foreground">指定されたページは存在しないか、現在利用できません。</p>
+          <a href="/" className={`inline-flex items-center justify-center px-6 py-3 transition-colors ${BOOKING_THEME.classes.button}`}>
+            MMQトップページへ
+          </a>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="booking-shell min-h-screen bg-background">
+    <div className="booking-shell min-h-screen bg-muted/40">
       <Header />
-      {shouldShowNavigation && (
-        <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
-      )}
+      {isStaff && <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />}
 
-      {/* ヒーローセクション - 背景画像対応 */}
-      <section 
-        className="relative overflow-hidden"
-        style={{ backgroundColor: heroBgColor }}
-      >
-        {/* 背景画像（設定されている場合） */}
-        {organizationHeaderImageUrl && (
-          <>
-            <img 
-              src={getOptimizedImageUrl(organizationHeaderImageUrl, { width: 1200, format: 'webp', quality: 80 }) || organizationHeaderImageUrl} 
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover"
-              onError={(e) => {
-                if (organizationHeaderImageUrl && e.currentTarget.src !== organizationHeaderImageUrl) {
-                  e.currentTarget.src = organizationHeaderImageUrl
-                }
-              }}
-            />
-            {/* 暗いオーバーレイで文字を読みやすく */}
-            <div className="absolute inset-0 bg-black/50" />
-          </>
-        )}
-        
-        {/* アクセント装飾（背景画像がない場合のみ表示） */}
-        {!organizationHeaderImageUrl && (
-          <>
-            <div 
-              className="absolute top-0 right-0 w-48 h-48 opacity-20"
-              style={{
-                background: `radial-gradient(circle at center, ${heroBgColor} 0%, transparent 70%)`,
-                transform: 'translate(30%, -30%)'
-              }}
-            />
-            <div
-              className="absolute bottom-0 left-0 w-1 h-12"
-              style={{ backgroundColor: heroBgColor }}
-            />
-          </>
-        )}
-        
-        <div className="container mx-auto max-w-7xl px-4 md:px-6 py-8 md:py-12 relative">
-          <div className="text-white" style={{ textShadow: organizationHeaderImageUrl ? '0 2px 4px rgba(0,0,0,0.5)' : 'none' }}>
-            {/* アクセントバッジ（組織名があるときのみ） */}
-            {organizationName && (
-              <div
-                className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-medium mb-2"
-                style={{ backgroundColor: heroBgColor, color: '#fff', opacity: 0.85 }}
-              >
-                <Sparkles className="w-2.5 h-2.5" />
-                {organizationName.toUpperCase()}
-              </div>
-            )}
-            
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight">
-              {organizationName || 'MMQ'}
-            </h1>
-            <p className="ts-body text-white/90 mb-3 max-w-xl leading-relaxed text-pretty">
-              {heroDescription}
-            </p>
-            
-            {/* 組織情報 + アクセスボタン */}
-            {!isLoading && (orgInfo.storeCount > 0 || orgInfo.scenarioCount > 0) && (
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/70">
-                  {orgInfo.storeCount > 0 && (
-                    <span className="inline-flex items-center gap-1">
-                      <Store className="w-3 h-3" />
-                      {orgInfo.storeCount}店舗
-                    </span>
-                  )}
-                  {orgInfo.scenarioCount > 0 && (
-                    <span className="inline-flex items-center gap-1">
-                      <BookOpen className="w-3 h-3" />
-                      {orgInfo.scenarioCount}タイトル
-                    </span>
-                  )}
-                  {orgInfo.regions.length > 0 && (
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
-                      {orgInfo.regions.join(' / ')}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => navigate('/guide')}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white/15 hover:bg-white/25 text-white transition-colors"
-                  >
-                    <HelpCircle className="w-3 h-3" />
-                    はじめての方へ
-                  </button>
-                  {orgInfo.storeCount > 0 && (
-                    <button
-                      onClick={() => document.getElementById('store-access')?.scrollIntoView({ behavior: 'smooth' })}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white/15 hover:bg-white/25 text-white transition-colors"
-                    >
-                      <MapPin className="w-3 h-3" />
-                      アクセス
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+      <StoreHero
+        name={organizationName || (isLoading ? '' : 'MMQ')}
+        tagline={isLoading && stores.length === 0 ? '' : tagline}
+        backgroundColor={organizationThemeColor || DEFAULT_HERO_COLOR}
+        headerImageUrl={organizationHeaderImageUrl}
+        onFirstTime={() => navigate('/guide')}
+        onAccess={() => scrollTo('store-access')}
+        onPrivate={() => scrollTo('private-booking')}
+      />
 
-      {/* 検索バー - スクロール時に固定 */}
-      <div className="bg-white border-b sticky top-0 z-30 shadow-sm">
-        <div className="container mx-auto max-w-7xl px-4 md:px-6 py-2">
-          <div className="flex items-center gap-2">
-            <div className="flex-1 min-w-0">
-              <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} organizationSlug={organizationSlug} themeColor={heroBgColor} />
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isFetching}
-              title="ページ先頭に戻らず、公演・シナリオ情報だけ再取得します"
-              className="h-10 shrink-0 gap-1.5 px-2 sm:px-3"
-              onClick={() => {
-                saveScrollPositionForCurrentUrl()
-                void loadData()
-              }}
-            >
-              <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline text-xs">更新</span>
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto max-w-7xl px-4 md:px-6 pt-4 pb-4 md:pt-6">
-        {/* パフォーマンス最適化: ローディング中でもUIを即座に表示 */}
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full max-w-sm mx-auto grid-cols-3 mb-4 md:mb-6 p-0.5 h-auto">
-            <TabsTrigger value="lineup" className="text-sm px-2 py-1.5">ラインナップ</TabsTrigger>
-            <TabsTrigger value="calendar" className="text-sm px-2 py-1.5">カレンダー</TabsTrigger>
-            <TabsTrigger value="list" className="text-sm px-2 py-1.5">リスト</TabsTrigger>
-          </TabsList>
-
-          {/* 残りわずか公演（ラインナップタブのみ） */}
-          {!isLoading && activeTab === 'lineup' && nearlyConfirmed.length > 0 && (
-            <section className="mb-6 md:mb-8">
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
-                <h2 className="text-lg md:text-xl font-bold text-gray-900 flex items-center gap-3">
-                  <Flame className="w-5 h-5 text-orange-500" />
-                  残りわずか
-                  <span
-                    className="w-10 h-1 ml-2"
-                    style={{ backgroundColor: '#f97316' }}
-                  />
-                  <span className="text-xs font-normal text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
-                    お早めに！
-                  </span>
-                </h2>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-                {nearlyConfirmed.map((scenario) => (
-                  <ScenarioCard
-                    key={`nearly-${scenario.scenario_id}`}
-                    scenario={scenario}
-                    onClick={(slugOrId) => {
-                      const nearlyFullEvent = scenario.next_events?.[0]
-                      handleCardClick(slugOrId, nearlyFullEvent?.date, nearlyFullEvent?.time)
-                    }}
-                    isFavorite={isFavorite(scenario.scenario_id)}
-                    isPlayed={isPlayed(scenario.scenario_id)}
-                    onToggleFavorite={handleToggleFavorite}
-                    onTogglePlayed={handleTogglePlayed}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
-            {/* ラインナップ表示 */}
-            <TabsContent value="lineup">
-              <LineupView
-                newScenarios={newScenarios}
-                upcomingScenarios={upcomingScenarios}
-                allScenarios={allScenarios}
-                onCardClick={handleCardClick}
-                isFavorite={isFavorite}
-                isPlayed={isPlayed}
-                onToggleFavorite={handleToggleFavorite}
-                onTogglePlayed={handleTogglePlayed}
-                searchTerm={searchTerm}
-                onClearSearch={() => setSearchTerm('')}
-                organizationSlug={organizationSlug}
-                organizationName={organizationName}
-                selectedStoreIds={selectedStoreIds}
-                onStoreIdsChange={handleStoreIdsChange}
-                stores={stores}
-                themeColor={heroBgColor}
-              />
-            </TabsContent>
-
-            {/* カレンダー表示 */}
-            <TabsContent value="calendar">
-              <CalendarView
-                currentMonth={currentMonth}
-                onMonthChange={handleMonthChange}
-                calendarDays={calendarDays}
-                getEventsForDate={getEventsForDate}
-                selectedStoreIds={selectedStoreIds}
-                onStoreIdsChange={handleStoreIdsChange}
-                stores={stores}
-                scenarios={scenarios}
-                onCardClick={handleCardClick}
-                getStoreName={getStoreName}
-                getStoreColor={getStoreColor}
-                blockedSlots={blockedSlots}
-                privateBookingDeadlineDays={privateBookingDeadlineDays}
-                organizationSlug={organizationSlug}
-                hideSoldOut={hideSoldOut}
-                onHideSoldOutChange={setHideSoldOut}
-                hidePlayed={hidePlayed}
-                onHidePlayedChange={setHidePlayed}
-                playedScenarioIds={playedScenarioIds}
-                isLoggedIn={!!user}
-              />
-            </TabsContent>
-
-            {/* リスト表示 */}
-            <TabsContent value="list">
-              <ListView
-                listViewMonth={listViewMonth}
-                onMonthChange={handleListViewMonthChange}
-                selectedStoreIds={selectedStoreIds}
-                onStoreIdsChange={handleStoreIdsChange}
-                stores={stores}
-                listViewData={listViewData}
-                getEventsForDateStore={getEventsForDateStore}
-                getColorFromName={getColorFromName}
-                scenarios={scenarios}
-                onCardClick={handleCardClick}
-                blockedSlots={blockedSlots}
-                privateBookingDeadlineDays={privateBookingDeadlineDays}
-                organizationSlug={organizationSlug}
-                hideSoldOut={hideSoldOut}
-                onHideSoldOutChange={setHideSoldOut}
-                hidePlayed={hidePlayed}
-                onHidePlayedChange={setHidePlayed}
-                playedScenarioIds={playedScenarioIds}
-                isLoggedIn={!!user}
-              />
-            </TabsContent>
-          </Tabs>
-      </div>
-
-      {/* フッター */}
-      <Footer organizationSlug={organizationSlug} organizationName={organizationName ?? undefined} stores={stores} />
-
-      {playedDialogTarget && (
-        <PlayedRegistrationDialog
-          open={!!playedDialogTarget}
-          onOpenChange={(open) => { if (!open) setPlayedDialogTarget(null) }}
-          scenarioTitle={playedDialogTarget.title}
-          scenarioMasterId={playedDialogTarget.id}
-          customerId={playedCustomerId} customerIds={playedCustomerIds}
-          onRegistered={() => markAsPlayed(playedDialogTarget.id)}
+      <main className="mx-auto max-w-4xl space-y-3 px-4 py-3 md:py-5">
+        <StoreSearchSection
+          performances={performances}
+          isLoading={isLoading}
+          state={search}
+          onChange={updateSearch}
+          storeOptions={storeOptions}
+          today={today}
+          maxDate={maxDate}
+          nowMs={nowMs}
+          primaryColor={primaryColor}
+          onSelect={openPerformance}
         />
-      )}
+        <NearlyFullStrip performances={nearlyFull} onSelect={openPerformance} />
+        <PrivateBookingSection
+          text="4〜8 人集まれば、好きな作品を好きな日に。候補日を出して、メンバーの都合を聞いて、店舗に申し込むまでサイトで完結します。"
+          scenariosPath={`/${slug}/private-booking-select`}
+          primaryColor={primaryColor}
+        />
+        {scenarios.length > 0 && (
+          <ScenarioBrowseSection scenarios={browseScenarios} catalogPath={`/${slug}/catalog`} primaryColor={primaryColor} />
+        )}
+        <FirstTimeSection faqPath={slug ? `/${slug}/faq` : '/faq'} />
+      </main>
+
+      <Footer organizationSlug={organizationSlug} organizationName={organizationName ?? undefined} stores={stores} />
     </div>
   )
 }

@@ -606,6 +606,7 @@ export function useBookingData(organizationSlug?: string) {
     isFetching,
     loadData: refetch,
     organizationNotFound: data?.organizationNotFound ?? false,
+    organizationId: data?.organizationId ?? null,
     organizationName: data?.organizationName ?? null,
     organizationHeaderImageUrl: data?.organizationHeaderImageUrl ?? null,
     organizationThemeColor: data?.organizationThemeColor ?? null,

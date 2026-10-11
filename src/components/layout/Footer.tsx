@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { MapPin } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { buildPublicCancellationPolicyPath } from '@/lib/publicBookingPath'
+import { storeDisplayName } from '@/lib/publicStoreName'
 
 interface StoreInfo {
   id: string
@@ -73,7 +74,7 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
                     className="group p-4 bg-gray-800/50 hover:bg-gray-800 transition-colors"
                   >
                     <div className="text-white font-medium text-sm mb-1 group-hover:underline">
-                      {store.name}
+                      {storeDisplayName(store, { organizationName })}
                     </div>
                     <div className="text-gray-400 text-xs leading-relaxed flex items-start gap-1.5">
                       <MapPin className="w-3 h-3 mt-0.5 flex-shrink-0" />
@@ -201,7 +202,7 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
           
           {/* リンク */}
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-gray-500">
-            <Link to="/stores" className="hover:text-gray-300 transition-colors">参加団体</Link>
+            <Link to="/stores" className="hover:text-gray-300 transition-colors">参加店舗一覧</Link>
             <Link to="/guide" className="hover:text-gray-300 transition-colors">初めての方へ</Link>
             <Link to="/faq" className="hover:text-gray-300 transition-colors">よくある質問</Link>
             <Link to="/terms" className="hover:text-gray-300 transition-colors">利用規約</Link>

@@ -1078,7 +1078,7 @@ export function ComponentGallery() {
             <Section
               id="scenario-card"
               title="シナリオカード"
-              description="@/pages/PublicBookingTop/components/ScenarioCard.tsx, @/pages/PlatformTop/"
+              description="@/components/public-top/PerformanceResultCard.tsx（2026-10 トップ刷新で旧カードを置き換え）"
             >
               <SubSection title="シャープデザイン（PlatformTop）">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -1335,7 +1335,7 @@ export function ComponentGallery() {
             <Section
               id="search"
               title="検索バー"
-              description="@/pages/PublicBookingTop/components/SearchBar.tsx"
+              description="（2026-10 トップ刷新で廃止）"
             >
               <SubSection title="検索・フィルター">
                 <ComponentBox>

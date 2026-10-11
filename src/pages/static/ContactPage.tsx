@@ -23,6 +23,7 @@ const INQUIRY_TYPES = [
   { value: 'store', label: '店舗について' },
   { value: 'bug', label: '不具合の報告' },
   { value: 'suggestion', label: 'ご意見・ご要望' },
+  { value: 'partnership', label: 'MMQ への参加（店舗の方）' },
   { value: 'other', label: 'その他' },
 ]
 
@@ -31,7 +32,11 @@ export function ContactPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    type: '',
+    // トップの「店舗の方へ」から ?type=partnership で来たら種別を選んだ状態にする
+    type: (() => {
+      const t = new URLSearchParams(window.location.search).get('type')
+      return t && INQUIRY_TYPES.some((it) => it.value === t) ? t : ''
+    })(),
     subject: '',
     message: '',
   })
