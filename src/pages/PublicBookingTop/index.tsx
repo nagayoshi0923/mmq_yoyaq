@@ -3,7 +3,7 @@
  * @path /{organizationSlug}
  *
  * 2026-10 刷新（社長承認の見本 Top.dc.html）: 上の帯 → 空いている公演を探す → 残りわずか → 貸切 → 作品から探す → はじめての方へ。
- * 旧 3 タブは「空いている公演を探す」の見方「一覧／カレンダー／リスト」に刷新（絞り込みは共通）。旧 /{org}/calendar・/list はそれぞれの見方へ。
+ * 「空いている公演を探す」のチップ: 今週末〜来週は日付順のカード、カレンダー・リストは元の部品（2026-10-12 社長決定。見た目だけ新トップに合わせた）。旧 /{org}/calendar・/list はそれぞれのチップで開く。
  * 方針: docs/product-spec/トップページ刷新_2026-10.md
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -20,7 +20,7 @@ import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { autoOrganizationTagline } from '@/lib/publicStoreName'
 import { nearlyFullPerformances, performanceDetailPath, todayJst, type PublicPerformance } from '@/lib/publicPerformanceSearch'
-import { formatJstMonthDay, jstMonthDateRange } from '@/utils/jstDate'
+import { formatJstMonthDay } from '@/utils/jstDate'
 import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top/InfoSections'
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
 import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
@@ -41,13 +41,6 @@ interface PublicBookingTopProps {
   organizationSlug?: string
 }
 
-/** 取得範囲（今日から 3 か月後の月末まで。useBookingData と同じ） */
-function dataEndDate(today: string): string {
-  const y = Number(today.slice(0, 4))
-  const m = Number(today.slice(5, 7)) + 2
-  return jstMonthDateRange(y + Math.floor((m - 1) / 12), ((m - 1) % 12) + 1).end
-}
-
 function useNowMs(): number {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -64,13 +57,13 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
   const slug = organizationSlug ?? ''
   const nowMs = useNowMs()
   const today = todayJst(new Date(nowMs))
-  const maxDate = useMemo(() => dataEndDate(today), [today])
 
   const {
     scenarios,
     allEvents,
     blockedSlots,
     stores,
+    privateBookingDeadlineDays,
     isLoading,
     isFetching,
     loadData,
@@ -83,8 +76,8 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
   } = useBookingData(organizationSlug)
 
   const { state: search, update: updateSearch } = usePerformanceSearchParams()
-  const { performances, storeOptions, nextDates, privateBlocks } = useStoreTopPerformances({
-    allEvents, blockedSlots, stores, organizationId, organizationSlug: slug, organizationName, nowMs,
+  const { performances, storeOptions, nextDates } = useStoreTopPerformances({
+    allEvents, stores, organizationId, organizationSlug: slug, organizationName, nowMs,
   })
   const nearlyFull = useMemo(() => nearlyFullPerformances(performances, nowMs), [performances, nowMs])
 
@@ -121,6 +114,12 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
   const scrollTo = useCallback((id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
   }, [])
+
+  // 元のカレンダー・リストで公演を押したとき（元のまま作品ページへ）
+  const openScenario = useCallback((slugOrId: string) => {
+    saveScrollPositionForCurrentUrl()
+    navigate(`/${slug}/scenario/${slugOrId}`)
+  }, [navigate, slug])
 
   const openPerformance = useCallback((p: PublicPerformance) => {
     saveScrollPositionForCurrentUrl()
@@ -182,12 +181,20 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
           state={search}
           onChange={updateSearch}
           storeOptions={storeOptions}
-          privateBlocks={privateBlocks}
           today={today}
-          maxDate={maxDate}
           nowMs={nowMs}
           primaryColor={primaryColor}
           onSelect={openPerformance}
+          classic={{
+            allEvents,
+            blockedSlots,
+            stores,
+            scenarios,
+            organizationSlug: slug,
+            organizationName,
+            privateBookingDeadlineDays,
+            onCardClick: openScenario,
+          }}
         />
         <NearlyFullStrip performances={nearlyFull} onSelect={openPerformance} />
         <PrivateBookingSection

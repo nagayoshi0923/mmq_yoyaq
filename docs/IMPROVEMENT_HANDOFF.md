@@ -1,3 +1,11 @@
+## 2026-10-12 / カレンダー・リストを元の実装に戻す（fix/restore-original-calendar-list、staging 向け PR・未取り込み）
+
+- 社長決定: カレンダーとリストは元のほうがよい（画面への収まりも）。#1051・#1053 の刷新版は廃止し、#1046 より前の `CalendarView`・`ListView`・`useCalendarData`・`useListViewData`・`bookingViewPersistence` を履歴（7c312a77c）から戻した。「作品名 2 行」の PR #1055 は閉じた。
+- 置き場所: 「空いている公演を探す」のチップを「今週末／今日／明日／来週／カレンダー／リスト」に（切り替えタブと「日付を選ぶ」は廃止）。絞り込み行はカードのときだけ。カレンダー・リストは元の操作（年月・店舗・満席を非表示。チップの見た目に作り直した `BookingFilters`）。旧 URL はそれぞれのチップで開く（E2E 更新）。
+- 見た目だけ新しいトップに合わせた（角丸・枠線・チップ・残席の色・「貸切」・店舗名の字・画像の比率）。寸法・列数は元のまま。店舗名は `storeDisplayName`（リストの店舗列は省略せず折り返し）。`text-gray-`・`text-[` は使わず `ts-micro`（10px）。
+- 削除: `StoreCalendarView`・`StoreListView`・`TimetableDayTable`・`publicTimetable`・`DatePickerPopover`。
+- 確認: staging 接続の手元で 375px・1280px（作業メモの `shots/restore_*.png`）。DB 変更なし。
+
 ## 2026-10-11 / 店舗トップの見方「一覧／カレンダー／リスト」（feat/top-search-views、staging 向け PR・未取り込み）
 
 - 社長の方向修正: 元のカレンダーとリストは無くさず刷新して残す。見本 `TopViews.dc.html`。「空いている公演を探す」の絞り込みの下に 3 つの見方の切り替え（`?view=calendar|list`）。絞り込みは共通。#1051 の「点だけ」のマス目は置き換え。
