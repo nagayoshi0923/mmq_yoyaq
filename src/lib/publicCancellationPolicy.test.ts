@@ -1,14 +1,55 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+const rpc = vi.fn()
 vi.mock('@/lib/supabase', () => ({
-  supabase: { rpc: vi.fn() },
+  supabase: { rpc: (...args: unknown[]) => rpc(...args) },
 }))
 import { buildPublicCancellationPolicyPath } from './publicBookingPath'
 import {
+  fetchPublicCancellationTerms,
   formatCancellationFeeBasis,
   formatCancellationFeePeriod,
   formatPolicyHours,
 } from './publicCancellationPolicy'
+
+const fees = [
+  { hours_before: 48, fee_percentage: 50, description: '前日より50%' },
+  { hours_before: 24, fee_percentage: 100, description: '当日より100%' },
+]
+
+describe('fetchPublicCancellationTerms', () => {
+  beforeEach(() => { rpc.mockReset() })
+
+  it('店舗が規定を個別設定していなくても、DB の既定の規定が返れば読めた扱い（isFallback=false）', async () => {
+    rpc.mockResolvedValue({ data: [{
+      store_id: 's1', is_configured: false,
+      cancellation_deadline_hours: 48, cancellation_fees: fees, reservation_change_deadline_hours: 24,
+    }], error: null })
+    const terms = await fetchPublicCancellationTerms({ organizationSlug: 'queenswaltz-sapporo', storeId: 's1', eventId: 'e1' })
+    expect(terms.isFallback).toBe(false)
+    expect(terms.deadlineHours).toBe(48)
+    expect(terms.fees).toHaveLength(2)
+    expect(terms.changeDeadlineHours).toBe(24)
+  })
+
+  it('行が無いときは既定値で isFallback', async () => {
+    rpc.mockResolvedValue({ data: [], error: null })
+    const terms = await fetchPublicCancellationTerms({ organizationSlug: 'x', storeId: 's1', eventId: 'e1' })
+    expect(terms.isFallback).toBe(true)
+  })
+
+  it('値が欠けているときは既定値で isFallback', async () => {
+    rpc.mockResolvedValue({ data: [{ store_id: 's1', is_configured: true, cancellation_deadline_hours: null, cancellation_fees: [] }], error: null })
+    const terms = await fetchPublicCancellationTerms({ organizationSlug: 'x', storeId: 's1', eventId: 'e1' })
+    expect(terms.isFallback).toBe(true)
+  })
+
+  it('取得失敗は既定値で isFallback', async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: 'boom' } })
+    const terms = await fetchPublicCancellationTerms({ organizationSlug: 'x', storeId: 's1', eventId: 'e1' })
+    expect(terms.isFallback).toBe(true)
+  })
+})
 
 describe('buildPublicCancellationPolicyPath', () => {
   it('組織と明示店舗をcanonical URLへ保持する', () => {
