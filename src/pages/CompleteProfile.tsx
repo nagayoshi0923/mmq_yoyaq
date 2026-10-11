@@ -19,6 +19,8 @@ import { useNavigate } from 'react-router-dom'
 import { getOrganizationBySlug, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 import { profileRegistrationApi } from '@/lib/api/customerApi'
+import { normalizeReturnTo } from '@/lib/authReturn'
+import { readSignupLinkError } from './completeProfile/linkError'
 
 export function CompleteProfile() {
   const [password, setPassword] = useState('')
@@ -49,6 +51,10 @@ export function CompleteProfile() {
     'resolving' | 'form' | 'duplicate_account' | 'leaving'
   >('resolving')
   const navigate = useNavigate()
+  // 確認メールのリンクが期限切れ・使用済みだったか（Supabase が URL に付けて返す。点検 11）
+  const [linkError] = useState(() => readSignupLinkError(window.location.hash, window.location.search))
+  // 登録後に戻る画面（確認メールのリンクの ?next=。点検 1）
+  const [returnTo] = useState(() => normalizeReturnTo(new URLSearchParams(window.location.search).get('next')))
 
   useEffect(() => {
     let cancelled = false
@@ -639,6 +645,8 @@ export function CompleteProfile() {
         resendLoading={resendLoading}
         setResendLoading={setResendLoading}
         navigate={navigate}
+        linkError={linkError}
+        nextUrl={returnTo}
       />
     )
   }

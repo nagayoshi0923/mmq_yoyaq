@@ -39,6 +39,7 @@ import { resolveOrgIdFromPageContext } from '@/lib/organization'
 import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
 import { toJstYmd } from '@/utils/jstDate'
 import { getErrorMessage } from '@/lib/errorFields'
+import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
 
 const MAX_TIME_SLOTS = 6
 const CANDIDATE_HORIZON_DAYS = 180
@@ -863,9 +864,8 @@ export function PrivateBookingRequest({
                 </p>
                 <Button
                   onClick={() => {
-                    // 未ログイン時は戻り先URLを保存してログインページへ（入力途中で「ログインが必要です」にならないようにする）
-                    sessionStorage.setItem('returnUrl', window.location.pathname + window.location.search)
-                    navigate('/login')
+                    // 未ログイン時は戻り先付きでログインへ（入力途中で「ログインが必要です」にならないようにする）
+                    navigate(buildAuthUrl('login', currentPathWithSearch()))
                   }}
                   className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
                 >

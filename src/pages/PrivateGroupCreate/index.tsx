@@ -24,6 +24,7 @@ import { getErrorMessage } from '@/lib/errorFields'
 import { toast } from 'sonner'
 import { announceNextGroup } from '@/lib/privateGroupChat'
 import { clearNextGroupSource, loadNextGroupSource } from '@/lib/nextPrivateGroup'
+import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
 
 export function PrivateGroupCreate() {
   const navigate = useNavigate()
@@ -231,11 +232,24 @@ export function PrivateGroupCreate() {
               <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
               <h2 className="text-lg font-medium mb-2">ログインが必要です</h2>
               <p className="text-sm text-muted-foreground mb-4">
-                貸切リクエストを作成するにはログインしてください
+                貸切リクエストを作成するにはログインしてください。ログイン・登録の後、この画面に戻ります。
               </p>
-              <Button onClick={() => navigate('/login')}>
-                ログイン
-              </Button>
+              {/* 行き止まりにしない: 戻り先付きのログイン・新規登録と、作品に戻る（点検 3） */}
+              <div className="flex flex-col gap-2 max-w-xs mx-auto">
+                <Button onClick={() => navigate(buildAuthUrl('login', currentPathWithSearch()))}>
+                  ログイン
+                </Button>
+                <Button variant="outline" onClick={() => navigate(buildAuthUrl('signup', currentPathWithSearch()))}>
+                  新規登録
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate(scenarioId ? `${bookingBasePath}/scenario/${encodeURIComponent(scenarioId)}` : bookingBasePath)}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1" />
+                  {scenarioId ? '作品に戻る' : '予約サイトに戻る'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

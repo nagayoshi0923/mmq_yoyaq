@@ -6,6 +6,7 @@ import { CheckCircle2, AlertCircle, Eye, EyeOff, UserPlus } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link } from 'react-router-dom'
 import { signOutAndGoHome } from './signOutAndGoHome'
+import { countRemainingRequired } from './profileRemaining'
 
 // 都道府県リスト
 const PREFECTURES = [
@@ -17,6 +18,9 @@ const PREFECTURES = [
   '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県',
   '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
 ]
+
+/** 例の文字は入力済みに見えないよう薄く（点検 10） */
+const PLACEHOLDER_CLASS = 'placeholder:opacity-50'
 
 interface ProfileFormProps {
   userEmail: string
@@ -52,6 +56,9 @@ export function ProfileForm({
   password, setPassword, confirmPassword, setConfirmPassword, acceptTerms, setAcceptTerms,
   acceptNewsletter, setAcceptNewsletter, error, isLoading,
 }: ProfileFormProps) {
+  const { remaining, total } = countRemainingRequired({
+    name, phone, prefecture, birthDate, isOAuthUser, password, confirmPassword, acceptTerms,
+  })
   return (
     <div 
       className="min-h-screen flex flex-col"
@@ -82,7 +89,7 @@ export function ProfileForm({
               </div>
               <CardDescription>
                 あと少しで登録完了です！<br />
-                以下の情報を入力してください。
+                {remaining > 0 ? `必須項目はあと ${remaining} 項目です（＊印）。` : '必須項目はすべて入力しました。'}
               </CardDescription>
               {userEmail && (
                 <p className="text-sm text-gray-600 mt-2">
@@ -105,8 +112,8 @@ export function ProfileForm({
                     onChange={(e) => setName(e.target.value)}
                     required
                     autoComplete="name"
-                    placeholder="山田 太郎"
-                    className="h-12"
+                    placeholder="例: 山田 太郎"
+                    className={`h-12 ${PLACEHOLDER_CLASS}`}
                     disabled={isLoading}
                   />
                 </div>
@@ -123,8 +130,8 @@ export function ProfileForm({
                     value={nickname}
                     onChange={(e) => setNickname(e.target.value)}
                     autoComplete="nickname"
-                    placeholder="タロウ"
-                    className="h-12"
+                    placeholder="例: タロウ"
+                    className={`h-12 ${PLACEHOLDER_CLASS}`}
                     disabled={isLoading}
                   />
                 </div>
@@ -142,8 +149,8 @@ export function ProfileForm({
                     onChange={(e) => setPhone(e.target.value)}
                     required
                     autoComplete="tel"
-                    placeholder="090-1234-5678"
-                    className="h-12"
+                    placeholder="例: 090-1234-5678"
+                    className={`h-12 ${PLACEHOLDER_CLASS}`}
                     disabled={isLoading}
                   />
                 </div>
@@ -193,9 +200,9 @@ export function ProfileForm({
                       }
                       setBirthDate(value)
                     }}
-                    placeholder="1990/01/15"
+                    placeholder="例: 1990/01/15"
                     maxLength={10}
-                    className="h-12"
+                    className={`h-12 ${PLACEHOLDER_CLASS}`}
                     disabled={isLoading}
                   />
                 </div>
@@ -217,7 +224,7 @@ export function ProfileForm({
                           minLength={6}
                           autoComplete="new-password"
                           placeholder="6文字以上"
-                          className="pr-10 h-12"
+                          className={`pr-10 h-12 ${PLACEHOLDER_CLASS}`}
                           disabled={isLoading}
                         />
                         <button
@@ -246,7 +253,7 @@ export function ProfileForm({
                         minLength={6}
                         autoComplete="new-password"
                         placeholder="もう一度入力"
-                        className="h-12"
+                        className={`h-12 ${PLACEHOLDER_CLASS}`}
                         disabled={isLoading}
                       />
                       {confirmPassword && password === confirmPassword && (
@@ -300,6 +307,13 @@ export function ProfileForm({
                   </div>
                 )}
 
+                {/* 残りの必須項目（点検 10） */}
+                <p className="ts-caption text-center" aria-live="polite" data-testid="profile-remaining">
+                  {remaining > 0
+                    ? `必須 ${total} 項目のうち、あと ${remaining} 項目です`
+                    : '必須項目はすべて入力しました'}
+                </p>
+
                 {/* 送信ボタン */}
                 <Button
                   type="submit"
@@ -307,7 +321,7 @@ export function ProfileForm({
                   style={{ backgroundColor: THEME.primary }}
                   disabled={isLoading}
                 >
-                  {isLoading ? '登録中...' : '登録を完了する'}
+                  {isLoading ? '登録中...' : remaining > 0 ? `登録を完了する（あと ${remaining} 項目）` : '登録を完了する'}
                 </Button>
               </form>
 
