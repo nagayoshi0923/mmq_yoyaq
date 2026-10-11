@@ -21,7 +21,9 @@ export function getPublicPrivateBookingSlotOptions(date: string, slot: Slot, sto
       const offset = (Date.parse(`${event.date}T00:00:00+09:00`) - Date.parse(`${date}T00:00:00+09:00`)) / 60000
       const [h, m] = event.start_time.split(':').map(Number)
       const start = offset + h * 60 + m
-      return start >= bounds.startMin && start < bounds.endMin
+      const bandStart = slot === 'morning' ? 0 : slot === 'afternoon' ? 12 * 60 : 18 * 60
+      const bandEnd = slot === 'morning' ? 12 * 60 : slot === 'afternoon' ? 18 * 60 : 24 * 60
+      return start >= bandStart && start < bandEnd
     })
     if (occupied) return []
     const start = feasibility.minAllowedStart
