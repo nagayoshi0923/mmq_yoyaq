@@ -79,7 +79,7 @@ it('保存前の失敗はそのまま失敗', async () => {
   await expect(resolveWhenSaved(() => Promise.reject(new Error('save failed')))).rejects.toThrow('save failed')
 })
 
-it('割引のある予約は「いまの合計」をサーバー確定金額（割引後）で出し、割引の扱いを添える（公開前検証 P2）', () => {
+it('割引のある予約は「いまの合計」をサーバー確定金額（割引後）で出し、割引は付け直すと添える（公開前検証 P2・#1084 の続き）', () => {
   act(() => root.render(
     <ParticipantCountDialog
       open onOpenChange={() => {}} currentCount={2} value={3} onValueChange={() => {}}
@@ -90,5 +90,9 @@ it('割引のある予約は「いまの合計」をサーバー確定金額（�
   ))
   const total = document.querySelector('[data-testid="participant-count-total"]')!.textContent
   expect(total).toContain('いまの合計 ¥8,000')
-  expect(document.querySelector('[data-testid="participant-count-discount-note"]')!.textContent).toContain('−¥1,000')
+  expect(total).toContain('変更後の金額（割引前）¥13,500')
+  const note = document.querySelector('[data-testid="participant-count-discount-note"]')!.textContent
+  expect(note).toContain('−¥1,000')
+  expect(note).toContain('変更後の人数で同じ条件のまま計算し直して差し引きます')
+  expect(note).not.toContain('含めていません')
 })

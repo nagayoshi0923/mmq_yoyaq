@@ -2,6 +2,8 @@
  * 参加人数の変更（点検 5・37・38・30）。
  * 変更後の合計金額を出す。人数を減らせる期限はキャンセルポリシーの「人数変更は24時間前まで」に合わせる。
  * 「最大 N 名まで変更できます」は #1026 の表現を保つ。
+ * クーポン割引のある予約は、サーバーが同じ条件のまま新しい人数で割引を付け直す（participant_change_keeps_coupon_v1）。
+ * 条件（最低利用金額など）を満たさない人数はサーバーが止め、その理由を画面に出す。
  */
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -58,7 +60,7 @@ export function ParticipantCountDialog({
           {unitPrice > 0 && (
             <div className="border bg-muted/40 p-3 text-sm space-y-1" data-testid="participant-count-total">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">変更後の合計</span>
+                <span className="text-muted-foreground">{currentDiscount > 0 ? '変更後の金額（割引前）' : '変更後の合計'}</span>
                 <span className="font-bold">{yen(unitPrice * value)}</span>
               </div>
               <div className="flex justify-between text-xs text-muted-foreground">
@@ -66,7 +68,9 @@ export function ParticipantCountDialog({
                 <span>いまの合計 {yen(currentTotal ?? unitPrice * currentCount)}</span>
               </div>
               {currentDiscount > 0 && (
-                <p className="text-xs text-muted-foreground" data-testid="participant-count-discount-note">いまの予約の割引（−{yen(currentDiscount)}）は、変更後の合計に含めていません。</p>
+                <p className="text-xs text-muted-foreground" data-testid="participant-count-discount-note">
+                  ご利用中のクーポン割引（いまは −{yen(currentDiscount)}）は、変更後の人数で同じ条件のまま計算し直して差し引きます（定額のクーポンは同じ額、割合のクーポンは変更後の金額に対する割合）。クーポンの利用条件を満たさなくなる人数には変更できません。
+                </p>
               )}
               <p className="text-xs text-muted-foreground">税込。当日、店舗でお支払いください。</p>
             </div>

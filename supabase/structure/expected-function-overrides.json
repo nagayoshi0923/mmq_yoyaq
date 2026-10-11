@@ -124,7 +124,7 @@
       "service_role=X/postgres"
     ],
     "returns": "trigger",
-    "body_md5": "a66ab4a356386376292a6efe534aefc5",
+    "body_md5": "4f8b4df8b32b4034ad2d10d6dd0697cf",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -1189,6 +1189,17 @@
       "authenticated=X/postgres",
       "postgres=X/postgres"
     ],
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "update_reservation_participants(p_reservation_id uuid, p_new_count integer, p_customer_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "boolean",
+    "body_md5": "fe0272026eca95df14c882cbc9abad69",
     "language": "plpgsql",
     "security_definer": true
   }

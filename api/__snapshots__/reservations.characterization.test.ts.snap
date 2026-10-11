@@ -74,6 +74,16 @@ exports[`PATCH update-participants-with-lock / recalculate-prices > 人数変更
 ]
 `;
 
+exports[`PATCH update-participants-with-lock / recalculate-prices > 人数変更の RPC エラー P0056 の変換 1`] = `
+[
+  400,
+  {
+    "code": "P0056",
+    "error": "fixture P0056",
+  },
+]
+`;
+
 exports[`PATCH update-participants-with-lock / recalculate-prices > 人数変更の RPC エラー XX000 の変換 1`] = `
 [
   500,

@@ -115,6 +115,10 @@ export async function handleUpdateParticipantsWithLock(
     if (known[code]) {
       return res.status(400).json({ error: known[code], code, detail: error.message })
     }
+    // P0056: 使ったクーポンの条件を満たさなくなる人数。DB の文面（クーポン名・必要な金額）をそのままお客様に見せる
+    if (code === 'P0056' && error.message) {
+      return res.status(400).json({ error: error.message, code })
+    }
     return res.status(500).json({ error: '人数変更に失敗しました', detail: error.message, code })
   }
 
