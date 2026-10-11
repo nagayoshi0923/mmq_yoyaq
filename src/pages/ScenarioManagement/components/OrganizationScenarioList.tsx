@@ -49,7 +49,7 @@ import {
 
 const STATUS_LABELS = {
   available: { label: '公開中', color: 'bg-green-100 text-green-700' },
-  unavailable: { label: '非公開', color: 'bg-gray-100 text-gray-600' },
+  unavailable: { label: '非公開', color: 'bg-amber-100 text-amber-800' },
   coming_soon: { label: '近日公開', color: 'bg-yellow-100 text-yellow-700' }
 }
 
@@ -280,6 +280,27 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
       )
     },
     {
+      key: 'org_status',
+      header: '予約サイト',
+      helpText: '組織の予約サイトへの公開状態。マスタ承認とは別です。変更は作品編集ヘッダーで公開状態を選び「保存」',
+      width: 'w-24',
+      sortable: true,
+      required: true,
+      headerClassName: ORG_HEADER_CLASS,
+      cellClassName: ORG_CELL_CLASS,
+      render: (scenario) => {
+        const statusConfig = STATUS_LABELS[scenario.org_status]
+        return (
+          <div className="flex flex-col items-start gap-1">
+            <Badge className={`px-1.5 py-0 ${statusConfig.color}`}>{statusConfig.label}</Badge>
+            {scenario.org_status === 'unavailable' && scenario.master_status === 'approved' && (
+              <span className="text-muted-foreground">マスタ承認済み</span>
+            )}
+          </div>
+        )
+      }
+    },
+    {
       key: 'author',
       header: '作者',
       helpText: 'シナリオの制作者名（マスタで設定）',
@@ -326,15 +347,15 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
     },
     {
       key: 'master_status',
-      header: 'MMQ掲載',
-      helpText: 'MMQプラットフォームへの掲載状態。承認済みのみ全体検索に表示されます',
+      header: 'マスタ承認',
+      helpText: 'MMQマスタの審査状態。承認済みでも組織の予約サイトへの公開設定は別です',
       width: 'w-24',
       headerClassName: MASTER_HEADER_CLASS,
       render: (scenario) => {
         if (scenario.master_status === 'approved') {
           return (
             <span className="flex items-center gap-0.5 text-[10px] text-green-600">
-              <CheckCircle className="h-3 w-3" />掲載中
+              <CheckCircle className="h-3 w-3" />承認済み
             </span>
           )
         }
@@ -566,19 +587,6 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
       }
     },
     {
-      key: 'org_status',
-      header: '公開',
-      helpText: '公開中: 予約可 / 近日公開: 告知のみ / 非公開: 表示しない（組織で設定）',
-      width: 'w-24',
-      sortable: true,
-      headerClassName: ORG_HEADER_CLASS,
-      cellClassName: ORG_CELL_CLASS,
-      render: (scenario) => {
-        const statusConfig = STATUS_LABELS[scenario.org_status]
-        return <Badge className={`text-[10px] px-1.5 py-0 ${statusConfig.color}`}>{statusConfig.label}</Badge>
-      }
-    },
-    {
       key: 'actions',
       header: '操作',
       helpText: '編集: 詳細設定を変更 / 解除: 組織からシナリオを削除（マスタは残る）',
@@ -612,7 +620,14 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
   ], [canEdit, onEdit, storeMap, submittingMasterId, handleSubmitToMMQ, resolvePreparation])
 
   const defaultOrgColumnKeys = useMemo(() => tableColumns.map(c => c.key), [tableColumns])
-  const [orgColumnPrefs, setOrgColumnPrefs] = useTablePreferences('org-scenario-list', defaultOrgColumnKeys)
+  const [savedOrgColumnPrefs, setOrgColumnPrefs] = useTablePreferences('org-scenario-list', defaultOrgColumnKeys)
+  // 公開状態は作品名の右に固定。他の列の順序・表示設定は保持する。
+  const orgColumnPrefs = useMemo(() => {
+    const columnOrder = savedOrgColumnPrefs.columnOrder.filter(key => key !== 'org_status')
+    const titleIndex = columnOrder.indexOf('title')
+    columnOrder.splice(titleIndex >= 0 ? titleIndex + 1 : 0, 0, 'org_status')
+    return { ...savedOrgColumnPrefs, columnOrder, columnVisibility: { ...savedOrgColumnPrefs.columnVisibility, org_status: true } }
+  }, [savedOrgColumnPrefs])
 
   if (isLoading) {
     return (
@@ -815,8 +830,11 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start mb-1">
                         <h3 className="font-bold text-sm truncate pr-2">{scenario.title}</h3>
-                        <Badge className={`shrink-0 text-[10px] px-1.5 py-0 ${statusConfig.color}`}>{statusConfig.label}</Badge>
+                        <Badge className={`shrink-0 text-[10px] px-1.5 py-0 ${statusConfig.color}`}>予約サイト：{statusConfig.label}</Badge>
                       </div>
+                      {scenario.org_status === 'unavailable' && scenario.master_status === 'approved' && (
+                        <p className="text-muted-foreground mb-1">マスタ承認済み・店舗では非公開</p>
+                      )}
                       <p className="text-xs text-gray-500 truncate mb-1">作: {scenario.author || '不明'}</p>
                       <div className="flex items-center gap-3 text-xs text-gray-500 mb-1">
                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{scenario.duration}分</span>

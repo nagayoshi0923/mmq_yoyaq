@@ -39,8 +39,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 56px;
-  padding: 0 20px;
+  min-height: 56px;
+  padding: 12px 20px;
   border-bottom: 1px solid var(--mmq-line-soft);
   flex-shrink: 0;
   background: var(--mmq-white);
@@ -48,6 +48,7 @@
 
 .scenario-edit-dialog__header-left {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   min-width: 0;
