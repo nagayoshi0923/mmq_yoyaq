@@ -78,3 +78,17 @@ it('保存できた時点で解決し、通知は裏で続ける（その間は�
 it('保存前の失敗はそのまま失敗', async () => {
   await expect(resolveWhenSaved(() => Promise.reject(new Error('save failed')))).rejects.toThrow('save failed')
 })
+
+it('割引のある予約は「いまの合計」をサーバー確定金額（割引後）で出し、割引の扱いを添える（公開前検証 P2）', () => {
+  act(() => root.render(
+    <ParticipantCountDialog
+      open onOpenChange={() => {}} currentCount={2} value={3} onValueChange={() => {}}
+      maxSelectableCount={8} canDecrease decreaseDeadlineLabel="10/28(水) 19:00" unitPrice={4500}
+      currentTotal={8000} currentDiscount={1000}
+      canSubmit isPending={false} onConfirm={() => {}}
+    />,
+  ))
+  const total = document.querySelector('[data-testid="participant-count-total"]')!.textContent
+  expect(total).toContain('いまの合計 ¥8,000')
+  expect(document.querySelector('[data-testid="participant-count-discount-note"]')!.textContent).toContain('−¥1,000')
+})

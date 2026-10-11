@@ -37,6 +37,7 @@ import { GroupMemberScreen } from './groupPage/GroupMemberScreen'
 import { parseGroupTab, type GroupTab } from './groupPage/groupPageModel'
 import { markPromptPending } from '@/lib/webPushSupport'
 import { useRequireCompleteProfile } from '@/hooks/useRequireCompleteProfile'
+import { clearGuestDeviceStorage, guestSessionStorageKey, useGuestDeviceState, type GuestResponseValue } from './guestDeviceState'
 
 interface Coupon {
   id: string
@@ -46,7 +47,7 @@ interface Coupon {
   status: string
 }
 
-type ResponseValue = DateResponse | null
+type ResponseValue = GuestResponseValue
 
 export function PrivateGroupInvite() {
   const navigate = useNavigate()
@@ -79,10 +80,14 @@ export function PrivateGroupInvite() {
   const canMutateScheduleBeforeStoreReply = useMemo(() => canMutateScheduleRule(group, linkedReservationStatus), [group, linkedReservationStatus])
 
 
-  const [guestName, setGuestName] = useState('')
-  const [guestEmail, setGuestEmail] = useState('')
-  const [guestPhone, setGuestPhone] = useState('')
-  const [responses, setResponses] = useState<Record<string, ResponseValue>>({})
+  // ゲスト由来の state（名前・メール・回答・PIN 入力）。退出時に reset でまとめて空にする（公開前検証 P2）
+  const guestState = useGuestDeviceState()
+  const {
+    guestName, setGuestName, guestEmail, setGuestEmail, guestPhone,
+    responses, setResponses, pinEmail, setPinEmail, pinCode, setPinCode,
+    pinError, setPinError, generatedPin, setGeneratedPin, joinedAsNewMember, setJoinedAsNewMember,
+  } = guestState
+  const resetGuestState = guestState.reset
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const { data: effectiveSurvey } = useQuery({
@@ -116,11 +121,6 @@ export function PrivateGroupInvite() {
   })
 
   // PIN認証関連
-  const [pinEmail, setPinEmail] = useState('')
-  const [pinCode, setPinCode] = useState('')
-  const [pinError, setPinError] = useState<string | null>(null)
-  const [generatedPin, setGeneratedPin] = useState<string | null>(null)
-  const [joinedAsNewMember, setJoinedAsNewMember] = useState(false)
 
   // URLパラメータでシート・タブ状態を管理（ブラウザバックで閉じる）
   const [searchParams, setSearchParams] = useSearchParams()
@@ -188,14 +188,11 @@ export function PrivateGroupInvite() {
   // 希望店舗の編集
   const { prepareStoreEdit, allStores, isFilteredByScenario, loadingStoresForEdit, selectedStoreIds, setSelectedStoreIds, savingStores, handleSavePreferredStores, openStoreEditSheet } = usePreferredStoreEditor({ group, canMutateScheduleBeforeStoreReply, openSheet, closeSheetReplace, refetch })
 
-  // SessionStorageキー
-  const getStorageKey = (inviteCode: string) => `guest_session_${inviteCode}`
-
   // UUID alone is not proof. Validate the saved token before restoring guest controls.
   useEffect(() => {
     if (!code || user || !group?.id) return
     let cancelled = false
-    const storageKey = getStorageKey(code)
+    const storageKey = guestSessionStorageKey(code)
     const saved = guestStorage.getItem(storageKey)
     if (!saved) return
     void (async () => {
@@ -220,24 +217,25 @@ export function PrivateGroupInvite() {
       }
     })()
     return () => { cancelled = true }
-  }, [code, user, group?.id])
+  }, [code, user, group?.id, setGuestName, setGuestEmail])
 
   useEffect(() => {
     const handleExpired = (event: Event) => {
       if (user || !code || (event as CustomEvent).detail?.groupId !== group?.id) return
-      guestStorage.removeItem(getStorageKey(code))
+      guestStorage.removeItem(guestSessionStorageKey(code))
       setExistingMemberId(null)
+      resetGuestState()
       toast.error('本人確認の期限が切れました。メールアドレスとPINで入り直してください。')
     }
     window.addEventListener('private-group-auth-expired', handleExpired)
     return () => window.removeEventListener('private-group-auth-expired', handleExpired)
-  }, [code, user, group?.id])
+  }, [code, user, group?.id, resetGuestState])
 
   // ゲストセッションを保存
   const saveGuestSession = (memberId: string, name: string, email: string) => {
     if (!code) return
     markGuestJoined(code)
-    const storageKey = getStorageKey(code)
+    const storageKey = guestSessionStorageKey(code)
     guestStorage.setItem(storageKey, JSON.stringify({
       memberId,
       guestName: name,
@@ -254,10 +252,19 @@ export function PrivateGroupInvite() {
   }
 
   // この端末から退出（グループには残る。次に開くと「PIN で入る」を大きく出す。点検 57）
+  // 端末の保存に加え、画面に残った名前・メール・回答・PIN 入力・この人の取得結果も消す（公開前検証 P2）
   const signOutGuestDevice = () => {
     if (!code) return
-    guestStorage.removeItem(getStorageKey(code))
-    if (group) clearPrivateGroupGuestToken(group.id)
+    const previousMemberId = existingMemberId
+    clearGuestDeviceStorage(code, group?.id)
+    resetGuestState()
+    setSelectedCouponId(null)
+    setError(null)
+    setSuccess(false)
+    setExistingMemberId(null)
+    if (previousMemberId) {
+      queryClient.removeQueries({ predicate: query => query.queryKey.includes(previousMemberId) })
+    }
   }
 
   // 4桁PINを生成
@@ -718,7 +725,6 @@ export function PrivateGroupInvite() {
           isCustomHoliday={isCustomHoliday}
           onGuestSignOut={user ? null : () => {
             signOutGuestDevice()
-            setExistingMemberId(null)
             toast.success('この端末から退出しました。メールアドレスと PIN で、いつでも入り直せます')
           }}
         />

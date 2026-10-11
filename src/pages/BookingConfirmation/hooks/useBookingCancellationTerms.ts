@@ -28,14 +28,56 @@ export interface BookingCancellationTerms {
   changeDeadlineLabel: string | null
 }
 
+/**
+ * 規定の読込状態（公開前検証 P1）。
+ * - loading: 取得中
+ * - ready: 店舗の規定を読めた（terms あり）
+ * - error: 取得に失敗した／開演日時を解釈できない
+ * - fallback: 店舗の規定を読めず既定値しか無い（既定値で案内しない）
+ */
+export type BookingCancellationTermsStatus = 'loading' | 'ready' | 'error' | 'fallback'
+
+export interface BookingCancellationTermsState {
+  status: BookingCancellationTermsStatus
+  /** status が ready のときだけ値を持つ */
+  terms: BookingCancellationTerms | null
+  /** 再取得（error / fallback のときの「再読み込み」） */
+  retry: () => void
+  /** 再取得中 */
+  isRetrying: boolean
+}
+
+/**
+ * 「予約を確定する」を押せるか（キャンセル規定の観点だけ）。
+ * 規定を読めた（ready）ときだけ許可し、48 時間以内の公演は同意のチェックが必要（#1063）。
+ */
+export function cancellationTermsGate(
+  status: BookingCancellationTermsStatus,
+  terms: BookingCancellationTerms | null,
+  lateCancelAgreed: boolean,
+): { canSubmit: boolean; needsLateCancelAgreement: boolean; message: string | null } {
+  if (status === 'loading') {
+    return { canSubmit: false, needsLateCancelAgreement: false, message: 'キャンセル規定を読み込んでいます…' }
+  }
+  if (status !== 'ready' || !terms) {
+    return { canSubmit: false, needsLateCancelAgreement: false, message: '店舗のキャンセル規定を取得できませんでした。再読み込みしてください' }
+  }
+  const needsLateCancelAgreement = terms.insideNoFreeCancelWindow && !lateCancelAgreed
+  return {
+    canSubmit: !needsLateCancelAgreement,
+    needsLateCancelAgreement,
+    message: needsLateCancelAgreement ? 'キャンセル料についての確認にチェックを入れてください' : null,
+  }
+}
+
 export function useBookingCancellationTerms(input: {
   organizationSlug?: string
   storeId?: string
   eventId: string
   eventDate: string
   startTime: string
-}): BookingCancellationTerms | null {
-  const { data } = useQuery({
+}): BookingCancellationTermsState {
+  const { data, isError, refetch, isFetching } = useQuery({
     queryKey: ['booking-cancellation-terms', input.organizationSlug ?? '', input.storeId ?? '', input.eventId],
     queryFn: () => fetchPublicCancellationTerms({
       organizationSlug: input.organizationSlug,
@@ -43,20 +85,31 @@ export function useBookingCancellationTerms(input: {
       eventId: input.eventId,
     }),
     staleTime: 5 * 60_000,
+    retry: 1,
   })
-  if (!data) return null
+  const retry = () => { void refetch() }
+  const base = { retry, isRetrying: isFetching }
+  if (!data) {
+    if (isError) return { ...base, status: 'error', terms: null }
+    return { ...base, status: 'loading', terms: null }
+  }
+  if (data.isFallback) return { ...base, status: 'fallback', terms: null }
   let start: Date
   try {
     start = parseJstPerformanceStart(input.eventDate, input.startTime.slice(0, 5))
   } catch {
-    return null
+    return { ...base, status: 'error', terms: null }
   }
   const freeHours = freeSelfCancelHours(data.deadlineHours, data.fees)
   return {
-    summary: cancellationSummaryText(data.deadlineHours, data.fees),
-    freeDeadlineLabel: formatDeadline(freeSelfCancelDeadline(start, freeHours)),
-    freeHoursLabel: hoursBeforeLabel(freeHours),
-    insideNoFreeCancelWindow: isInsideNoFreeCancelWindow(start, new Date(), freeHours),
-    changeDeadlineLabel: data.changeDeadlineHours != null ? hoursBeforeLabel(data.changeDeadlineHours) : null,
+    ...base,
+    status: 'ready',
+    terms: {
+      summary: cancellationSummaryText(data.deadlineHours, data.fees),
+      freeDeadlineLabel: formatDeadline(freeSelfCancelDeadline(start, freeHours)),
+      freeHoursLabel: hoursBeforeLabel(freeHours),
+      insideNoFreeCancelWindow: isInsideNoFreeCancelWindow(start, new Date(), freeHours),
+      changeDeadlineLabel: data.changeDeadlineHours != null ? hoursBeforeLabel(data.changeDeadlineHours) : null,
+    },
   }
 }

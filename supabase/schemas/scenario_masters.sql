@@ -1,5 +1,5 @@
 -- 正規ソース: supabase/schemas/scenario_masters.sql
--- 最終更新: 2026-04-10
+-- 最終更新: 2026-10-12
 CREATE TABLE public.scenario_masters (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   title TEXT NOT NULL,
@@ -31,7 +31,9 @@ CREATE TABLE public.scenario_masters (
   weekend_duration INTEGER,
   report_display_name TEXT,
   -- センシティブ内容セルフ診断用。値は src/constants/sensitiveTopics.ts の SENSITIVE_TOPICS.key
-  sensitive_tags TEXT[] NOT NULL DEFAULT '{}'::text[]
+  sensitive_tags TEXT[] NOT NULL DEFAULT '{}'::text[],
+  -- migration 20260519080000: 他組織と共有するマスタか（ビューで参照）
+  is_shared BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- Indexes

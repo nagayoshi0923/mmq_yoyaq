@@ -1,5 +1,5 @@
 -- 正規ソース: supabase/schemas/global_settings.sql
--- 最終更新: 2026-04-10
+-- 最終更新: 2026-10-12
 CREATE TABLE public.global_settings (
   booking_cutoff_minutes integer NOT NULL DEFAULT 0 CHECK (booking_cutoff_minutes BETWEEN 0 AND 1440),
   private_booking_deadline_days INTEGER DEFAULT 14 CHECK (private_booking_deadline_days BETWEEN 0 AND 90),
@@ -36,7 +36,21 @@ CREATE TABLE public.global_settings (
   system_msg_booking_rejected_body TEXT,
   system_msg_booking_cancelled_title TEXT,
   system_msg_booking_cancelled_body TEXT,
-  kit_transfer_start_store_ids JSONB NOT NULL DEFAULT '{}'::jsonb
+  kit_transfer_start_store_ids JSONB NOT NULL DEFAULT '{}'::jsonb,
+  -- migration 20260523030000: チャット設定・個別連絡とシステムメッセージの文面
+  chat_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  chat_guest_allowed BOOLEAN NOT NULL DEFAULT TRUE,
+  individual_notice_default_body TEXT,
+  system_msg_candidate_dates_added_title TEXT DEFAULT '候補日程が追加されました',
+  system_msg_candidate_dates_added_body TEXT DEFAULT '日程を確認して回答してください。',
+  system_msg_pre_reading_notice_title TEXT DEFAULT '事前読み込みについて',
+  system_msg_pre_reading_notice_body TEXT,
+  system_msg_survey_notice_title TEXT DEFAULT 'アンケートのご協力のお願い',
+  system_msg_survey_notice_body TEXT,
+  system_msg_performance_cancelled_title TEXT DEFAULT '公演中止のお知らせ',
+  system_msg_performance_cancelled_body TEXT,
+  -- migration 20260526000000: キット移動の基準日オフセット
+  kit_transfer_offsets INTEGER[] DEFAULT '{0,4}'
 );
 
 -- Indexes

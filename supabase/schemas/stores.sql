@@ -1,5 +1,5 @@
 -- 正規ソース: supabase/schemas/stores.sql
--- 最終更新: 2026-07-04
+-- 最終更新: 2026-10-12
 CREATE TABLE public.stores (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
@@ -31,7 +31,11 @@ CREATE TABLE public.stores (
   transport_allowance INTEGER,
   kit_group_id UUID REFERENCES public.stores(id),
   venue_cost_per_performance INTEGER DEFAULT 0,
-  access_info TEXT
+  access_info TEXT,
+  -- migration 20260526010000: true の店舗からはキット移動計画を作らない
+  kit_fixed BOOLEAN DEFAULT FALSE,
+  -- migration 20261011210000: お客様向けの店舗名（空なら店舗名から組織名を外したもの）
+  public_name TEXT
 );
 
 -- Indexes
@@ -48,3 +52,7 @@ GRANT SELECT (
   temporary_dates, temporary_venue_names, display_order, region, kit_group_id,
   created_at, updated_at
 ) ON public.stores TO anon, authenticated;
+-- migration 20261011210000: お客様向けの店舗名も公開列
+GRANT SELECT (public_name) ON public.stores TO anon, authenticated;
+
+COMMENT ON COLUMN public.stores.public_name IS 'お客様向けの店舗名（空なら店舗名から組織名を外したもの）';

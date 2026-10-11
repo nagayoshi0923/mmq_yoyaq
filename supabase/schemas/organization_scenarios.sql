@@ -1,5 +1,5 @@
 -- 正規ソース: supabase/schemas/organization_scenarios.sql
--- 最終更新: 2026-04-10
+-- 最終更新: 2026-10-12
 CREATE TABLE public.organization_scenarios (
   private_booking_deadline_days INTEGER CHECK (private_booking_deadline_days BETWEEN 0 AND 90),
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -82,6 +82,12 @@ CREATE TABLE public.organization_scenarios (
   web_published BOOLEAN NOT NULL DEFAULT TRUE,
   -- 公式サイト一覧の表示順。NULL は末尾
   web_display_order INTEGER,
+  -- migration 20260523000000 / 20260523010000: シナリオ種別・貸切受付・公演期間
+  scenario_kind TEXT NOT NULL DEFAULT 'regular'
+    CONSTRAINT organization_scenarios_scenario_kind_check CHECK (scenario_kind IN ('regular', 'online_item', 'offsite_only')),
+  accepts_private_booking BOOLEAN NOT NULL DEFAULT TRUE,
+  available_from DATE,
+  available_until DATE,
   UNIQUE (organization_id, scenario_master_id)
 );
 

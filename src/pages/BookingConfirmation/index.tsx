@@ -18,7 +18,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useCustomerData } from './hooks/useCustomerData'
 import { useBookingForm } from './hooks/useBookingForm'
 import { useBookingSubmit, checkDuplicateReservation, BOOKING_PROGRESS_LABELS } from './hooks/useBookingSubmit'
-import { useBookingCancellationTerms } from './hooks/useBookingCancellationTerms'
+import { cancellationTermsGate, useBookingCancellationTerms } from './hooks/useBookingCancellationTerms'
 import { BookingCancellationTerms } from './components/BookingCancellationTerms'
 import { PRICE_NOTE } from '@/lib/priceNote'
 import { formatDate, formatTime, formatPrice } from './utils/bookingFormatters'
@@ -145,7 +145,9 @@ export function BookingConfirmation({
   const cancellationTerms = useBookingCancellationTerms({ organizationSlug, storeId, eventId, eventDate, startTime })
   // 取消期限を過ぎた公演は、キャンセル料に同意してから予約する（点検 34）
   const [lateCancelAgreed, setLateCancelAgreed] = useState(false)
-  const needsLateCancelAgreement = cancellationTerms?.insideNoFreeCancelWindow === true && !lateCancelAgreed
+  // 規定を読めるまで（ready）確定させない。取得失敗・既定値でも確定させない（公開前検証 P1）
+  const termsGate = cancellationTermsGate(cancellationTerms.status, cancellationTerms.terms, lateCancelAgreed)
+  const needsLateCancelAgreement = termsGate.needsLateCancelAgreement
 
   const { isSubmitting, progress, success, completedReservation, confirmationEmailOutcome, handleSubmit } = useBookingSubmit({
     eventId,
@@ -173,7 +175,7 @@ export function BookingConfirmation({
   const onSubmit = async () => {
     setError(null)
     if (!couponReady) { setError('クーポンの確認完了を待つか、選択を解除してください'); return }
-    if (needsLateCancelAgreement) { setError('キャンセル料についての確認にチェックを入れてください'); return }
+    if (!termsGate.canSubmit) { setError(termsGate.message); return }
     
     if (!validateForm(customerName, customerEmail, customerPhone)) {
       return
@@ -730,7 +732,7 @@ export function BookingConfirmation({
 
             {/* キャンセル規定の要点・取消期限を過ぎた公演の注意（点検 20・34） */}
             <BookingCancellationTerms
-              terms={cancellationTerms}
+              state={cancellationTerms}
               agreed={lateCancelAgreed}
               onAgreedChange={setLateCancelAgreed}
               eventId={eventId}
@@ -856,7 +858,7 @@ export function BookingConfirmation({
               <div className="space-y-1">
                 <Button
                   onClick={onSubmit}
-                  disabled={isSubmitting || !couponReady || needsLateCancelAgreement || (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict)}
+                  disabled={isSubmitting || !couponReady || !termsGate.canSubmit || (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict)}
                   className="w-full h-11 text-sm"
                   data-testid="booking-submit"
                 >
@@ -867,6 +869,9 @@ export function BookingConfirmation({
                 )}
                 {needsLateCancelAgreement && !isSubmitting && (
                   <p className="text-xs text-center text-red-700">上の「キャンセル料がかかることを確認しました」にチェックを入れると予約できます。</p>
+                )}
+                {!termsGate.canSubmit && !needsLateCancelAgreement && !isSubmitting && (
+                  <p className={`text-xs text-center ${cancellationTerms.status === 'loading' ? 'text-muted-foreground' : 'text-red-700'}`} data-testid="booking-terms-gate-message">{termsGate.message}</p>
                 )}
               </div>
             )}
