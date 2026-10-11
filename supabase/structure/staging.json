@@ -4,7 +4,7 @@
   "captured_at": "2026-10-11T20:59:27.569Z",
   "table_count": 156,
   "function_count": 434,
-  "digest": "76549e7408313b5a96dddc5ec26b67ad48c97779756511de4795f40994f8a6f6"
+  "digest": "bfc715d9920e2b1a2a73a1b6e635d9ac12563c8dd04d08a401b1af0415cb0f19"
  },
  "tables": {
   "staff": {
@@ -26042,7 +26042,7 @@
     "service_role=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "a66ab4a356386376292a6efe534aefc5",
+   "body_md5": "4f8b4df8b32b4034ad2d10d6dd0697cf",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28793,7 +28793,7 @@
     "service_role=X/postgres"
    ],
    "returns": "boolean",
-   "body_md5": "222fa971a543f1379456498a64fa6d8e",
+   "body_md5": "fe0272026eca95df14c882cbc9abad69",
    "language": "plpgsql",
    "security_definer": true
   },

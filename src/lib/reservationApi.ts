@@ -346,8 +346,8 @@ export const reservationApi = {
 
     const oldCount = reservation.participant_count
     const unitPrice = reservation.unit_price || 0
-    // 料金は常に unit_price × 人数 で計算
-    const oldPrice = unitPrice * oldCount
+    // お支払い金額はサーバー確定の final_price（クーポン割引後）。未設定の旧予約だけ単価×人数
+    const oldPrice = typeof reservation.final_price === 'number' ? reservation.final_price : unitPrice * oldCount
 
     logger.log('人数変更前の情報:', {
       oldCount,
@@ -384,8 +384,9 @@ export const reservationApi = {
     // 人数変更確認メールを送信
     if (sendEmail && reservation.customer_email) {
       try {
-        // 新料金は unit_price × newCount で計算
-        const newPrice = unitPrice * newCount
+        // 新料金はサーバーが割引を付け直した final_price。読めなければ単価×人数
+        const { data: saved } = await supabase.from('reservations').select('final_price').eq('id', reservationId).maybeSingle()
+        const newPrice = typeof saved?.final_price === 'number' ? saved.final_price : unitPrice * newCount
         const priceDifference = newPrice - oldPrice
         const scheduleEventRaw = reservation.schedule_events as unknown
         const scheduleEvent = (Array.isArray(scheduleEventRaw) ? scheduleEventRaw[0] : scheduleEventRaw) as Record<string, unknown> | null | undefined

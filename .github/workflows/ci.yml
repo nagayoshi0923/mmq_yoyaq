@@ -34,7 +34,7 @@ jobs:
         run: npm run test:unit
 
       - name: Coupon rules database regressions
-        run: npm run test:coupon-rules-db
+        run: npm run test:coupon-rules-db && npm run test:participant-change-coupon-db
 
       - name: 予約RPCの本人・組織認可と2接続競合
         timeout-minutes: 8

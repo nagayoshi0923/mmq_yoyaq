@@ -293,7 +293,10 @@ export function useUpdateParticipantCountMutation(reservationId: string, schedul
           reservation: {
             ...cached.reservation,
             participant_count: newCount,
-            ...(reservation?.unit_price ? { final_price: reservation.unit_price * newCount, total_price: reservation.unit_price * newCount } : {}),
+            // 割引のある予約はサーバーが割引を付け直すので、金額は再取得を待つ（単価×人数で上書きしない）
+            ...(reservation?.unit_price && !(Number(reservation?.discount_amount) > 0)
+              ? { final_price: reservation.unit_price * newCount, total_price: reservation.unit_price * newCount }
+              : {}),
           },
         } : cached,
       )
