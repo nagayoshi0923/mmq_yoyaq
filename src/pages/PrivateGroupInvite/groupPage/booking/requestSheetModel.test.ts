@@ -3,7 +3,7 @@ vi.mock('@/lib/supabase', () => ({ supabase: {} }))
 import type { PrivateGroup } from '@/types'
 import { buildAnswerTable } from '../groupPageModel'
 import {
-  availabilityWindows, candidateBlockedReason, defaultParticipants, initialPicks, movePick, participantsNote, sheetCandidates,
+  availabilityWindows, candidateBlockedReason, initialPicks, movePick, participantChoice, sheetCandidates,
   slotKeyOf, storeChips, storesToSend, togglePick, toStoreAvailability,
 } from './requestSheetModel'
 
@@ -54,17 +54,16 @@ describe('申込シートの候補日', () => {
   })
 })
 
-describe('参加人数', () => {
-  it('既定は登録メンバー数を作品の人数に収めたもの', () => {
-    expect(defaultParticipants(4, 4, 6)).toBe(4)
-    expect(defaultParticipants(3, 5, 6)).toBe(5)
-    expect(defaultParticipants(8, 4, 6)).toBe(6)
-    expect(defaultParticipants(3, null, null)).toBe(3)
+describe('参加人数（お客様が増減しない）', () => {
+  it('作品の人数が固定ならその人数だけ（選ばせない）', () => {
+    expect(participantChoice(6, 6, 3)).toEqual({ fixed: true, options: [6], initial: 6 })
   })
-  it('注記', () => {
-    expect(participantsNote(6, 4)).toBe('登録メンバー 4 名＋当日来る 2 名')
-    expect(participantsNote(4, 4)).toBe('登録メンバー 4 名')
-    expect(participantsNote(4, 5)).toBe('登録メンバー 5 名より少ない人数です')
+  it('可変なら最低〜最大を選択肢に、既定は最大', () => {
+    expect(participantChoice(5, 8, 3)).toEqual({ fixed: false, options: [5, 6, 7, 8], initial: 8 })
+  })
+  it('作品の人数が読めないときは登録メンバー数で固定', () => {
+    expect(participantChoice(null, null, 3)).toEqual({ fixed: true, options: [3], initial: 3 })
+    expect(participantChoice(null, 6, 3)).toEqual({ fixed: true, options: [6], initial: 6 })
   })
 })
 

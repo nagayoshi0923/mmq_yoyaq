@@ -158,7 +158,7 @@ export async function submitGroupBookingRequest({
     // 候補日時をJSONB形式で準備（終了は営業枠ではなくシナリオ公演時間）
     const candidateDatetimes = buildCandidateDatetimes(selectedCandidateDates, requestedStores, scenarioTiming, isCustomHoliday)
     
-    // 参加人数は申込シートで決めた人数（登録メンバー＋当日来る人。作品の最低〜最大人数の範囲は DB でも確かめる）。
+    // 参加人数は申込シートの人数（作品の人数が固定ならその人数、可変なら最低〜最大から選んだ人数。既定は最大。DB でも範囲を確かめる）。
     // 申込後のメンバー追加は作品の最大人数まで（予約の人数では止めない）。
     const bookingParticipantCount = Math.floor(participantCount)
 
