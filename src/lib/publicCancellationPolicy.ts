@@ -303,10 +303,13 @@ export async function fetchPublicCancellationTerms({
   if (error) return fallback
   const rows = toArray<Record<string, unknown>>(data).map(normalizePublicPolicy)
   const policy = rows.find(row => storeId && row.store_id === storeId) ?? rows[0]
-  if (!policy || !policy.is_configured) return fallback
+  // 店舗が規定を個別に設定していなくても（is_configured=false）、RPC が返す値は DB の既定の規定で、
+  // 予約時に固定される値と同じもの。値がそろっていれば「読めた」扱いにする（札幌店のように設定行が無い店舗）。
+  // 行が無い・値が欠けているときだけ既定値に落として isFallback を立てる。
+  if (!policy || policy.cancellation_deadline_hours == null || policy.cancellation_fees.length === 0) return fallback
   return {
     deadlineHours: policy.cancellation_deadline_hours,
-    fees: policy.cancellation_fees.length > 0 ? policy.cancellation_fees : fallback.fees,
+    fees: policy.cancellation_fees,
     changeDeadlineHours: policy.reservation_change_deadline_hours,
     isFallback: false,
   }
