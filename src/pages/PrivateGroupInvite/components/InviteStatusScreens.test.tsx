@@ -27,9 +27,22 @@ it('店舗へ申込済みのグループに参加した時は、店舗の返事�
   expect(host.textContent).not.toContain('主催者が全員の回答を確認後')
 })
 
-it('募集中のグループでは従来どおりの案内（#49）', async () => {
+it('募集中のグループでは「日程に回答する」を次にやることとして出す（#49・#58）', async () => {
   await act(async () => root.render(<InviteJoinSuccessScreen generatedPin={null} isNewMember guestEmail="" isMember onViewGroup={noop} onBackToTop={noop} />))
-  expect(host.textContent).toContain('主催者が全員の回答を確認後、貸切予約を申し込みます。')
+  expect(host.textContent).toContain('次は、日程に回答しましょう')
+  expect(host.querySelector('[data-testid="join-success-primary"]')?.textContent).toBe('日程に回答する')
+  expect(host.textContent).toContain('全員の回答がそろったら、主催者が店舗に申し込みます。')
+  await act(async () => root.render(<InviteJoinSuccessScreen generatedPin={null} isNewMember guestEmail="" hasCandidates={false} isMember onViewGroup={noop} onBackToTop={noop} />))
+  expect(host.textContent).toContain('次は、候補日が決まるのを待ちます')
+})
+
+it('ゲストの PIN は完了の箱より上に出し、メールでも送ったと書く（#28）', async () => {
+  await act(async () => root.render(<InviteJoinSuccessScreen generatedPin="4821" isNewMember guestEmail="g@example.com" onViewGroup={noop} onBackToTop={noop} />))
+  const pin = host.querySelector('[data-testid="join-success-pin"]')
+  const next = host.querySelector('[data-testid="join-success-next"]')
+  expect(pin?.textContent).toContain('4821')
+  expect(pin?.textContent).toContain('PIN はメールでもお送りしました（g@example.com）')
+  expect(pin && next && (pin.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy()
 })
 
 it('会員にはマイページの案内、ゲストにはブックマークの案内を出す（#59）', async () => {

@@ -11,7 +11,7 @@ import { groupPushSetting, subscribeWebPush, syncWebPushSubscription } from '@/l
 import { currentPushSupport, isPromptSnoozed, notificationPermission, snoozePrompt, takePromptPending } from '@/lib/webPushSupport'
 import { MESSAGE_SENT_EVENT, type MessageSentDetail } from '@/pages/PrivateGroupManage/components/chat/chatVisibility'
 
-export type PushPromptKind = 'ask' | 'ios'
+export type PushPromptKind = 'ask' | 'ios' | 'blocked'
 
 export interface GroupPush {
   /** ⋮ に通知の切り替えを出すか（会員だけ） */
@@ -76,7 +76,8 @@ export function useGroupPush(groupId: string, isMember: boolean): GroupPush {
   const subscribe = useCallback(async (): Promise<boolean> => {
     const result = await subscribeWebPush()
     if (result === 'denied') {
-      toast.error('通知が許可されませんでした。ブラウザの設定（サイトの通知）から許可できます')
+      // 許可されなかった・端末が止めている: 端末ごとの許可の手順を出す（点検 46）
+      setPrompt('blocked')
       return false
     }
     setDeviceReady(true)
@@ -86,7 +87,7 @@ export function useGroupPush(groupId: string, isMember: boolean): GroupPush {
   const accept = useCallback(async () => {
     setBusy(true)
     try {
-      if (!(await subscribe())) { snoozePrompt(); setPrompt(null); return }
+      if (!(await subscribe())) { snoozePrompt(); return }
       if (!enabled) setEnabled((await groupPushSetting(groupId, true)).push_enabled)
       setPrompt(null)
       toast.success('この端末で通知を受け取ります')
@@ -115,7 +116,7 @@ export function useGroupPush(groupId: string, isMember: boolean): GroupPush {
       if (support === 'ios_needs_home_screen') { setPrompt('ios'); return }
       if (!deviceReady) {
         if (notificationPermission() === 'denied') {
-          toast.error('この端末では通知がブロックされています。ブラウザの設定（サイトの通知）から許可してください')
+          setPrompt('blocked')
           return
         }
         if (!(await subscribe())) return

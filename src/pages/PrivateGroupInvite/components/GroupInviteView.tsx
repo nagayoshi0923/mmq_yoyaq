@@ -8,13 +8,15 @@ import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Users, AlertCircle, Loader2, Ticket, CreditCard, LogOut, ArrowLeft } from 'lucide-react'
-import { PinResetRequest } from './PinResetRequest'
+import { GuestJoinPanel, type GuestJoinMode } from './GuestJoinPanel'
+import { InvitePreviewStatus } from './InvitePreviewStatus'
+import { buildInvitePreview } from '../invitePreviewModel'
+import { privateGroupProgress } from '@/components/patterns/privateGroup/privateGroupScheduleRules'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import { formatJstDateJa } from '@/utils/jstDate'
 import type { NavigateFunction } from 'react-router-dom'
@@ -60,7 +62,9 @@ interface GroupInviteViewProps {
   isScheduleConfirmedUi: boolean
   actionLoading: boolean
   error: string | null
-  showPinAuth: boolean
+  /** ゲスト（未ログイン・未参加）の参加欄: はじめて／再訪／PIN */
+  guestMode: GuestJoinMode
+  isCustomHoliday?: (date: string) => boolean
   guestName: string
   guestEmail: string
   pinEmail: string
@@ -91,7 +95,7 @@ interface GroupInviteViewProps {
 
 export function GroupInviteView({
   group, scenario, organizerName, memberCount, inviteMemberCap, isGroupFull,
-  user, code, existingMemberId, isScheduleConfirmedUi, actionLoading, error, showPinAuth,
+  user, code, existingMemberId, isScheduleConfirmedUi, actionLoading, error, guestMode, isCustomHoliday,
   guestName, guestEmail, pinEmail, pinCode, pinError, couponLoading, coupons, selectedCoupon, selectedCouponId,
   perPersonPrice, discountAmount, finalAmount,
   setExistingMemberId, setGuestName, setGuestEmail, setPinEmail, setPinCode, setSelectedCouponId,
@@ -104,6 +108,18 @@ export function GroupInviteView({
   const [showLeaveGroupConfirm, setShowLeaveGroupConfirm] = useState(false)
   // 作品の公開情報（作品ページと同じ読み取り。招待リンクだけの人・未ログインも読める）
   const { data: scenarioData } = useGroupScenarioInfo(group.scenario_master_id, group.organization_id)
+  // 参加前に見せる「このグループのいま」（状態・候補日・1 人あたりの料金。点検 51）
+  const preview = buildInvitePreview({
+    progress: privateGroupProgress(group, null),
+    candidates: group.candidate_dates ?? [],
+    savedPerPerson: group.per_person_price,
+    fee: scenarioData?.scenario?.participationFee,
+    costs: scenarioData?.scenario?.participationCosts,
+    isCustomHoliday,
+  })
+  const goLogin = () => navigate(loginUrlWithIntent('login', location.pathname, inviteIntentLabel))
+  const goSignup = () => navigate(loginUrlWithIntent('signup', location.pathname, inviteIntentLabel))
+  const isGuestJoin = !user && !existingMemberId
 
   const handleConfirmLeaveGroup = async () => {
     try {
@@ -132,7 +148,8 @@ export function GroupInviteView({
       <NavigationBar currentPage="/" />
 
       <div className="container mx-auto max-w-lg px-4 py-6">
-        <ConfirmedGroupSchedule group={group} />
+        {/* 参加前（preview）は下の「このグループのいま」に状態・候補日を出すので、ここでは出さない（点検 51） */}
+        {group.confirmed_performance_access !== 'preview' && <ConfirmedGroupSchedule group={group} />}
         {/* 戻るボタン（未ログインのゲストにはマイページが無いので出さない） */}
         {user && (
           <button
@@ -149,39 +166,11 @@ export function GroupInviteView({
             <p className="text-sm text-purple-800">
               <span className="font-medium">{organizerName}</span>さんからの貸切お誘い
             </p>
+            {isGuestJoin && guestMode === 'new' && (
+              <p className="mt-1 text-xs text-purple-700" data-testid="invite-guest-lead">アカウント登録なしで、お名前だけで参加できます</p>
+            )}
           </CardContent>
         </Card>
-
-        {/* ログイン案内 */}
-        {!user && (
-          <Card className="mb-6 border-purple-200 bg-purple-50/50">
-            <CardContent className="p-4">
-              <div className="flex-1">
-                <p className="text-sm font-medium">
-                  アカウントで参加すると、マイページから確認できます
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  ゲストのまま参加する場合は、下のお名前とメールアドレスを入力してください
-                </p>
-              </div>
-              <div className="flex gap-2 mt-3">
-                <Button
-                  className="flex-1"
-                  onClick={() => navigate(loginUrlWithIntent('signup', location.pathname, inviteIntentLabel))}
-                >
-                  新規登録
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => navigate(loginUrlWithIntent('login', location.pathname, inviteIntentLabel))}
-                >
-                  ログイン
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* 作品について（短い版。参加前に何に参加するのかが分かるように。点検 51 番の一部） */}
         <div className="mb-6">
@@ -205,6 +194,10 @@ export function GroupInviteView({
           />
         </div>
 
+        <div className="mb-6">
+          <InvitePreviewStatus preview={preview} />
+        </div>
+
         {error && (
           <Card className="mb-4 border-2 border-red-200 bg-red-50">
             <CardContent className="p-4 flex items-center gap-2 text-red-800 text-sm">
@@ -212,6 +205,32 @@ export function GroupInviteView({
               <span>{error}</span>
             </CardContent>
           </Card>
+        )}
+
+        {/* ゲストの参加欄（名前だけで参加・PIN で入る。点検 52〜54・56） */}
+        {isGuestJoin && (
+          <GuestJoinPanel
+            mode={guestMode}
+            code={code}
+            guestName={guestName}
+            guestEmail={guestEmail}
+            setGuestName={setGuestName}
+            setGuestEmail={setGuestEmail}
+            pinEmail={pinEmail}
+            pinCode={pinCode}
+            pinError={pinError}
+            setPinEmail={setPinEmail}
+            setPinCode={setPinCode}
+            actionLoading={actionLoading}
+            isGroupFull={isGroupFull}
+            inviteMemberCap={inviteMemberCap}
+            onSubmit={() => void handleSubmit()}
+            onPinAuth={() => void handlePinAuth()}
+            onOpenPin={() => openSheet('pin')}
+            onClosePin={closeSheet}
+            onLogin={goLogin}
+            onSignup={goSignup}
+          />
         )}
 
         {/* 参加費・クーポン */}
@@ -296,122 +315,8 @@ export function GroupInviteView({
               )}
 
               <p className="text-xs text-muted-foreground bg-gray-50 p-2 rounded">
-                💡 お支払いは当日、店舗でお願いします。現金またはクレジットカードがご利用いただけます。
+                お支払いは当日、店舗でお願いします。現金またはクレジットカードがご利用いただけます。
               </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ゲスト情報（非ログイン時） */}
-        {!user && !existingMemberId && !showPinAuth && (
-          <Card className="mb-6">
-            <CardContent className="p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold">お名前を入力</h3>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="text-purple-600 hover:text-purple-700 p-0 h-auto"
-                  onClick={() => navigate(loginUrlWithIntent('login', location.pathname, inviteIntentLabel))}
-                >
-                  ログインして参加 →
-                </Button>
-              </div>
-              <div>
-                <Label className="text-sm font-medium mb-1.5 block">お名前 *</Label>
-                <Input
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  placeholder="山田 太郎"
-                  className="text-sm"
-                />
-              </div>
-              <div>
-                <Label className="text-sm font-medium mb-1.5 block">メールアドレス *</Label>
-                <Input
-                  type="email"
-                  value={guestEmail}
-                  onChange={(e) => setGuestEmail(e.target.value)}
-                  placeholder="example@example.com"
-                  className="text-sm"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  再訪問時の認証と予約確定のご連絡に使用します
-                </p>
-              </div>
-              
-              {/* 既に参加済みの方向け */}
-              <div className="border-t pt-3">
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="text-gray-600 hover:text-gray-800 p-0 h-auto text-xs"
-                  onClick={() => openSheet('pin')}
-                >
-                  既に参加済みの方はこちら（PIN認証）
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* PIN認証フォーム */}
-        {!user && !existingMemberId && showPinAuth && (
-          <Card className="mb-6 border-purple-200">
-            <CardContent className="p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold">PINで認証</h3>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="text-gray-500 hover:text-gray-700 p-0 h-auto text-xs"
-                  onClick={() => closeSheet()}
-                >
-                  新規参加に戻る
-                </Button>
-              </div>
-              
-              <p className="text-sm text-muted-foreground">
-                以前参加登録した際のメールアドレスとPINを入力してください
-              </p>
-              
-              {pinError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-2 rounded">
-                  {pinError}
-                </div>
-              )}
-              
-              <div>
-                <Label className="text-sm font-medium mb-1.5 block">メールアドレス</Label>
-                <Input
-                  type="email"
-                  value={pinEmail}
-                  onChange={(e) => setPinEmail(e.target.value)}
-                  placeholder="example@example.com"
-                  className="text-sm"
-                />
-              </div>
-              <div>
-                <Label className="text-sm font-medium mb-1.5 block">PIN（4桁）</Label>
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={4}
-                  value={pinCode}
-                  onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="1234"
-                  className="text-sm text-center text-xl tracking-widest font-mono"
-                />
-              </div>
-              <Button
-                onClick={handlePinAuth}
-                className="w-full bg-purple-600 hover:bg-purple-700"
-                disabled={!pinEmail || pinCode.length !== 4}
-              >
-                認証する
-              </Button>
-              {code && <PinResetRequest inviteCode={code} email={pinEmail} />}
             </CardContent>
           </Card>
         )}
@@ -427,8 +332,8 @@ export function GroupInviteView({
           </Card>
         )}
 
-        {/* 送信ボタン（新規参加時のみ表示） */}
-        {!existingMemberId && (
+        {/* 送信ボタン（ログイン中の新規参加のみ。ゲストは参加欄の中に置く） */}
+        {user && !existingMemberId && (
           <>
             {isGroupFull && (
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm text-center mb-2">

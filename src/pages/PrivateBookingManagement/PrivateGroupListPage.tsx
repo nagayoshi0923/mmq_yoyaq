@@ -2,6 +2,7 @@ import { Users } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PrivateGroupList } from './components/PrivateGroupList'
+import { PhotoStorageCard } from './components/PhotoStorageCard'
 
 export default function PrivateGroupListPage() {
   return (
@@ -13,6 +14,7 @@ export default function PrivateGroupListPage() {
         title={<><Users className="h-5 w-5" />グループ一覧</>}
         description="貸切公演グループの管理（招待状況・確定日・アンケート通知など）"
       />
+      <PhotoStorageCard />
       <PrivateGroupList />
     </AppLayout>
   )

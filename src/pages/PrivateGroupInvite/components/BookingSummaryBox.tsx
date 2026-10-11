@@ -9,6 +9,7 @@
 import { useEffect, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { formatJstDateJa, formatJstMonthDay, formatJstTime } from '@/utils/jstDate'
+import { privateCancelNoticeText } from '@/lib/privateCancelNotice'
 import type { PrivateGroupLinkedReservation } from '@/lib/privateGroupRead'
 import type { PrivateBookingPhase } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingMenu'
 import type { PrivateBookingActions } from '@/pages/MyPage/components/PrivateBookingCards/usePrivateBookingActions'
@@ -96,6 +97,9 @@ export function BookingSummaryBox({ phase, linkedReservation, preferredStoreName
     <Wrapper className={embedded ? undefined : 'bg-white rounded-lg p-3 border'} aria-label={embedded ? undefined : '申込内容'} data-testid="booking-summary-box">
       {!embedded && <h3 className="font-semibold text-sm mb-1">申込内容</h3>}
       {rows}
+      {phase === 'confirmed' && (
+        <p className="mt-2 text-xs text-muted-foreground leading-relaxed" data-testid="booking-cancel-notice">{privateCancelNoticeText()}</p>
+      )}
       {isOrganizer && phase === 'requested' && (
         <Button
           type="button"

@@ -3,6 +3,7 @@
  * 最も集まっている行を薄紫にする。自分の列のセルを押すと ○→△→×→○ と変わり、その場で保存する。
  * 行には申込ボタンを置かない（申込の入口は「いまの状態」の箱と、表の下の「候補日を選んで店舗に申し込む」の 2 か所。2026-10-11 社長決定）。
  * 列が多いときは横に動かせる（1 列目は固定）。
+ * 回答できないとき（店舗へ申込済み・確定後）は自分の列も押せる見た目にしない（点検 50）。
  */
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
@@ -95,7 +96,7 @@ export function DateAnswerTable({ table, canAnswer, onAnswer }: DateAnswerTableP
                           {saving === row.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> : mark}
                         </button>
                       ) : (
-                        <span className={`${cls} ${col.isMe ? 'ring-2 ring-violet-300 ring-offset-1' : ''}`} aria-label={`${col.name}: ${value ? mark : '未回答'}`}>{mark}</span>
+                        <span className={`${cls} ${col.isMe && canAnswer ? 'ring-2 ring-violet-300 ring-offset-1' : ''}`} aria-label={`${col.name}: ${value ? mark : canAnswer ? '未回答' : '回答なし'}`}>{mark}</span>
                       )}
                     </td>
                   )

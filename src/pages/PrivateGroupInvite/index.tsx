@@ -1,5 +1,5 @@
 import { usePrivateGroupMemberRestore } from '@/hooks/usePrivateGroupMemberRestore'
-import { privateGroupMemberAction, getPrivateGroupGuestToken, clearPrivateGroupGuestToken, guestStorage } from '@/lib/privateGroupGuestSession'
+import { privateGroupMemberAction, getPrivateGroupGuestToken, clearPrivateGroupGuestToken, guestStorage, markGuestJoined, hasGuestJoined, clearGuestJoined } from '@/lib/privateGroupGuestSession'
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
@@ -236,6 +236,7 @@ export function PrivateGroupInvite() {
   // ゲストセッションを保存
   const saveGuestSession = (memberId: string, name: string, email: string) => {
     if (!code) return
+    markGuestJoined(code)
     const storageKey = getStorageKey(code)
     guestStorage.setItem(storageKey, JSON.stringify({
       memberId,
@@ -245,11 +246,17 @@ export function PrivateGroupInvite() {
     }))
   }
 
-  // ゲストセッションをクリア
+  // ゲストセッションをクリア（グループから抜けたとき。参加した印も消す）
   const clearGuestSession = () => {
     if (!code) return
-    const storageKey = getStorageKey(code)
-    guestStorage.removeItem(storageKey)
+    signOutGuestDevice()
+    clearGuestJoined(code)
+  }
+
+  // この端末から退出（グループには残る。次に開くと「PIN で入る」を大きく出す。点検 57）
+  const signOutGuestDevice = () => {
+    if (!code) return
+    guestStorage.removeItem(getStorageKey(code))
     if (group) clearPrivateGroupGuestToken(group.id)
   }
 
@@ -419,7 +426,16 @@ export function PrivateGroupInvite() {
       refetch()
 
     } catch (err) {
-      setError(getErrorMessage(err) || '送信に失敗しました')
+      const message = getErrorMessage(err) || '送信に失敗しました'
+      // 同じメールアドレスで参加済みのゲストは、二重に参加させず PIN の画面へ案内する（点検 53）
+      if (!user && /既にグループに参加しています/.test(message)) {
+        setJoinedAsNewMember(false)
+        setPinEmail(guestEmail)
+        setPinError('このメールアドレスはすでに参加しています。参加したときにメールで届いた PIN で入ってください。')
+        openSheet('pin')
+        return
+      }
+      setError(message)
     }
   }
 
@@ -466,9 +482,13 @@ export function PrivateGroupInvite() {
         isNewMember={joinedAsNewMember}
         guestEmail={guestEmail}
         progress={privateGroupProgress(group, linkedReservationStatus)}
+        hasCandidates={activeCandidateDates.length > 0}
         isMember={Boolean(user)}
         onViewGroup={() => {
+          // 次にやることのタブを開く（募集中は日程、確定は概要。点検 58）
+          const progress = privateGroupProgress(group, linkedReservationStatus)
           setSuccess(false)
+          setActiveTab(progress === 'confirmed' ? 'overview' : 'dates')
           refetch()
         }}
         onBackToTop={() => navigate('/')}
@@ -696,6 +716,11 @@ export function PrivateGroupInvite() {
           submitDateResponses={submitDateResponses}
           formatDateJaMd={formatDateJaMd}
           isCustomHoliday={isCustomHoliday}
+          onGuestSignOut={user ? null : () => {
+            signOutGuestDevice()
+            setExistingMemberId(null)
+            toast.success('この端末から退出しました。メールアドレスと PIN で、いつでも入り直せます')
+          }}
         />
 
         {/* シート（グループ設定・希望店舗の編集） */}
@@ -752,7 +777,8 @@ export function PrivateGroupInvite() {
       isScheduleConfirmedUi={isScheduleConfirmedUi}
       actionLoading={actionLoading}
       error={error}
-      showPinAuth={showPinAuth}
+      guestMode={showPinAuth ? 'pin' : code && hasGuestJoined(code) ? 'returning' : 'new'}
+      isCustomHoliday={isCustomHoliday}
       guestName={guestName}
       guestEmail={guestEmail}
       pinEmail={pinEmail}

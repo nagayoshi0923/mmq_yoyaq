@@ -29,6 +29,25 @@ export const guestStorage = {
 
 const key = (groupId: string) => `private_group_access_${groupId}`
 
+/**
+ * この端末でこの招待のグループにゲストとして参加した印（点検 53）。
+ * 本人確認の期限切れ・「この端末から退出」のあとに開き直したとき、新規参加ではなく「PIN で入る」を大きく出すために使う。
+ * 名前やメールアドレスは残さない。グループから抜けたら消す。
+ */
+const joinedKey = (inviteCode: string) => `private_group_guest_joined_${inviteCode}`
+
+export function markGuestJoined(inviteCode: string) {
+  guestStorage.setItem(joinedKey(inviteCode), '1')
+}
+
+export function hasGuestJoined(inviteCode: string): boolean {
+  return guestStorage.getItem(joinedKey(inviteCode)) === '1'
+}
+
+export function clearGuestJoined(inviteCode: string) {
+  guestStorage.removeItem(joinedKey(inviteCode))
+}
+
 export function savePrivateGroupGuestToken(groupId: string, token: string) {
   guestStorage.setItem(key(groupId), token)
 }
