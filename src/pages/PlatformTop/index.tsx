@@ -20,6 +20,7 @@ import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorati
 import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top/InfoSections'
 import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
 import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
+import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
 import { PerformanceResultList } from '@/components/public-top/PerformanceResultList'
 import { TopSection } from '@/components/public-top/TopSection'
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
@@ -65,6 +66,7 @@ export function PlatformTop() {
   const prefectures = data?.prefectures ?? []
   const { state: search, update: updateSearch } = usePerformanceSearchParams()
   const primaryColor = BOOKING_THEME.primary
+  const { marks, dialog: marksDialog } = useScenarioMarks()
 
   const range = useMemo(() => datePresetRange(search.preset, today, search.date), [search.preset, search.date, today])
   const results = useMemo(() => searchPerformances(performances, {
@@ -109,6 +111,7 @@ export function PlatformTop() {
       return {
         id: s.id,
         title: s.title,
+        author: s.author,
         key_visual_url: s.key_visual_url,
         genres: s.genres,
         player_count_min: s.player_count_min,
@@ -183,6 +186,8 @@ export function PlatformTop() {
             catalogPath="/scenario"
             allLabel={(n) => `すべての作品（全国 ${n}）›`}
             footnote="作品を押すと、上演している店舗と次の公演が見られます。"
+            searchPath={(q) => `/scenario?q=${encodeURIComponent(q)}`}
+            marks={marks}
             primaryColor={primaryColor}
           />
         )}
@@ -207,6 +212,7 @@ export function PlatformTop() {
       </main>
 
       <Footer />
+      {marksDialog}
     </div>
   )
 }

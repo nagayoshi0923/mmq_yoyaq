@@ -31,6 +31,7 @@ export interface PlatformScenario {
   id: string
   slug: string
   title: string
+  author: string
   key_visual_url: string | null
   genres: string[]
   player_count_min: number
@@ -84,6 +85,7 @@ export async function fetchPlatformTopData(today: string): Promise<PlatformTopDa
         id: s.id,
         slug: s.slug || prev?.slug || s.id,
         title: s.title || prev?.title || '',
+        author: s.author || prev?.author || '',
         key_visual_url: s.key_visual_url ?? prev?.key_visual_url ?? null,
         genres: s.genre ?? [],
         player_count_min: s.player_count_min ?? 1,

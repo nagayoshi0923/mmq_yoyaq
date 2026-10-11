@@ -1,5 +1,7 @@
 // 旧クライアントの通知要求も、宛先・日時・料金は同じ組織の保存済み事実から取得する。
 // 新しい配送記録がある承認は、この入口から二重送信しない。
+import { customerStoreName } from './customer-store-name.ts'
+
 export class LegacyApprovalError extends Error {
  constructor(message:string,readonly status=409){super(message)}
 }
@@ -21,7 +23,7 @@ export async function loadLegacyApprovalNotification(db:any,organizationId:strin
   .eq('reservation_id',r.id).eq('organization_id',organizationId).eq('schedule_event_id',e.id)
  if(queue.error) throw queue.error
  if(queue.data?.some((d:any)=>gmId?(d.kind.startsWith('gm_')&&d.recipient_key===gmId):d.kind==='confirmation_email')&&!options.allowQueued) return {queued:true as const}
- const store=await db.from('stores').select('name,address').eq('id',e.store_id).eq('organization_id',organizationId).maybeSingle()
+ const store=await db.from('stores').select('name,address,public_name,is_temporary,temporary_venue_names,organizations(name)').eq('id',e.store_id).eq('organization_id',organizationId).maybeSingle()
  if(store.error) throw store.error
  if(!store.data) throw new LegacyApprovalError('店舗を確認できません')
  let email=r.customer_email,name=r.customer_name
@@ -32,7 +34,7 @@ export async function loadLegacyApprovalNotification(db:any,organizationId:strin
  }
  const snapshot:Record<string,any>={organizationId,reservationId:r.id,scheduleEventId:e.id,storeId:e.store_id,
   scenarioMasterId:e.scenario_master_id||r.scenario_master_id,scenarioTitle:e.scenario||r.scenario_title,
-  eventDate:e.date,startTime:e.start_time,endTime:e.end_time,storeName:store.data.name,storeAddress:store.data.address,
+  eventDate:e.date,startTime:e.start_time,endTime:e.end_time,storeName:customerStoreName(store.data,{date:e.date}),storeAddress:store.data.address,
   customerEmail:email,customerName:name||'お客様',participantCount:r.participant_count,totalPrice:r.final_price??r.total_price??0,
   reservationNumber:r.reservation_number,notes:r.customer_notes,eventGms:e.gms}
  if(gmId){
