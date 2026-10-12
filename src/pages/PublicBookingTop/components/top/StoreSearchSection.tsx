@@ -8,8 +8,8 @@ import { TopSection } from '@/components/public-top/TopSection'
 import type { PerformanceSearchState } from '@/components/public-top/usePerformanceSearchParams'
 import {
   DATE_PRESETS,
-  datePresetRange,
   describeDateRange,
+  resolvePresetRange,
   searchPerformances,
   type PublicPerformance,
 } from '@/lib/publicPerformanceSearch'
@@ -42,7 +42,7 @@ interface StoreSearchSectionProps {
 
 /**
  * 店舗トップ「空いている公演を探す」。
- * チップ「今週末／今日／明日／来週」は日付順のカード（人数・店舗・空席あり・初心者向けで絞れる）、
+ * チップ「今週末／来週／今月」は日付順のカード（人数・店舗・空席あり・初心者向けで絞れる）、
  * 「カレンダー」「リスト」は元の部品（年月・店舗・満席を非表示の操作）を出す（2026-10-12 社長決定）。
  */
 export function StoreSearchSection({ performances, isLoading, state, onChange, storeOptions, today, nowMs, primaryColor, onSelect, classic }: StoreSearchSectionProps) {
@@ -53,14 +53,18 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
   const isCards = state.view === 'cards'
   // カレンダー・リストから日付のチップに戻るときは「今週末」から（日付の指定は持ち越さない）
   const preset = state.preset === 'date' ? 'weekend' : state.preset
-  const range = useMemo(() => datePresetRange(preset, today, null), [preset, today])
-  const results = useMemo(() => searchPerformances(performances, {
-    range,
-    people: state.people,
-    onlyAvailable: state.onlyAvailable,
-    beginnerOnly: state.beginnerOnly,
-    storeIds: state.storeIds,
-  }, nowMs), [performances, range, state.people, state.onlyAvailable, state.beginnerOnly, state.storeIds, nowMs])
+  const { range, results } = useMemo(() => {
+    const search = (r: ReturnType<typeof resolvePresetRange>) => searchPerformances(performances, {
+      range: r,
+      people: state.people,
+      onlyAvailable: state.onlyAvailable,
+      beginnerOnly: state.beginnerOnly,
+      storeIds: state.storeIds,
+    }, nowMs)
+    // 日曜の「今週末」は当日だけ。0 件なら次の土日に切り替える（読み込み中は切り替えない）
+    const r = resolvePresetRange(preset, today, null, (cand) => (isLoading ? 1 : search(cand).length))
+    return { range: r, results: search(r) }
+  }, [performances, preset, today, isLoading, state.people, state.onlyAvailable, state.beginnerOnly, state.storeIds, nowMs])
   const hasBeginner = useMemo(() => performances.some((p) => p.beginner_friendly), [performances])
   const resetKey = `${range.from}_${range.to}_${state.people}_${state.onlyAvailable}_${state.beginnerOnly}_${state.storeIds.join(',')}`
   const classicProps = {

@@ -26,13 +26,14 @@ import { TopSection } from '@/components/public-top/TopSection'
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
 import {
   DATE_PRESETS,
-  datePresetRange,
   datesWithOpenings,
   isBookableNow,
   nearlyFullPerformances,
   performanceDetailPath,
+  resolvePresetRange,
   searchPerformances,
   todayJst,
+  type DateRange,
   type PublicPerformance,
 } from '@/lib/publicPerformanceSearch'
 import { addJstDays, formatJstMonthDay } from '@/utils/jstDate'
@@ -68,10 +69,14 @@ export function PlatformTop() {
   const primaryColor = BOOKING_THEME.primary
   const { marks, dialog: marksDialog } = useScenarioMarks()
 
-  const range = useMemo(() => datePresetRange(search.preset, today, search.date), [search.preset, search.date, today])
-  const results = useMemo(() => searchPerformances(performances, {
-    range, people: search.people, onlyAvailable: search.onlyAvailable, prefecture: search.area,
-  }, nowMs), [performances, range, search.people, search.onlyAvailable, search.area, nowMs])
+  const { range, results } = useMemo(() => {
+    const find = (r: DateRange) => searchPerformances(performances, {
+      range: r, people: search.people, onlyAvailable: search.onlyAvailable, prefecture: search.area,
+    }, nowMs)
+    // 日曜の「今週末」は当日だけ。0 件なら次の土日に切り替える（読み込み中は切り替えない）
+    const r = resolvePresetRange(search.preset, today, search.date, (cand) => (isLoading ? 1 : find(cand).length))
+    return { range: r, results: find(r) }
+  }, [performances, search.preset, search.date, today, isLoading, search.people, search.onlyAvailable, search.area, nowMs])
   const nearlyFull = useMemo(() => nearlyFullPerformances(performances, nowMs), [performances, nowMs])
   const openDates = useMemo(() => datesWithOpenings(
     search.area ? performances.filter((p) => p.prefecture === search.area) : performances, search.people, nowMs,
@@ -84,12 +89,13 @@ export function PlatformTop() {
     return performances.filter((p) => p.date <= until && isBookableNow(p, nowMs)).length
   }, [performances, today, nowMs])
   const weekendOpenings = useMemo(() => {
-    const weekend = datePresetRange('weekend', today)
+    const countWeekend = (r: DateRange) => searchPerformances(performances, { range: r, people: 1, onlyAvailable: true }, nowMs).length
+    const weekend = resolvePresetRange('weekend', today, null, (r) => (isLoading ? 1 : countWeekend(r)))
     const map = new Map<string, number>()
     searchPerformances(performances, { range: weekend, people: 1, onlyAvailable: true }, nowMs)
       .forEach((p) => map.set(p.organization_id, (map.get(p.organization_id) ?? 0) + 1))
     return map
-  }, [performances, today, nowMs])
+  }, [performances, today, nowMs, isLoading])
 
   // 作品から探す: 全国の公開作品。補足は「N 店舗で上演・次回 M/D」（予約を受け付けている公演から）
   const browseScenarios = useMemo<BrowseScenario[]>(() => {

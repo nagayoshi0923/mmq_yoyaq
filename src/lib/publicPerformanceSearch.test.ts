@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DATE_PRESETS,
   datePresetRange,
   describeDateRange,
+  endOfJstMonth,
+  nextWeekendRange,
+  resolvePresetRange,
   formatDurationJa,
   isBookableNow,
   nearlyFullPerformances,
   performanceDetailPath,
   searchPerformances,
   seatState,
+  todayJst,
   type PublicPerformance,
 } from './publicPerformanceSearch'
 
@@ -28,9 +33,45 @@ describe('日付チップの範囲', () => {
   it('平日の「今週末」は次の土日', () => {
     expect(datePresetRange('weekend', '2026-10-14')).toEqual({ from: '2026-10-17', to: '2026-10-18' })
   })
-  it('土曜は今日と明日、日曜は次の土日', () => {
+  it('チップは 今週末／来週／今月 の順（今日・明日は無い）', () => {
+    expect(DATE_PRESETS.map((d) => d.label)).toEqual(['今週末', '来週', '今月'])
+  })
+  it('土曜は今日と明日、日曜は当日（その日曜）だけ', () => {
     expect(datePresetRange('weekend', '2026-10-17')).toEqual({ from: '2026-10-17', to: '2026-10-18' })
-    expect(datePresetRange('weekend', '2026-10-11')).toEqual({ from: '2026-10-17', to: '2026-10-18' })
+    expect(datePresetRange('weekend', '2026-10-11')).toEqual({ from: '2026-10-11', to: '2026-10-11' })
+  })
+  it('日曜の「今週末」は当日に公演があれば当日、0 件なら次の土日', () => {
+    expect(resolvePresetRange('weekend', '2026-10-11', null, () => 3)).toEqual({ from: '2026-10-11', to: '2026-10-11' })
+    expect(resolvePresetRange('weekend', '2026-10-11', null, () => 0)).toEqual({ from: '2026-10-17', to: '2026-10-18' })
+    // 日曜の夜: 当日の公演は締切済みで 0 件 → 次の土日
+    const sundayNight = new Date('2026-10-11T22:00:00+09:00').getTime()
+    const ps = [perf({ id: 'sun', date: '2026-10-11', start_time: '13:30' }), perf({ id: 'sat', date: '2026-10-17' })]
+    const count = (r: { from: string; to: string }) => searchPerformances(ps, { range: r, people: 2, onlyAvailable: true }, sundayNight).length
+    expect(resolvePresetRange('weekend', '2026-10-11', null, count)).toEqual({ from: '2026-10-17', to: '2026-10-18' })
+    // 平日・土曜や他のチップは切り替えない
+    expect(resolvePresetRange('weekend', '2026-10-14', null, () => 0)).toEqual({ from: '2026-10-17', to: '2026-10-18' })
+    expect(resolvePresetRange('month', '2026-10-11', null, () => 0)).toEqual({ from: '2026-10-11', to: '2026-10-31' })
+  })
+  it('次の土日', () => {
+    expect(nextWeekendRange('2026-10-11')).toEqual({ from: '2026-10-17', to: '2026-10-18' })
+    expect(nextWeekendRange('2026-10-17')).toEqual({ from: '2026-10-24', to: '2026-10-25' })
+  })
+  it('今月は今日から今月末（両端を含む）', () => {
+    expect(datePresetRange('month', '2026-10-12')).toEqual({ from: '2026-10-12', to: '2026-10-31' })
+    expect(datePresetRange('month', '2026-11-01')).toEqual({ from: '2026-11-01', to: '2026-11-30' })
+    expect(datePresetRange('month', '2027-02-10')).toEqual({ from: '2027-02-10', to: '2027-02-28' })
+    expect(endOfJstMonth('2028-02-03')).toBe('2028-02-29')
+  })
+  it('今月: 月末に開くと今日だけ', () => {
+    expect(datePresetRange('month', '2026-10-31')).toEqual({ from: '2026-10-31', to: '2026-10-31' })
+    expect(datePresetRange('month', '2026-12-31')).toEqual({ from: '2026-12-31', to: '2026-12-31' })
+  })
+  it('今月: JST で月が変わる（UTC ではまだ前月の 11/1 00:30 JST は 11 月）', () => {
+    const today = todayJst(new Date('2026-10-31T15:30:00Z'))
+    expect(today).toBe('2026-11-01')
+    expect(datePresetRange('month', today)).toEqual({ from: '2026-11-01', to: '2026-11-30' })
+    const late = todayJst(new Date('2026-10-31T14:59:00Z'))
+    expect(datePresetRange('month', late)).toEqual({ from: '2026-10-31', to: '2026-10-31' })
   })
   it('来週は次の月曜〜日曜', () => {
     expect(datePresetRange('nextweek', '2026-10-14')).toEqual({ from: '2026-10-19', to: '2026-10-25' })
