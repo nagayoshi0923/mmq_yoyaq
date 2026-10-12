@@ -17,8 +17,8 @@ function render(p: PublicPerformance): string {
   return renderToStaticMarkup(<NearlyFullStrip performances={[p]} onSelect={() => {}} />)
 }
 
-/** 本番の作品カードと同じ角なしの小さな太字チップ */
-const CHIP = 'text-[10px] font-bold px-1.5 py-0.5'
+/** 本番の作品カードと同じ角なしの小さな太字チップ（本番と同じ 10px の ts-10。デザインガードのため） */
+const CHIP = 'ts-10 font-bold px-1.5 py-0.5'
 
 describe('NearlyFullStrip の残席チップ（本番の作品カードの見た目）', () => {
   it('満席は「満席」のチップ（満席の色）で、開催決定・成立間近は出さない', () => {

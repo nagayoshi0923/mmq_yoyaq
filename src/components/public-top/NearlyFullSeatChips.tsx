@@ -27,7 +27,7 @@ export function NearlyConfirmedRibbon({ performance }: { performance: SeatFields
   return <div className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-white bg-booking-danger">成立間近！</div>
 }
 
-/** 「開催決定」と「残N／満席」の角なしチップ */
+/** 「開催決定」と「残N／満席」の角なしチップ（文字の大きさは本番と同じ 10px の ts-10） */
 export function NearlyFullSeatChips({ performance, className }: { performance: SeatFields; className?: string }) {
   const seats = performance.available_seats
   const seatClass = seats <= 0
@@ -38,9 +38,9 @@ export function NearlyFullSeatChips({ performance, className }: { performance: S
   return (
     <div className={cn('flex items-center gap-1', className)}>
       {isConfirmed(performance) && (
-        <span className="text-[10px] font-bold px-1.5 py-0.5 bg-booking-confirmed-bg text-booking-confirmed-text rounded-none">開催決定</span>
+        <span className="ts-10 font-bold px-1.5 py-0.5 bg-booking-confirmed-bg text-booking-confirmed-text rounded-none">開催決定</span>
       )}
-      <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-none', seatClass)}>{seats <= 0 ? '満席' : `残${seats}`}</span>
+      <span className={cn('ts-10 font-bold px-1.5 py-0.5 rounded-none', seatClass)}>{seats <= 0 ? '満席' : `残${seats}`}</span>
     </div>
   )
 }
