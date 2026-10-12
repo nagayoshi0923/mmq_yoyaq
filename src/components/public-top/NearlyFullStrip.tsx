@@ -1,7 +1,7 @@
 import { formatJstMonthDay } from '@/utils/jstDate'
 import { hhmm, type PublicPerformance } from '@/lib/publicPerformanceSearch'
 import { KeyVisualThumb } from './KeyVisualThumb'
-import { SeatBadge } from './SeatBadge'
+import { NearlyConfirmedRibbon, NearlyFullSeatChips } from './NearlyFullSeatChips'
 import { TopSection } from './TopSection'
 
 interface NearlyFullStripProps {
@@ -26,13 +26,17 @@ export function NearlyFullStrip({ performances, showOrganization = false, aside 
             onClick={() => onSelect(p)}
             className="w-32 shrink-0 overflow-hidden rounded-lg border border-border bg-white text-left hover:bg-muted/40"
           >
-            <KeyVisualThumb src={p.key_visual_url} alt={p.title} seed={p.scenario_id} width={300} className="aspect-[3/4] w-full rounded-none" />
+            <div className="relative">
+              <KeyVisualThumb src={p.key_visual_url} alt={p.title} seed={p.scenario_id} width={300} className="aspect-[3/4] w-full rounded-none" />
+              <NearlyConfirmedRibbon performance={p} />
+            </div>
             <div className="p-2">
               <div className="line-clamp-2 text-xs text-muted-foreground">
                 {formatJstMonthDay(p.date, true)} {hhmm(p.start_time)} ・ {showOrganization && <b className="font-bold text-foreground">{p.organization_name} </b>}{p.store_name}
               </div>
               <div className="truncate text-sm font-bold">{p.title}</div>
-              <SeatBadge performance={p} className="mt-0.5" />
+              {/* 残席チップは本番の作品カードと同じ見た目（2026-10-12 社長指示） */}
+              <NearlyFullSeatChips performance={p} className="mt-0.5" />
             </div>
           </button>
         ))}
