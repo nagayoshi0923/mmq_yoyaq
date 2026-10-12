@@ -2,7 +2,8 @@
  * 「空いている公演を探す」の共通の決まり（店舗トップ・全体トップで共通）。
  *
  * 公演（schedule_events_public の 1 行）を、お客様向けの 1 件（PublicPerformance）にして、
- * 日付・人数・店舗・地域・空席・初心者向けで絞り、日付順に並べる。
+ * 日付・店舗・地域・空席・初心者向けで絞り、日付順に並べる（人数の絞り込みは 2026-10-12 社長指示で外した。
+ * 空席は「1 名以上の空きがあれば出す」）。
  * 画面ごとに数え方が変わらないよう、件数・残席の言い方もここで決める（点検 2026-10-11 の 19・23・33）。
  */
 import { addJstDays, formatJstMonthDay, getJstWeekdayIndex, toJstYmd } from '@/utils/jstDate'
@@ -34,16 +35,40 @@ export interface PublicPerformance {
   beginner_friendly: boolean
 }
 
-export type DatePreset = 'weekend' | 'nextweek' | 'month' | 'date'
+export type DatePreset = 'week' | 'nextweek' | 'month' | 'date'
 
-/** 日付チップ（2026-10-12 社長指示: 「今日」「明日」を外し「今月」を足した。店舗トップ・全体トップで共通） */
+/**
+ * 日付チップ（店舗トップ・全体トップで共通）。
+ * 2026-10-12 社長指示: 「今日」「明日」を外し「今月」を足した。同日、さらに「今週末」を「今週」に替えた。
+ */
 export const DATE_PRESETS: { value: Exclude<DatePreset, 'date'>; label: string }[] = [
-  { value: 'weekend', label: '今週末' },
+  { value: 'week', label: '今週' },
   { value: 'nextweek', label: '来週' },
   { value: 'month', label: '今月' },
 ]
 
-export const PEOPLE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const
+/** 初期選択のチップ */
+export const DEFAULT_DATE_PRESET: DatePreset = 'week'
+
+/**
+ * URL の ?when= を読む。古いリンクの weekend（今週末）・today・tomorrow は「今週」として開く。
+ * 知らない値は null（呼び出し側で既定に寄せる）。
+ */
+export function parseDatePreset(raw: string | null | undefined): DatePreset | null {
+  switch (raw) {
+    case 'week':
+    case 'nextweek':
+    case 'month':
+    case 'date':
+      return raw
+    case 'weekend':
+    case 'today':
+    case 'tomorrow':
+      return 'week'
+    default:
+      return null
+  }
+}
 
 /** 初心者向けとみなす作品のタグ */
 export const BEGINNER_GENRES = ['初心者におすすめ', '初心者向け', '初心者歓迎']
@@ -69,17 +94,10 @@ export function endOfJstMonth(today: string): string {
   return `${today.slice(0, 7)}-${String(lastDay).padStart(2, '0')}`
 }
 
-/** 次の土日（日曜に開いたときの「今週末」の切り替え先） */
-export function nextWeekendRange(today: string): DateRange {
-  const w = getJstWeekdayIndex(today) ?? 0
-  const saturday = addJstDays(today, ((6 - w + 7) % 7) || 7)
-  return { from: saturday, to: addJstDays(saturday, 1) }
-}
-
 /**
  * 日付チップの範囲（両端を含む）。
- * - 今週末: 土日。土曜は今日と明日、日曜は今日（その日曜）だけ
- * - 来週: 次の月曜〜日曜
+ * - 今週: 今日〜その週の日曜（JST。週は月曜始まり。日曜に開くと今日だけ）
+ * - 来週: 次の月曜〜日曜（日曜に開くと明日の月曜から）
  * - 今月: 今日〜今月末（月末に開くと今日だけ）
  */
 export function datePresetRange(preset: DatePreset, today: string, pickedDate?: string | null): DateRange {
@@ -96,21 +114,17 @@ export function datePresetRange(preset: DatePreset, today: string, pickedDate?: 
       const d = pickedDate && /^\d{4}-\d{2}-\d{2}$/.test(pickedDate) && pickedDate >= today ? pickedDate : today
       return { from: d, to: d }
     }
-    case 'weekend':
-    default: {
-      // 日曜は当日を含める（土曜は過ぎているので日曜だけ）。以前は「今日」のチップがあったので次の土日を
-      // 指していたが、2026-10-12 に「今日」を外したため、日曜の当日公演を探せる場所が今週末になった。
-      // 夜に開いて 0 件になるときは resolvePresetRange で次の土日に切り替える。
-      if (w === 0) return { from: today, to: today }
-      const saturday = w === 6 ? today : addJstDays(today, 6 - w)
-      return { from: saturday, to: addJstDays(saturday, 1) }
-    }
+    case 'week':
+    default:
+      // 0 件のときは resolvePresetRange で「来週」に切り替える
+      return { from: today, to: addJstDays(today, (7 - w) % 7) }
   }
 }
 
 /**
- * チップの範囲を決める。日曜の「今週末」（当日だけ）が 0 件なら次の土日に切り替える
- * （日曜の夜に開いて空の一覧にならないように）。countIn はその範囲の件数を返す。
+ * チップの範囲を決める。「今週」が 0 件なら「来週」に切り替える
+ * （週末の夜に開いて空の一覧にならないように）。countIn はその範囲の件数を返す
+ * （読み込み中は 1 以上を返して切り替えないようにする）。
  */
 export function resolvePresetRange(
   preset: DatePreset,
@@ -119,8 +133,8 @@ export function resolvePresetRange(
   countIn: (range: DateRange) => number,
 ): DateRange {
   const range = datePresetRange(preset, today, pickedDate)
-  if (preset !== 'weekend' || getJstWeekdayIndex(today) !== 0) return range
-  return countIn(range) > 0 ? range : nextWeekendRange(today)
+  if (preset !== 'week') return range
+  return countIn(range) > 0 ? range : datePresetRange('nextweek', today)
 }
 
 /** 範囲の見出し: 「10/17(土)」「10/17(土)・10/18(日)」「10/19(月)〜10/25(日)」 */
@@ -166,7 +180,7 @@ export function seatState(p: Pick<PublicPerformance, 'available_seats' | 'curren
 
 export interface PerformanceCriteria {
   range: DateRange
-  people: number
+  /** true なら 1 名以上の空きがある公演だけ */
   onlyAvailable: boolean
   beginnerOnly?: boolean
   /** 空なら全店舗 */
@@ -192,8 +206,7 @@ export function searchPerformances(list: readonly PublicPerformance[], criteria:
     .filter((p) => !storeSet || (p.store_id !== null && storeSet.has(p.store_id)))
     .filter((p) => !criteria.prefecture || p.prefecture === criteria.prefecture)
     .filter((p) => !criteria.beginnerOnly || p.beginner_friendly)
-    .filter((p) => p.player_count_max >= criteria.people)
-    .filter((p) => !criteria.onlyAvailable || p.available_seats >= criteria.people)
+    .filter((p) => !criteria.onlyAvailable || p.available_seats > 0)
     .sort(comparePerformances)
 }
 
@@ -209,10 +222,12 @@ export function nearlyFullPerformances(list: readonly PublicPerformance[], nowMs
     .slice(0, limit)
 }
 
-/** 作品ページを、その公演と人数を選んだ状態で開く URL（作品ページの ?event=&count= が受け口） */
-export function performanceDetailPath(p: Pick<PublicPerformance, 'id' | 'organization_slug' | 'scenario_slug' | 'available_seats'>, people: number): string {
-  const count = p.available_seats > 0 ? Math.max(1, Math.min(people, p.available_seats)) : Math.max(1, people)
-  const params = new URLSearchParams({ event: p.id, count: String(count) })
+/**
+ * 作品ページを、その公演を選んだ状態で開く URL（作品ページの ?event= が受け口）。
+ * 人数（?count=）は付けない。作品ページの既定（1 名）で開き、そこで選び直せる。
+ */
+export function performanceDetailPath(p: Pick<PublicPerformance, 'id' | 'organization_slug' | 'scenario_slug'>): string {
+  const params = new URLSearchParams({ event: p.id })
   return `/${p.organization_slug}/scenario/${encodeURIComponent(p.scenario_slug)}?${params.toString()}`
 }
 
@@ -237,10 +252,10 @@ export function hhmm(time: string | null | undefined): string {
 }
 
 /** 公演日の並び（日付ピッカーで「空きのある日」に印を付ける） */
-export function datesWithOpenings(list: readonly PublicPerformance[], people: number, nowMs: number): Set<string> {
+export function datesWithOpenings(list: readonly PublicPerformance[], nowMs: number): Set<string> {
   const dates = new Set<string>()
   for (const p of list) {
-    if (p.available_seats >= people && p.player_count_max >= people && isBookableNow(p, nowMs)) dates.add(p.date)
+    if (p.available_seats > 0 && isBookableNow(p, nowMs)) dates.add(p.date)
   }
   return dates
 }

@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { CalendarDays, Check, List } from 'lucide-react'
 import { ChipButton } from '@/components/public-top/ChipButton'
-import { PeoplePicker } from '@/components/public-top/PeoplePicker'
 import { PerformanceResultList } from '@/components/public-top/PerformanceResultList'
 import { StorePicker, type StoreOption } from '@/components/public-top/StorePicker'
 import { TopSection } from '@/components/public-top/TopSection'
 import type { PerformanceSearchState } from '@/components/public-top/usePerformanceSearchParams'
 import {
   DATE_PRESETS,
+  DEFAULT_DATE_PRESET,
   describeDateRange,
   resolvePresetRange,
   searchPerformances,
@@ -42,8 +42,9 @@ interface StoreSearchSectionProps {
 
 /**
  * 店舗トップ「空いている公演を探す」。
- * チップ「今週末／来週／今月」は日付順のカード（人数・店舗・空席あり・初心者向けで絞れる）、
+ * チップ「今週／来週／今月」は日付順のカード（店舗・空席あり・初心者向けで絞れる）、
  * 「カレンダー」「リスト」は元の部品（年月・店舗・満席を非表示の操作）を出す（2026-10-12 社長決定）。
+ * 人数の絞り込みは置かない（2026-10-12 社長指示。空席ありは 1 名以上の空き）。
  */
 export function StoreSearchSection({ performances, isLoading, state, onChange, storeOptions, today, nowMs, primaryColor, onSelect, classic }: StoreSearchSectionProps) {
   // 元のカレンダー・リストの操作（両方で共通にし、切り替えても保つ）
@@ -51,22 +52,21 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
   const [hideSoldOut, setHideSoldOut] = useState(false)
   const [hidePlayed, setHidePlayed] = useState(false)
   const isCards = state.view === 'cards'
-  // カレンダー・リストから日付のチップに戻るときは「今週末」から（日付の指定は持ち越さない）
-  const preset = state.preset === 'date' ? 'weekend' : state.preset
+  // カレンダー・リストから日付のチップに戻るときは「今週」から（日付の指定は持ち越さない）
+  const preset = state.preset === 'date' ? DEFAULT_DATE_PRESET : state.preset
   const { range, results } = useMemo(() => {
     const search = (r: ReturnType<typeof resolvePresetRange>) => searchPerformances(performances, {
       range: r,
-      people: state.people,
       onlyAvailable: state.onlyAvailable,
       beginnerOnly: state.beginnerOnly,
       storeIds: state.storeIds,
     }, nowMs)
-    // 日曜の「今週末」は当日だけ。0 件なら次の土日に切り替える（読み込み中は切り替えない）
+    // 「今週」が 0 件なら「来週」に切り替える（読み込み中は切り替えない）
     const r = resolvePresetRange(preset, today, null, (cand) => (isLoading ? 1 : search(cand).length))
     return { range: r, results: search(r) }
-  }, [performances, preset, today, isLoading, state.people, state.onlyAvailable, state.beginnerOnly, state.storeIds, nowMs])
+  }, [performances, preset, today, isLoading, state.onlyAvailable, state.beginnerOnly, state.storeIds, nowMs])
   const hasBeginner = useMemo(() => performances.some((p) => p.beginner_friendly), [performances])
-  const resetKey = `${range.from}_${range.to}_${state.people}_${state.onlyAvailable}_${state.beginnerOnly}_${state.storeIds.join(',')}`
+  const resetKey = `${range.from}_${range.to}_${state.onlyAvailable}_${state.beginnerOnly}_${state.storeIds.join(',')}`
   const classicProps = {
     ...classic,
     storeOptions,
@@ -98,7 +98,6 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
       {isCards && (
         <>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            <PeoplePicker value={state.people} onChange={(people) => onChange({ people })} />
             {storeOptions.length > 1 && (
               <StorePicker options={storeOptions} value={state.storeIds} onChange={(storeIds) => onChange({ storeIds })} primaryColor={primaryColor} />
             )}
@@ -112,7 +111,7 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
             )}
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            {describeDateRange(range)} {state.onlyAvailable ? `に ${state.people} 名で入れる公演` : 'の公演'}{' '}
+            {describeDateRange(range)} {state.onlyAvailable ? 'に空きのある公演' : 'の公演'}{' '}
             <b className="text-sm text-foreground">{isLoading && results.length === 0 ? '…' : `${results.length} 件`}</b>
           </p>
           <PerformanceResultList
@@ -120,7 +119,7 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
             isLoading={isLoading}
             resetKey={resetKey}
             onSelect={onSelect}
-            empty={<>条件に合う公演がありません。日付や人数を変えてみてください。</>}
+            empty={<>条件に合う公演がありません。日付や条件を変えてみてください。</>}
           />
           {results.length > 0 && <p className="mt-1.5 text-xs text-muted-foreground">押すと作品ページが、その公演を選んだ状態で開きます。</p>}
         </>

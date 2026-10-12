@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { CalendarDays, ChevronDown, MapPin } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { MonthGrid } from '@/components/public-top/MonthGrid'
-import { PeoplePicker } from '@/components/public-top/PeoplePicker'
 import type { PerformanceSearchState } from '@/components/public-top/usePerformanceSearchParams'
 import { DATE_PRESETS, type DateRange } from '@/lib/publicPerformanceSearch'
 import { formatJstMonthDay } from '@/utils/jstDate'
@@ -22,14 +21,14 @@ interface PlatformSearchFormProps {
 
 const field = 'flex w-full items-center justify-between gap-1 rounded-md border border-input bg-white px-2.5 py-2 text-sm hover:bg-muted'
 
-/** 全体トップの横断検索（エリア・日付・人数） */
+/** 全体トップの横断検索（エリア・日付）。人数の選択は 2026-10-12 社長指示で外した */
 export function PlatformSearchForm({ state, range, prefectures, today, maxDate, markedDates, primaryColor, onChange, onSubmit }: PlatformSearchFormProps) {
   const [areaOpen, setAreaOpen] = useState(false)
   const [dateOpen, setDateOpen] = useState(false)
   const [showMonth, setShowMonth] = useState(false)
   const dateLabel = state.preset === 'date'
     ? formatJstMonthDay(range.from, true)
-    : DATE_PRESETS.find((d) => d.value === state.preset)?.label ?? '今週末'
+    : DATE_PRESETS.find((d) => d.value === state.preset)?.label ?? '今週'
 
   return (
     <div className="mt-3 flex flex-col gap-2 rounded-lg bg-white p-2.5 text-foreground">
@@ -95,17 +94,14 @@ export function PlatformSearchForm({ state, range, prefectures, today, maxDate, 
           </PopoverContent>
         </Popover>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <PeoplePicker block value={state.people} onChange={(people) => onChange({ people })} />
-        <button
-          type="button"
-          onClick={onSubmit}
-          className="rounded-md px-2 py-2 text-sm font-bold text-white hover:opacity-90"
-          style={{ backgroundColor: primaryColor }}
-        >
-          空いている公演を探す
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={onSubmit}
+        className="w-full rounded-md px-2 py-2 text-sm font-bold text-white hover:opacity-90"
+        style={{ backgroundColor: primaryColor }}
+      >
+        空いている公演を探す
+      </button>
     </div>
   )
 }
