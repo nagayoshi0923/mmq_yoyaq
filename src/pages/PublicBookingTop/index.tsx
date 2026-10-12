@@ -3,7 +3,7 @@
  * @path /{organizationSlug}
  *
  * 2026-10 刷新（社長承認の見本 Top.dc.html）: 上の帯 → 残りわずか → 空いている公演を探す → 貸切 → 作品から探す → はじめての方へ（残りわずかを探す枠の上へ: 2026-10-12 社長指示）。
- * 「空いている公演を探す」のチップ: 今週末・来週・今月は日付順のカード、カレンダー・リストは元の部品（2026-10-12 社長決定。見た目だけ新トップに合わせた）。旧 /{org}/calendar・/list はそれぞれのチップで開く。
+ * 「空いている公演を探す」のチップ: 今週・来週・今月は日付順のカード、カレンダー・リストは元の部品（2026-10-12 社長決定。見た目だけ新トップに合わせた）。旧 /{org}/calendar・/list はそれぞれのチップで開く。
  * 方針: docs/product-spec/トップページ刷新_2026-10.md
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -123,8 +123,8 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
 
   const openPerformance = useCallback((p: PublicPerformance) => {
     saveScrollPositionForCurrentUrl()
-    navigate(performanceDetailPath(p, search.people))
-  }, [navigate, search.people])
+    navigate(performanceDetailPath(p))
+  }, [navigate])
 
   const browseScenarios = useMemo<BrowseScenario[]>(() => scenarios.map((s) => {
     const next = nextDates.get(s.scenario_id) ?? null

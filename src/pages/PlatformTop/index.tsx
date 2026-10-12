@@ -2,7 +2,7 @@
  * MMQ 全体トップ
  * @path /
  *
- * 2026-10 刷新（社長承認の見本 TopMMQ.dc.html）: 見出しと横断検索 → 今週末に入れる公演 → 残りわずか → 貸切 →
+ * 2026-10 刷新（社長承認の見本 TopMMQ.dc.html）: 見出しと横断検索 → 今週に入れる公演 → 残りわずか → 貸切 →
  * 参加店舗 → はじめての方へ → 店舗の方へ。他組織の公演も同じ一覧に混ぜる（社長決定）。公開情報だけを使う。
  * 方針: docs/product-spec/トップページ刷新_2026-10.md
  */
@@ -26,6 +26,7 @@ import { TopSection } from '@/components/public-top/TopSection'
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
 import {
   DATE_PRESETS,
+  datePresetRange,
   datesWithOpenings,
   isBookableNow,
   nearlyFullPerformances,
@@ -71,16 +72,16 @@ export function PlatformTop() {
 
   const { range, results } = useMemo(() => {
     const find = (r: DateRange) => searchPerformances(performances, {
-      range: r, people: search.people, onlyAvailable: search.onlyAvailable, prefecture: search.area,
+      range: r, onlyAvailable: search.onlyAvailable, prefecture: search.area,
     }, nowMs)
-    // 日曜の「今週末」は当日だけ。0 件なら次の土日に切り替える（読み込み中は切り替えない）
+    // 「今週」が 0 件なら「来週」に切り替える（読み込み中は切り替えない）
     const r = resolvePresetRange(search.preset, today, search.date, (cand) => (isLoading ? 1 : find(cand).length))
     return { range: r, results: find(r) }
-  }, [performances, search.preset, search.date, today, isLoading, search.people, search.onlyAvailable, search.area, nowMs])
+  }, [performances, search.preset, search.date, today, isLoading, search.onlyAvailable, search.area, nowMs])
   const nearlyFull = useMemo(() => nearlyFullPerformances(performances, nowMs), [performances, nowMs])
   const openDates = useMemo(() => datesWithOpenings(
-    search.area ? performances.filter((p) => p.prefecture === search.area) : performances, search.people, nowMs,
-  ), [performances, search.area, search.people, nowMs])
+    search.area ? performances.filter((p) => p.prefecture === search.area) : performances, nowMs,
+  ), [performances, search.area, nowMs])
 
   // 数字は 1 つの計算元から: 参加店舗数（店舗トップと同じ数え方）・今後 2 週間の公演数（予約を受け付けている公演）
   const storeCount = useMemo(() => organizations.reduce((sum, o) => sum + o.store_count, 0), [organizations])
@@ -88,14 +89,14 @@ export function PlatformTop() {
     const until = addJstDays(today, 13)
     return performances.filter((p) => p.date <= until && isBookableNow(p, nowMs)).length
   }, [performances, today, nowMs])
-  const weekendOpenings = useMemo(() => {
-    const countWeekend = (r: DateRange) => searchPerformances(performances, { range: r, people: 1, onlyAvailable: true }, nowMs).length
-    const weekend = resolvePresetRange('weekend', today, null, (r) => (isLoading ? 1 : countWeekend(r)))
+  // 参加店舗の「今週 N 公演に空きあり」: 「今週」のチップと同じ範囲（今日〜日曜）で数える。
+  // 見出しが「今週」なので、一覧のような「来週」への切り替えはしない
+  const weekOpenings = useMemo(() => {
     const map = new Map<string, number>()
-    searchPerformances(performances, { range: weekend, people: 1, onlyAvailable: true }, nowMs)
+    searchPerformances(performances, { range: datePresetRange('week', today), onlyAvailable: true }, nowMs)
       .forEach((p) => map.set(p.organization_id, (map.get(p.organization_id) ?? 0) + 1))
     return map
-  }, [performances, today, nowMs, isLoading])
+  }, [performances, today, nowMs])
 
   // 作品から探す: 全国の公開作品。補足は「N 店舗で上演・次回 M/D」（予約を受け付けている公演から）
   const browseScenarios = useMemo<BrowseScenario[]>(() => {
@@ -133,13 +134,13 @@ export function PlatformTop() {
 
   const openPerformance = useCallback((p: PublicPerformance) => {
     saveScrollPositionForCurrentUrl()
-    navigate(performanceDetailPath(p, search.people))
-  }, [navigate, search.people])
+    navigate(performanceDetailPath(p))
+  }, [navigate])
 
   const dateTitle = search.preset === 'date'
     ? formatJstMonthDay(range.from, true)
-    : DATE_PRESETS.find((d) => d.value === search.preset)?.label ?? '今週末'
-  const resetKey = `${range.from}_${range.to}_${search.people}_${search.area ?? ''}`
+    : DATE_PRESETS.find((d) => d.value === search.preset)?.label ?? '今週'
+  const resetKey = `${range.from}_${range.to}_${search.area ?? ''}`
 
   return (
     <div className="booking-shell min-h-screen bg-muted/40">
@@ -167,14 +168,14 @@ export function PlatformTop() {
       </section>
 
       <main className="mx-auto max-w-4xl space-y-3 px-4 py-3 md:py-5">
-        <TopSection id="results" title={`${dateTitle}に入れる公演`} aside={`${search.area ?? '全国'}・${search.people} 名`}>
+        <TopSection id="results" title={`${dateTitle}に入れる公演`} aside={search.area ?? '全国'}>
           <PerformanceResultList
             performances={results}
             isLoading={isLoading}
             showOrganization
             resetKey={resetKey}
             onSelect={openPerformance}
-            empty={<>条件に合う公演がありません。日付・エリア・人数を変えてみてください。</>}
+            empty={<>条件に合う公演がありません。日付やエリアを変えてみてください。</>}
           />
           {results.length > 0 && <p className="mt-1.5 text-xs text-muted-foreground">押すと各店舗の作品ページが、その公演を選んだ状態で開きます。</p>}
         </TopSection>
@@ -202,7 +203,7 @@ export function PlatformTop() {
           organizations={organizations}
           prefectures={prefectures}
           area={search.area}
-          weekendOpenings={weekendOpenings}
+          weekOpenings={weekOpenings}
           primaryColor={primaryColor}
           onAreaChange={(area) => updateSearch({ area })}
         />

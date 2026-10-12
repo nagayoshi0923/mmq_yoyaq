@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   DATE_PRESETS,
   datePresetRange,
+  datesWithOpenings,
   describeDateRange,
   endOfJstMonth,
-  nextWeekendRange,
+  DEFAULT_DATE_PRESET,
+  parseDatePreset,
   resolvePresetRange,
   formatDurationJa,
   isBookableNow,
@@ -30,31 +32,51 @@ function perf(over: Partial<PublicPerformance>): PublicPerformance {
 const NOW = new Date('2026-10-11T12:00:00+09:00').getTime()
 
 describe('日付チップの範囲', () => {
-  it('平日の「今週末」は次の土日', () => {
-    expect(datePresetRange('weekend', '2026-10-14')).toEqual({ from: '2026-10-17', to: '2026-10-18' })
+  it('チップは 今週／来週／今月 の順（今週末・今日・明日は無い）', () => {
+    expect(DATE_PRESETS.map((d) => d.label)).toEqual(['今週', '来週', '今月'])
+    expect(DEFAULT_DATE_PRESET).toBe('week')
   })
-  it('チップは 今週末／来週／今月 の順（今日・明日は無い）', () => {
-    expect(DATE_PRESETS.map((d) => d.label)).toEqual(['今週末', '来週', '今月'])
+  it('今週は今日からその週の日曜まで（両端を含む）', () => {
+    // 2026-10-12 は月曜
+    expect(datePresetRange('week', '2026-10-12')).toEqual({ from: '2026-10-12', to: '2026-10-18' })
+    expect(datePresetRange('week', '2026-10-14')).toEqual({ from: '2026-10-14', to: '2026-10-18' })
+    expect(datePresetRange('week', '2026-10-17')).toEqual({ from: '2026-10-17', to: '2026-10-18' })
   })
-  it('土曜は今日と明日、日曜は当日（その日曜）だけ', () => {
-    expect(datePresetRange('weekend', '2026-10-17')).toEqual({ from: '2026-10-17', to: '2026-10-18' })
-    expect(datePresetRange('weekend', '2026-10-11')).toEqual({ from: '2026-10-11', to: '2026-10-11' })
+  it('今週: 日曜に開くと当日だけ', () => {
+    expect(datePresetRange('week', '2026-10-18')).toEqual({ from: '2026-10-18', to: '2026-10-18' })
   })
-  it('日曜の「今週末」は当日に公演があれば当日、0 件なら次の土日', () => {
-    expect(resolvePresetRange('weekend', '2026-10-11', null, () => 3)).toEqual({ from: '2026-10-11', to: '2026-10-11' })
-    expect(resolvePresetRange('weekend', '2026-10-11', null, () => 0)).toEqual({ from: '2026-10-17', to: '2026-10-18' })
-    // 日曜の夜: 当日の公演は締切済みで 0 件 → 次の土日
-    const sundayNight = new Date('2026-10-11T22:00:00+09:00').getTime()
-    const ps = [perf({ id: 'sun', date: '2026-10-11', start_time: '13:30' }), perf({ id: 'sat', date: '2026-10-17' })]
-    const count = (r: { from: string; to: string }) => searchPerformances(ps, { range: r, people: 2, onlyAvailable: true }, sundayNight).length
-    expect(resolvePresetRange('weekend', '2026-10-11', null, count)).toEqual({ from: '2026-10-17', to: '2026-10-18' })
-    // 平日・土曜や他のチップは切り替えない
-    expect(resolvePresetRange('weekend', '2026-10-14', null, () => 0)).toEqual({ from: '2026-10-17', to: '2026-10-18' })
+  it('今週: JST で日付が変わる（日曜 23:30 UTC は月曜 JST）', () => {
+    const today = todayJst(new Date('2026-10-18T15:30:00Z'))
+    expect(today).toBe('2026-10-19')
+    expect(datePresetRange('week', today)).toEqual({ from: '2026-10-19', to: '2026-10-25' })
+  })
+  it('来週は次の月曜〜日曜（月曜・水曜・日曜に開いた場合）', () => {
+    expect(datePresetRange('nextweek', '2026-10-12')).toEqual({ from: '2026-10-19', to: '2026-10-25' })
+    expect(datePresetRange('nextweek', '2026-10-14')).toEqual({ from: '2026-10-19', to: '2026-10-25' })
+    expect(datePresetRange('nextweek', '2026-10-18')).toEqual({ from: '2026-10-19', to: '2026-10-25' })
+  })
+  it('「今週」が 0 件なら「来週」に切り替える', () => {
+    expect(resolvePresetRange('week', '2026-10-14', null, () => 3)).toEqual({ from: '2026-10-14', to: '2026-10-18' })
+    expect(resolvePresetRange('week', '2026-10-14', null, () => 0)).toEqual({ from: '2026-10-19', to: '2026-10-25' })
+    // 日曜の夜: 当日の公演は締切済みで 0 件 → 来週
+    const sundayNight = new Date('2026-10-18T22:00:00+09:00').getTime()
+    const ps = [perf({ id: 'sun', date: '2026-10-18', start_time: '13:30' }), perf({ id: 'tue', date: '2026-10-20' })]
+    const count = (r: { from: string; to: string }) => searchPerformances(ps, { range: r, onlyAvailable: true }, sundayNight).length
+    expect(resolvePresetRange('week', '2026-10-18', null, count)).toEqual({ from: '2026-10-19', to: '2026-10-25' })
+    // 他のチップは切り替えない
+    expect(resolvePresetRange('nextweek', '2026-10-14', null, () => 0)).toEqual({ from: '2026-10-19', to: '2026-10-25' })
     expect(resolvePresetRange('month', '2026-10-11', null, () => 0)).toEqual({ from: '2026-10-11', to: '2026-10-31' })
   })
-  it('次の土日', () => {
-    expect(nextWeekendRange('2026-10-11')).toEqual({ from: '2026-10-17', to: '2026-10-18' })
-    expect(nextWeekendRange('2026-10-17')).toEqual({ from: '2026-10-24', to: '2026-10-25' })
+  it('古い URL の ?when= は「今週」として読む', () => {
+    expect(parseDatePreset('weekend')).toBe('week')
+    expect(parseDatePreset('today')).toBe('week')
+    expect(parseDatePreset('tomorrow')).toBe('week')
+    expect(parseDatePreset('week')).toBe('week')
+    expect(parseDatePreset('nextweek')).toBe('nextweek')
+    expect(parseDatePreset('month')).toBe('month')
+    expect(parseDatePreset('date')).toBe('date')
+    expect(parseDatePreset('xyz')).toBeNull()
+    expect(parseDatePreset(null)).toBeNull()
   })
   it('今月は今日から今月末（両端を含む）', () => {
     expect(datePresetRange('month', '2026-10-12')).toEqual({ from: '2026-10-12', to: '2026-10-31' })
@@ -73,8 +95,7 @@ describe('日付チップの範囲', () => {
     const late = todayJst(new Date('2026-10-31T14:59:00Z'))
     expect(datePresetRange('month', late)).toEqual({ from: '2026-10-31', to: '2026-10-31' })
   })
-  it('来週は次の月曜〜日曜', () => {
-    expect(datePresetRange('nextweek', '2026-10-14')).toEqual({ from: '2026-10-19', to: '2026-10-25' })
+  it('来週: 日曜に開くと明日の月曜から', () => {
     expect(datePresetRange('nextweek', '2026-10-11')).toEqual({ from: '2026-10-12', to: '2026-10-18' })
   })
   it('日付を選ぶ（過去日は今日に寄せる）', () => {
@@ -107,13 +128,19 @@ describe('公演の検索', () => {
     perf({ id: 'deadline', date: '2026-10-11', start_time: '14:00', reservation_deadline_hours: 3 }),
   ]
   const range = { from: '2026-10-17', to: '2026-10-18' }
-  it('日付順、空席あり・人数で絞る', () => {
-    expect(searchPerformances(list, { range, people: 2, onlyAvailable: true }, NOW).map((p) => p.id)).toEqual(['c', 'a'])
-    expect(searchPerformances(list, { range, people: 2, onlyAvailable: false }, NOW).map((p) => p.id)).toEqual(['c', 'a', 'b'])
+  it('日付順。空席ありは 1 名以上の空きがあれば出す（人数では絞らない）', () => {
+    expect(searchPerformances(list, { range, onlyAvailable: true }, NOW).map((p) => p.id)).toEqual(['c', 'a', 'b'])
+    expect(searchPerformances([...list, perf({ id: 'full', available_seats: 0 })], { range, onlyAvailable: true }, NOW).map((p) => p.id)).toEqual(['c', 'a', 'b'])
+    expect(searchPerformances([...list, perf({ id: 'full', available_seats: 0 })], { range, onlyAvailable: false }, NOW).map((p) => p.id)).toEqual(['c', 'full', 'a', 'b'])
+  })
+  it('空き 1 席の公演も出る', () => {
+    const one = perf({ id: 'one', available_seats: 1, current_participants: 7 })
+    expect(searchPerformances([one], { range, onlyAvailable: true }, NOW).map((p) => p.id)).toEqual(['one'])
+    expect(datesWithOpenings([one, perf({ id: 'x', date: '2026-10-20', available_seats: 0 })], NOW)).toEqual(new Set(['2026-10-17']))
   })
   it('店舗・初心者向けで絞る', () => {
-    expect(searchPerformances(list, { range, people: 1, onlyAvailable: true, storeIds: ['s2'] }, NOW).map((p) => p.id)).toEqual(['a'])
-    expect(searchPerformances(list, { range, people: 1, onlyAvailable: true, beginnerOnly: true }, NOW).map((p) => p.id)).toEqual(['c'])
+    expect(searchPerformances(list, { range, onlyAvailable: true, storeIds: ['s2'] }, NOW).map((p) => p.id)).toEqual(['a'])
+    expect(searchPerformances(list, { range, onlyAvailable: true, beginnerOnly: true }, NOW).map((p) => p.id)).toEqual(['c'])
   })
   it('開始・予約締切を過ぎた公演は出さない', () => {
     expect(isBookableNow(perf({ date: '2026-10-11', start_time: '11:00' }), NOW)).toBe(false)
@@ -132,9 +159,8 @@ describe('公演の検索', () => {
 })
 
 describe('作品ページへの URL', () => {
-  it('公演と人数を付ける（人数は残席まで）', () => {
-    expect(performanceDetailPath(perf({ id: 'e9', available_seats: 2 }), 4)).toBe('/queens-waltz/scenario/white-rabbit?event=e9&count=2')
-    expect(performanceDetailPath(perf({ id: 'e9', available_seats: 0 }), 3)).toBe('/queens-waltz/scenario/white-rabbit?event=e9&count=3')
+  it('公演だけを付ける（人数は作品ページの既定に任せる）', () => {
+    expect(performanceDetailPath(perf({ id: 'e9', available_seats: 2 }))).toBe('/queens-waltz/scenario/white-rabbit?event=e9')
   })
   it('所要時間', () => {
     expect(formatDurationJa(240)).toBe('4 時間')
