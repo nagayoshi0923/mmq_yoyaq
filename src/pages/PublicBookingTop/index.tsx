@@ -2,8 +2,8 @@
  * 店舗（組織）の予約サイトトップ
  * @path /{organizationSlug}
  *
- * 2026-10 刷新（社長承認の見本 Top.dc.html）: 上の帯 → 空いている公演を探す → 残りわずか → 貸切 → 作品から探す → はじめての方へ。
- * 「空いている公演を探す」のチップ: 今週末〜来週は日付順のカード、カレンダー・リストは元の部品（2026-10-12 社長決定。見た目だけ新トップに合わせた）。旧 /{org}/calendar・/list はそれぞれのチップで開く。
+ * 2026-10 刷新（社長承認の見本 Top.dc.html）: 上の帯 → 残りわずか → 空いている公演を探す → 貸切 → 作品から探す → はじめての方へ（残りわずかを探す枠の上へ: 2026-10-12 社長指示）。
+ * 「空いている公演を探す」のチップ: 今週末・来週・今月は日付順のカード、カレンダー・リストは元の部品（2026-10-12 社長決定。見た目だけ新トップに合わせた）。旧 /{org}/calendar・/list はそれぞれのチップで開く。
  * 方針: docs/product-spec/トップページ刷新_2026-10.md
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -175,6 +175,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
       />
 
       <main className="mx-auto max-w-4xl space-y-3 px-4 py-3 md:py-5">
+        <NearlyFullStrip performances={nearlyFull} onSelect={openPerformance} />
         <StoreSearchSection
           performances={performances}
           isLoading={isLoading}
@@ -197,7 +198,6 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
             onCardClick: openScenario,
           }}
         />
-        <NearlyFullStrip performances={nearlyFull} onSelect={openPerformance} />
         <PrivateBookingSection
           text="4〜8 人集まれば、好きな作品を好きな日に。候補日を出して、メンバーの都合を聞いて、店舗に申し込むまでサイトで完結します。"
           scenariosPath={`/${slug}/private-booking-select`}

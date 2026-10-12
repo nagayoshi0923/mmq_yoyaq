@@ -34,13 +34,13 @@ export interface PublicPerformance {
   beginner_friendly: boolean
 }
 
-export type DatePreset = 'weekend' | 'today' | 'tomorrow' | 'nextweek' | 'date'
+export type DatePreset = 'weekend' | 'nextweek' | 'month' | 'date'
 
+/** 日付チップ（2026-10-12 社長指示: 「今日」「明日」を外し「今月」を足した。店舗トップ・全体トップで共通） */
 export const DATE_PRESETS: { value: Exclude<DatePreset, 'date'>; label: string }[] = [
   { value: 'weekend', label: '今週末' },
-  { value: 'today', label: '今日' },
-  { value: 'tomorrow', label: '明日' },
   { value: 'nextweek', label: '来週' },
+  { value: 'month', label: '今月' },
 ]
 
 export const PEOPLE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const
@@ -62,16 +62,31 @@ export function todayJst(now: Date = new Date()): string {
   return toJstYmd(now)
 }
 
-/** 日付チップの範囲（両端を含む）。今週末は土日（日曜なら次の土日） */
+/** today（JST の YYYY-MM-DD）の月末日 */
+export function endOfJstMonth(today: string): string {
+  const [y, m] = today.split('-').map(Number)
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  return `${today.slice(0, 7)}-${String(lastDay).padStart(2, '0')}`
+}
+
+/** 次の土日（日曜に開いたときの「今週末」の切り替え先） */
+export function nextWeekendRange(today: string): DateRange {
+  const w = getJstWeekdayIndex(today) ?? 0
+  const saturday = addJstDays(today, ((6 - w + 7) % 7) || 7)
+  return { from: saturday, to: addJstDays(saturday, 1) }
+}
+
+/**
+ * 日付チップの範囲（両端を含む）。
+ * - 今週末: 土日。土曜は今日と明日、日曜は今日（その日曜）だけ
+ * - 来週: 次の月曜〜日曜
+ * - 今月: 今日〜今月末（月末に開くと今日だけ）
+ */
 export function datePresetRange(preset: DatePreset, today: string, pickedDate?: string | null): DateRange {
   const w = getJstWeekdayIndex(today) ?? 0
   switch (preset) {
-    case 'today':
-      return { from: today, to: today }
-    case 'tomorrow': {
-      const d = addJstDays(today, 1)
-      return { from: d, to: d }
-    }
+    case 'month':
+      return { from: today, to: endOfJstMonth(today) }
     case 'nextweek': {
       const untilMonday = ((8 - w) % 7) || 7
       const from = addJstDays(today, untilMonday)
@@ -83,12 +98,29 @@ export function datePresetRange(preset: DatePreset, today: string, pickedDate?: 
     }
     case 'weekend':
     default: {
-      // 日曜は「今日」のチップがあるので、次の土日を指す（夜に開くと 0 件になるのを避ける）
-      if (w === 0) return { from: addJstDays(today, 6), to: addJstDays(today, 7) }
+      // 日曜は当日を含める（土曜は過ぎているので日曜だけ）。以前は「今日」のチップがあったので次の土日を
+      // 指していたが、2026-10-12 に「今日」を外したため、日曜の当日公演を探せる場所が今週末になった。
+      // 夜に開いて 0 件になるときは resolvePresetRange で次の土日に切り替える。
+      if (w === 0) return { from: today, to: today }
       const saturday = w === 6 ? today : addJstDays(today, 6 - w)
       return { from: saturday, to: addJstDays(saturday, 1) }
     }
   }
+}
+
+/**
+ * チップの範囲を決める。日曜の「今週末」（当日だけ）が 0 件なら次の土日に切り替える
+ * （日曜の夜に開いて空の一覧にならないように）。countIn はその範囲の件数を返す。
+ */
+export function resolvePresetRange(
+  preset: DatePreset,
+  today: string,
+  pickedDate: string | null | undefined,
+  countIn: (range: DateRange) => number,
+): DateRange {
+  const range = datePresetRange(preset, today, pickedDate)
+  if (preset !== 'weekend' || getJstWeekdayIndex(today) !== 0) return range
+  return countIn(range) > 0 ? range : nextWeekendRange(today)
 }
 
 /** 範囲の見出し: 「10/17(土)」「10/17(土)・10/18(日)」「10/19(月)〜10/25(日)」 */

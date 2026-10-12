@@ -5,7 +5,7 @@ import { PEOPLE_OPTIONS, type DatePreset } from '@/lib/publicPerformanceSearch'
 /** 既定（初期表示は「今週末・2 名・空席あり」） */
 export const DEFAULT_PEOPLE = 2
 
-const PRESETS: readonly DatePreset[] = ['weekend', 'today', 'tomorrow', 'nextweek', 'date']
+const PRESETS: readonly DatePreset[] = ['weekend', 'nextweek', 'month', 'date']
 
 export type SearchView = 'cards' | 'calendar' | 'list'
 

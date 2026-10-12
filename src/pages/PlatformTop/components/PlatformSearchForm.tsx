@@ -62,7 +62,7 @@ export function PlatformSearchForm({ state, range, prefectures, today, maxDate, 
             </button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-[296px] rounded-lg p-2">
-            <div className="grid grid-cols-5 gap-1">
+            <div className="grid grid-cols-4 gap-1">
               {DATE_PRESETS.map((d) => (
                 <button
                   key={d.value}
