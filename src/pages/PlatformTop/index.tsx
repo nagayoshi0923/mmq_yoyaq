@@ -2,8 +2,9 @@
  * MMQ 全体トップ
  * @path /
  *
- * 2026-10 刷新（社長承認の見本 TopMMQ.dc.html）: 見出しと横断検索 → 今週に入れる公演 → 残りわずか → 貸切 →
- * 参加店舗 → はじめての方へ → 店舗の方へ。他組織の公演も同じ一覧に混ぜる（社長決定）。公開情報だけを使う。
+ * 2026-10 刷新（社長承認の見本 TopMMQ.dc.html）: 見出しと横断検索 → 残りわずか → 貸切 → 探した結果（今月に入れる公演） →
+ * 作品から探す → 参加店舗 → はじめての方へ → 店舗の方へ（2026-10-13 社長指示: 店舗トップと同じ順に、初期選択は「今月」、
+ * 結果は全部並べる）。他組織の公演も同じ一覧に混ぜる（社長決定）。公開情報だけを使う。
  * 方針: docs/product-spec/トップページ刷新_2026-10.md
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -74,7 +75,7 @@ export function PlatformTop() {
     const find = (r: DateRange) => searchPerformances(performances, {
       range: r, onlyAvailable: search.onlyAvailable, prefecture: search.area,
     }, nowMs)
-    // 「今週」が 0 件なら「来週」に切り替える（読み込み中は切り替えない）
+    // 「今月」が 0 件なら来月、「今週」が 0 件なら「来週」に切り替える（読み込み中は切り替えない）
     const r = resolvePresetRange(search.preset, today, search.date, (cand) => (isLoading ? 1 : find(cand).length))
     return { range: r, results: find(r) }
   }, [performances, search.preset, search.date, today, isLoading, search.onlyAvailable, search.area, nowMs])
@@ -94,11 +95,11 @@ export function PlatformTop() {
     const until = addJstDays(today, 13)
     return performances.filter((p) => p.date <= until && isBookableNow(p, nowMs)).length
   }, [performances, today, nowMs])
-  // 参加店舗の「今週 N 公演に空きあり」: 「今週」のチップと同じ範囲（今日〜日曜）で数える。
-  // 見出しが「今週」なので、一覧のような「来週」への切り替えはしない
-  const weekOpenings = useMemo(() => {
+  // 参加店舗の「今月 N 公演に空きあり」: 「今月」のチップと同じ範囲（今日〜月末）で数える。
+  // 見出しが「今月」なので、一覧のような「来月」への切り替えはしない
+  const monthOpenings = useMemo(() => {
     const map = new Map<string, number>()
-    searchPerformances(performances, { range: datePresetRange('week', today), onlyAvailable: true }, nowMs)
+    searchPerformances(performances, { range: datePresetRange('month', today), onlyAvailable: true }, nowMs)
       .forEach((p) => map.set(p.organization_id, (map.get(p.organization_id) ?? 0) + 1))
     return map
   }, [performances, today, nowMs])
@@ -135,10 +136,13 @@ export function PlatformTop() {
     navigate(card.path)
   }, [navigate])
 
+  // 0 件で切り替えたとき（今月→来月、今週→来週）は見出しも合わせる
+  const switched = range.from > today && (search.preset === 'month' || search.preset === 'week')
   const dateTitle = search.preset === 'date'
     ? formatJstMonthDay(range.from, true)
-    : DATE_PRESETS.find((d) => d.value === search.preset)?.label ?? '今週'
-  const resetKey = `${range.from}_${range.to}_${search.area ?? ''}`
+    : switched
+      ? (search.preset === 'month' ? '来月' : '来週')
+      : DATE_PRESETS.find((d) => d.value === search.preset)?.label ?? '今月'
 
   return (
     <div className="booking-shell min-h-screen bg-muted/40">
@@ -166,25 +170,24 @@ export function PlatformTop() {
       </section>
 
       <main className="mx-auto max-w-4xl space-y-3 px-4 py-3 md:py-5">
-        <TopSection id="results" title={`${dateTitle}に入れる公演`} aside={search.area ?? '全国'}>
-          <PerformanceResultList
-            performances={results}
-            source={cardSource}
-            marks={marks}
-            isLoading={isLoading}
-            resetKey={resetKey}
-            onOpen={openCard}
-            empty={<>条件に合う公演がありません。日付やエリアを変えてみてください。</>}
-          />
-          {results.length > 0 && <p className="mt-1.5 text-xs text-muted-foreground">カードを押すと各店舗の作品ページが、色付きの公演を選んだ状態で開きます。</p>}
-        </TopSection>
-
         <NearlyFullStrip performances={nearlyFull} source={cardSource} marks={marks} aside="全店舗・日付順" onOpen={openCard} />
 
         <PrivateBookingSection
           text="人数が集まれば、好きな店舗・好きな作品・好きな日に。候補日を出してメンバーの都合を聞き、店舗に申し込むまでサイトで完結します。"
           primaryColor={primaryColor}
         />
+
+        <TopSection id="results" title={`${dateTitle}に入れる公演`} aside={search.area ?? '全国'}>
+          <PerformanceResultList
+            performances={results}
+            source={cardSource}
+            marks={marks}
+            isLoading={isLoading}
+            onOpen={openCard}
+            empty={<>条件に合う公演がありません。日付やエリアを変えてみてください。</>}
+          />
+          {results.length > 0 && <p className="mt-1.5 text-xs text-muted-foreground">カードを押すと各店舗の作品ページが、色付きの公演を選んだ状態で開きます。</p>}
+        </TopSection>
 
         {browseScenarios.length > 0 && (
           <ScenarioBrowseSection
@@ -204,7 +207,7 @@ export function PlatformTop() {
           organizations={organizations}
           prefectures={prefectures}
           area={search.area}
-          weekOpenings={weekOpenings}
+          monthOpenings={monthOpenings}
           primaryColor={primaryColor}
           onAreaChange={(area) => updateSearch({ area })}
         />

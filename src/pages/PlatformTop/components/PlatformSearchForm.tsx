@@ -28,7 +28,7 @@ export function PlatformSearchForm({ state, range, prefectures, today, maxDate, 
   const [showMonth, setShowMonth] = useState(false)
   const dateLabel = state.preset === 'date'
     ? formatJstMonthDay(range.from, true)
-    : DATE_PRESETS.find((d) => d.value === state.preset)?.label ?? '今週'
+    : DATE_PRESETS.find((d) => d.value === state.preset)?.label ?? '今月'
 
   return (
     <div className="mt-3 flex flex-col gap-2 rounded-lg bg-white p-2.5 text-foreground">

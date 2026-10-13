@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import type { PublicPerformance } from '@/lib/publicPerformanceSearch'
 import { ScenarioCard } from './ScenarioCard'
 import { groupPerformancesIntoCards, type ScenarioCardData, type ScenarioCardSource } from './scenarioCards'
@@ -9,10 +9,6 @@ interface PerformanceResultListProps {
   source: ScenarioCardSource
   marks?: ScenarioMarks | null
   isLoading?: boolean
-  /** 最初に出す枚数（「あと N 件を見る」ではこの 2 倍ずつ足す） */
-  pageSize?: number
-  /** 条件が変わったら表示件数を戻すための鍵 */
-  resetKey: string
   empty: ReactNode
   onOpen: (card: ScenarioCardData) => void
 }
@@ -20,10 +16,10 @@ interface PerformanceResultListProps {
 /**
  * 空いている公演を探すの結果。本番の作品カードを 2 列で（PC は 4 列）。
  * 同じ作品で複数の公演が該当したら 1 枚にまとめ、該当の公演の行に薄く色を付ける（2026-10-13 社長承認の見本）。
+ * 該当する作品カードは全部並べる（「あと N 件を見る」の折りたたみは 2026-10-13 社長指示で外した。
+ * 件数が多くても画像は遅延読み込み〔ScenarioCardImage の loading="lazy"〕なので、見えるところから読む）。
  */
-export function PerformanceResultList({ performances, source, marks, isLoading, pageSize = 4, resetKey, empty, onOpen }: PerformanceResultListProps) {
-  const [visible, setVisible] = useState(pageSize)
-  useEffect(() => { setVisible(pageSize) }, [resetKey, pageSize])
+export function PerformanceResultList({ performances, source, marks, isLoading, empty, onOpen }: PerformanceResultListProps) {
   const cards = useMemo(
     () => groupPerformancesIntoCards(performances, source.upcoming, { highlight: true, meta: source.meta, showOrganization: source.showOrganization }),
     [performances, source],
@@ -38,23 +34,11 @@ export function PerformanceResultList({ performances, source, marks, isLoading, 
   }
   if (cards.length === 0) return <div className="mt-2 rounded-lg bg-muted/50 p-4 text-center text-sm text-muted-foreground">{empty}</div>
 
-  const rest = cards.length - visible
   return (
-    <>
-      <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-        {cards.slice(0, visible).map((card) => (
-          <ScenarioCard key={card.key} card={card} marks={marks} onOpen={onOpen} />
-        ))}
-      </div>
-      {rest > 0 && (
-        <button
-          type="button"
-          onClick={() => setVisible((v) => v + pageSize * 2)}
-          className="mt-2 block w-full rounded-md border border-input bg-white px-4 py-2.5 text-sm font-medium hover:bg-muted"
-        >
-          あと {rest} 件を見る
-        </button>
-      )}
-    </>
+    <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+      {cards.map((card) => (
+        <ScenarioCard key={card.key} card={card} marks={marks} onOpen={onOpen} />
+      ))}
+    </div>
   )
 }

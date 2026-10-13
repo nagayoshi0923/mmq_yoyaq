@@ -32,9 +32,9 @@ function perf(over: Partial<PublicPerformance>): PublicPerformance {
 const NOW = new Date('2026-10-11T12:00:00+09:00').getTime()
 
 describe('日付チップの範囲', () => {
-  it('チップは 今週／来週／今月 の順（今週末・今日・明日は無い）', () => {
+  it('チップは 今週／来週／今月 の順（今週末・今日・明日は無い）、初期は「今月」（2026-10-13 社長指示）', () => {
     expect(DATE_PRESETS.map((d) => d.label)).toEqual(['今週', '来週', '今月'])
-    expect(DEFAULT_DATE_PRESET).toBe('week')
+    expect(DEFAULT_DATE_PRESET).toBe('month')
   })
   it('今週は今日からその週の日曜まで（両端を含む）', () => {
     // 2026-10-12 は月曜
@@ -63,9 +63,15 @@ describe('日付チップの範囲', () => {
     const ps = [perf({ id: 'sun', date: '2026-10-18', start_time: '13:30' }), perf({ id: 'tue', date: '2026-10-20' })]
     const count = (r: { from: string; to: string }) => searchPerformances(ps, { range: r, onlyAvailable: true }, sundayNight).length
     expect(resolvePresetRange('week', '2026-10-18', null, count)).toEqual({ from: '2026-10-19', to: '2026-10-25' })
-    // 他のチップは切り替えない
+    // 来週・日付は切り替えない
     expect(resolvePresetRange('nextweek', '2026-10-14', null, () => 0)).toEqual({ from: '2026-10-19', to: '2026-10-25' })
-    expect(resolvePresetRange('month', '2026-10-11', null, () => 0)).toEqual({ from: '2026-10-11', to: '2026-10-31' })
+    expect(resolvePresetRange('date', '2026-10-14', '2026-10-20', () => 0)).toEqual({ from: '2026-10-20', to: '2026-10-20' })
+  })
+  it('「今月」が 0 件なら来月（1 日〜月末）に切り替える', () => {
+    expect(resolvePresetRange('month', '2026-10-11', null, () => 3)).toEqual({ from: '2026-10-11', to: '2026-10-31' })
+    expect(resolvePresetRange('month', '2026-10-31', null, () => 0)).toEqual({ from: '2026-11-01', to: '2026-11-30' })
+    expect(resolvePresetRange('month', '2026-12-31', null, () => 0)).toEqual({ from: '2027-01-01', to: '2027-01-31' })
+    expect(resolvePresetRange('month', '2027-01-31', null, () => 0)).toEqual({ from: '2027-02-01', to: '2027-02-28' })
   })
   it('古い URL の ?when= は「今週」として読む', () => {
     expect(parseDatePreset('weekend')).toBe('week')

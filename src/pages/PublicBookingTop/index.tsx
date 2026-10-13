@@ -2,8 +2,10 @@
  * 店舗（組織）の予約サイトトップ
  * @path /{organizationSlug}
  *
- * 2026-10 刷新（社長承認の見本 Top.dc.html）: 上の帯 → 残りわずか → 空いている公演を探す → 貸切 → 作品から探す → はじめての方へ（残りわずかを探す枠の上へ: 2026-10-12 社長指示）。
+ * 2026-10 刷新（社長承認の見本 Top.dc.html）: 上の帯 → 残りわずか → 友だちと貸切で遊ぶ → 空いている公演を探す → 作品から探す → はじめての方へ
+ * （残りわずかを探す枠の上へ: 2026-10-12 社長指示。貸切を残りわずかの直後へ: 2026-10-13 社長指示）。
  * 「空いている公演を探す」のチップ: 今週・来週・今月は日付順のカード、カレンダー・リストは元の部品（2026-10-12 社長決定。見た目だけ新トップに合わせた）。旧 /{org}/calendar・/list はそれぞれのチップで開く。
+ * 初期選択は「今月」で、該当する作品カードは全部並べる（2026-10-13 社長指示）。
  * 方針: docs/product-spec/トップページ刷新_2026-10.md
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -192,6 +194,11 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
 
       <main className="mx-auto max-w-4xl space-y-3 px-4 py-3 md:py-5">
         <NearlyFullStrip performances={nearlyFull} source={cardSource} marks={marks} onOpen={openCard} />
+        <PrivateBookingSection
+          text="4〜8 人集まれば、好きな作品を好きな日に。候補日を出して、メンバーの都合を聞いて、店舗に申し込むまでサイトで完結します。"
+          scenariosPath={`/${slug}/private-booking-select`}
+          primaryColor={primaryColor}
+        />
         <StoreSearchSection
           performances={performances}
           isLoading={isLoading}
@@ -215,11 +222,6 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
             privateBookingDeadlineDays,
             onCardClick: openScenario,
           }}
-        />
-        <PrivateBookingSection
-          text="4〜8 人集まれば、好きな作品を好きな日に。候補日を出して、メンバーの都合を聞いて、店舗に申し込むまでサイトで完結します。"
-          scenariosPath={`/${slug}/private-booking-select`}
-          primaryColor={primaryColor}
         />
         {scenarios.length > 0 && (
           <ScenarioBrowseSection

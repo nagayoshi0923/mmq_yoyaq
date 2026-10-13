@@ -9,8 +9,8 @@ interface OrganizationDirectoryProps {
   organizations: PlatformOrganization[]
   prefectures: string[]
   area: string | null
-  /** 組織 ID → 今週（今日〜日曜）に空きのある公演数 */
-  weekOpenings: Map<string, number>
+  /** 組織 ID → 今月（今日〜月末）に空きのある公演数 */
+  monthOpenings: Map<string, number>
   primaryColor: string
   onAreaChange: (area: string | null) => void
 }
@@ -18,7 +18,7 @@ interface OrganizationDirectoryProps {
 const SHOWN_STORE_NAMES = 4
 
 /** 参加店舗（エリアのチップと組織カード → 各組織の店舗トップ） */
-export function OrganizationDirectory({ organizations, prefectures, area, weekOpenings, primaryColor, onAreaChange }: OrganizationDirectoryProps) {
+export function OrganizationDirectory({ organizations, prefectures, area, monthOpenings, primaryColor, onAreaChange }: OrganizationDirectoryProps) {
   const shown = area ? organizations.filter((o) => o.prefectures.includes(area)) : organizations
   return (
     <TopSection id="organizations" title="参加店舗" aside="エリアで探す">
@@ -34,7 +34,7 @@ export function OrganizationDirectory({ organizations, prefectures, area, weekOp
         {shown.map((o) => {
           const names = o.store_names.slice(0, SHOWN_STORE_NAMES).join('・')
           const more = o.store_count > SHOWN_STORE_NAMES ? ` ほか ${o.store_count} 店舗` : o.store_count > 1 ? ` ${o.store_count} 店舗` : ''
-          const openings = weekOpenings.get(o.id) ?? 0
+          const openings = monthOpenings.get(o.id) ?? 0
           return (
             <Link key={o.id} to={`/${o.slug}`} className="flex items-center gap-2.5 rounded-lg border border-border bg-white p-2.5 hover:bg-muted/40">
               {o.logo_url ? (
@@ -46,7 +46,7 @@ export function OrganizationDirectory({ organizations, prefectures, area, weekOp
                 <div className="truncate text-sm font-bold">{o.name}</div>
                 <div className="text-xs text-muted-foreground">{names}{more} ・ {o.scenario_count} 作品</div>
                 <div className={openings > 0 ? 'text-xs text-emerald-700' : 'text-xs text-muted-foreground'}>
-                  {openings > 0 ? `今週 ${openings} 公演に空きあり` : '今週の空きはありません'}
+                  {openings > 0 ? `今月 ${openings} 公演に空きあり` : '今月の空きはありません'}
                 </div>
               </div>
               <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />

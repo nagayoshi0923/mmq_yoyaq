@@ -53,11 +53,12 @@ export const DATE_PRESETS: { value: Exclude<DatePreset, 'date'>; label: string }
   { value: 'month', label: '今月' },
 ]
 
-/** 初期選択のチップ */
-export const DEFAULT_DATE_PRESET: DatePreset = 'week'
+/** 初期選択のチップ（2026-10-13 社長指示で「今週」から「今月」に替えた） */
+export const DEFAULT_DATE_PRESET: DatePreset = 'month'
 
 /**
- * URL の ?when= を読む。古いリンクの weekend（今週末）・today・tomorrow は「今週」として開く。
+ * URL の ?when= を読む。古いリンクの weekend（今週末）・today・tomorrow は「今週」として開く
+ * （古いリンクは「この数日」を見たい人が持っているので、既定の「今月」ではなく「今週」のまま）。
  * 知らない値は null（呼び出し側で既定に寄せる）。
  */
 export function parseDatePreset(raw: string | null | undefined): DatePreset | null {
@@ -100,6 +101,15 @@ export function endOfJstMonth(today: string): string {
   return `${today.slice(0, 7)}-${String(lastDay).padStart(2, '0')}`
 }
 
+/** today（JST の YYYY-MM-DD）の翌月の 1 日〜月末 */
+export function nextJstMonthRange(today: string): DateRange {
+  const [y, m] = today.split('-').map(Number)
+  const ny = m === 12 ? y + 1 : y
+  const nm = m === 12 ? 1 : m + 1
+  const from = `${ny}-${String(nm).padStart(2, '0')}-01`
+  return { from, to: endOfJstMonth(from) }
+}
+
 /**
  * 日付チップの範囲（両端を含む）。
  * - 今週: 今日〜その週の日曜（JST。週は月曜始まり。日曜に開くと今日だけ）
@@ -122,14 +132,14 @@ export function datePresetRange(preset: DatePreset, today: string, pickedDate?: 
     }
     case 'week':
     default:
-      // 0 件のときは resolvePresetRange で「来週」に切り替える
+      // 0 件のときは resolvePresetRange で「来週」に切り替える（今月は来月に）
       return { from: today, to: addJstDays(today, (7 - w) % 7) }
   }
 }
 
 /**
- * チップの範囲を決める。「今週」が 0 件なら「来週」に切り替える
- * （週末の夜に開いて空の一覧にならないように）。countIn はその範囲の件数を返す
+ * チップの範囲を決める。「今月」が 0 件なら来月（1 日〜月末）に、「今週」が 0 件なら「来週」に切り替える
+ * （月末・週末の夜に開いて空の一覧にならないように）。countIn はその範囲の件数を返す
  * （読み込み中は 1 以上を返して切り替えないようにする）。
  */
 export function resolvePresetRange(
@@ -139,8 +149,9 @@ export function resolvePresetRange(
   countIn: (range: DateRange) => number,
 ): DateRange {
   const range = datePresetRange(preset, today, pickedDate)
-  if (preset !== 'week') return range
-  return countIn(range) > 0 ? range : datePresetRange('nextweek', today)
+  if (preset === 'month') return countIn(range) > 0 ? range : nextJstMonthRange(today)
+  if (preset === 'week') return countIn(range) > 0 ? range : datePresetRange('nextweek', today)
+  return range
 }
 
 /** 範囲の見出し: 「10/17(土)」「10/17(土)・10/18(日)」「10/19(月)〜10/25(日)」 */
