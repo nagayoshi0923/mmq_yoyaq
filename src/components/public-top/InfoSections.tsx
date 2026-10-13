@@ -22,11 +22,13 @@ interface PrivateBookingSectionProps {
   text: string
   /** 貸切できる作品の一覧（店舗トップのみ） */
   scenariosPath?: string
+  /** 貸切の流れのページ（店舗トップは組織付き /{org}/guide/private） */
+  guidePath?: string
   primaryColor: string
 }
 
-/** 友だちと貸切で遊ぶ（貸切できる作品と既存の貸切ガイドへ） */
-export function PrivateBookingSection({ text, scenariosPath, primaryColor }: PrivateBookingSectionProps) {
+/** 友だちと貸切で遊ぶ（貸切できる作品と貸切の流れのページへ） */
+export function PrivateBookingSection({ text, scenariosPath, guidePath = '/guide/private', primaryColor }: PrivateBookingSectionProps) {
   return (
     <TopSection id="private-booking" title="友だちと貸切で遊ぶ" tone="accent">
       <p className="text-sm">{text}</p>
@@ -37,7 +39,7 @@ export function PrivateBookingSection({ text, scenariosPath, primaryColor }: Pri
           </Link>
         )}
         <Link
-          to="/guide?section=private"
+          to={guidePath}
           className={scenariosPath ? outlineButton : 'inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-bold text-white hover:opacity-90'}
           style={scenariosPath ? undefined : { backgroundColor: primaryColor }}
         >

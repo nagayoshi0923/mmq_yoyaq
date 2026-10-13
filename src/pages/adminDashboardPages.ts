@@ -69,6 +69,7 @@ export const ContactPage = lazyWithRetry(() => import('./static').then(m => ({ d
 export const OrganizationContactPage = lazyWithRetry(() => import('./org/ContactPage').then(m => ({ default: m.OrganizationContactPage })))
 export const FAQPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.FAQPage })))
 export const GuidePage = lazyWithRetry(() => import('./static').then(m => ({ default: m.GuidePage })))
+export const PrivateGuidePage = lazyWithRetry(() => import('./static').then(m => ({ default: m.PrivateGuidePage })))
 export const CancelPolicyPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.CancelPolicyPage })))
 export const StoreListPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.StoreListPage })))
 export const AboutPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.AboutPage })))

@@ -36,7 +36,7 @@ import {
   LicensePartnerReportForm, PlatformScenarioSearch, PlatformTop, DesignPreview, ComponentGallery, ProjectGuide,
   LearnFromThisSystem, NotFoundPage, PrivateGroupCreate, PrivateGroupInvite, PrivateGroupManage,
   CouponManagement, BlogDetailPage, BlogManagement, TermsPage, PrivacyPage, SecurityPage, LegalPage,
-  ContactPage, OrganizationContactPage, FAQPage, GuidePage, CancelPolicyPage, StoreListPage, AboutPage,
+  ContactPage, OrganizationContactPage, FAQPage, GuidePage, PrivateGuidePage, CancelPolicyPage, StoreListPage, AboutPage,
   PricingPage, GettingStartedPage,
 } from './adminDashboardPages'
 import { ADMIN_PATHS, parsePath } from './adminDashboardRouting'
@@ -667,7 +667,15 @@ export function AdminDashboard() {
   if (currentPage === 'guide') {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
-        <GuidePage />
+        <GuidePage organizationSlug={pathOrganizationSlug} />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'guide-private') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <PrivateGuidePage organizationSlug={pathOrganizationSlug} />
       </Suspense>
     )
   }
