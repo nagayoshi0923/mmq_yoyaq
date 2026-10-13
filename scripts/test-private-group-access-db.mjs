@@ -47,8 +47,7 @@ await assert.rejects(()=>join('invalid'),/招待/)
 await assert.rejects(()=>join('invite-two','invalid'),/メール/)
 await assert.rejects(()=>join('invite-two','b@example.invalid','12x4'),/PIN/)
 await action('date_responses',[{candidateDateId:id(30),response:'ok'}])
-await assert.rejects(()=>action('date_responses',[{candidateDateId:id(30),response:'ng'},{candidateDateId:id(31),response:'ok'}]),/日程/)
-assert.equal((await db.query('SELECT response FROM private_group_date_responses')).rows[0].response,'ok','bad foreign candidate rolls back the entire answer batch')
+// 別グループ・取り下げ済みの候補日を含む配列の扱い（2026-10-13 から飛ばして成功）はファイル末尾で現行の関数に差し替えて確かめる
 await assert.rejects(()=>action('message',{message:JSON.stringify({type:'system',action:'schedule_confirmed'})}),/システム/)
 await action('message',{message:'本人のメッセージ'})
 await action('survey_write',{})
@@ -135,5 +134,37 @@ const afterClosure=await join('invite-one','closure@example.invalid')
 await action('message',{message:'権限整理後'},afterClosure.guest_token,afterClosure.member.id)
 await action('leave',{},afterClosure.guest_token,afterClosure.member.id)
 assert.deepEqual(await action('validate',{},null,logged.member.id,id(2),id(50)),{valid:true})
+// 2026-10-13 恒久対応 2: 古い画面が送る、別グループ・存在しない・取り下げ済み・不採用の候補日や不正な値を含む日程回答は
+// エラーにせず飛ばし、有効なものだけ保存して成功を返す（全部飛ばしても成功）。配列でない／100 件超は従来どおりエラー。
+await db.exec(`ALTER TABLE private_group_candidate_dates ADD COLUMN status text DEFAULT 'active', ADD COLUMN withdrawn_at timestamptz;
+INSERT INTO private_group_candidate_dates(id,group_id,status,withdrawn_at) VALUES('${id(32)}','${id(1)}','rejected',now()),('${id(33)}','${id(1)}','rejected',null),('${id(34)}','${id(1)}','active',null),('${id(35)}','${id(1)}','active',now());`)
+const skipMigration=fs.readFileSync('supabase/migrations/20261013130000_private_group_date_responses_skip_stale.sql','utf8')
+await db.exec(skipMigration)
+const answerer=await join('invite-one','skip@example.invalid')
+const answer=payload=>action('date_responses',payload,answerer.guest_token,answerer.member.id)
+const answers=async()=>Object.fromEntries((await db.query('SELECT candidate_date_id,response FROM private_group_date_responses WHERE member_id=$1',[answerer.member.id])).rows.map(r=>[r.candidate_date_id.slice(-2),r.response]))
+assert.equal(await answer([
+ {candidateDateId:id(30),response:'ng'},
+ {candidateDateId:id(31),response:'ok'},
+ {candidateDateId:id(32),response:'ok'},
+ {candidateDateId:id(33),response:'ok'},
+ {candidateDateId:id(35),response:'ok'},
+ {candidateDateId:id(99),response:'ok'},
+ {candidateDateId:'not-a-uuid',response:'ok'},
+ {candidateDateId:id(34),response:'bogus'},
+ 'stale',
+ {candidateDateId:id(34),response:'maybe'},
+]),true,'stale entries are skipped and the call still succeeds')
+assert.deepEqual(await answers(),{30:'ng',34:'maybe'},'only valid answers of this group are saved')
+assert.equal(await answer([{candidateDateId:id(32),response:'ng'},{candidateDateId:id(31),response:'ng'}]),true,'all-stale payload succeeds without writing')
+assert.deepEqual(await answers(),{30:'ng',34:'maybe'})
+assert.equal(await answer([]),true)
+await assert.rejects(()=>answer({candidateDateId:id(30),response:'ok'}),/日程回答が不正/)
+await assert.rejects(()=>answer(Array.from({length:101},()=>({candidateDateId:id(30),response:'ok'}))),/日程回答が不正/)
+await db.exec(fs.readFileSync('supabase/rollbacks/20261013130000_private_group_date_responses_skip_stale.sql','utf8'))
+await assert.rejects(()=>answer([{candidateDateId:id(31),response:'ok'}]),/日程/,'rollback restores the strict check')
+await db.exec(skipMigration)
+assert.equal(await answer([{candidateDateId:id(31),response:'ok'},{candidateDateId:id(30),response:'ok'}]),true)
+assert.deepEqual(await answers(),{30:'ok',34:'maybe'})
 await db.close()
-console.log('PASS: guest/member identity, token scope/expiry/revocation, PIN lock, join cap, answer isolation+atomicity, rollback/reapply')
+console.log('PASS: guest/member identity, token scope/expiry/revocation, PIN lock, join cap, answer isolation, stale answers skipped, rollback/reapply')

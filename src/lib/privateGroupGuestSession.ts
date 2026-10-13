@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { requestKey, withRepeatFailureBackoff } from '@/lib/repeatFailureBackoff'
 
 /**
  * ゲストの本人確認の印と参加情報の保存先。
@@ -67,13 +68,18 @@ export async function privateGroupMemberAction(
   action: 'validate' | 'date_responses' | 'message' | 'survey_read' | 'survey_write' | 'character_preference' | 'leave',
   payload: unknown = {},
 ) {
-  const result = await supabase.rpc('private_group_member_action', {
-    p_group_id: groupId,
-    p_member_id: memberId,
-    p_action: action,
-    p_payload: payload,
-    p_guest_token: getPrivateGroupGuestToken(groupId),
-  })
+  // 同じ操作・同じ内容が 3 回続けて失敗したら、次からは 10 秒空けて送る（再送ループで DB が混んだ 2026-10-13 の対策）
+  const result = await withRepeatFailureBackoff(
+    requestKey(`private_group_member_action:${groupId}:${memberId}:${action}`, payload),
+    async () => supabase.rpc('private_group_member_action', {
+      p_group_id: groupId,
+      p_member_id: memberId,
+      p_action: action,
+      p_payload: payload,
+      p_guest_token: getPrivateGroupGuestToken(groupId),
+    }),
+    r => Boolean(r.error),
+  )
   if (result.error?.code === '42501' && /本人確認が必要|参加情報が見つかりません/.test(result.error.message)) {
     clearPrivateGroupGuestToken(groupId)
     window.dispatchEvent(new CustomEvent('private-group-auth-expired', { detail: { groupId } }))
