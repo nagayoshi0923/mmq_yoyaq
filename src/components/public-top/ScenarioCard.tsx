@@ -48,7 +48,7 @@ export const ScenarioCard = memo(function ScenarioCard({ card, onOpen, marks, cl
       role="link"
       tabIndex={0}
       aria-label={card.title}
-      className={cn('group min-w-0 cursor-pointer text-left', className)}
+      className={cn('group min-w-0 cursor-pointer text-left [container-type:inline-size] [container-name:scenario-card]', className)}
       onClick={() => onOpen(card)}
       onKeyDown={(e) => { if (e.key === 'Enter') onOpen(card) }}
     >
@@ -91,10 +91,20 @@ export const ScenarioCard = memo(function ScenarioCard({ card, onOpen, marks, cl
 
           <h3 className="mb-2 line-clamp-2 text-sm font-bold leading-snug text-foreground">{card.title}</h3>
 
-          <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><Users className="h-3 w-3" />{formatPlayers(card.player_count_min, card.player_count_max)}</span>
-            {!!card.duration_minutes && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDuration(card.duration_minutes)}</span>}
-            {!!card.fee && <span>¥{card.fee.toLocaleString('ja-JP')}〜</span>}
+          {/* 広いカード: アイコン付きで横に並べる。狭いカード（幅 200px 未満）: アイコンなし・中黒区切りの 1 行、はみ出す参加費だけ「…」 */}
+          <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground card-narrow:flex-nowrap card-narrow:gap-x-0 card-narrow:whitespace-nowrap card-narrow:ts-10">
+            <span className="flex shrink-0 items-center gap-1"><Users className="h-3 w-3 card-narrow:hidden" />{formatPlayers(card.player_count_min, card.player_count_max)}</span>
+            {!!card.duration_minutes && (
+              <span className="flex shrink-0 items-center gap-1 card-narrow:gap-0">
+                <span aria-hidden className="hidden card-narrow:inline">・</span>
+                <Clock className="h-3 w-3 card-narrow:hidden" />{formatDuration(card.duration_minutes)}
+              </span>
+            )}
+            {!!card.fee && (
+              <span className="card-narrow:min-w-0 card-narrow:truncate">
+                <span aria-hidden className="hidden card-narrow:inline">・</span>¥{card.fee.toLocaleString('ja-JP')}〜
+              </span>
+            )}
           </div>
 
           {rows.length > 0 && (
@@ -108,17 +118,19 @@ export const ScenarioCard = memo(function ScenarioCard({ card, onOpen, marks, cl
                     className={cn('flex items-stretch gap-1 ts-11', ev.highlighted && '-mx-2 bg-orange-50 px-2 py-0.5 sm:-mx-3 sm:px-3')}
                   >
                     <span className="w-[3px] shrink-0" style={{ backgroundColor: ev.store_color ? getColorFromName(ev.store_color) : 'var(--booking-primary)' }} />
-                    {/* 狭いカード（スマホの 2 列・幅 150px）では店舗名と残席を次の行へ折り返す */}
-                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-0.5">
-                      <span className="whitespace-nowrap font-medium text-foreground">
-                        {formatJstMonthDay(ev.date)}
-                        <span className={cn('ml-0.5 font-normal', wd === 0 ? 'text-red-500' : wd === 6 ? 'text-blue-500' : 'text-muted-foreground')}>
-                          ({formatJstWeekday(ev.date)})
+                    {/* 広いカード: 日付・時刻・店舗・残席を 1 行。狭いカード: 1 行目「日付(曜日) 時刻」、2 行目「店舗（左）・残席（右）」の決まった 2 行 */}
+                    <div className="flex min-w-0 flex-1 items-center gap-x-1 card-narrow:grid card-narrow:grid-cols-[minmax(0,1fr)_auto] card-narrow:gap-y-0.5">
+                      <span className="flex shrink-0 items-center gap-x-1 whitespace-nowrap card-narrow:col-span-2">
+                        <span className="font-medium text-foreground">
+                          {formatJstMonthDay(ev.date)}
+                          <span className={cn('ml-0.5 font-normal', wd === 0 ? 'text-red-500' : wd === 6 ? 'text-blue-500' : 'text-muted-foreground')}>
+                            ({formatJstWeekday(ev.date)})
+                          </span>
                         </span>
+                        {ev.start_time && <span className="text-muted-foreground">{ev.start_time.slice(0, 5)}</span>}
                       </span>
-                      {ev.start_time && <span className="whitespace-nowrap text-muted-foreground">{ev.start_time.slice(0, 5)}</span>}
                       <span className="min-w-0 truncate text-muted-foreground">{ev.store_name}</span>
-                      <SeatChips performance={ev} className="ml-auto shrink-0" />
+                      <SeatChips performance={ev} className="ml-auto shrink-0 justify-self-end" />
                     </div>
                   </div>
                 )
