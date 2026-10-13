@@ -78,6 +78,39 @@ describe('使い方ガイドとトップからのリンク', () => {
     expect(host.querySelector('[data-testid="guide-private-link"]')?.getAttribute('href')).toBe('/queens-waltz/guide/private')
   })
 
+  it('使い方ガイドの上に入口が 2 つ（予約の流れは手順 1 へ、貸切の流れは別ページへ）', async () => {
+    await render(<GuidePage />, '/guide')
+    expect(host.textContent).toContain('公演の予約と、貸切の流れをご案内します')
+    expect(host.textContent).not.toContain('4 つの手順でできます')
+    const booking = host.querySelector('[data-testid="guide-entry-booking"]')
+    expect(booking?.textContent).toContain('公演を予約する流れ')
+    expect(booking?.getAttribute('href')).toBe('#booking-steps')
+    expect(host.querySelector('#booking-steps')?.textContent).toContain('空いている公演を探す')
+    const priv = host.querySelector('[data-testid="guide-entry-private"]')
+    expect(priv?.textContent).toContain('貸切の流れ')
+    expect(priv?.getAttribute('href')).toBe('/guide/private')
+    // 入口は手順 1 より前にある
+    expect(booking!.compareDocumentPosition(host.querySelector('#booking-steps')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    await act(async () => (booking as HTMLAnchorElement).click())
+    expect(scroll).toHaveBeenCalled()
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView
+
+    await render(<GuidePage organizationSlug="queens-waltz" />, '/queens-waltz/guide')
+    expect(host.querySelector('[data-testid="guide-entry-private"]')?.getAttribute('href')).toBe('/queens-waltz/guide/private')
+  })
+
+  it('貸切の流れの上に、公演を予約する流れへの入口がある', async () => {
+    await render(<PrivateGuidePage />, '/guide/private')
+    const entry = host.querySelector('[data-testid="private-guide-entry-booking"]')
+    expect(entry?.textContent).toContain('公演を予約する流れ')
+    expect(entry?.getAttribute('href')).toBe('/guide')
+    await render(<PrivateGuidePage organizationSlug="queens-waltz" />, '/queens-waltz/guide/private')
+    expect(host.querySelector('[data-testid="private-guide-entry-booking"]')?.getAttribute('href')).toBe('/queens-waltz/guide')
+  })
+
   it('以前のリンク（/guide?section=private）は貸切の流れへ移す', async () => {
     await render(<GuidePage />, '/guide?section=private')
     expect(host.querySelector('[data-testid="where"]')?.textContent).toBe('/guide/private')

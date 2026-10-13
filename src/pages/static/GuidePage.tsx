@@ -9,7 +9,7 @@
  * 画面を変えたら、画像を撮り直してこのページの文も合わせる。
  */
 import { useEffect } from 'react'
-import { ArrowRight, ChevronRight, HelpCircle, Users } from 'lucide-react'
+import { ArrowRight, CalendarCheck, ChevronRight, HelpCircle, Users } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { PublicLayout } from '@/components/layout/PublicLayout'
 import { Button } from '@/components/ui/button'
@@ -18,10 +18,12 @@ import { usePageMeta } from '@/hooks/usePageMeta'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { STATIC_PUBLIC_META, buildFaqJsonLd, MURDER_MYSTERY_FAQ } from '@/lib/seo'
 import { Annotation, GuideShot } from './guide/GuideDemos'
-import { Body, Section, StepHeading } from './guide/GuideParts'
+import { Body, GuideEntryLinks, Section, StepHeading } from './guide/GuideParts'
 import { privateGuidePath } from './guide/privateGuidePath'
 
 const IMG = '/guide-images'
+/** 手順 1 の節の id（上の入口「公演を予約する流れ」のスクロール先） */
+const BOOKING_STEPS_ID = 'booking-steps'
 
 export function GuidePage({ organizationSlug }: { organizationSlug?: string | null }) {
   const navigate = useNavigate()
@@ -50,9 +52,14 @@ export function GuidePage({ organizationSlug }: { organizationSlug?: string | nu
             <HelpCircle className="w-7 h-7 sm:w-8 sm:h-8" />
             ご予約ガイド
           </h1>
-          <p className="text-white/90">公演の予約は 4 つの手順でできます</p>
+          <p className="text-white/90">公演の予約と、貸切の流れをご案内します</p>
         </div>
       </section>
+
+      <GuideEntryLinks entries={[
+        { title: '公演を予約する流れ', description: '空いている公演を探して、人数を選んで予約', icon: <CalendarCheck className="w-5 h-5" />, scrollToId: BOOKING_STEPS_ID, testId: 'guide-entry-booking' },
+        { title: '貸切の流れ', description: '友だちと作品と日にちを決めて、店舗に申し込む', icon: <Users className="w-5 h-5" />, to: privatePath, testId: 'guide-entry-private' },
+      ]} />
 
       <Section>
         <h2>マーダーミステリー（マダミス）とは</h2>
@@ -65,7 +72,7 @@ export function GuidePage({ organizationSlug }: { organizationSlug?: string | nu
       <hr className="max-w-3xl mx-auto border-border" />
 
       {/* ===== 1 ===== */}
-      <Section>
+      <Section id={BOOKING_STEPS_ID}>
         <StepHeading n={1} title="空いている公演を探す" lead="店舗の予約ページのいちばん上です" />
         <Body>
           予約ページを開くと「空いている公演を探す」が出ます。「今週」「来週」「今月」で日付を選ぶと、その期間に空きのある公演が一覧で出ます。店舗でも絞り込めます。
