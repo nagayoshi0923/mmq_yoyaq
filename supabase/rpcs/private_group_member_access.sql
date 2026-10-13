@@ -104,6 +104,7 @@ CREATE FUNCTION public.private_group_member_action(p_group_id uuid,p_member_id u
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE v_row jsonb; v_result uuid; v_message text; v_leaving private_group_members%ROWTYPE; v_name text; v_before integer;
 BEGIN
+BEGIN
  -- Lock the group before the member, consistently with join and future membership guards.
  PERFORM 1 FROM private_groups WHERE id=p_group_id FOR UPDATE;
  PERFORM public.require_private_group_member(p_group_id,p_member_id,p_guest_token);
@@ -114,6 +115,8 @@ BEGIN
   IF jsonb_typeof(p_payload)<>'array' OR jsonb_array_length(p_payload)>100 THEN RAISE EXCEPTION '日程回答が不正です' USING ERRCODE='22023'; END IF;
   FOR v_row IN SELECT value FROM jsonb_array_elements(p_payload) LOOP
    IF coalesce(v_row->>'response','') NOT IN ('ok','ng','maybe') OR NOT EXISTS(SELECT 1 FROM private_group_candidate_dates WHERE id=(v_row->>'candidateDateId')::uuid AND group_id=p_group_id) THEN
+    -- 2026-10-13 緊急の手当て: 存在しない候補日を含む保存を即座に再送し続ける端末があり DB が混むため、エラーの前に 2 秒待つ
+    PERFORM pg_sleep(2);
     RAISE EXCEPTION '回答対象の日程が見つかりません' USING ERRCODE='22023';
    END IF;
    INSERT INTO private_group_date_responses(group_id,member_id,candidate_date_id,response)
@@ -156,6 +159,11 @@ BEGIN
   RETURN 'true'::jsonb;
  ELSE RAISE EXCEPTION '未対応の操作です' USING ERRCODE='22023';
  END CASE;
+EXCEPTION WHEN OTHERS THEN
+  -- 2026-10-13 緊急の手当て: 失敗する要求を即座に再送し続ける端末があり DB が混むため、どの失敗でも 2 秒待ってから返す
+  PERFORM pg_sleep(2);
+  RAISE;
+END;
 END $$;
 REVOKE ALL ON FUNCTION public.private_group_member_action(uuid,uuid,text,jsonb,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.private_group_member_action(uuid,uuid,text,jsonb,text) TO anon,authenticated,service_role;
@@ -194,6 +202,7 @@ GRANT EXECUTE ON FUNCTION public.require_private_group_manager(uuid) TO authenti
 CREATE FUNCTION public.guard_private_group_browser_write()
 RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $$
 DECLARE v_row jsonb; v_group uuid; v_manager text; v_owner boolean; v_message jsonb; v_cap integer;
+BEGIN
 BEGIN
  -- Definer RPCs validate their own actor. Ordinary browser writes run as anon/authenticated.
  IF current_user NOT IN ('anon','authenticated') THEN
@@ -251,6 +260,11 @@ BEGIN
   END IF;
  END IF;
  IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+EXCEPTION WHEN OTHERS THEN
+  -- 2026-10-13 緊急の手当て: 失敗する書き込みを即座に再送し続ける端末があり DB が混むため、失敗時は 2 秒待ってから返す
+  PERFORM pg_sleep(2);
+  RAISE;
+END;
 END $$;
 REVOKE ALL ON FUNCTION public.guard_private_group_browser_write() FROM PUBLIC;
 CREATE TRIGGER guard_private_group_browser_write BEFORE INSERT OR UPDATE OR DELETE ON public.private_group_members FOR EACH ROW EXECUTE FUNCTION public.guard_private_group_browser_write();

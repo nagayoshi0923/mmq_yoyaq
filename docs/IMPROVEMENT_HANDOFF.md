@@ -1,3 +1,12 @@
+## 2026-10-13 / 本番 DB の混雑の止血: 失敗する保存を即座に再送し続ける端末（fix/throttle-failing-writes-hotfix、staging 向け PR）
+
+- 事象（2026-10-13 午後）: 本番 DB で失敗する要求を即座に再送し続ける端末が 2 つあり、毎秒約 700 件の失敗・巻き戻しが起きてサイト全体が重くなった。送り元は (1) 貸切グループ `5c12352b-6f5d-4f86-ba76-9e9e1b105af6` への日程回答の保存（`private_group_member_action` の `date_responses`、トリガー `guard_withdrawn_private_group_response`・`guard_private_group_browser_write`）、(2) スケジュール画面のスタッフ参加の保存（`sync_event_staff_participations`）。
+- 止血: 本番の 4 関数を直接書き換え、**失敗するときだけ 2 秒待ってからエラーを返す**ようにした（成功時の動き・結果・エラー文は同じ）。`private_group_member_action` と `guard_private_group_browser_write` は本体全体を `EXCEPTION WHEN OTHERS THEN PERFORM pg_sleep(2); RAISE;` で包む（`date_responses` の「回答対象の日程が見つかりません」は手前でも 2 秒待つので、この失敗は合計 4 秒）。`guard_withdrawn_private_group_response` は取り下げ済み候補日と lock_not_available の 2 つのエラーの前に 2 秒。`sync_event_staff_participations` は既存の lock_not_available と、ほかのすべての失敗で 2 秒。
+- 記録: migration `20261013120000_throttle_failing_private_group_and_staff_writes.sql`（同名 rollback は待ちを入れる前の staging の定義）、`supabase/rpcs/` の 3 ファイルも同じ変更。staging 適用済み。本番と staging の `md5(prosrc)` は 4 関数とも一致（f271968e… / f0ee74b7… / 10bb4df1… / 44a3eab8…）。違いは `guard_withdrawn_private_group_response` の search_path だけ（本番 `public`、staging `public, pg_temp`。migration は staging の版を基準）。ほか 3 関数は staging と本番の元の本文が同じだった。
+- 本番の扱い: この番号は本番の `schema_migrations` に登録していない（本番 DB へは書き込まない方針）。リリース時の `db:push:prod` で同じ本文が再適用されるだけで無害（guard_withdrawn は search_path が staging に揃う）。`prod.json` は直接書き換え後の本番から取り直し、`db:drift:prod` は一致。
+- 確認: `scripts/test-staff-participation-seats-db.mjs` に新しい定義を足して流し、全項目合格・失敗はすべて約 2 秒（成功は即時）。`scripts/test-private-group-access-db.mjs` の手元版でも、存在しない候補日 4 秒・空メッセージ 2 秒・直接書き込みの拒否 2 秒・正しい回答は即時を確認（既存の 2 本は古い migration を読むので、そのままでは新しい定義を通らない）。
+- **恒久対応の候補（未着手）**: (1) 画面側の再送ループを特定して止める（グループページの日程回答の保存と、スケジュール画面のスタッフ参加の保存。失敗時に自動で再送している箇所、react-query の retry・effect の依存の回り続けを疑う）。(2) 失敗時の待ち時間を固定の 2 秒から設定値にする（または失敗の回数に応じて伸ばす）。(3) 原因が直ったら 2 秒待ちを外すかを判断する（`EXCEPTION WHEN OTHERS` は失敗のたびに副トランザクションを作るので、負荷が落ち着いたら外す価値がある）。
+
 ## 2026-10-12 / RPC の点検で以前から落ちていた 2 件（fix/rpc-tests-cancellation-fee、staging 向け PR）
 
 - `npm run test:rpcs` の失敗 2 件は、どちらもテストではなく DB 側の古い関数が原因。値の食い違いではなく「呼ぶと必ずエラー」だった。

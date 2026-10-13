@@ -100,7 +100,12 @@ BEGIN
  END IF;
  RETURN v_after;
 EXCEPTION WHEN lock_not_available THEN
+ -- 2026-10-13 緊急の手当て: 失敗する保存を即座に再送し続ける端末があり DB が混むため、失敗時は 2 秒待ってから返す
+ PERFORM pg_sleep(2);
  RAISE EXCEPTION '予約が別の操作で更新中です。変更は保存されていません。再読み込みしてください' USING ERRCODE='55P03';
+WHEN OTHERS THEN
+ PERFORM pg_sleep(2);
+ RAISE;
 END $$;
 REVOKE ALL ON FUNCTION public.sync_event_staff_participations(uuid,jsonb,jsonb,text[],jsonb,jsonb) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.sync_event_staff_participations(uuid,jsonb,jsonb,text[],jsonb,jsonb) TO authenticated,service_role;
