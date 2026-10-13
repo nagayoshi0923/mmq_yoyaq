@@ -159,7 +159,8 @@ export function PlatformTop() {
         <NearlyFullStrip performances={nearlyFull} source={cardSource} marks={marks} aside="全店舗・日付順" onOpen={openCard} />
 
         <PrivateBookingSection
-          text="人数が集まれば、好きな店舗・好きな作品・好きな日に。候補日を出してメンバーの都合を聞き、店舗に申し込むまでサイトで完結します。"
+          text="4〜8 人集まれば、好きな作品を好きな日に。候補日を出して、メンバーの都合を聞いて、店舗に申し込むまでサイトで完結します。貸切は店舗ごとなので、参加店舗を選び、その店舗の「貸切できる作品を見る」から作品を選びます。"
+          onChooseStore={() => scrollTo('organizations')}
           primaryColor={primaryColor}
         />
 

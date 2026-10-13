@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, type ReactNode } from 'react'
 import { CheckCheck, Clock, Heart, Users } from 'lucide-react'
 import { cn, getColorFromName } from '@/lib/utils'
 import { formatJstMonthDay, formatJstWeekday, getJstWeekdayIndex } from '@/utils/jstDate'
@@ -26,6 +26,10 @@ interface ScenarioCardProps {
   /** ログイン中だけ: 遊びたい・体験済み */
   marks?: ScenarioMarks | null
   className?: string
+  /** 次回公演の行の代わりに出す欄（貸切できる作品の一覧: 「1 人あたり料金」「貸切できます」） */
+  note?: ReactNode
+  /** 選ぶ使い方（日時を選んだあとの貸切の作品選び）。指定すると押しボタン扱いで、選択中は枠を太くする */
+  selected?: boolean
 }
 
 /**
@@ -34,7 +38,7 @@ interface ScenarioCardProps {
  * 次回公演 2 件（店舗色の縦棒・日付と曜日・時刻・店舗・残席チップ）と「+N件」。
  * 押すと card.path（公演を選んだ状態の作品ページ、または作品ページ）へ。
  */
-export const ScenarioCard = memo(function ScenarioCard({ card, onOpen, marks, className }: ScenarioCardProps) {
+export const ScenarioCard = memo(function ScenarioCard({ card, onOpen, marks, className, note, selected }: ScenarioCardProps) {
   const ribbon = scenarioCardRibbon(card)
   const rows = card.events.slice(0, EVENT_ROWS)
   const more = card.total_events_count - rows.length
@@ -43,14 +47,22 @@ export const ScenarioCard = memo(function ScenarioCard({ card, onOpen, marks, cl
 
   return (
     <div
-      role="link"
+      role={selected === undefined ? 'link' : 'button'}
+      aria-pressed={selected}
       tabIndex={0}
       aria-label={card.title}
       className={cn('group min-w-0 cursor-pointer text-left [container-type:inline-size] [container-name:scenario-card]', className)}
       onClick={() => onOpen(card)}
-      onKeyDown={(e) => { if (e.key === 'Enter') onOpen(card) }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') onOpen(card)
+        else if (selected !== undefined && e.key === ' ' && e.target === e.currentTarget) { e.preventDefault(); onOpen(card) }
+      }}
     >
-      <div className="relative flex h-full flex-col overflow-hidden rounded-none border border-gray-200 bg-white transition-all duration-200 group-hover:border-gray-300 group-hover:shadow-lg">
+      <div
+        className={selected
+          ? 'relative flex h-full flex-col overflow-hidden rounded-none border border-booking-primary bg-white ring-2 ring-booking-primary transition-all duration-200 group-hover:shadow-lg'
+          : 'relative flex h-full flex-col overflow-hidden rounded-none border border-gray-200 bg-white transition-all duration-200 group-hover:border-gray-300 group-hover:shadow-lg'}
+      >
         <div className="relative aspect-[3/4] w-full shrink-0 overflow-hidden bg-gray-100">
           <ScenarioCardImage src={card.key_visual_url} alt={card.title} />
           {card.organization_badge && (
@@ -131,6 +143,7 @@ export const ScenarioCard = memo(function ScenarioCard({ card, onOpen, marks, cl
               {more > 0 && <p className="ts-10 text-muted-foreground card-narrow:!fg-gray-400">+{more}件</p>}
             </div>
           )}
+          {rows.length === 0 && note && <div className="border-t border-gray-100 pt-2 card-narrow:pt-1.5">{note}</div>}
         </div>
       </div>
     </div>
