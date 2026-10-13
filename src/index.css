@@ -304,6 +304,8 @@ html, body {
   /* 予約サイトのカレンダー・リスト（元の見た目を維持、2026-10-12 社長決定）。元の 10px・8px の文字と灰色の文字色と同じ値 */
   .ts-10 { font-size: 10px; }
   .ts-8 { font-size: 8px; }
+  /* トップページの作品カードの次回公演の行（見本 Top.dc.html と同じ 11px。2 列・幅 150px のカードで店舗名まで 1 行に収める） */
+  .ts-11 { font-size: 11px; line-height: 1.4; }
   .fg-gray-400 { color: rgb(156 163 175); }
   .fg-gray-500 { color: rgb(107 114 128); }
   .fg-gray-600 { color: rgb(75 85 99); }

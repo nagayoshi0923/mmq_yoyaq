@@ -1,39 +1,49 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { PublicPerformance } from '@/lib/publicPerformanceSearch'
-import { PerformanceResultCard } from './PerformanceResultCard'
+import { ScenarioCard } from './ScenarioCard'
+import { groupPerformancesIntoCards, type ScenarioCardData, type ScenarioCardSource } from './scenarioCards'
+import type { ScenarioMarks } from './useScenarioMarks'
 
 interface PerformanceResultListProps {
   performances: PublicPerformance[]
+  source: ScenarioCardSource
+  marks?: ScenarioMarks | null
   isLoading?: boolean
-  showOrganization?: boolean
-  /** 最初に出す件数と「あと N 件を見る」で足す件数 */
+  /** 最初に出す枚数（「あと N 件を見る」ではこの 2 倍ずつ足す） */
   pageSize?: number
   /** 条件が変わったら表示件数を戻すための鍵 */
   resetKey: string
   empty: ReactNode
-  onSelect: (performance: PublicPerformance) => void
+  onOpen: (card: ScenarioCardData) => void
 }
 
-/** 公演の結果一覧（スマホ 1 列・PC 2 列まで）と「あと N 件を見る」 */
-export function PerformanceResultList({ performances, isLoading, showOrganization, pageSize = 5, resetKey, empty, onSelect }: PerformanceResultListProps) {
+/**
+ * 空いている公演を探すの結果。本番の作品カードを 2 列で（PC は 4 列）。
+ * 同じ作品で複数の公演が該当したら 1 枚にまとめ、該当の公演の行に薄く色を付ける（2026-10-13 社長承認の見本）。
+ */
+export function PerformanceResultList({ performances, source, marks, isLoading, pageSize = 4, resetKey, empty, onOpen }: PerformanceResultListProps) {
   const [visible, setVisible] = useState(pageSize)
   useEffect(() => { setVisible(pageSize) }, [resetKey, pageSize])
+  const cards = useMemo(
+    () => groupPerformancesIntoCards(performances, source.upcoming, { highlight: true, meta: source.meta, showOrganization: source.showOrganization }),
+    [performances, source],
+  )
 
   if (isLoading && performances.length === 0) {
     return (
-      <div className="mt-2 grid gap-2 md:grid-cols-2" aria-busy="true">
-        {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-[98px] animate-pulse rounded-lg bg-muted" />)}
+      <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4" aria-busy="true">
+        {Array.from({ length: 4 }).map((_, i) => <div key={i} className="aspect-[3/5] animate-pulse bg-muted" />)}
       </div>
     )
   }
-  if (performances.length === 0) return <div className="mt-2 rounded-lg bg-muted/50 p-4 text-center text-sm text-muted-foreground">{empty}</div>
+  if (cards.length === 0) return <div className="mt-2 rounded-lg bg-muted/50 p-4 text-center text-sm text-muted-foreground">{empty}</div>
 
-  const rest = performances.length - visible
+  const rest = cards.length - visible
   return (
     <>
-      <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
-        {performances.slice(0, visible).map((p) => (
-          <PerformanceResultCard key={p.id} performance={p} showOrganization={showOrganization} onSelect={onSelect} />
+      <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+        {cards.slice(0, visible).map((card) => (
+          <ScenarioCard key={card.key} card={card} marks={marks} onOpen={onOpen} />
         ))}
       </div>
       {rest > 0 && (

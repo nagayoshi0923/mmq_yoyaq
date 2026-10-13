@@ -5,6 +5,8 @@ import { PerformanceResultList } from '@/components/public-top/PerformanceResult
 import { StorePicker, type StoreOption } from '@/components/public-top/StorePicker'
 import { TopSection } from '@/components/public-top/TopSection'
 import type { PerformanceSearchState } from '@/components/public-top/usePerformanceSearchParams'
+import type { ScenarioCardData, ScenarioCardSource } from '@/components/public-top/scenarioCards'
+import type { ScenarioMarks } from '@/components/public-top/useScenarioMarks'
 import {
   DATE_PRESETS,
   DEFAULT_DATE_PRESET,
@@ -25,7 +27,10 @@ interface StoreSearchSectionProps {
   today: string
   nowMs: number
   primaryColor: string
-  onSelect: (p: PublicPerformance) => void
+  /** 結果の作品カードの材料 */
+  source: ScenarioCardSource
+  marks?: ScenarioMarks | null
+  onOpen: (card: ScenarioCardData) => void
   /** 元のカレンダー・リスト用 */
   classic: {
     organizationId: string | null
@@ -46,7 +51,7 @@ interface StoreSearchSectionProps {
  * 「カレンダー」「リスト」は元の部品（年月・店舗・満席を非表示の操作）を出す（2026-10-12 社長決定）。
  * 人数の絞り込みは置かない（2026-10-12 社長指示。空席ありは 1 名以上の空き）。
  */
-export function StoreSearchSection({ performances, isLoading, state, onChange, storeOptions, today, nowMs, primaryColor, onSelect, classic }: StoreSearchSectionProps) {
+export function StoreSearchSection({ performances, isLoading, state, onChange, storeOptions, today, nowMs, primaryColor, source, marks, onOpen, classic }: StoreSearchSectionProps) {
   // 元のカレンダー・リストの操作（両方で共通にし、切り替えても保つ）
   const [classicStoreIds, setClassicStoreIds] = useState<string[]>([])
   const [hideSoldOut, setHideSoldOut] = useState(false)
@@ -116,12 +121,14 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
           </p>
           <PerformanceResultList
             performances={results}
+            source={source}
+            marks={marks}
             isLoading={isLoading}
             resetKey={resetKey}
-            onSelect={onSelect}
+            onOpen={onOpen}
             empty={<>条件に合う公演がありません。日付や条件を変えてみてください。</>}
           />
-          {results.length > 0 && <p className="mt-1.5 text-xs text-muted-foreground">押すと作品ページが、その公演を選んだ状態で開きます。</p>}
+          {results.length > 0 && <p className="mt-1.5 text-xs text-muted-foreground">カードを押すと作品ページが、色付きの公演を選んだ状態で開きます。</p>}
         </>
       )}
       {state.view === 'calendar' && <div className="mt-2"><ClassicCalendar {...classicProps} /></div>}

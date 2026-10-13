@@ -33,6 +33,12 @@ export interface PublicPerformance {
   reservation_deadline_hours: number
   genres: string[]
   beginner_friendly: boolean
+  /** 作品カードの次回公演の行に出す短い店舗名（storeShortDisplayName） */
+  store_short_name?: string
+  /** 店舗の色（作品カードの縦棒） */
+  store_color?: string | null
+  /** 募集延長中 */
+  is_extended?: boolean
 }
 
 export type DatePreset = 'week' | 'nextweek' | 'month' | 'date'
