@@ -1,3 +1,14 @@
+## 2026-10-13 / 再送ループの恒久対応: 古い日程回答は飛ばして成功、失敗が続く送り元を待たせる（fix/stale-writes-skip-and-rate-limit、staging 向け PR）
+
+- 社長決定で、上の止血（20261013120000）の恒久対応のうち 2 と 4 を行った。
+- **2. 古い日程回答を無視して成功を返す（DB）**: migration `20261013130000_private_group_date_responses_skip_stale.sql`。`private_group_member_action` の `date_responses` は、配列の要素のうち、候補日がそのグループに無い・存在しない・取り下げ済み（`withdrawn_at IS NOT NULL`）・不採用（`status='rejected'`）・回答値が不正・形が不正なものを**エラーにせず飛ばし**、有効なものだけ保存して `true` を返す（全部飛ばしても成功）。配列でない／100 件超は従来どおりエラー。2 秒待ちの止血（`EXCEPTION WHEN OTHERS`）はそのまま。トリガー `guard_withdrawn_private_group_response` は変えない（RPC で飛ばすので通常は届かず、届いたら従来どおり拒否）。`sync_event_staff_participations` は「期待値の不一致」が正しい保護なので変えない。staging 適用済み（md5 `8a4137e9…`）。staging の実データ（問題のグループ 5c12352b…）で、取り下げ済み＋存在しない＋有効の 3 件を送ると成功し有効な 1 件だけ保存されることを、巻き戻す取引の中で確認。
+- **4. 失敗の回数制限（DB ではなく API 層と画面側）**: DB の中で数えると、失敗した取引ごと数が巻き戻って残らない。別接続で記録する `dblink` は staging で使えるが（未導入）、Supabase の `postgres` は superuser ではなく、パスワード無しの自己接続は「password or GSSAPI delegated credentials required」で拒否された（巻き戻す取引の中で 3 通りの接続先を試験、鍵を SQL に埋める案は不採用）。そこで指示どおり次に切り替えた。
+  - API 層 `api/_lib/writeFailureLimiter.ts`: スタッフ参加の保存（`sync-staff-participation`）で、キー `event:<公演>:<ユーザー>:<IP>` ごとに 10 分の窓で失敗を数え、5 回を超えたら最後の失敗から min(10, 2×(回数−5)) 秒は DB へ送らず 429＋`Retry-After` を返す。成功で数を消す。数はサーバーの各インスタンスのメモリ（インスタンスが替われば消える歯止め）。
+  - 画面側 `src/lib/repeatFailureBackoff.ts`: `privateGroupMemberAction`（グループの全操作）と `apiClient` の書き込み（POST/PATCH/DELETE、GET は対象外）で、同じ宛先・同じ内容が 3 回続けて失敗したら、次からは前回の失敗から 10 秒空けて送る。成功で数を消す。
+  - 限界: 日程回答は画面から Supabase の RPC を直接呼ぶので API 層の制限は通らない。古い版の画面には画面側の対策も届かない（2 の「成功を返す」でループの原因自体を断つ）。スタッフ参加の古い画面は API 層の 429 で抑える。
+- テスト: `scripts/test-private-group-access-db.mjs` の「別グループの候補日を含むと全体を巻き戻す」を新仕様（飛ばして成功・有効なものだけ保存・配列でない／101 件はエラー・rollback で元の厳しい判定に戻る）に変更。`api/reservations.characterization.test.ts` に 429 の試験、`src/lib/repeatFailureBackoff.test.ts` を追加。
+- 本番で必要な手順: リリース時に `db:push:prod`（20261013120000 と 20261013130000 が入る）→ `db:structure:prod`・`db:drift:prod`、Vercel の本番反映（API 層と画面側の制限）。2 秒待ちの止血を外すかは、本番反映後に失敗件数が落ち着いてから判断する。
+
 ## 2026-10-13 / 本番 DB の混雑の止血: 失敗する保存を即座に再送し続ける端末（fix/throttle-failing-writes-hotfix、staging 向け PR）
 
 - 事象（2026-10-13 午後）: 本番 DB で失敗する要求を即座に再送し続ける端末が 2 つあり、毎秒約 700 件の失敗・巻き戻しが起きてサイト全体が重くなった。送り元は (1) 貸切グループ `5c12352b-6f5d-4f86-ba76-9e9e1b105af6` への日程回答の保存（`private_group_member_action` の `date_responses`、トリガー `guard_withdrawn_private_group_response`・`guard_private_group_browser_write`）、(2) スケジュール画面のスタッフ参加の保存（`sync_event_staff_participations`）。

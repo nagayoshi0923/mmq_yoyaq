@@ -1,19 +1,33 @@
-// api/reservations.ts のスタッフ参加枠の予約と、スタッフ参加の同期 RPC（整備 Phase 3、#774。元の行をそのまま移した。ロジックの変更なし）
+// api/reservations.ts のスタッフ参加枠の予約と、スタッフ参加の同期 RPC（整備 Phase 3、#774。元の行をそのまま移した。2026-10-13 に保存失敗の回数制限を追加）
 import { capacityError, isCapacityConstraintError, CAPACITY_CHANGED_MESSAGE } from '../scheduleCapacity.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from '../db.js'
 import { createUserScopedClient, type AuthUser } from '../auth.js'
 import { recordEventHistory, fetchEventSnapshotServer } from '../eventHistory.js'
 import { RESERVATION_SELECT_FIELDS, RESERVATION_SOURCE_STAFF_ENTRY, generateReservationNumber } from './common.js'
+import { clientIp, noteWriteFailure, noteWriteSuccess, retryAfterSeconds } from '../writeFailureLimiter.js'
 
 export async function handleStaffParticipation(req: VercelRequest, res: VercelResponse, user: AuthUser, save: boolean) {
   const body = (req.body ?? {}) as Record<string, unknown>
   const eventId = save ? body.schedule_event_id : req.query.schedule_event_id
   if (typeof eventId !== 'string') return res.status(400).json({ error: '公演IDが必要です' })
+  // 保存の失敗を短時間に繰り返す送り元は、しばらく DB へ送らずに待たせる（2026-10-13 恒久対応 4）
+  const limitKey = `event:${eventId}:${user.userId}:${clientIp(req)}`
+  if (save) {
+    const wait = retryAfterSeconds(limitKey)
+    if (wait > 0) {
+      res.setHeader('Retry-After', String(wait))
+      return res.status(429).json({ error: `保存の失敗が続いています。${wait} 秒ほど待ってから公演を開き直してください` })
+    }
+  }
   const client = createUserScopedClient(user.jwt)
   // New RPCs are deployed before the frontend; organization and actor are derived from JWT in DB.
   const { data, error } = await client.rpc(save ? 'sync_event_staff_participations' : 'get_event_staff_participations',
     save ? { p_event_id: eventId, p_entries: body.entries, p_expected: body.expected, p_gms: body.gms, p_gm_roles: body.gm_roles, p_expected_staff: body.expected_staff } : { p_event_id: eventId })
+  if (save) {
+    if (error) noteWriteFailure(limitKey)
+    else noteWriteSuccess(limitKey)
+  }
   if (error) {
     const status = error.code === '42501' ? 403 : ['40001','55P03','23514'].includes(error.code) ? 409 : error.code === '22023' || error.code === '22P02' ? 400 : 500
     return res.status(status).json({ error: status === 500 ? 'スタッフ参加の保存・取得に失敗しました' : error.message })
