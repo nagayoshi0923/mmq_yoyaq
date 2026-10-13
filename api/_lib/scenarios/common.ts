@@ -80,7 +80,7 @@ export const LEGACY_SCENARIO_FIELDS = [
 
 // 公開用（一般ユーザ向け）。マスタービュー上で必要な最小カラムのみ。
 export const PUBLIC_FIELDS = [
-  'id', 'title', 'key_visual_url', 'author', 'duration', 'synopsis',
+  'id', 'slug', 'title', 'key_visual_url', 'author', 'duration', 'synopsis',
   'player_count_min', 'player_count_max', 'genre', 'release_date',
   'status', 'participation_fee', 'scenario_type', 'organization_id',
   'scenario_kind', 'accepts_private_booking',

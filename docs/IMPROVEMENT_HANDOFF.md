@@ -1,3 +1,11 @@
+## 2026-10-14 / 貸切できる作品の入口を作品カードの一覧にする（fix/private-booking-entry-page、staging 向け PR）
+
+- 社長指摘: トップ「友だちと貸切で遊ぶ」の「貸切できる作品を見る」で開く `/{org}/private-booking-select` は、日付・時間帯を選んだ人向けのページだったため、日付なしで開くと「選択された日時」が空、作品はプルダウンだけ、確認ボタンも押せなかった。
+- 対応: 日付・時間帯が無いときは見出し「貸切できる作品」で、貸切を受け付ける作品（`isScenarioAcceptingPrivateBooking`、公開用の作品一覧）を作品カード（`ScenarioCard` に `note`・`selected` を追加）の一覧で出す。作品名・作者の検索と人数のチップで絞れる。カードを押すと作品ページの貸切リクエストのタブ（`/{org}/scenario/{slug または id}?tab=private`）へ。日時あり（カレンダー・リストの貸切申込チップ）は見出し「{日付} {時間帯} の貸切: 作品を選ぶ」、同じカードの一覧から選ぶと下に人数・料金・希望店舗と確認ボタン（従来どおり）。一覧の部品は `src/components/private-booking/PrivateScenarioGrid.tsx`。
+- 公開用の作品一覧 API（`PUBLIC_FIELDS`）に `slug` を追加（DB 変更なし）。staging の配備前の手元確認では slug が無いので id で開き、作品ページが slug の URL に置き換える。
+- MMQ 全体トップの貸切の欄は、店舗ごとに申し込む案内と「参加店舗から選ぶ」（参加店舗の欄へ）にした。貸切の流れのページの「1. 貸切を始める」を新しい導線の文に直した。
+- 確認: `src/pages/PrivateBookingScenarioSelect.test.tsx`（日付なし・ありの 4 件）、全 vitest、`npm run verify`、手元（staging 接続）で 375px と PC 幅: 店舗トップ →「貸切できる作品を見る」→ 作品 → 作品ページの貸切リクエストのタブ（「まずはメンバーを招待して貸切グループを作成」あり）、カレンダーの貸切申込チップ → 作品を選ぶ → 貸切リクエスト確認ページ。
+
 ## 2026-10-13 / 再送ループ対応の 2 系統の統合: Codex の #1106（main）を staging にそろえる（fix/merge-codex-retry-concurrency、staging 向け PR）
 
 - 経緯: 同じ高負荷の件に 2 系統が並走した。(a) Claude: 失敗経路の `pg_sleep(2)`（20261013120000、社長承認）＋ #1103（20261013130000 古い日程回答を飛ばして成功、API 層 `writeFailureLimiter` と画面側 `repeatFailureBackoff` の回数制限）。main には #1104 で反映。(b) Codex: #1106（main に squash 済み 470b00011）。20261013130001（advisory lock で同じ利用者・公演の並列保存を即時拒否、`pg_sleep` 除去）、20261013130002（スタッフ保存の古い expected は例外ではなく 40001＋最新内容を返し、旧画面の例外再送を止める）、画面側の再送抑制の書き換え。Codex は 130001・130002 を staging/本番 DB に先行適用済み。

@@ -1,12 +1,11 @@
-import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Header } from '@/components/layout/Header'
-import { ArrowLeft, Search, MapPin } from 'lucide-react'
+import { ArrowLeft, MapPin } from 'lucide-react'
 import { scenarioApi, storeApi } from '@/lib/api'
 import { formatJstDateJa } from '@/utils/jstDate'
 import { logger } from '@/utils/logger'
@@ -16,9 +15,12 @@ import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
+import { privateGuidePath } from '@/pages/static/guide/privateGuidePath'
+import { PrivateScenarioGrid, type PrivateScenario } from '@/components/private-booking/PrivateScenarioGrid'
 
 interface Scenario {
   id: string
+  slug?: string | null
   title: string
   author: string
   duration: number
@@ -60,21 +62,12 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('')
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
   const [selectedParticipantCount, setSelectedParticipantCount] = useState<number | null>(null)
   const [allStores, setAllStores] = useState<any[]>([])
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
 
-  // シナリオをフィルタリング（タイトル・作者で検索）
-  const filteredScenarios = useMemo(() => {
-    if (!searchTerm) return scenarios
-    const term = searchTerm.toLowerCase()
-    return scenarios.filter(s =>
-      (s.title ?? '').toLowerCase().includes(term) ||
-      (s.author ?? '').toLowerCase().includes(term)
-    )
-  }, [scenarios, searchTerm])
-  
+  const detailRef = useRef<HTMLDivElement>(null)
+
   // URLパラメータから日付、店舗、時間帯を取得（パスベース）
   const urlParams = new URLSearchParams(window.location.search)
   const preselectedDate = urlParams.get('date') || ''
@@ -93,6 +86,19 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     afternoon: '午後',
     evening: '夜'
   }
+
+  // 日付・時間帯があるのはカレンダー・リストの貸切申込チップから来たとき。無ければ作品から始める入口（作品ページの貸切タブへ）
+  const hasDateTime = preselectedDate.length > 0 && preselectedSlot.length > 0
+  const dateTimeLabel = hasDateTime
+    ? `${formatJstDateJa(preselectedDate, true) || preselectedDate} ${slotLabels[preselectedSlot] || preselectedSlot}`
+    : ''
+  const basePath = organizationSlug ? `/${organizationSlug}` : ''
+
+  const gridScenarios = useMemo<PrivateScenario[]>(
+    () => scenarios.map((s) => ({ ...s, closed: !isScenarioBookingOpen(s) })),
+    [scenarios],
+  )
+  const scenarioPagePath = (s: PrivateScenario) => `${basePath}/scenario/${encodeURIComponent(s.slug || s.id)}?tab=private`
 
   // 表示する全有効店舗（オフィス除外）
   const displayStores = useMemo(() => {
@@ -194,6 +200,21 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     }
   }, [organizationSlug, preselectedStoreIds])
 
+  const handleSelectScenario = (id: string) => {
+    setSelectedScenarioId(id)
+    setSelectedParticipantCount(null)
+    // シナリオ変更時、店舗選択をリセット（URL の店舗のうち、その作品に対応する店舗だけ残す）
+    const newScenario = scenarios.find(s => s.id === id)
+    const validStoreIds = allStores
+      .filter((s) => s.ownership_type !== 'office' && s.status === 'active')
+      .map((s) => s.id)
+    const restored = preselectedStoreIds.filter(storeId => validStoreIds.includes(storeId))
+    const hasLimit = newScenario?.available_stores && newScenario.available_stores.length > 0
+    setSelectedStoreIds(hasLimit ? restored.filter(storeId => newScenario!.available_stores!.includes(storeId)) : restored)
+    // スマホでは一覧が長いので、選んだ作品の確認欄まで送る
+    requestAnimationFrame(() => detailRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }))
+  }
+
   const handleProceed = () => {
     if (!selectedScenarioId) {
       showToast.warning('シナリオを選択してください')
@@ -203,7 +224,6 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     
     // 貸切リクエスト確認ページへ遷移（組織slugがあれば予約サイト形式）
     // 複数店舗はカンマ区切りで渡す
-    const basePath = organizationSlug ? `/${organizationSlug}` : ''
     const storeParam = selectedStoreIds.join(',')
     saveScrollPositionForCurrentUrl()
     const timeQuery = preselectedTime ? `&time=${encodeURIComponent(preselectedTime)}` : ''
@@ -228,95 +248,39 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
 
         <Card>
           <CardHeader>
-            <CardTitle>貸切リクエスト - シナリオを選択</CardTitle>
+            <CardTitle>{hasDateTime ? `${dateTimeLabel} の貸切: 作品を選ぶ` : '貸切できる作品'}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* 選択された日時情報 */}
-            <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-              <h3 className="text-sm">選択された日時</h3>
-              <div className="text-xs text-muted-foreground">
-                <p>日付: {formatJstDateJa(preselectedDate, true) || preselectedDate}</p>
-                <p>時間帯: {slotLabels[preselectedSlot] || preselectedSlot}</p>
+            {hasDateTime ? (
+              <div className="bg-muted/50 p-4 rounded-lg space-y-1" data-testid="selected-datetime">
+                <h3 className="text-sm">選んだ日時</h3>
+                <p className="text-xs text-muted-foreground">{dateTimeLabel}</p>
+                <p className="text-xs text-muted-foreground">作品を選ぶと、下に人数・料金・希望店舗が出ます。</p>
               </div>
-            </div>
+            ) : (
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p>作品を押すと、作品ページの「貸切リクエスト」が開きます。そこで「まずはメンバーを招待して貸切グループを作成」からグループを作り、メンバーと候補日を決めて店舗に申し込みます。</p>
+                <Link to={privateGuidePath(organizationSlug)} className="text-xs text-purple-700 underline">貸切の流れを見る</Link>
+              </div>
+            )}
 
-            {/* シナリオ検索・選択 */}
-            <div className="space-y-3">
-              <label className="text-sm">シナリオを選択してください</label>
-              
-              {/* 検索ボックス */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="タイトルまたは作者で検索..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              
-              {/* シナリオ選択 */}
-              <Select value={selectedScenarioId} onValueChange={(id) => {
-                setSelectedScenarioId(id)
-                setSelectedParticipantCount(null)
-                // シナリオ変更時、店舗選択をリセット
-                const newScenario = scenarios.find(s => s.id === id)
-                const hasLimit = newScenario?.available_stores && newScenario.available_stores.length > 0
-                if (hasLimit) {
-                  // 制限ありシナリオ：URLフィルター店舗のうち対応店舗のみ選択
-                  const validStoreIds = allStores
-                    .filter((s) => s.ownership_type !== 'office' && s.status === 'active')
-                    .map((s) => s.id)
-                  const restored = preselectedStoreIds.filter(id => validStoreIds.includes(id))
-                  setSelectedStoreIds(
-                    restored.filter(storeId => newScenario!.available_stores!.includes(storeId))
-                  )
-                } else {
-                  // 制限なしシナリオ：URLフィルター店舗を全て復元
-                  const validStoreIds = allStores
-                    .filter((s) => s.ownership_type !== 'office' && s.status === 'active')
-                    .map((s) => s.id)
-                  const restored = preselectedStoreIds.filter(id => validStoreIds.includes(id))
-                  setSelectedStoreIds(restored.length > 0 ? restored : [])
+            <PrivateScenarioGrid
+              scenarios={gridScenarios}
+              loading={loading}
+              pathFor={scenarioPagePath}
+              selectedId={hasDateTime ? selectedScenarioId : undefined}
+              onOpen={(s) => {
+                if (hasDateTime) {
+                  handleSelectScenario(s.id)
+                  return
                 }
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="シナリオを選択..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {loading ? (
-                    <div className="p-2 text-center text-xs text-muted-foreground">
-                      読み込み中...
-                    </div>
-                  ) : filteredScenarios.length === 0 ? (
-                    <div className="p-2 text-center text-xs text-muted-foreground">
-                      {searchTerm ? '該当するシナリオがありません' : 'シナリオがありません'}
-                    </div>
-                  ) : (
-                    filteredScenarios.map((scenario) => {
-                      const isOpen = isScenarioBookingOpen(scenario)
-                      return (
-                        <SelectItem key={scenario.id} value={scenario.id} disabled={!isOpen}>
-                          <span className={!isOpen ? 'text-gray-400' : ''}>
-                            {scenario.title} - {scenario.author} ({scenario.duration}分)
-                            {!isOpen && ' 【現在は募集していません】'}
-                          </span>
-                        </SelectItem>
-                      )
-                    })
-                  )}
-                </SelectContent>
-              </Select>
-              {filteredScenarios.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {searchTerm ? `${filteredScenarios.length}件のシナリオが見つかりました` : `全${scenarios.length}件`}
-                </p>
-              )}
-            </div>
+                saveScrollPositionForCurrentUrl()
+                navigate(scenarioPagePath(s))
+              }}
+            />
 
-            {/* 選択されたシナリオの詳細 */}
-            {selectedScenarioId && (() => {
+            {/* 選択されたシナリオの詳細（日時ありのときだけ） */}
+            {hasDateTime && selectedScenarioId && (() => {
               const scenario = scenarios.find(s => s.id === selectedScenarioId)
               if (!scenario) return null
               
@@ -328,7 +292,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
               
               return (
                 <>
-                  <div className="border rounded-lg overflow-hidden bg-card">
+                  <div ref={detailRef} className="border rounded-lg overflow-hidden bg-card scroll-mt-20">
                     <div className="flex gap-4 p-4">
                       {/* キービジュアル（左側・コンパクト） */}
                       {scenario.key_visual_url && (
@@ -560,6 +524,8 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
               )
             })()}
 
+            {hasDateTime && (
+            <>
             {/* 注意事項（DBから取得） */}
             <BookingNotice
               reservationDeadlineHours={0}
@@ -576,6 +542,8 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
             >
               貸切リクエスト確認へ
             </Button>
+            </>
+            )}
           </CardContent>
         </Card>
       </div>
