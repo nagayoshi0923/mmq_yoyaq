@@ -64,6 +64,23 @@ describe('作品カードの中身', () => {
   })
 })
 
+describe('狭いカード（幅 200px 未満）の決まった形', () => {
+  const html = render(card({ duration_minutes: 270, fee: 5000 }, [perf({ id: 'e1', date: '2026-10-18', start_time: '18:30', available_seats: 2 })]))
+  it('カードの幅で切り替える（コンテナクエリ）', () => {
+    expect(html).toContain('[container-type:inline-size] [container-name:scenario-card]')
+  })
+  it('人数・時間・参加費はアイコンを外し中黒区切りの 1 行、参加費だけ省略', () => {
+    expect(html).toContain('card-narrow:flex-nowrap')
+    expect(html).toContain('card-narrow:text-[10px]')
+    expect(html.match(/hidden card-narrow:inline">・</g)).toHaveLength(2)
+    expect(html).toContain('card-narrow:min-w-0 card-narrow:truncate')
+  })
+  it('次回公演は 1 行目に日付・時刻、2 行目に店舗と残席の 2 行', () => {
+    expect(html).toContain('card-narrow:grid card-narrow:grid-cols-[minmax(0,1fr)_auto]')
+    expect(html).toMatch(/card-narrow:col-span-2">.*10\/18.*18:30<\/span><\/span><span class="min-w-0 truncate text-muted-foreground">大塚<\/span>.*残2/)
+  })
+})
+
 describe('探す結果のまとめ方', () => {
   const a1 = perf({ id: 'a1', date: '2026-10-14' })
   const a2 = perf({ id: 'a2', date: '2026-10-16' })
