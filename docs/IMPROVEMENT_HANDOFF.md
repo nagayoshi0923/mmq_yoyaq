@@ -1744,3 +1744,4 @@ mainの既反映履歴/本人切替/予約全体日時順を保持し、staging�
 - 本番/stagingの現行4関数の定義hash一致を読取確認し、`20261013130001_release_retry_concurrency_no_sleep.sql`でpg_sleep(2)を除去。無効候補のスキップ、認可、予約・料金処理を保持。テーブル/RLS/実顧客データは変更しない。rollbackは適用直前定義4件の復元、予約・回答を保持する。
 - 架空PGlite貸切/スタッフ保存回帰、network-none PostgreSQL17の2接続競合・成功・古いexpected拒否・anon拒否・rollback/reapply、外部通信を拒否する実Chromium2タブ/リロード/新旧回答試験を実施。全単体1874件・verify通過。main更新後に必要なゲートを再確認して限定PRを反映する。
 - 事前読取計測: 10:57:56〜11:00:19 UTCのrollback増加77（約0.54/秒）。今回の計測で700/秒の継続は未確認。CPUとユーザー体感は別途計測し、rollback頻度だけで完全回復を断定しない。
+- DB先行適用完了: staging/prodへ20261013130001の1本だけを既存npm手順で適用。staging既適用745件/prod726件・未適用なし。4関数のsleepなし/既存ACL保持/本文hash一致をread確認。実DBsnapshot更新は4関数と取得metadataだけ（他の構造変更なし）。本番負荷試験・顧客保存・外部連絡は行っていない。
