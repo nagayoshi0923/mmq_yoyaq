@@ -23,6 +23,7 @@ import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorati
 import { autoOrganizationTagline } from '@/lib/publicStoreName'
 import { nearlyFullPerformances, todayJst } from '@/lib/publicPerformanceSearch'
 import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top/InfoSections'
+import { privateGuidePath } from '@/pages/static/guide/privateGuidePath'
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
 import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
 import { TopHero } from '@/components/public-top/TopHero'
@@ -197,6 +198,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
         <PrivateBookingSection
           text="4〜8 人集まれば、好きな作品を好きな日に。候補日を出して、メンバーの都合を聞いて、店舗に申し込むまでサイトで完結します。"
           scenariosPath={`/${slug}/private-booking-select`}
+          guidePath={privateGuidePath(slug)}
           primaryColor={primaryColor}
         />
         <StoreSearchSection

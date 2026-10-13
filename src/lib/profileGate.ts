@@ -20,6 +20,7 @@ const BROWSE_ONLY_PAGES = new Set([
   'org-faq',
   'cancel-policy',
   'guide',
+  'guide-private',
   'private-booking-select',
   'terms',
   'privacy',

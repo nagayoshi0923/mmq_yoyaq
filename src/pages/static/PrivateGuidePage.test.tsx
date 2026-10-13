@@ -1,0 +1,92 @@
+// @vitest-environment jsdom
+import type { ReactNode } from 'react'
+import { act } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { PrivateGuidePage } from './PrivateGuidePage'
+import { GuidePage } from './GuidePage'
+import { PRIVATE_GUIDE_FAQ, PRIVATE_GUIDE_STEPS } from './guide/privateGuideContent'
+import { PrivateBookingSection } from '@/components/public-top/InfoSections'
+import { parsePath } from '@/pages/adminDashboardRouting'
+import { STATIC_PUBLIC_META } from '@/lib/seo'
+
+vi.mock('@/components/layout/PublicLayout', () => ({ PublicLayout: ({ children }: { children: ReactNode }) => <div>{children}</div> }))
+
+let root: Root
+let host: HTMLDivElement
+beforeEach(() => { Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); host = document.createElement('div'); document.body.append(host); root = createRoot(host) })
+afterEach(async () => { await act(async () => root.unmount()); host.remove() })
+
+function Where() {
+  const location = useLocation()
+  return <p data-testid="where">{location.pathname}</p>
+}
+
+const render = (node: ReactNode, path = '/') => act(async () => root.render(
+  <MemoryRouter initialEntries={[path]}>
+    <Routes><Route path="*" element={<>{node}<Where /></>} /></Routes>
+  </MemoryRouter>,
+))
+const hrefs = () => [...host.querySelectorAll('a')].map(a => a.getAttribute('href'))
+
+describe('貸切の流れ（/guide/private）', () => {
+  it('手順の見出しとよくある質問がそろっている', async () => {
+    await render(<PrivateGuidePage />)
+    const headings = [...host.querySelectorAll('h2')].map(h => h.textContent)
+    for (const step of PRIVATE_GUIDE_STEPS) expect(headings).toContain(step)
+    expect(headings).toContain('貸切でよくある質問')
+    const faq = host.querySelector('[data-testid="private-guide-faq"]')
+    for (const q of ['主催者を代わってもらえますか', '作ったグループを閉じたい・申込を取り下げたい', 'ゲストで参加しましたが、PIN を忘れました', '参加する人数が減ったらどうなりますか', '途中からメンバーを足せますか', 'クーポンは使えますか']) {
+      expect(faq?.textContent).toContain(`Q. ${q}`)
+    }
+    expect(PRIVATE_GUIDE_FAQ).toHaveLength(6)
+  })
+
+  it('今の仕様の要点を書いている（名称は「事前配役アンケート」、古い言い方は使わない）', async () => {
+    await render(<PrivateGuidePage />)
+    const text = host.textContent ?? ''
+    for (const phrase of ['貸切で遊ぶ', '招待リンクを送る', '4 桁の PIN', '候補日を選んで店舗に申し込む', '店舗の返事待ち', '事前配役アンケート', '72 時間', 'マイページから取り消せるのは公演の30日前まで', '開演の 10 分前', '思い出']) {
+      expect(text).toContain(phrase)
+    }
+    expect(text).not.toContain('公演前アンケート')
+    expect(text).not.toContain('別運営')
+  })
+
+  it('リンク先: 組織なしは共通のページ、組織付きはその組織のページ', async () => {
+    await render(<PrivateGuidePage />)
+    expect(hrefs()).toEqual(expect.arrayContaining(['/', '/guide', '/cancel-policy', '/faq']))
+    await render(<PrivateGuidePage organizationSlug="queens-waltz" />, '/queens-waltz/guide/private')
+    expect(hrefs()).toEqual(expect.arrayContaining(['/queens-waltz', '/queens-waltz/guide', '/queens-waltz/cancel-policy', '/queens-waltz/faq']))
+  })
+
+  it('URL と SEO のメタ', () => {
+    expect(parsePath('/guide/private')).toEqual({ page: 'guide-private', scenarioId: null, organizationSlug: null })
+    expect(parsePath('/queens-waltz/guide/private')).toEqual({ page: 'guide-private', scenarioId: null, organizationSlug: 'queens-waltz' })
+    expect(parsePath('/guide').page).toBe('guide')
+    expect(parsePath('/queens-waltz/guide')).toMatchObject({ page: 'guide', organizationSlug: 'queens-waltz' })
+    expect(STATIC_PUBLIC_META['guide-private'].path).toBe('/guide/private')
+  })
+})
+
+describe('使い方ガイドとトップからのリンク', () => {
+  it('使い方ガイドの貸切の節は貸切の流れへ案内する', async () => {
+    await render(<GuidePage />, '/guide')
+    expect(host.querySelector('[data-testid="guide-private-link"]')?.getAttribute('href')).toBe('/guide/private')
+    expect(host.textContent).not.toContain('貸切でよくある質問')
+    await render(<GuidePage organizationSlug="queens-waltz" />, '/queens-waltz/guide')
+    expect(host.querySelector('[data-testid="guide-private-link"]')?.getAttribute('href')).toBe('/queens-waltz/guide/private')
+  })
+
+  it('以前のリンク（/guide?section=private）は貸切の流れへ移す', async () => {
+    await render(<GuidePage />, '/guide?section=private')
+    expect(host.querySelector('[data-testid="where"]')?.textContent).toBe('/guide/private')
+  })
+
+  it('トップの「貸切の流れ」', async () => {
+    await render(<PrivateBookingSection text="t" primaryColor="#000" />)
+    expect([...host.querySelectorAll('a')].find(a => a.textContent === '貸切の流れを見る')?.getAttribute('href')).toBe('/guide/private')
+    await render(<PrivateBookingSection text="t" scenariosPath="/queens-waltz/private-booking-select" guidePath="/queens-waltz/guide/private" primaryColor="#000" />)
+    expect([...host.querySelectorAll('a')].find(a => a.textContent === '貸切の流れ')?.getAttribute('href')).toBe('/queens-waltz/guide/private')
+  })
+})
