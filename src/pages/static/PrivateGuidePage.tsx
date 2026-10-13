@@ -8,7 +8,7 @@
  * 仕様や画面の文言を変えたら、このページの文も合わせる。
  */
 import type { ReactNode } from 'react'
-import { ArrowRight, ChevronRight, HelpCircle, Users } from 'lucide-react'
+import { ArrowRight, CalendarCheck, ChevronRight, HelpCircle, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { PublicLayout } from '@/components/layout/PublicLayout'
 import { Button } from '@/components/ui/button'
@@ -18,7 +18,7 @@ import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { STATIC_PUBLIC_META, buildFaqJsonLd } from '@/lib/seo'
 import { privateCancelNoticeText } from '@/lib/privateCancelNotice'
 import { Annotation, DemoPrivateCard } from './guide/GuideDemos'
-import { Body, Faq, Section, StepHeading, SubStep } from './guide/GuideParts'
+import { Body, Faq, GuideEntryLinks, Section, StepHeading, SubStep } from './guide/GuideParts'
 import { PRIVATE_GUIDE_FAQ, PRIVATE_GUIDE_STEPS } from './guide/privateGuideContent'
 import { DemoAfter, DemoAnswerTable, DemoChooseCasting, DemoGroupOverviewTop, DemoRequestSheet, DemoWaitingStore } from './guide/PrivateGuideDemos'
 
@@ -67,6 +67,10 @@ export function PrivateGuidePage({ organizationSlug }: { organizationSlug?: stri
           <p className="text-white/90">友だちと好きな作品を、好きな日に</p>
         </div>
       </section>
+
+      <GuideEntryLinks entries={[
+        { title: '公演を予約する流れ', description: '空いている公演を探して、人数を選んで予約', icon: <CalendarCheck className="w-5 h-5" />, to: `${base}/guide`, testId: 'private-guide-entry-booking' },
+      ]} />
 
       <Section>
         <h2>貸切でできること</h2>
