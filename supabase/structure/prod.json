@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "prod",
-  "captured_at": "2026-10-09T16:27:21.255Z",
+  "captured_at": "2026-10-13T10:43:47.787Z",
   "table_count": 149,
   "function_count": 400,
-  "digest": "34ff8580ef200c866ccedb262bb8886efb0512eae019e090e2289d57b47ac2ac"
+  "digest": "e25a16dd92ab0669e0afd2c46754f061a1ff25f5fcca3a663acc01e960ae0d4b"
  },
  "tables": {
   "staff": {
@@ -25258,7 +25258,7 @@
     "service_role=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "de97bdc7c97fbf31dbeddaea2838b6fa",
+   "body_md5": "f271968e8d8776249c3ddb197da3c38d",
    "language": "plpgsql",
    "security_definer": false
   },
@@ -25698,7 +25698,7 @@
     "postgres=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "e176902a5f68c6e2b1da0a7ce2e32a53",
+   "body_md5": "f0ee74b7475ec21e7639aff4ca2704fc",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27992,7 +27992,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "f87905706b2e185f62878354f26aa611",
+   "body_md5": "8a4137e9d4d175376f85a3b7e3cf0273",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28286,7 +28286,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "6eceb23bee1653a53d876bb27996183d",
+   "body_md5": "44a3eab81d7414dc04c3b6c2e9101411",
    "language": "plpgsql",
    "security_definer": true
   },
