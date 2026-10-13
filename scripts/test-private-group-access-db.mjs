@@ -138,7 +138,7 @@ assert.deepEqual(await action('validate',{},null,logged.member.id,id(2),id(50)),
 // エラーにせず飛ばし、有効なものだけ保存して成功を返す（全部飛ばしても成功）。配列でない／100 件超は従来どおりエラー。
 await db.exec(`ALTER TABLE private_group_candidate_dates ADD COLUMN status text DEFAULT 'active', ADD COLUMN withdrawn_at timestamptz;
 INSERT INTO private_group_candidate_dates(id,group_id,status,withdrawn_at) VALUES('${id(32)}','${id(1)}','rejected',now()),('${id(33)}','${id(1)}','rejected',null),('${id(34)}','${id(1)}','active',null),('${id(35)}','${id(1)}','active',now());`)
-const releaseSql=fs.readFileSync('supabase/migrations/20261013130001_release_retry_concurrency_no_sleep.sql','utf8')
+const releaseSql=fs.readFileSync('supabase/migrations/20261013130002_stale_staff_retry_compatibility.sql','utf8')
 const memberDefinition = text => text.match(/CREATE OR REPLACE FUNCTION public\.private_group_member_action\([\s\S]*?\$function\$\s*;/)[0]
 const skipMigration=memberDefinition(releaseSql)
 await db.exec(skipMigration)
@@ -164,7 +164,7 @@ assert.equal(await answer([]),true)
 await assert.rejects(()=>answer({candidateDateId:id(30),response:'ok'}),/日程回答が不正/)
 await assert.rejects(()=>answer(Array.from({length:101},()=>({candidateDateId:id(30),response:'ok'}))),/日程回答が不正/)
 const beforeRollback=await answers()
-await db.exec(memberDefinition(fs.readFileSync('supabase/rollbacks/20261013130001_release_retry_concurrency_no_sleep.sql','utf8')))
+await db.exec(memberDefinition(fs.readFileSync('supabase/rollbacks/20261013130002_stale_staff_retry_compatibility.sql','utf8')))
 assert.deepEqual(await answers(),beforeRollback,'rollback preserves all answers')
 await db.exec(skipMigration)
 assert.equal(await answer([{candidateDateId:id(31),response:'ok'},{candidateDateId:id(30),response:'ok'}]),true)

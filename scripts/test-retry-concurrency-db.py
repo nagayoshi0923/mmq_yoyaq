@@ -16,7 +16,7 @@ try:
     setup=re.findall(r'await db.exec\(`([\s\S]*?)`\)',fixture)[:2]
     sql('\n'.join(re.sub(r'\$\{id\((\d+)\)\}',lambda m:id(int(m[1])),s) for s in setup))
     sql((root/'supabase/migrations/20260928001200_staff_participation_seats.sql').read_text())
-    release=(root/'supabase/migrations/20261013130001_release_retry_concurrency_no_sleep.sql').read_text()
+    release=(root/'supabase/migrations/20261013130002_stale_staff_retry_compatibility.sql').read_text()
     definition=lambda text:re.search(r'CREATE OR REPLACE FUNCTION public\.sync_event_staff_participations\([\s\S]*?\$function\$\s*;',text).group()
     sql(definition(release))
     actor=f"SELECT set_config('test.actor','{id(10)}',false),set_config('test.org','{id(1)}',false);"
@@ -34,10 +34,13 @@ try:
     holder.stdin.write('ROLLBACK;\n');holder.stdin.close();holder.wait(timeout=5)
     result=sql(actor+call).splitlines()[-1]
     assert len(json.loads(result)['entries'])==2
-    try: sql(actor+call);raise AssertionError('stale expected accepted')
-    except subprocess.CalledProcessError as err: assert '更新されました' in err.stderr
+    stale=json.loads(sql(actor+call).splitlines()[-1])
+    assert stale['success'] is False and stale['code']=='40001'
+    assert stale['entries']==json.loads(result)['entries']
+    # 旧RPC利用者はエラー時だけ再送する。競合はSQL例外にならず、この1件で止まる。
+    assert len(stale['entries'])==2
     snapshot=sql("SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM reservations r;")
-    rollback=(root/'supabase/rollbacks/20261013130001_release_retry_concurrency_no_sleep.sql').read_text()
+    rollback=(root/'supabase/rollbacks/20261013130002_stale_staff_retry_compatibility.sql').read_text()
     sql(definition(rollback));sql(definition(release))
     assert sql("SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM reservations r;")==snapshot
     assert sql("SELECT has_function_privilege('anon','sync_event_staff_participations(uuid,jsonb,jsonb,text[],jsonb,jsonb)','EXECUTE');")=='f'

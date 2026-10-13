@@ -20,9 +20,11 @@ BEGIN
  SELECT * INTO v_event FROM public.schedule_events WHERE id=p_event_id AND organization_id=v_org FOR NO KEY UPDATE;
  IF NOT FOUND OR v_event.is_cancelled THEN RAISE EXCEPTION '保存可能な公演が見つかりません' USING ERRCODE='22023'; END IF;
  v_current:=public.get_event_staff_participations(p_event_id)->'entries';
- IF v_current IS DISTINCT FROM p_expected THEN RAISE EXCEPTION 'スタッフ参加が更新されました。公演を開き直してください' USING ERRCODE='40001'; END IF;
+ IF v_current IS DISTINCT FROM p_expected THEN
+  RETURN public.get_event_staff_participations(p_event_id) || jsonb_build_object('success',false,'code','40001','error','スタッフ参加が更新されました。公演を開き直してください');
+ END IF;
  IF jsonb_build_object('gms',coalesce(v_event.gms,ARRAY[]::text[]),'gm_roles',coalesce(v_event.gm_roles,'{}'::jsonb)) IS DISTINCT FROM p_expected_staff THEN
-  RAISE EXCEPTION '担当スタッフが更新されました。公演を開き直してください' USING ERRCODE='40001';
+  RETURN public.get_event_staff_participations(p_event_id) || jsonb_build_object('success',false,'code','40001','error','担当スタッフが更新されました。公演を開き直してください');
  END IF;
  IF p_gms IS NULL OR jsonb_typeof(p_gm_roles) IS DISTINCT FROM 'object' THEN RAISE EXCEPTION '担当スタッフの形式が不正です' USING ERRCODE='22023'; END IF;
  UPDATE public.schedule_events SET gms=p_gms,gm_roles=p_gm_roles WHERE id=p_event_id AND organization_id=v_org;

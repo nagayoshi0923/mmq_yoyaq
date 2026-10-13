@@ -1665,3 +1665,11 @@ describe('スタッフ参加RPCの並列制限', () => {
     expect((await call('POST', { action: 'sync-staff-participation' }, { schedule_event_id: 'ev1', entries: [] })).status).toBe(200)
   })
 })
+
+
+it('古いRPC呼出元向けの競合結果をAPIでは409へ変換する', async()=>{
+  mock.rpcResults.sync_event_staff_participations={data:{success:false,code:'40001',error:'更新されました',entries:[]},error:null}
+  const result=await call('POST',{action:'sync-staff-participation'},{schedule_event_id:'ev1',entries:[]})
+  expect(result.status).toBe(409)
+  expect(result.body).toEqual({error:'更新されました'})
+})

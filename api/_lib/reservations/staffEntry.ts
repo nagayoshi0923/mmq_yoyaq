@@ -36,7 +36,7 @@ export async function handleStaffParticipation(req: VercelRequest, res: VercelRe
     if (save) endWrite(limitKey)
   }
   const { data, error } = rpcResult
-  if (!error && data?.success === false) return res.status(400).json({ error: data.error || 'スタッフ参加を保存できませんでした' })
+  if (!error && data?.success === false) return res.status(data.code === '40001' ? 409 : 400).json({ error: data.error || 'スタッフ参加を保存できませんでした' })
   if (error) {
     const status = error.code === '42501' ? 403 : ['40001','55P03','23514'].includes(error.code) ? 409 : error.code === '22023' || error.code === '22P02' ? 400 : 500
     return res.status(status).json({ error: status === 500 ? 'スタッフ参加の保存・取得に失敗しました' : error.message })

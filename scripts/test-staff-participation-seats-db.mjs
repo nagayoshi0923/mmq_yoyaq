@@ -31,16 +31,19 @@ CREATE FUNCTION fixture_assignments() RETURNS trigger LANGUAGE plpgsql AS $$ BEG
 CREATE TRIGGER fixture_assignments AFTER UPDATE OF gms,gm_roles ON schedule_events FOR EACH ROW EXECUTE FUNCTION fixture_assignments();`)
 const migration=fs.readFileSync('supabase/migrations/20260928001200_staff_participation_seats.sql','utf8')
 await db.exec(migration)
-const releaseSql=fs.readFileSync('supabase/migrations/20261013130001_release_retry_concurrency_no_sleep.sql','utf8')
+const releaseSql=fs.readFileSync('supabase/migrations/20261013130002_stale_staff_retry_compatibility.sql','utf8')
 const staffDefinition=text=>text.match(/CREATE OR REPLACE FUNCTION public\.sync_event_staff_participations\([\s\S]*?\$function\$\s*;/)[0]
 await db.exec(staffDefinition(releaseSql))
 const read=async()=> (await db.query('SELECT get_event_staff_participations($1) value',[id(30)])).rows[0].value
 let desiredStaff={gms:['A','B'],gm_roles:{A:'staff',B:'staff'}}
-const save=async(entries,expected=[],expectedStaff=desiredStaff) => (await db.query('SELECT sync_event_staff_participations($1,$2::jsonb,$3::jsonb,$4::text[],$5::jsonb,$6::jsonb) value',[id(30),JSON.stringify(entries),JSON.stringify(expected),desiredStaff.gms,JSON.stringify(desiredStaff.gm_roles),JSON.stringify(expectedStaff)])).rows[0].value
+const rawSave=async(entries,expected=[],expectedStaff=desiredStaff) => (await db.query('SELECT sync_event_staff_participations($1,$2::jsonb,$3::jsonb,$4::text[],$5::jsonb,$6::jsonb) value',[id(30),JSON.stringify(entries),JSON.stringify(expected),desiredStaff.gms,JSON.stringify(desiredStaff.gm_roles),JSON.stringify(expectedStaff)])).rows[0].value
+const save=async(...args)=>{const result=await rawSave(...args);if(result.success===false) throw new Error(result.error);return result}
 const entry=(n,mode='included',reservation=id(40))=>({staff_id:id(n),mode,reservation_id:reservation})
 let state=await save([entry(21),entry(22)])
 assert.equal((await db.query('SELECT sum(participant_count) n FROM reservations')).rows[0].n,2,'included participants do not consume another seat')
 assert.equal(state.entries.length,2)
+const stale=await rawSave([entry(21),entry(22)],[])
+assert.equal(stale.success,false);assert.equal(stale.code,'40001');assert.deepEqual(stale.entries,state.entries,'old client gets current snapshot with conflict and no database exception')
 assert.equal((await db.query('SELECT total_price FROM reservations WHERE id=$1',[id(40)])).rows[0].total_price,10000)
 await assert.rejects(save([entry(21),entry(22)],[]),/更新されました/)
 await assert.rejects(save([entry(21),entry(22,'additional',null)],state.entries),/定員2名に対して3名/)
