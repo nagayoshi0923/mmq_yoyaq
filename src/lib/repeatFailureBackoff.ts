@@ -15,7 +15,11 @@ export class WriteBackoffError extends Error {
 }
 
 /** 保存内容・認証情報をlocalStorageやlock名に残さず、操作単位で制限する。 */
-export function requestKey(name: string, _payload?: unknown): string { return name }
+export function requestKey(name: string, payload?: unknown): string {
+  let body: string
+  try { body = typeof payload === 'string' ? payload : JSON.stringify(payload) ?? '' } catch { body = '' }
+  return `${name}|${body}`
+}
 function storageKey(key: string): string {
   let hash = 2166136261
   for (const char of key) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619) }

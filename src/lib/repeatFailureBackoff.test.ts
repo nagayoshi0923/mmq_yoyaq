@@ -44,4 +44,11 @@ describe('失敗ループと古い要求の遅延送信を止める', () => {
     await withRepeatFailureBackoff('exception', async () => false, Boolean)
     expect(backoffDelayMs('exception')).toBe(0)
   })
+  it('別の保存内容は独立に送れる。日程回答は呼出元で操作単位のキーを使う', async()=>{
+    let finish!: (r:boolean)=>void
+    const first=withRepeatFailureBackoff(requestKey('POST /book',{event:'a'}),()=>new Promise<boolean>(r=>{finish=r}),Boolean)
+    expect(await withRepeatFailureBackoff(requestKey('POST /book',{event:'b'}),async()=>false,Boolean)).toBe(false)
+    finish(false);await first
+  })
+
 })
