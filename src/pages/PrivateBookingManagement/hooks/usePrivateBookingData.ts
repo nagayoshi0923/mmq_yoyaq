@@ -71,6 +71,8 @@ export interface PrivateBookingRequest {
   }>
   created_at: string
   invite_code?: string
+  /** 貸切グループ（公演後の感想の件数に使う） */
+  private_group_id?: string | null
   /** 回答したGMが、この作品でメイン・サブのどちらを担当できるか（スタッフID → 区分、#827） */
   gm_role_by_staff?: Record<string, GmScenarioMode | 'none'>
 }

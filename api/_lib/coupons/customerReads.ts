@@ -2,6 +2,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from '../db.js'
 import { CUSTOMER_COUPON_FIELDS, findCustomerByUserId } from './common.js'
+import { withUsableStoresLabel } from './usableStores.js'
 
 // =========================================
 // 顧客向け: 利用可能クーポン
@@ -84,7 +85,7 @@ export async function handleAll(
     return res.status(500).json({ error: 'データ取得に失敗しました', detail: couponError.message })
   }
 
-  const rows = (couponRows ?? []) as unknown as CouponWithRules[]
+  const rows = await withUsableStoresLabel(database, (couponRows ?? []) as unknown as CouponWithRules[])
   const couponIds = rows.map(c => c.id)
   if (couponIds.length === 0) return res.status(200).json(rows)
 

@@ -137,6 +137,8 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
 
   // 組織の公開ステータスで絞り込み
   const mapped = (scenariosResult.data || [])
+    // 稼働中の組織の作品だけ（組織が読めない＝休止中の組織。全体トップの「全国 N」と数を合わせる）
+    .filter(s => !!(s.organizations as { slug?: string } | null)?.slug)
     .filter(s => {
       if (!shouldFilterByOrgStatus) {
         return s.status === 'available'
@@ -749,6 +751,8 @@ export function PlatformScenarioSearch() {
                       <button
                         onClick={(e) => handleToggleFavorite(scenario.id, e)}
                         className="flex-shrink-0 p-1 transition-colors hover:bg-red-50 rounded"
+                        aria-label={isFavorite(scenario.id) ? `${scenario.title}を遊びたいから外す` : `${scenario.title}を遊びたいに入れる`}
+                        aria-pressed={isFavorite(scenario.id)}
                       >
                         <Heart className={`h-4 w-4 fill-current text-red-500 ${
                           isFavorite(scenario.id) ? 'opacity-100' : 'opacity-30 hover:opacity-50'

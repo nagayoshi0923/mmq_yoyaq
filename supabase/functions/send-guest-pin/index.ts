@@ -69,7 +69,8 @@ serve(async (req) => {
     if (groupError || !group) return errorResponse('グループ情報を確認できません', 400, corsHeaders)
     const scenarioName = group.scenario_masters?.title || 'グループ'
     const guestName = authenticated.guest_name || 'ゲスト'
-    const inviteUrl = `https://mmq.game/group/invite/${encodeURIComponent(group.invite_code)}`
+    // 別の端末で開き直したときに「PIN で入る」から始まるようにする（点検 53）
+    const inviteUrl = `https://mmq.game/group/invite/${encodeURIComponent(group.invite_code)}?sheet=pin`
 
     // Resend APIでメール送信
     const resendApiKey = Deno.env.get('RESEND_API_KEY')

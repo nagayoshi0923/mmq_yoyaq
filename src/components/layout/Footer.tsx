@@ -3,9 +3,10 @@
  * 全ての公開ページで使用する統一フッター
  */
 import { Link } from 'react-router-dom'
-import { MapPin } from 'lucide-react'
+import { Mail, MapPin } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { buildPublicCancellationPolicyPath } from '@/lib/publicBookingPath'
+import { storeDisplayName } from '@/lib/publicStoreName'
 
 interface StoreInfo {
   id: string
@@ -73,7 +74,7 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
                     className="group p-4 bg-gray-800/50 hover:bg-gray-800 transition-colors"
                   >
                     <div className="text-white font-medium text-sm mb-1 group-hover:underline">
-                      {store.name}
+                      {storeDisplayName(store, { organizationName })}
                     </div>
                     <div className="text-gray-400 text-xs leading-relaxed flex items-start gap-1.5">
                       <MapPin className="w-3 h-3 mt-0.5 flex-shrink-0" />
@@ -82,6 +83,16 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
                   </a>
                 ))}
               </div>
+              {/* 店舗への連絡は問い合わせフォーム（電話番号は出さない。社長決定 2026-10-11、点検 2） */}
+              <Link
+                to={`/org/${organizationSlug}/contact`}
+                className="mt-4 inline-flex min-h-11 items-center gap-2 border border-gray-700 px-4 text-sm text-white hover:bg-gray-800 transition-colors"
+                data-testid="footer-contact-store"
+              >
+                <Mail className="w-4 h-4" aria-hidden="true" />
+                店舗に問い合わせる
+              </Link>
+              <p className="mt-2 text-xs text-white/50">ご予約中の公演についてはマイページの予約詳細の「店舗に問い合わせる」から送ると、予約番号が入ります。</p>
             </div>
           </div>
         )}
@@ -201,7 +212,7 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
           
           {/* リンク */}
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-gray-500">
-            <Link to="/stores" className="hover:text-gray-300 transition-colors">参加団体</Link>
+            <Link to="/stores" className="hover:text-gray-300 transition-colors">参加店舗一覧</Link>
             <Link to="/guide" className="hover:text-gray-300 transition-colors">初めての方へ</Link>
             <Link to="/faq" className="hover:text-gray-300 transition-colors">よくある質問</Link>
             <Link to="/terms" className="hover:text-gray-300 transition-colors">利用規約</Link>

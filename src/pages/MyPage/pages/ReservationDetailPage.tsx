@@ -6,13 +6,15 @@ import {
 import React, { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, Calendar, MapPin, Users, Clock, CreditCard, Ticket, ExternalLink, Pencil } from 'lucide-react'
+import { ChevronLeft, Calendar, MapPin, Users, Clock, CreditCard, Ticket, ExternalLink, Pencil, MessageCircle } from 'lucide-react'
 import { InviteShareButton } from '@/components/InviteShareButton'
 import { ConfirmDialog } from '@/components/patterns/modal'
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ReservationCancelDialog } from './reservationDetail/ReservationCancelDialog'
+import { ParticipantCountDialog } from './reservationDetail/ParticipantCountDialog'
+import { reservationPriceBreakdown } from '../utils/reservationPriceBreakdown'
+import { PrivateGroupInquiryDialog } from '../components/PrivateBookingCards/PrivateGroupInquiryDialog'
+import { formatDeadline } from '@/lib/cancellationSummary'
+import { formatJstMonthDay } from '@/utils/jstDate'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
 import {
@@ -21,9 +23,9 @@ import {
   useWithdrawPrivateRequestMutation, useUpdateParticipantCountMutation,
 } from '../hooks/useReservationDetailQuery'
 import { toJstYmd, formatJstTime, formatJstDateJa, formatJstDateTime } from '@/utils/jstDate'
-import { DEFAULT_OPEN_CANCEL_DEADLINE_HOURS } from '@/constants/cancellationPolicyDefaults'
-import { formatPolicyHours } from '@/lib/publicCancellationPolicy'
 import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
+import { ScheduleActions, absolutePageUrl } from '@/components/patterns/schedule'
+import { mapSearchUrl, type CalendarEventInput } from '@/lib/calendarEvent'
 
 export function ReservationDetailPage() {
   const navigate = useNavigate()
@@ -35,17 +37,17 @@ export function ReservationDetailPage() {
   const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editParticipantCount, setEditParticipantCount] = useState(0)
+  const [inquiryOpen, setInquiryOpen] = useState(false)
 
   const { data, isLoading } = useReservationDetailQuery(reservationId)
   const reservation = data?.reservation ?? null
   const store = data?.store ?? null
   const scenario = data?.scenario ?? null
   const organization = data?.organization ?? null
-  const cancelDeadlineHours = data?.cancelDeadlineHours ?? DEFAULT_OPEN_CANCEL_DEADLINE_HOURS
   const canCancelByPolicy = data?.canCancelByPolicy ?? false
 
   const maxParticipants = reservation?.schedule_events?.max_participants ?? scenario?.player_count_max ?? 4
-  const { data: remainingSeats = 0 } = useCurrentSeatsQuery(
+  const { data: maxSelectableCount = 0 } = useCurrentSeatsQuery(
     reservation?.schedule_event_id ?? undefined,
     reservation?.participant_count ?? 0,
     maxParticipants,
@@ -164,12 +166,37 @@ export function ReservationDetailPage() {
     return canCancelByPolicy
   })()
 
+  const freeCancelDeadlineLabel = data?.freeCancelDeadline ? formatDeadline(new Date(data.freeCancelDeadline)) : null
+  const decreaseDeadlineLabel = data?.decreaseDeadline ? formatDeadline(new Date(data.decreaseDeadline)) : null
+  // 取消できないときは店舗の問い合わせフォームへ（電話番号は出さない。社長決定 2026-10-11、点検 2）
   const cancelBlockedReason = !canCancel && reservation.status === 'confirmed'
-    ? `キャンセル料金が発生する期間のため、マイページからのキャンセルはできません（${formatPolicyHours(cancelDeadlineHours)}まで）。店舗へご連絡ください。`
+    ? `無料で取消できる期限${freeCancelDeadlineLabel ? `（${freeCancelDeadlineLabel}）` : ''}を過ぎたため、マイページからは取消できません。取消・変更は「店舗に問い合わせる」からご連絡ください（キャンセル料がかかります${data?.cancelFeeSteps ? `: ${data.cancelFeeSteps}` : ''}）。`
+    : null
+  const datetimeLabel = perf.date ? `${formatJstMonthDay(perf.date, true)}${perf.time ? ` ${perf.time.slice(0, 5)} 開演` : ''}` : ''
+  // 通常予約の金額はサーバー確定金額（final_price）を正とする（公開前検証 P2）
+  const price = reservationPriceBreakdown(reservation)
+  const unitPrice = price.unitPrice
+
+  // 確定した（まだ終わっていない）予約だけ「カレンダーに登録」「地図を開く」
+  const isUpcomingConfirmed = ['confirmed', 'checked_in'].includes(reservation.status) && Boolean(perf.date) && perf.date >= toJstYmd(new Date())
+  const calendarEvent: CalendarEventInput | null = isUpcomingConfirmed && perf.time
+    ? {
+      scenarioTitle: scenario?.title || reservation.title || '公演',
+      kind: isPrivateBookingRequest || reservation.schedule_events?.is_private_booking ? 'private' : 'open',
+      date: perf.date,
+      startTime: perf.time,
+      endTime: reservation.schedule_events?.end_time ?? null,
+      durationMinutes: scenario?.duration ?? null,
+      storeName: store?.name ?? null,
+      address: store?.address ?? null,
+      reservationNumber: reservation.reservation_number ?? null,
+      pageUrl: absolutePageUrl(`/mypage/reservation/${reservation.id}`),
+    }
     : null
 
   const canEdit = reservation?.status === 'confirmed' && data?.canChangeByPolicy === true
-  const canDecrease = reservation?.status === 'confirmed' && canCancel
+  // 人数を減らせる期限はキャンセルポリシーの「人数変更は24時間前まで」（点検 5）
+  const canDecrease = canEdit && data?.canDecreaseByPolicy === true
 
   return (
     <div className="min-h-screen mypage-shell bg-gray-50">
@@ -280,7 +307,7 @@ export function ReservationDetailPage() {
               <Button
                 variant="destructive"
                 size="sm"
-                className="h-8 shrink-0"
+                className="h-11 px-4 text-sm shrink-0"
                 onClick={() => setWithdrawDialogOpen(true)}
               >
                 取り下げる
@@ -301,6 +328,9 @@ export function ReservationDetailPage() {
                 {perf.time && <p className="text-base font-medium text-mypage-detail-primary">{perf.time.slice(0, 5)} 開演</p>}
               </div>
             </div>
+            {isUpcomingConfirmed && (
+              <ScheduleActions event={calendarEvent} address={store?.address} stretch className="mt-3" testId="reservation-schedule-actions" />
+            )}
           </div>
         )}
 
@@ -314,8 +344,8 @@ export function ReservationDetailPage() {
                 <p className="text-xs text-gray-500 mb-1">会場</p>
                 <p className="font-bold text-gray-900">{store.name}</p>
                 {store.address && <p className="ts-body text-gray-600 mt-1">{store.address}</p>}
-                {store.address && (
-                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.address)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm mt-2 hover:underline text-mypage-detail-primary">
+                {store.address && !isUpcomingConfirmed && (
+                  <a href={mapSearchUrl(store.address) ?? undefined} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm mt-2 hover:underline text-mypage-detail-primary">
                     <ExternalLink className="w-4 h-4" />地図を開く
                   </a>
                 )}
@@ -353,8 +383,8 @@ export function ReservationDetailPage() {
                 <div className="flex items-center gap-2">
                   <span className="font-bold">{reservation.participant_count}名</span>
                   {reservation.status === 'confirmed' && (
-                    <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={handleEditClick} disabled={!canEdit}>
-                      <Pencil className="h-3 w-3 mr-1" />変更
+                    <Button variant="outline" size="sm" className="h-11 px-3 text-sm" onClick={handleEditClick} disabled={!canEdit} aria-label="参加人数を変更">
+                      <Pencil className="h-4 w-4 mr-1" aria-hidden="true" />変更
                     </Button>
                   )}
                 </div>
@@ -376,12 +406,21 @@ export function ReservationDetailPage() {
                   )}
                 </>
               ) : (
-                <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                  <span className="text-sm text-gray-500 flex items-center gap-2"><CreditCard className="w-4 h-4" />参加料金</span>
-                  <div className="text-right">
-                    <span className="font-bold text-lg text-mypage-detail-primary">¥{(reservation.unit_price || 0).toLocaleString()}/人</span>
-                    <span className="text-xs text-gray-500 ml-2">{paymentMethodLabel}</span>
+                <div className="py-2 border-b border-gray-100" data-testid="reservation-price">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500 flex items-center gap-2"><CreditCard className="w-4 h-4" />参加料金</span>
+                    <div className="text-right">
+                      <span className="font-bold text-lg text-mypage-detail-primary" data-testid="reservation-total">¥{price.total.toLocaleString()}</span>
+                      <span className="block text-xs text-muted-foreground">{paymentMethodLabel}（税込）</span>
+                    </div>
                   </div>
+                  <dl className="mt-1 space-y-0.5 text-xs text-muted-foreground" data-testid="reservation-price-breakdown">
+                    <div className="flex justify-between"><dt>¥{price.unitPrice.toLocaleString()} × {price.participantCount}名</dt><dd>¥{price.subtotal.toLocaleString()}</dd></div>
+                    {price.discount > 0 && (
+                      <div className="flex justify-between text-green-700"><dt>割引</dt><dd data-testid="reservation-discount">−¥{price.discount.toLocaleString()}</dd></div>
+                    )}
+                    <div className="flex justify-between font-medium text-foreground"><dt>合計</dt><dd>¥{price.total.toLocaleString()}</dd></div>
+                  </dl>
                 </div>
               )}
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
@@ -389,24 +428,41 @@ export function ReservationDetailPage() {
                 <span className="text-sm text-gray-600">{formatJstDateJa(reservation.created_at)}</span>
               </div>
               {reservation.status === 'confirmed' && (
-                <div className="pt-3 mt-2">
+                <div className="pt-3 mt-2 space-y-3" data-testid="reservation-cancel-section">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm text-gray-500">予約キャンセル</p>
+                      <p className="text-sm text-muted-foreground">予約キャンセル</p>
+                      {canCancel && freeCancelDeadlineLabel && (
+                        <p className="text-xs mt-1" data-testid="reservation-free-cancel-deadline">
+                          無料で取消できる期限: <span className="font-bold">{freeCancelDeadlineLabel} まで</span>
+                        </p>
+                      )}
                       {cancelBlockedReason && (
-                        <p className="text-xs text-red-500 mt-1">{cancelBlockedReason}</p>
+                        <p className="text-xs text-red-700 mt-1">{cancelBlockedReason}</p>
                       )}
                     </div>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="h-8 shrink-0"
-                      onClick={() => setCancelDialogOpen(true)}
-                      disabled={!canCancel}
-                    >
-                      キャンセル
-                    </Button>
+                    {canCancel && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="h-11 px-4 text-sm shrink-0"
+                        onClick={() => setCancelDialogOpen(true)}
+                      >
+                        キャンセル
+                      </Button>
+                    )}
                   </div>
+                  <Button
+                    variant={canCancel ? 'outline' : 'default'}
+                    className="w-full h-11 text-sm gap-2"
+                    onClick={() => setInquiryOpen(true)}
+                    data-testid="reservation-contact-store"
+                  >
+                    <MessageCircle className="h-4 w-4" aria-hidden="true" />店舗に問い合わせる
+                  </Button>
+                  {canDecrease && decreaseDeadlineLabel && (
+                    <p className="text-xs text-muted-foreground">人数を減らせるのは {decreaseDeadlineLabel} まで（公演の24時間前まで）です。</p>
+                  )}
                 </div>
               )}
             </div>
@@ -438,18 +494,40 @@ export function ReservationDetailPage() {
         )}
       </div>
 
-      <ConfirmDialog
+      <ReservationCancelDialog
         open={cancelDialogOpen}
         onOpenChange={setCancelDialogOpen}
-        title="予約をキャンセルしますか？"
-        message="キャンセル後は元に戻せません。"
-        cancelLabel="やめる"
-        confirmLabel="キャンセルする"
-        variant="destructive"
-        isLoading={cancelMutation.isPending}
-        onConfirm={async () => {
-          await cancelMutation.mutateAsync()
+        summary={{
+          title: scenario?.title || reservation.title || '公演',
+          datetimeLabel: datetimeLabel || '-',
+          storeName: store?.name ?? null,
+          participantCount: reservation.participant_count,
+          reservationNumber: reservation.reservation_number ?? null,
+          freeDeadlineLabel: freeCancelDeadlineLabel,
         }}
+        isPending={cancelMutation.isPending}
+        onConfirm={() => {
+          cancelMutation.mutate(undefined, {
+            onError: (error) => toast.error(error instanceof Error ? error.message : '予約をキャンセルできませんでした'),
+          })
+        }}
+      />
+
+      <PrivateGroupInquiryDialog
+        open={inquiryOpen}
+        onOpenChange={setInquiryOpen}
+        kind={isPrivateBookingRequest || reservation.schedule_events?.is_private_booking ? 'private' : 'booking'}
+        info={{
+          organizationId: reservation.organization_id ?? null,
+          reservationNumber: reservation.reservation_number ?? null,
+          title: scenario?.title || reservation.title || '',
+          statusLabel: statusDisplay.label,
+          inviteCode: null,
+          datetimeLabel: datetimeLabel || null,
+          storeName: store?.name ?? null,
+        }}
+        replyEmail={user?.email || reservation.customer_email || ''}
+        replyName={reservation.customer_name || ''}
       />
 
       <ConfirmDialog
@@ -466,33 +544,22 @@ export function ReservationDetailPage() {
         }}
       />
 
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>参加人数を変更</DialogTitle>
-            <DialogDescription>
-              変更後の参加人数を選択してください。（残席: {remainingSeats}名）
-              {!canDecrease && reservation && <span className="block text-amber-600 mt-1">※キャンセル期限を過ぎているため、人数の追加のみ可能です</span>}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Select value={String(editParticipantCount)} onValueChange={(val) => setEditParticipantCount(Number(val))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: remainingSeats }, (_, i) => i + 1)
-                  .filter((num) => canDecrease || num >= (reservation?.participant_count || 1))
-                  .map((num) => <SelectItem key={num} value={String(num)}>{num}名</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={updateCountMutation.isPending}>キャンセル</Button>
-            <Button onClick={handleEditConfirm} disabled={!canEdit || updateCountMutation.isPending || editParticipantCount === reservation?.participant_count}>
-              {updateCountMutation.isPending ? '変更中...' : '変更する'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ParticipantCountDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        currentCount={reservation.participant_count}
+        value={editParticipantCount}
+        onValueChange={setEditParticipantCount}
+        maxSelectableCount={maxSelectableCount}
+        canDecrease={canDecrease}
+        decreaseDeadlineLabel={decreaseDeadlineLabel}
+        unitPrice={unitPrice}
+        currentTotal={price.total}
+        currentDiscount={price.discount}
+        canSubmit={canEdit}
+        isPending={updateCountMutation.isPending}
+        onConfirm={handleEditConfirm}
+      />
     </div>
   )
 }

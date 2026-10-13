@@ -12,7 +12,7 @@ export function privateGroupGuideText(groupUrl: string): string {
 ${groupUrl}
 
 ・グループに入室していない方は、クーポンを利用できません。
-・事前配役やアンケートのご案内は、このグループで行います。
+・事前配役アンケートのご案内は、このグループで行います。
 ・参加される方へ、このページのURLを共有してください。`
 }
 

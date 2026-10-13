@@ -25,10 +25,15 @@ if [ -f supabase/structure/expected-function-overrides.json ]; then
   python3 - "$EXPECTED_STRUCTURE" supabase/structure/expected-function-overrides.json "$EXPECTED_TEMP" <<'PY_EXPECTED'
 import json, sys
 base=json.load(open(sys.argv[1])); overrides=json.load(open(sys.argv[2]))
-base['functions'].update(overrides)
+# 値が null の関数は「migration で消した」もの。期待構造から外す（update だけでは消えない）
+for name, fn in overrides.items():
+    if fn is None: base['functions'].pop(name, None)
+    else: base['functions'][name] = fn
 from pathlib import Path
 table_fixture=Path('supabase/structure/expected-table-overrides.json')
 if table_fixture.exists(): base['tables'].update(json.loads(table_fixture.read_text()))
+view_fixture=Path('supabase/structure/expected-view-overrides.json')
+if view_fixture.exists(): base['views'].update(json.loads(view_fixture.read_text()))
 with open(sys.argv[3], 'w') as out: json.dump(base,out)
 PY_EXPECTED
   EXPECTED_STRUCTURE="$EXPECTED_TEMP"

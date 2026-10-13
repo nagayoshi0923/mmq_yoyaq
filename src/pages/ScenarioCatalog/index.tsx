@@ -163,7 +163,8 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
     isLoading: isPending,
     isFetching,
   })
-  const [searchTerm, setSearchTerm] = useState('')
+  // トップの「作品から探す」から ?q= で来たらその言葉で検索した状態で開く
+  const [searchTerm, setSearchTerm] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
   /** カテゴリ複数: URL の繰り返し `genre=` */
   const selectedCategories = useMemo(
     () => [...new Set(searchParams.getAll('genre').filter(Boolean))],
@@ -654,6 +655,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                           onTouchEnd={(e) => e.stopPropagation()}
                           className="flex-shrink-0 p-1 cursor-default"
                           title={isPlayed(scenario.id) ? '体験済み' : '未体験'}
+                          aria-label={isPlayed(scenario.id) ? `${scenario.title}は体験済み` : `${scenario.title}は未体験`}
                         >
                           <CheckCheck className={`h-4 w-4 ${isPlayed(scenario.id) ? 'text-green-500' : 'text-gray-300'}`} />
                         </button>
@@ -667,6 +669,8 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                           }}
                           onTouchEnd={(e) => e.stopPropagation()}
                           className="flex-shrink-0 p-1 transition-colors hover:bg-red-50 rounded"
+                          aria-label={isFavorite(scenario.id) ? `${scenario.title}を遊びたいから外す` : `${scenario.title}を遊びたいに入れる`}
+                          aria-pressed={isFavorite(scenario.id)}
                         >
                           <Heart className={`h-4 w-4 fill-current text-red-500 ${
                             isFavorite(scenario.id) ? 'opacity-100' : 'opacity-30 hover:opacity-50'

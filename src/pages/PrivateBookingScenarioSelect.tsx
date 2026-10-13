@@ -170,7 +170,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
           ? await resolveOrganizationFromPathSegment(organizationSlug, { requireActive: true })
           : null
         if (organizationSlug && !org?.id) throw new Error('指定された運営組織を確認できません')
-        const data = org?.id ? await storeApi.getAllPublic(org.id) : await storeApi.getAll()
+        const data = org?.id ? await storeApi.getAllPublicForCustomer(org.id) : await storeApi.getAll()
         if (cancelled) return
         setAllStores(data)
 

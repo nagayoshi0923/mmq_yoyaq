@@ -104,6 +104,7 @@ CREATE FUNCTION public.private_group_member_action(p_group_id uuid,p_member_id u
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE v_row jsonb; v_result uuid; v_message text; v_leaving private_group_members%ROWTYPE; v_name text; v_before integer;
 BEGIN
+BEGIN
  -- Lock the group before the member, consistently with join and future membership guards.
  PERFORM 1 FROM private_groups WHERE id=p_group_id FOR UPDATE;
  PERFORM public.require_private_group_member(p_group_id,p_member_id,p_guest_token);
@@ -112,10 +113,15 @@ BEGIN
  WHEN 'validate' THEN RETURN jsonb_build_object('valid',true);
  WHEN 'date_responses' THEN
   IF jsonb_typeof(p_payload)<>'array' OR jsonb_array_length(p_payload)>100 THEN RAISE EXCEPTION '日程回答が不正です' USING ERRCODE='22023'; END IF;
+  -- 2026-10-13 恒久対応: 古い版の画面が、取り下げ済み・存在しない候補日を含む内容を即座に再送し続けた。
+  -- 無効な要素（別グループ・存在しない・取り下げ済み・不採用の候補日、不正な回答値）はエラーにせず飛ばし、
+  -- 有効なものだけ保存して成功を返す（全部飛ばした場合も成功）。配列でない／100 件超は従来どおりエラー。
   FOR v_row IN SELECT value FROM jsonb_array_elements(p_payload) LOOP
-   IF coalesce(v_row->>'response','') NOT IN ('ok','ng','maybe') OR NOT EXISTS(SELECT 1 FROM private_group_candidate_dates WHERE id=(v_row->>'candidateDateId')::uuid AND group_id=p_group_id) THEN
-    RAISE EXCEPTION '回答対象の日程が見つかりません' USING ERRCODE='22023';
-   END IF;
+   CONTINUE WHEN jsonb_typeof(v_row) IS DISTINCT FROM 'object';
+   CONTINUE WHEN coalesce(v_row->>'response','') NOT IN ('ok','ng','maybe');
+   CONTINUE WHEN coalesce(v_row->>'candidateDateId','') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+   CONTINUE WHEN NOT EXISTS(SELECT 1 FROM private_group_candidate_dates WHERE id=(v_row->>'candidateDateId')::uuid AND group_id=p_group_id
+     AND withdrawn_at IS NULL AND coalesce(status,'active')<>'rejected');
    INSERT INTO private_group_date_responses(group_id,member_id,candidate_date_id,response)
    VALUES(p_group_id,p_member_id,(v_row->>'candidateDateId')::uuid,v_row->>'response')
    ON CONFLICT(member_id,candidate_date_id) DO UPDATE SET response=EXCLUDED.response,updated_at=clock_timestamp();
@@ -156,6 +162,11 @@ BEGIN
   RETURN 'true'::jsonb;
  ELSE RAISE EXCEPTION '未対応の操作です' USING ERRCODE='22023';
  END CASE;
+EXCEPTION WHEN OTHERS THEN
+  -- 2026-10-13 緊急の手当て: 失敗する要求を即座に再送し続ける端末があり DB が混むため、どの失敗でも 2 秒待ってから返す
+  PERFORM pg_sleep(2);
+  RAISE;
+END;
 END $$;
 REVOKE ALL ON FUNCTION public.private_group_member_action(uuid,uuid,text,jsonb,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.private_group_member_action(uuid,uuid,text,jsonb,text) TO anon,authenticated,service_role;
@@ -194,6 +205,7 @@ GRANT EXECUTE ON FUNCTION public.require_private_group_manager(uuid) TO authenti
 CREATE FUNCTION public.guard_private_group_browser_write()
 RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $$
 DECLARE v_row jsonb; v_group uuid; v_manager text; v_owner boolean; v_message jsonb; v_cap integer;
+BEGIN
 BEGIN
  -- Definer RPCs validate their own actor. Ordinary browser writes run as anon/authenticated.
  IF current_user NOT IN ('anon','authenticated') THEN
@@ -251,6 +263,11 @@ BEGIN
   END IF;
  END IF;
  IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+EXCEPTION WHEN OTHERS THEN
+  -- 2026-10-13 緊急の手当て: 失敗する書き込みを即座に再送し続ける端末があり DB が混むため、失敗時は 2 秒待ってから返す
+  PERFORM pg_sleep(2);
+  RAISE;
+END;
 END $$;
 REVOKE ALL ON FUNCTION public.guard_private_group_browser_write() FROM PUBLIC;
 CREATE TRIGGER guard_private_group_browser_write BEFORE INSERT OR UPDATE OR DELETE ON public.private_group_members FOR EACH ROW EXECUTE FUNCTION public.guard_private_group_browser_write();

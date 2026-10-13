@@ -27,8 +27,9 @@ export function CouponClaim() {
     return () => { cancelled = true }
   }, [user, token])
   const login = () => {
+    // トークンを URL のクエリに出さないため、戻り先はタブ内に置き、ログイン画面に「消さない」と伝える
     sessionStorage.setItem('returnUrl', `/coupon-claim#${token}`)
-    navigate('/login')
+    navigate('/login', { state: { keepReturnUrl: true } })
   }
   const claim = async () => {
     setBusy(true); setError('')

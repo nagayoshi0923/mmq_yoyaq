@@ -8,6 +8,7 @@
  */
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { formatJstMonthDay } from '@/utils/jstDate'
+import type { CalendarEventInput } from '@/lib/calendarEvent'
 import type { Reservation } from '@/types'
 import type { PrivateGroupMemberRow, PrivateGroupSummary } from './privateGroupSummary'
 import { privateBookingPhase, type PrivateBookingPhase } from './privateBookingMenu'
@@ -15,9 +16,13 @@ import { formatHandoverDeadline, handoverWaitingLabel, type PrivateGroupHandover
 
 type ScheduleEventMap = Record<string, { date: string; start_time: string; category?: string; is_private_booking?: boolean | null }>
 
-/** 次にやること（カードのヘッダー左のラベル）。並びは判定の優先順 */
-type NextActionKind =
+/** 次にやること（カードのヘッダー左のラベル）。並びは判定の優先順。グループ画面の「いまの状態」の箱でも使う */
+export type NextActionKind =
   | 'accept_transfer'
+  // 配役（日程確定後。2026-10-11 社長決定: 操作の入口は「いまの状態」の箱とマイページのカード）
+  | 'choose_casting'
+  | 'pick_character'
+  | 'confirm_casting'
   | 'answer_survey'
   | 'pick_dates'
   | 'answer_dates'
@@ -30,7 +35,10 @@ type NextActionKind =
 const NEXT_ACTION_LABELS: Record<Exclude<NextActionKind, 'upcoming'>, string> = {
   // 段階 3（主催者の引き継ぎ）。新主催者（宛先）のカード
   accept_transfer: '主催者の引き継ぎに同意する',
-  answer_survey: 'アンケートに回答する',
+  choose_casting: '配役の決め方を選ぶ',
+  pick_character: 'やりたいキャラクターを選ぶ',
+  confirm_casting: '配役を確定する',
+  answer_survey: '事前配役アンケートに回答する',
   pick_dates: '候補日を決める',
   answer_dates: '日程に回答する',
   proceed_booking: '申込に進む',
@@ -44,6 +52,9 @@ export type PrivateBookingSection = 'action' | 'waiting_store' | 'waiting_organi
 
 const SECTION_BY_ACTION: Record<NextActionKind, PrivateBookingSection> = {
   accept_transfer: 'action',
+  choose_casting: 'action',
+  pick_character: 'action',
+  confirm_casting: 'action',
   answer_survey: 'action',
   pick_dates: 'action',
   answer_dates: 'action',
@@ -104,6 +115,24 @@ export interface PrivateBookingItem {
   menu: PrivateBookingMenuSource
   /** 進行中の主催者の引き継ぎ依頼（自分が依頼した・頼まれているとき） */
   handover: PrivateGroupHandoverInfo | null
+  /** 確定した（まだ終わっていない）貸切の「カレンダーに登録」「地図を開く」の材料。それ以外は null */
+  calendar: PrivateBookingCalendar | null
+}
+
+/** pageUrl は画面の中のパス（カードで絶対 URL にする） */
+export interface PrivateBookingCalendar {
+  event: CalendarEventInput
+  address: string | null
+}
+
+/** 店舗 id → 名前・住所（マイページで読んだ店舗） */
+export type StoreAddressMap = Record<string, { name: string; address?: string | null }>
+
+function storeAddressOf(stores: StoreAddressMap | undefined, storeId: string | null | undefined, storeName: string | null | undefined): string | null {
+  if (!stores) return null
+  const byId = storeId ? stores[storeId] : undefined
+  const store = byId ?? (storeName ? Object.values(stores).find(s => s.name === storeName) : undefined)
+  return store?.address?.trim() || null
 }
 
 /** カードの「操作」メニューに渡す材料 */
@@ -168,10 +197,14 @@ function fullDateLabel(date: string, time: string | null | undefined, store: str
   return [withYear, time ? `${time.slice(0, 5)}〜` : null, store || null].filter(Boolean).join(' ')
 }
 
-function toneOf(action: NextActionKind, handoverRequested: boolean): PrivateBookingTone {
+/** 色（グループ画面の「いまの状態」の箱と共通） */
+export function toneOf(action: NextActionKind, handoverRequested: boolean): PrivateBookingTone {
   if (handoverRequested) return 'gray'
   switch (action) {
     case 'answer_survey':
+    case 'choose_casting':
+    case 'pick_character':
+    case 'confirm_casting':
     case 'upcoming':
       return 'green'
     case 'waiting_store':
@@ -194,10 +227,31 @@ interface GroupDecision {
   progress: PrivateBookingProgress
 }
 
-/** グループの「次にやること」と進み具合（優先順は NextActionKind の並び） */
+/**
+ * 配役の進み具合（日程確定後・キャラクターのいる作品だけ）。マイページはグループの読み取り結果と
+ * DB の private_group_casting_status（確定済みか）から、グループ画面は同じ関数の結果から組み立てる。
+ */
+export interface CastingProgress {
+  /** 決め方（未選択は null） */
+  method: 'survey' | 'self' | null
+  /** 決め方を選ぶ必要がある（事前配役アンケートが使える作品） */
+  needsChoice: boolean
+  /** 最後に決め方を選び直した後に配役が確定した */
+  confirmed: boolean
+  /** 自分がやりたいキャラクターを選んだ */
+  myPicked: boolean
+  /** 希望を出した人数／参加人数 */
+  picked: number
+  total: number
+}
+
+/** 判定に使うグループの項目（グループ画面は読み取り結果から組み立てて渡す） */
+export type GroupActionInput = Pick<PrivateGroupSummary, 'status' | 'schedule' | 'candidate_dates_count' | 'all_members_responded' | 'is_organizer' | 'my_unanswered_count'>
+
+/** グループの「次にやること」と進み具合（優先順は NextActionKind の並び）。マイページのカードとグループ画面で共通 */
 export function decideGroupAction(
-  group: PrivateGroupSummary,
-  options: { todayYmd: string; surveyPending: boolean; transferPending?: boolean },
+  group: GroupActionInput,
+  options: { todayYmd: string; surveyPending: boolean; transferPending?: boolean; ended?: boolean; casting?: CastingProgress | null },
 ): GroupDecision {
   // 引き継ぎの同意待ちは最優先。進み具合はいまの状態のまま見せる
   if (options.transferPending) {
@@ -207,7 +261,14 @@ export function decideGroupAction(
   const post = (current: number): PrivateBookingProgress => ({ steps: POST_CONFIRM_STEPS, current })
   if (group.status === 'confirmed') {
     const date = group.schedule?.date
-    if (date && date < options.todayYmd) return { action: 'ended', progress: post(POST_CONFIRM_STEPS.length) }
+    // グループ画面は終了時刻まで見て ended を渡す（公演後の思い出、段階 4）。マイページは日付で判定
+    if (options.ended || (date && date < options.todayYmd)) return { action: 'ended', progress: post(POST_CONFIRM_STEPS.length) }
+    const casting = options.casting
+    if (casting && !casting.confirmed) {
+      if (casting.method === null && casting.needsChoice && group.is_organizer) return { action: 'choose_casting', progress: post(1) }
+      if (casting.method === 'self' && !casting.myPicked) return { action: 'pick_character', progress: post(1) }
+      if (casting.method === 'self' && group.is_organizer) return { action: 'confirm_casting', progress: post(1) }
+    }
     if (options.surveyPending) return { action: 'answer_survey', progress: post(1) }
     return { action: 'upcoming', progress: post(2) }
   }
@@ -223,7 +284,10 @@ export function decideGroupAction(
   return { action: 'waiting_organizer', progress: datesProgress }
 }
 
-function groupDescription(group: PrivateGroupSummary, action: NextActionKind): string {
+/** 1 行の説明文（マイページのカードとグループ画面の「いまの状態」の箱で共通） */
+export type GroupDescriptionInput = GroupActionInput & Pick<PrivateGroupSummary, 'handover' | 'organizer_name' | 'member_count'>
+
+export function groupDescription(group: GroupDescriptionInput, action: NextActionKind, casting: CastingProgress | null = null): string {
   const handover = group.handover
   if (handover && !handover.isRecipient) {
     return `${handover.toName}さんに主催者の引き継ぎを依頼中です（期限 ${formatHandoverDeadline(handover.expiresAt)}）。同意されるまであなたが主催者です`
@@ -237,16 +301,22 @@ function groupDescription(group: PrivateGroupSummary, action: NextActionKind): s
       return handover
         ? `${handover.fromName}さんからの依頼です。引き継ぐと、あなたが申込者（店舗への連絡先・キャンセル料の負担者）になります。期限 ${formatHandoverDeadline(handover.expiresAt)}`
         : '主催者の引き継ぎを頼まれています。内容を確認して同意してください'
+    case 'choose_casting':
+      return 'キャラクターの配役をどう決めますか。あとから変えられます。'
+    case 'pick_character':
+      return '自分たちで配役を決めます。やりたいキャラクターを 1 つ選んでください（主催者が最後に調整します）。'
+    case 'confirm_casting':
+      return casting && casting.total > 0 && casting.picked >= casting.total
+        ? '全員の希望が出ました。重なりを調整して配役を確定してください。'
+        : `やりたいキャラクターの希望 ${casting?.picked ?? 0}/${casting?.total ?? group.member_count}。そろわなくても主催者が配役を確定できます。`
     case 'answer_survey':
-      return `${when}${store}で開催。公演前アンケートに回答してください`
+      return `${when}${store}で開催。事前配役アンケートに回答してください`
     case 'pick_dates':
       return `候補日を登録すると、メンバーが都合を回答できます（参加 ${group.member_count} 人）`
     case 'answer_dates':
       return `候補日 ${c} 件のうち ${group.my_unanswered_count} 件が未回答です。都合を回答してください`
     case 'proceed_booking':
-      return group.all_members_responded
-        ? `全員の回答がそろいました。候補日 ${c} 件で店舗へ申し込めます`
-        : `候補日 ${c} 件・参加 ${group.member_count} 人。回答を確かめて店舗へ申し込みましょう`
+      return `${group.all_members_responded ? `候補日 ${c} 件の回答がそろいました。` : `候補日 ${c} 件・参加 ${group.member_count} 人。`}店舗に送る候補日を選んで申し込みます。複数の候補日を送ると、店舗がその中から 1 つ確定します。`
     case 'waiting_store':
       return c > 0
         ? `候補日 ${c} 件で申込中。店舗が日程を確定すると連絡が届きます`
@@ -260,7 +330,11 @@ function groupDescription(group: PrivateGroupSummary, action: NextActionKind): s
   }
 }
 
-function labelOf(action: NextActionKind, date: string | null | undefined): string {
+/** 申込の入口の文言（マイページのカードの主ボタン・グループ画面の箱の主ボタンで同じ。2026-10-11 社長指摘で入口を 1 つに） */
+export const BOOK_ACTION_LABEL = '候補日を選んで店舗に申し込む'
+
+/** ラベルの文言（マイページのカードとグループ画面で共通） */
+export function labelOf(action: NextActionKind, date: string | null | undefined): string {
   if (action === 'upcoming') return date ? `${formatJstMonthDay(date, true)} 開催` : '日程確定'
   return NEXT_ACTION_LABELS[action]
 }
@@ -272,9 +346,16 @@ function primaryOf(action: NextActionKind, base: string): PrivateBookingItem['pr
     case 'pick_dates':
       return { label: NEXT_ACTION_LABELS[action], href: base, inPlace: 'dates' }
     case 'proceed_booking':
-      return { label: NEXT_ACTION_LABELS[action], href: base }
+      // グループ画面の申込シート（候補日を複数選んで優先順を付ける）。箱の主ボタンと同じ文言
+      return { label: BOOK_ACTION_LABEL, href: `${base}?sheet=booking` }
     case 'answer_survey':
       return { label: NEXT_ACTION_LABELS[action], href: `${base}?tab=survey`, inPlace: 'survey' }
+    case 'choose_casting':
+      return { label: NEXT_ACTION_LABELS[action], href: `${base}?sheet=casting-method` }
+    case 'pick_character':
+      return { label: NEXT_ACTION_LABELS[action], href: `${base}?sheet=casting-pick` }
+    case 'confirm_casting':
+      return { label: NEXT_ACTION_LABELS[action], href: `${base}?sheet=casting-confirm` }
     case 'answer_dates':
       return { label: NEXT_ACTION_LABELS[action], href: `${base}?tab=schedule`, inPlace: 'answer' }
     default:
@@ -284,13 +365,33 @@ function primaryOf(action: NextActionKind, base: string): PrivateBookingItem['pr
 
 function fromGroup(
   group: PrivateGroupSummary,
-  options: { todayYmd: string; surveyPending: boolean; fallbackImage: string | null; linked: Reservation | undefined },
+  options: { todayYmd: string; surveyPending: boolean; castingConfirmed: boolean; fallbackImage: string | null; linked: Reservation | undefined; stores?: StoreAddressMap },
 ): PrivateBookingItem {
-  const { action, progress } = decideGroupAction(group, { ...options, transferPending: group.handover?.isRecipient === true })
+  const casting = castingProgressOf(group.casting, options.castingConfirmed)
+  const { action, progress } = decideGroupAction(group, { ...options, casting, transferPending: group.handover?.isRecipient === true })
   const base = `/group/invite/${group.invite_code}`
   // 元主催者（依頼した人）のカードは、節はそのままでラベルだけ「○○さんの同意待ち」にする
   const requested = group.handover && !group.handover.isRecipient ? group.handover : null
   const max = group.scenario_player_count_max
+  const reservationNumber = options.linked && options.linked.status !== 'cancelled' ? options.linked.reservation_number ?? null : null
+  const schedule = group.schedule
+  const address = storeAddressOf(options.stores, schedule?.store_id, schedule?.store_name)
+  const calendar: PrivateBookingCalendar | null = group.status === 'confirmed' && action !== 'ended' && schedule?.date && schedule.start_time
+    ? {
+      event: {
+        scenarioTitle: group.scenario_title || '貸切公演',
+        kind: 'private',
+        date: schedule.date,
+        startTime: schedule.start_time,
+        endTime: schedule.end_time ?? null,
+        storeName: schedule.store_name,
+        address,
+        reservationNumber,
+        pageUrl: base,
+      },
+      address,
+    }
+    : null
   return {
     key: `group:${group.id}`,
     groupId: group.id,
@@ -319,7 +420,7 @@ function fromGroup(
     menu: {
       inviteCode: group.invite_code,
       organizationId: group.organization_id,
-      reservationNumber: options.linked && options.linked.status !== 'cancelled' ? options.linked.reservation_number ?? null : null,
+      reservationNumber,
       phase: privateBookingPhase(group.status, options.linked?.status),
       memberCount: group.member_count,
       candidateDates: group.candidate_dates_count,
@@ -331,6 +432,7 @@ function fromGroup(
       handover: requested,
     },
     handover: group.handover,
+    calendar,
   }
 }
 
@@ -340,6 +442,7 @@ function fromReservation(
   scheduleEvents: ScheduleEventMap,
   scenarioImages: Record<string, string>,
   todayYmd: string,
+  stores?: StoreAddressMap,
 ): PrivateBookingItem | null {
   const href = `/mypage/reservation/${reservation.id}`
   const schedule = reservationSchedule(reservation, scheduleEvents)
@@ -361,6 +464,22 @@ function fromReservation(
   } else {
     return null
   }
+  const address = storeAddressOf(stores, reservation.store_id, null)
+  const calendar: PrivateBookingCalendar | null = action === 'upcoming' && schedule.date && schedule.time
+    ? {
+      event: {
+        scenarioTitle: cleanPrivateTitle(reservation.title) || '貸切公演',
+        kind: 'private',
+        date: schedule.date,
+        startTime: schedule.time,
+        storeName: reservation.store_id ? stores?.[reservation.store_id]?.name ?? null : null,
+        address,
+        reservationNumber: reservation.reservation_number ?? null,
+        pageUrl: href,
+      },
+      address,
+    }
+    : null
   return {
     key: `reservation:${reservation.id}`,
     groupId: null,
@@ -399,6 +518,7 @@ function fromReservation(
       handover: null,
     },
     handover: null,
+    calendar,
   }
 }
 
@@ -409,7 +529,11 @@ export interface PrivateBookingBuildInput {
   scenarioImages: Record<string, string>
   /** グループ id → 自分のアンケートが未回答か */
   surveyPending: Record<string, boolean>
+  /** グループ id → 配役が確定済みか（決め方が「自分たちで決める」の確定済み・未来の貸切だけ読む） */
+  castingConfirmed?: Record<string, boolean>
   todayYmd: string
+  /** 店舗の名前・住所（「地図を開く」・カレンダーの場所に使う。無ければ出さない） */
+  stores?: StoreAddressMap
 }
 
 export interface PrivateBookingView {
@@ -420,7 +544,7 @@ export interface PrivateBookingView {
 
 /** 貸切カードを組み立てて節ごとに並べる */
 export function buildPrivateBookingView(input: PrivateBookingBuildInput): PrivateBookingView {
-  const { groups, reservations, scheduleEvents, scenarioImages, surveyPending, todayYmd } = input
+  const { groups, reservations, scheduleEvents, scenarioImages, surveyPending, castingConfirmed = {}, todayYmd, stores } = input
   const privateReservations = reservations.filter(r => isPrivateReservation(r, scheduleEvents))
   const linkedReservationIds = new Set<string>()
   const items: PrivateBookingItem[] = []
@@ -430,13 +554,14 @@ export function buildPrivateBookingView(input: PrivateBookingBuildInput): Privat
     if (linked) linkedReservationIds.add(linked.id)
     // グループ側に作品画像が無い旧データは予約の作品画像で補う
     const fallbackImage = linked?.scenario_master_id ? scenarioImages[linked.scenario_master_id] ?? null : null
-    items.push(fromGroup(group, { todayYmd, surveyPending: surveyPending[group.id] === true, fallbackImage, linked }))
+    items.push(fromGroup(group, { todayYmd, surveyPending: surveyPending[group.id] === true, // 「自分たちで決める」の確定済みかは読み終わるまで確定扱い（要対応に一瞬出さない）
+      castingConfirmed: group.casting?.method === 'self' ? castingConfirmed[group.id] !== false : false, fallbackImage, linked, stores }))
   }
   for (const reservation of privateReservations) {
     if (linkedReservationIds.has(reservation.id)) continue
     // グループが一覧に出ている予約は二重に出さない（グループ側の reservation_id が空でも private_group_id で結ぶ）
     if (reservation.private_group_id && groups.some(g => g.id === reservation.private_group_id)) continue
-    const item = fromReservation(reservation, scheduleEvents, scenarioImages, todayYmd)
+    const item = fromReservation(reservation, scheduleEvents, scenarioImages, todayYmd, stores)
     if (item) items.push(item)
   }
   const bySection: PrivateBookingView['bySection'] = { action: [], waiting_store: [], waiting_organizer: [], confirmed: [], ended: [] }
@@ -454,4 +579,10 @@ export function buildPrivateBookingView(input: PrivateBookingBuildInput): Privat
 export function countActivePrivateBookings(view: PrivateBookingView): number {
   const s = view.bySection
   return s.action.length + s.waiting_store.length + s.waiting_organizer.length + s.confirmed.length
+}
+
+/** マイページのグループの要約から配役の進み具合を作る（キャラクターのいない作品は null） */
+export function castingProgressOf(casting: PrivateGroupSummary['casting'], confirmed: boolean): CastingProgress | null {
+  if (!casting) return null
+  return { method: casting.method, needsChoice: casting.surveyEnabled, confirmed, myPicked: casting.myPicked, picked: casting.picked, total: casting.total }
 }

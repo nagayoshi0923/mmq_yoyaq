@@ -1,4 +1,5 @@
 import { readSurveyQuestionSettings } from '@/lib/surveyQuestionSettings'
+import { characterAnswerLabel } from '@/lib/surveyCompletion'
 import { readPrivateGroupSurveyResponses, readPrivateGroupByReservation, readPrivateGroupMessageHistory } from '@/lib/privateGroupRead'
 import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
@@ -301,8 +302,8 @@ export function SurveyResponsesTab({
     if (!question) return String(value)
 
     if (question.question_type === 'character_selection') {
-      const char = characters.find(c => c.id === value)
-      return char?.name || String(value)
+      // 第 2 希望・おまかせも併記（事前配役アンケート）
+      return characterAnswerLabel(response.responses, questionId, characters) ?? String(value)
     }
 
     if (question.question_type === 'single_choice') {
@@ -331,7 +332,7 @@ export function SurveyResponsesTab({
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-medium">
           <ClipboardList className="w-4 h-4 text-purple-600" />
-          事前アンケート回答
+          事前配役アンケート回答
         </h3>
         <Badge 
           variant="outline" 

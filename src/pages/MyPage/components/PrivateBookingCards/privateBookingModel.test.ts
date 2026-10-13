@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PrivateGroup, Reservation } from '@/types'
-import { buildPrivateBookingView, countActivePrivateBookings, decideGroupAction, isPrivateReservation } from './privateBookingModel'
+import { buildPrivateBookingView, countActivePrivateBookings, decideGroupAction, isPrivateReservation, type CastingProgress } from './privateBookingModel'
 import { summarizePrivateGroup, type PrivateGroupSummary } from './privateGroupSummary'
 
 const TODAY = '2026-10-09'
@@ -169,9 +169,9 @@ describe('グループの要約', () => {
   it('確定済みは確定公演、無ければ予約の日時を使う', () => {
     const base = { id: 'g', status: 'confirmed', members: [], candidate_dates: [] } as unknown as PrivateGroup
     expect(summarizePrivateGroup({ ...base, confirmed_performance: { id: 'e', date: '2026-10-25', start_time: '13:00:00', end_time: '16:00:00', store_name: '二号店' } }, 'u', undefined, {}).schedule)
-      .toEqual({ date: '2026-10-25', start_time: '13:00', store_name: '二号店' })
+      .toEqual({ date: '2026-10-25', start_time: '13:00', store_name: '二号店', end_time: '16:00', store_id: null })
     expect(summarizePrivateGroup(base, 'u', { requested_datetime: '2026-10-26T18:00:00+09:00', store_id: 's1', store_name: null }, { s1: '本店' }).schedule)
-      .toEqual({ date: '2026-10-26', start_time: '18:00', store_name: '本店' })
+      .toEqual({ date: '2026-10-26', start_time: '18:00', store_name: '本店', store_id: 's1' })
   })
 })
 
@@ -206,6 +206,39 @@ describe('カードの見た目（改善案 Main.dc.html）', () => {
   })
 })
 
+describe('確定した貸切の「カレンダーに登録」「地図を開く」', () => {
+  const stores = { s1: { name: '高田馬場店', address: '東京都新宿区高田馬場1-2-3' } }
+  const schedule = { date: '2026-11-07', start_time: '14:00', end_time: '17:00', store_name: '高田馬場店', store_id: 's1' }
+  const build = (groups: PrivateGroupSummary[], reservations: Reservation[] = []) =>
+    Object.values(buildPrivateBookingView({ groups, reservations, scheduleEvents: {}, scenarioImages: {}, surveyPending: {}, todayYmd: TODAY, stores }).bySection).flat()
+
+  it('確定・未来の貸切だけに材料を付ける（店舗の住所・予約番号・グループページ）', () => {
+    const [item] = build([group({ status: 'confirmed', schedule, reservation_id: 'r1' })], [reservation({ reservation_source: 'web_private', reservation_number: 'PB-1' })])
+    expect(item.calendar).toEqual({
+      event: {
+        scenarioTitle: '作品A', kind: 'private', date: '2026-11-07', startTime: '14:00', endTime: '17:00',
+        storeName: '高田馬場店', address: '東京都新宿区高田馬場1-2-3', reservationNumber: 'PB-1', pageUrl: '/group/invite/CODE1',
+      },
+      address: '東京都新宿区高田馬場1-2-3',
+    })
+  })
+
+  it('店舗 id が分からなければ店舗名で住所を探す', () => {
+    const [item] = build([group({ status: 'confirmed', schedule: { ...schedule, store_id: null } })])
+    expect(item.calendar?.address).toBe('東京都新宿区高田馬場1-2-3')
+  })
+
+  it('確定前・終了後は出さない', () => {
+    expect(build([group({ candidate_dates_count: 2 })])[0].calendar).toBeNull()
+    expect(build([group({ status: 'confirmed', schedule: { ...schedule, date: '2026-10-01' } })])[0].calendar).toBeNull()
+  })
+
+  it('グループの無い旧い貸切予約は予約詳細を案内する', () => {
+    const [item] = build([], [reservation({ reservation_source: 'web_private', store_id: 's1', reservation_number: 'PB-9', title: '【貸切希望】作品C' })])
+    expect(item.calendar?.event).toMatchObject({ scenarioTitle: '作品C', kind: 'private', date: '2026-10-20', startTime: '13:00', storeName: '高田馬場店', pageUrl: '/mypage/reservation/r1' })
+  })
+})
+
 describe('主ボタンをマイページ上で開く（2026-10-09 案 3）', () => {
   const build = (groups: PrivateGroupSummary[], surveyPending: Record<string, boolean> = {}) =>
     Object.values(buildPrivateBookingView({ groups, reservations: [], scheduleEvents: {}, scenarioImages: {}, surveyPending, todayYmd: TODAY }).bySection).flat()
@@ -218,5 +251,36 @@ describe('主ボタンをマイページ上で開く（2026-10-09 案 3）', () 
     ], { survey: true })
     const inPlace = Object.fromEntries(items.map(i => [i.groupId, i.primary?.inPlace ?? null]))
     expect(inPlace).toEqual({ pick: 'dates', answer: 'answer', survey: 'survey', book: null })
+  })
+})
+
+describe('配役（日程確定後）', () => {
+  const confirmed = (over: Partial<PrivateGroupSummary> = {}) => group({ status: 'confirmed', schedule: { date: '2099-11-07', start_time: '14:00', store_name: '本店' }, ...over })
+  const casting = (over: Partial<CastingProgress> = {}): CastingProgress => ({ method: null, needsChoice: true, confirmed: false, myPicked: false, picked: 0, total: 4, ...over })
+  const act = (g: PrivateGroupSummary, c: CastingProgress | null, surveyPending = false) => decideGroupAction(g, { todayYmd: TODAY, surveyPending, casting: c }).action
+  it('主催者は決め方を選ぶ。メンバーには出さない', () => {
+    expect(act(confirmed(), casting())).toBe('choose_casting')
+    expect(act(confirmed({ is_organizer: false }), casting())).toBe('upcoming')
+    // アンケートが使えない作品では決め方の選択を出さない（従来どおり）
+    expect(act(confirmed(), casting({ needsChoice: false }))).toBe('upcoming')
+  })
+  it('自分たちで決める: 未選択の人はキャラクターを選ぶ、選んだ主催者は確定する、確定後はアンケート・開催へ', () => {
+    expect(act(confirmed({ is_organizer: false }), casting({ method: 'self' }))).toBe('pick_character')
+    expect(act(confirmed(), casting({ method: 'self' }))).toBe('pick_character')
+    expect(act(confirmed(), casting({ method: 'self', myPicked: true, picked: 3 }))).toBe('confirm_casting')
+    expect(act(confirmed({ is_organizer: false }), casting({ method: 'self', myPicked: true }))).toBe('upcoming')
+    expect(act(confirmed(), casting({ method: 'self', confirmed: true }), true)).toBe('answer_survey')
+  })
+  it('マイページのカード: ラベル・主ボタンは全画面シートへ。読み終わるまでは確定扱い', () => {
+    const g = confirmed({ casting: { method: 'self', picked: 0, total: 4, myPicked: false, surveyEnabled: true } })
+    const loading = buildPrivateBookingView({ groups: [g], reservations: [], scheduleEvents: {}, scenarioImages: {}, surveyPending: {}, todayYmd: TODAY })
+    expect(loading.bySection.confirmed[0]?.action).toBe('upcoming')
+    const view = buildPrivateBookingView({ groups: [g], reservations: [], scheduleEvents: {}, scenarioImages: {}, surveyPending: {}, castingConfirmed: { g1: false }, todayYmd: TODAY })
+    const item = view.bySection.action[0]
+    expect(item.label).toBe('やりたいキャラクターを選ぶ')
+    expect(item.primary).toEqual({ label: 'やりたいキャラクターを選ぶ', href: '/group/invite/CODE1?sheet=casting-pick' })
+    expect(item.tone).toBe('green')
+    const choose = buildPrivateBookingView({ groups: [confirmed({ casting: { method: null, picked: 0, total: 4, myPicked: false, surveyEnabled: true } })], reservations: [], scheduleEvents: {}, scenarioImages: {}, surveyPending: {}, todayYmd: TODAY })
+    expect(choose.bySection.action[0].primary?.href).toBe('/group/invite/CODE1?sheet=casting-method')
   })
 })

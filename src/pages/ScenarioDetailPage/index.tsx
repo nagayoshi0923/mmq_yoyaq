@@ -39,6 +39,7 @@ import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorati
 import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { scenarioPageDescription, scenarioPageTitle } from '@/lib/seo'
+import { loginUrlWithIntent } from '@/lib/authReturn'
 
 interface ScenarioDetailPageProps {
   scenarioId: string
@@ -151,10 +152,11 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     isNextMonthDisabled,
     isLoadingEvents,
     isAvailabilityReady,
+    slotAvailability,
+    monthDates: privateDates,
+    showMonthOf,
     setSelectedStoreIds,
     setSelectedTimeSlots,
-    checkTimeSlotAvailability,
-    generatePrivateDates,
     changeMonth,
     toggleTimeSlot,
     getTimeSlotsForDate
@@ -283,6 +285,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       afternoon: '午後',
       evening: '夜',
     }
+    // 空き状況（DB）がその日の分まで読めてから時刻を決める
+    showMonthOf(date)
+    if (!isAvailabilityReady || !slotAvailability.slotsByDate[date]) return
     const slots = getTimeSlotsForDate(date)
     const found = slots.find((s) => s.label === labelByKey[slotKey])
     setPrivateBookingUrlPending(null)
@@ -295,10 +300,12 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     selectedStoreIds,
     getTimeSlotsForDate,
     setSelectedTimeSlots,
+    showMonthOf,
+    isAvailabilityReady,
+    slotAvailability,
   ])
 
-  // generatePrivateDates の結果を安定化（インライン呼び出しだと毎レンダーで新配列が生まれ memo() が無効になる）
-  const privateDates = useMemo(() => generatePrivateDates(), [generatePrivateDates])
+
 
   // 貸切リクエスト完了時のハンドラ（選択状態をクリア）
   const handlePrivateBookingCompleteWithClear = useCallback(() => {
@@ -632,8 +639,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                         const groupCreateUrl = `/group/create?${params.toString()}`
                         
                         if (!user) {
-                          sessionStorage.setItem('returnUrl', groupCreateUrl)
-                          navigate('/login')
+                          navigate(loginUrlWithIntent('login', groupCreateUrl, `「${scenario.scenario_title}」の貸切グループ作成`))
                           return
                         }
                         navigate(groupCreateUrl)
@@ -651,13 +657,11 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     currentMonth={currentMonth}
                     onMonthChange={changeMonth}
                     availableDates={privateDates}
-                    getTimeSlotsForDate={getTimeSlotsForDate}
+                    slotAvailability={slotAvailability}
                     selectedSlots={selectedTimeSlots}
                     onTimeSlotToggle={toggleTimeSlot}
-                    checkTimeSlotAvailability={checkTimeSlotAvailability}
                     maxSelections={MAX_SELECTIONS}
                     isCustomHoliday={isCustomHoliday}
-                    blockedSlots={scenario?.private_booking_blocked_slots}
                     isNextMonthDisabled={isNextMonthDisabled}
                     loading={isLoadingEvents}
                     deadlineDays={privateBookingDeadlineDays}
@@ -701,6 +705,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               <div className="mt-4">
                 {activeTab === 'schedule' && (
                   <BookingPanel
+                    scenarioTitle={scenario.scenario_title}
                     participantCount={participantCount}
                     maxParticipants={scenario.player_count_max}
                     participationFee={calculatedParticipationFee}
@@ -760,7 +765,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                         selectedTimeSlotsCount={selectedTimeSlots.length}
                         isLoggedIn={!!user}
                         availabilityReady={isAvailabilityReady}
-                        onRequestBooking={() => handlePrivateBookingRequest(!!user)}
+                        onRequestBooking={() => { void handlePrivateBookingRequest(!!user, `「${scenario.scenario_title}」の貸切リクエスト`) }}
                         reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
                         hasPreReading={scenario.has_pre_reading}
                         scenarioId={scenario.scenario_master_id}
@@ -796,6 +801,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
       {/* フッター */}
       <Footer organizationSlug={organizationSlug} minimal />
+      {/* スマホで予約ボタンを画面下に固定している間、フッターが隠れないよう空ける（点検 18） */}
+      {activeTab === 'schedule' && selectedEventId && <div className="h-24 md:hidden" aria-hidden="true" />}
     </div>
   )
 }

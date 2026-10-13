@@ -1,0 +1,259 @@
+import { describe, expect, it } from 'vitest'
+import type { PrivateGroup } from '@/types'
+import { buildAnswerTable, buildGroupStatus, countUnread, defaultGroupTab, groupTabsFor, isPerformanceEnded, nextResponse, parseGroupTab, performanceLabel, resolveGroupTab, rowTally, unansweredMembers, type GroupStatusInput } from './groupPageModel'
+
+const member = (id: string, extra: Record<string, unknown> = {}) => ({ id, group_id: 'g', user_id: `u-${id}`, guest_name: null, guest_email: null, guest_phone: null, is_organizer: false, status: 'joined', joined_at: null, created_at: '2026-10-01', users: { id: `u-${id}`, email: `${id}@x`, nickname: id }, ...extra })
+const cand = (id: string, date: string, start: string, responses: Array<[string, 'ok' | 'maybe' | 'ng']>, extra: Record<string, unknown> = {}) => ({
+  id, group_id: 'g', date, time_slot: '午後', start_time: start, end_time: '16:00', order_num: 1, created_at: '', ...extra,
+  responses: responses.map(([m, r]) => ({ id: `${id}-${m}`, group_id: 'g', member_id: m, candidate_date_id: id, response: r, created_at: '', updated_at: '' })),
+})
+
+const group = {
+  members: [member('org', { is_organizer: true }), member('jiro'), member('sabu', { user_id: null, guest_name: 'サブ', users: null })],
+  candidate_dates: [
+    cand('c2', '2026-10-30', '13:00', [['org', 'ok'], ['jiro', 'ok'], ['sabu', 'maybe']]),
+    cand('c1', '2026-10-29', '18:00', [['org', 'maybe'], ['jiro', 'ng']]),
+    cand('c3', '2026-10-23', '13:00', [['org', 'ok']]),
+  ],
+} as unknown as PrivateGroup
+
+describe('タブ', () => {
+  it('旧い値も受ける', () => {
+    expect(parseGroupTab('schedule')).toBe('dates')
+    expect(parseGroupTab('manage')).toBe('members')
+    expect(parseGroupTab('survey')).toBe('survey')
+    expect(parseGroupTab('xxx')).toBeNull()
+    expect(parseGroupTab(null)).toBeNull()
+  })
+  it('初期タブは確定後だけ概要、それ以外は日程', () => {
+    expect(defaultGroupTab('confirmed')).toBe('overview')
+    expect(defaultGroupTab('requested')).toBe('dates')
+    expect(defaultGroupTab('pre_request')).toBe('dates')
+  })
+})
+
+describe('回答表', () => {
+  const table = buildAnswerTable(group, 'jiro')
+  it('自分の列が先頭、行は日付順、未回答は null', () => {
+    expect(table.columns.map(c => c.memberId)).toEqual(['jiro', 'org', 'sabu'])
+    expect(table.columns[0].isMe).toBe(true)
+    expect(table.columns[2].role).toBe('guest')
+    expect(table.rows.map(r => r.id)).toEqual(['c3', 'c1', 'c2'])
+    expect(table.rows[0].cells.jiro).toBeNull()
+  })
+  it('最も集まっている行（○2点・△1点）', () => {
+    expect(table.bestRowId).toBe('c2')
+    expect(rowTally(table.rows[2])).toBe('○2・△1')
+  })
+  it('全候補日に答えた人だけ回答済み', () => {
+    expect(table.respondedCount).toBe(1)
+    expect(unansweredMembers(table).map(c => c.memberId)).toEqual(['sabu'])
+  })
+  it('却下された行は最有力にしない', () => {
+    const g = { ...group, candidate_dates: [cand('r', '2026-10-01', '13:00', [['org', 'ok'], ['jiro', 'ok']], { status: 'rejected' }), cand('a', '2026-10-02', '13:00', [['org', 'maybe']])] } as unknown as PrivateGroup
+    expect(buildAnswerTable(g, 'org').bestRowId).toBe('a')
+  })
+  it('回答が 1 つも無ければ最有力なし', () => {
+    const g = { ...group, candidate_dates: [cand('a', '2026-10-02', '13:00', [])] } as unknown as PrivateGroup
+    expect(buildAnswerTable(g, 'org').bestRowId).toBeNull()
+  })
+  it('自分のセルは ○→△→×→○', () => {
+    expect(nextResponse(null)).toBe('ok')
+    expect(nextResponse('ok')).toBe('maybe')
+    expect(nextResponse('maybe')).toBe('ng')
+    expect(nextResponse('ng')).toBe('ok')
+  })
+})
+
+describe('いまの状態の箱（マイページのカードと同じラベル）', () => {
+  const base = (over: Partial<GroupStatusInput> = {}): GroupStatusInput => ({
+    status: 'gathering', phase: 'pre_request', isOrganizer: true, organizerName: null, memberCount: 3,
+    table: buildAnswerTable(group, 'org'), myMemberId: 'org', confirmed: null, requestedAt: null, surveyPending: false,
+    handover: null, canMutateSchedule: true, todayYmd: '2026-10-10', ...over,
+  })
+  it('主催者・候補日あり: 入口は 1 つ（候補日を選んで店舗に申し込む）。チャットの 1 行も同じ', () => {
+    const v = buildGroupStatus(base())
+    expect(v.chip).toBe('申込に進む')
+    expect(v.sub).toBe('3人中 1人が回答済み')
+    expect(v.body).toBe('候補日 3 件・参加 3 人。店舗に送る候補日を選んで申し込みます。複数の候補日を送ると、店舗がその中から 1 つ確定します。')
+    expect(v.primary).toEqual({ kind: 'book', label: '候補日を選んで店舗に申し込む' })
+    expect(v.secondary.map(s => s.label)).toEqual(['候補日を編集', '招待リンクを送る'])
+    expect(v.barAction).toEqual(v.primary)
+    expect(v.barLabel).toBe('申し込む ›')
+  })
+  it('主催者・候補日なし: 候補日を追加', () => {
+    const v = buildGroupStatus(base({ table: buildAnswerTable({ ...group, candidate_dates: [] } as unknown as PrivateGroup, 'org') }))
+    expect(v.chip).toBe('候補日を決める')
+    expect(v.primary?.label).toBe('候補日を追加')
+  })
+  it('メンバー・未回答あり: 日程に回答する', () => {
+    const v = buildGroupStatus(base({ isOrganizer: false, organizerName: 'いちこ', table: buildAnswerTable(group, 'sabu'), myMemberId: 'sabu' }))
+    expect(v.chip).toBe('日程に回答する')
+    expect(v.primary).toEqual({ kind: 'answer', label: '日程に回答する' })
+  })
+  it('店舗の返事待ち: 申込日と申込内容を見る', () => {
+    const v = buildGroupStatus(base({ status: 'booking_requested', phase: 'requested', requestedAt: '2026-10-09T03:00:00Z', canMutateSchedule: false }))
+    expect(v.chip).toBe('店舗の返事待ち')
+    expect(v.tone).toBe('amber')
+    expect(v.sub).toBe('10/9 申込')
+    expect(v.primary).toBeNull()
+    expect(v.secondary[0].kind).toBe('view_booking')
+  })
+  it('確定・アンケート未回答', () => {
+    const v = buildGroupStatus(base({ status: 'confirmed', phase: 'confirmed', confirmed: { date: '2026-11-07', start_time: '14:00:00', store_name: '高田馬場店' }, surveyPending: true, canMutateSchedule: false }))
+    expect(v.chip).toBe('事前配役アンケートに回答する')
+    expect(v.tone).toBe('green')
+    expect(v.primary?.kind).toBe('survey')
+  })
+  it('確定・アンケート回答済み: 回答済みの 1 文と「回答を変更する」', () => {
+    const v = buildGroupStatus(base({ status: 'confirmed', phase: 'confirmed', confirmed: { date: '2026-11-07', start_time: '14:00:00', store_name: '高田馬場店' }, surveyPending: false, surveyAnswered: { answered: 2, total: 4 }, canMutateSchedule: false }))
+    expect(v.action).toBe('upcoming')
+    expect(v.body).toContain('事前配役アンケートは回答済みです（2/4 名が回答）')
+    expect(v.secondary).toEqual([{ kind: 'survey', label: '回答を変更する' }])
+  })
+  it('公演後は灰色・本文のみ', () => {
+    const v = buildGroupStatus(base({ status: 'confirmed', phase: 'confirmed', confirmed: { date: '2026-10-01', start_time: '14:00', store_name: null }, canMutateSchedule: false }))
+    expect(v.chip).toBe('終了')
+    expect(v.tone).toBe('gray')
+    expect(v.primary).toBeNull()
+    expect(v.secondary).toEqual([])
+  })
+  it('公演後（終了時刻を過ぎた・段階 4）は緑の「開催しました」と写真の共有', () => {
+    const performance = { date: '2026-11-07', start_time: '14:00:00', store_name: '高田馬場店' }
+    const v = buildGroupStatus(base({ status: 'confirmed', phase: 'confirmed', confirmed: performance, performance, canMutateSchedule: false, ended: true, canStartNext: true, todayYmd: '2026-11-07' }))
+    expect(v.chip).toBe('開催しました')
+    expect(v.tone).toBe('green')
+    expect(v.sub).toBe('11/7(土) 14:00 高田馬場店')
+    expect(v.body).toBe('ご参加ありがとうございました。記念写真をここに残すと、メンバー全員のアルバムにも入ります。')
+    expect(v.primary).toEqual({ kind: 'share_photos', label: '写真を共有する' })
+    expect(v.secondary.map(s => s.label)).toEqual(['感想を書く', '同じメンバーで次の貸切'])
+  })
+  it('公演後のゲストには「同じメンバーで次の貸切」を出さない', () => {
+    const v = buildGroupStatus(base({ status: 'confirmed', phase: 'confirmed', confirmed: { date: '2026-11-07', start_time: '14:00', store_name: null }, canMutateSchedule: false, ended: true, canStartNext: false }))
+    expect(v.secondary.map(s => s.kind)).toEqual(['feedback'])
+  })
+})
+
+describe('公演後（段階 4）', () => {
+  const perf = { date: '2026-11-07', start_time: '14:00:00', end_time: '17:00:00' }
+  it('終了時刻（日本時間）を過ぎたら公演後', () => {
+    expect(isPerformanceEnded(perf, 'confirmed', new Date('2026-11-07T07:59:00Z'))).toBe(false)
+    expect(isPerformanceEnded(perf, 'confirmed', new Date('2026-11-07T08:00:00Z'))).toBe(true)
+  })
+  it('終了時刻が無ければ開始時刻、完了扱いならすぐ公演後', () => {
+    expect(isPerformanceEnded({ date: '2026-11-07', start_time: '14:00' }, 'confirmed', new Date('2026-11-07T05:00:00Z'))).toBe(true)
+    expect(isPerformanceEnded(perf, 'completed', new Date('2026-11-01T00:00:00Z'))).toBe(true)
+    expect(isPerformanceEnded(null, 'completed', new Date())).toBe(false)
+  })
+  it('タブは 思い出／メンバー／チャット、初期は思い出', () => {
+    expect(groupTabsFor(true).map(t => t.label)).toEqual(['思い出', 'メンバー', 'チャット'])
+    expect(groupTabsFor(false).map(t => t.id)).toEqual(['overview', 'dates', 'members', 'chat'])
+    expect(defaultGroupTab('confirmed', true)).toBe('memories')
+    expect(parseGroupTab('memories')).toBe('memories')
+  })
+  it('公演後は概要・日程を思い出に、公演前は思い出を初期タブに読み替える', () => {
+    expect(resolveGroupTab('dates', 'confirmed', true)).toBe('memories')
+    expect(resolveGroupTab('overview', 'confirmed', true)).toBe('memories')
+    expect(resolveGroupTab('chat', 'confirmed', true)).toBe('chat')
+    expect(resolveGroupTab(null, 'confirmed', true)).toBe('memories')
+    expect(resolveGroupTab('memories', 'confirmed', false)).toBe('overview')
+    expect(resolveGroupTab('memories', 'pre_request', false)).toBe('dates')
+  })
+  it('開催の表示', () => {
+    expect(performanceLabel({ date: '2026-11-07', start_time: '14:00:00', store_name: '高田馬場店' })).toBe('11/7(土) 14:00 高田馬場店')
+    expect(performanceLabel({ date: '2026-11-07', start_time: null, store_name: null })).toBe('11/7(土)')
+  })
+})
+
+describe('未読', () => {
+  const msgs = [
+    { created_at: '2026-10-10T01:00:00Z', member_id: 'a' },
+    { created_at: '2026-10-10T02:00:00Z', member_id: 'me' },
+    { created_at: '2026-10-10T03:00:00Z', member_id: 'b' },
+  ]
+  it('見た時刻より新しい、自分以外の数', () => {
+    expect(countUnread(msgs, 'me', '2026-10-10T00:30:00Z')).toBe(2)
+    expect(countUnread(msgs, 'me', '2026-10-10T02:30:00Z')).toBe(1)
+  })
+  it('見た記録が無ければ 0', () => {
+    expect(countUnread(msgs, 'me', null)).toBe(0)
+  })
+  it('灰色の 1 行のお知らせは数えない', () => {
+    const withLine = [...msgs, { created_at: '2026-10-10T04:00:00Z', member_id: null, line: true }, { created_at: '2026-10-10T05:00:00Z', member_id: null, line: false }]
+    expect(countUnread(withLine, 'me', '2026-10-10T02:30:00Z', m => Boolean((m as { line?: boolean }).line))).toBe(2)
+  })
+})
+
+describe('いまの状態の箱: 配役（日程確定後）', () => {
+  const base = (casting: GroupStatusInput['casting'], isOrganizer = true): GroupStatusInput => ({
+    status: 'confirmed', phase: 'confirmed', isOrganizer, organizerName: null, memberCount: 4,
+    table: buildAnswerTable(group, 'org'), myMemberId: 'org', confirmed: { date: '2099-11-07', start_time: '14:00', store_name: '本店' },
+    performance: { date: '2099-11-07', start_time: '14:00', store_name: '本店' },
+    requestedAt: null, surveyPending: false, handover: null, canMutateSchedule: false, todayYmd: '2026-10-10', casting,
+  })
+  it('④-a 主催者: 決め方の 2 つのボタン、チャットの 1 行は「選ぶ ›」で決め方のシート', () => {
+    const v = buildGroupStatus(base({ method: null, needsChoice: true, confirmed: false, myPicked: false, picked: 0, total: 4 }))
+    expect(v.chip).toBe('配役の決め方を選ぶ')
+    expect(v.primary).toEqual({ kind: 'casting_survey', label: '事前配役アンケートで希望を伝える' })
+    expect(v.secondary).toEqual([{ kind: 'casting_self', label: '自分たちで決める' }])
+    expect(v.barAction?.kind).toBe('casting_method')
+    expect(v.barLabel).toBe('選ぶ ›')
+    expect(v.tone).toBe('green')
+  })
+  it('④-b キャラクターを選ぶ、④-c 主催者が確定する（未回答の人に知らせる）', () => {
+    const b = buildGroupStatus(base({ method: 'self', needsChoice: true, confirmed: false, myPicked: false, picked: 2, total: 4 }, false))
+    expect(b.chip).toBe('やりたいキャラクターを選ぶ')
+    expect(b.sub).toBe('希望を出した人 2/4')
+    expect(b.primary).toEqual({ kind: 'casting_pick', label: 'キャラクターを選ぶ' })
+    expect(b.oneLine).toBe('やりたいキャラクターを選ぶ・希望 2/4')
+    const c = buildGroupStatus(base({ method: 'self', needsChoice: true, confirmed: false, myPicked: true, picked: 3, total: 4 }))
+    expect(c.chip).toBe('配役を確定する')
+    expect(c.secondary.map(s => s.kind)).toEqual(['casting_remind'])
+    expect(c.barLabel).toBe('確定する ›')
+    const all = buildGroupStatus(base({ method: 'self', needsChoice: true, confirmed: false, myPicked: true, picked: 4, total: 4 }))
+    expect(all.sub).toBe('希望 4/4 そろいました')
+    expect(all.secondary).toEqual([])
+    expect(all.body).toBe('全員の希望が出ました。重なりを調整して配役を確定してください。')
+  })
+  it('確定後は開催の箱（1 行は概要へ）', () => {
+    const v = buildGroupStatus(base({ method: 'self', needsChoice: true, confirmed: true, myPicked: true, picked: 4, total: 4 }))
+    expect(v.action).toBe('upcoming')
+    expect(v.barAction).toBeUndefined()
+  })
+})
+
+describe('申込済みの主催者の欄（点検 42）', () => {
+  const direct = {
+    members: [member('org', { is_organizer: true }), member('jiro')],
+    candidate_dates: [cand('d1', '2026-11-03', '13:00', []), cand('d2', '2026-11-04', '18:00', []), cand('d3', '2026-11-05', '13:00', [], { status: 'rejected' })],
+  } as unknown as PrivateGroup
+
+  it('申込前は主催者の空欄は未回答のまま', () => {
+    const t = buildAnswerTable(direct, 'org')
+    expect(t.rows.every(r => r.cells.org === null)).toBe(true)
+    expect(t.columns.find(c => c.memberId === 'org')?.answeredAll).toBe(false)
+  })
+
+  it('申込済みは申し込んだ候補日を ○ とみなし、回答済みにする', () => {
+    const t = buildAnswerTable(direct, 'org', { organizerRequested: [{ date: '2026-11-03', startTime: '13:00:00' }, { date: '2026-11-04', startTime: '18:00' }] })
+    expect(t.rows.find(r => r.id === 'd1')?.cells.org).toBe('ok')
+    expect(t.rows.find(r => r.id === 'd2')?.cells.org).toBe('ok')
+    expect(t.rows.find(r => r.id === 'd3')?.cells.org).toBeNull()
+    expect(t.columns.find(c => c.memberId === 'org')?.answeredAll).toBe(true)
+    // メンバーの空欄はそのまま
+    expect(t.rows.find(r => r.id === 'd1')?.cells.jiro).toBeNull()
+  })
+
+  it('申し込んだ候補日が一部なら、それ以外は空欄のまま', () => {
+    const t = buildAnswerTable(direct, 'org', { organizerRequested: [{ date: '2026-11-04', startTime: '18:00' }] })
+    expect(t.rows.find(r => r.id === 'd1')?.cells.org).toBeNull()
+    expect(t.rows.find(r => r.id === 'd2')?.cells.org).toBe('ok')
+    expect(t.columns.find(c => c.memberId === 'org')?.answeredAll).toBe(false)
+  })
+
+  it('主催者が回答していればその回答を使う', () => {
+    const answered = { ...direct, candidate_dates: [cand('d1', '2026-11-03', '13:00', [['org', 'ng']])] } as unknown as PrivateGroup
+    const t = buildAnswerTable(answered, 'org', { organizerRequested: 'all' })
+    expect(t.rows[0].cells.org).toBe('ng')
+  })
+})

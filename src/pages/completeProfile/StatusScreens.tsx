@@ -9,8 +9,11 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
+import { successRedirectMessage, type SuccessDestination } from './successRedirect'
+import type { SignupLinkError } from './linkError'
+import { buildAuthUrl, buildSignupEmailRedirectTo } from '@/lib/authReturn'
 
-export function SuccessScreen({ navigate }: { navigate: NavigateFunction }) {
+export function SuccessScreen({ navigate, destination }: { navigate: NavigateFunction; destination: SuccessDestination }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
       <Card className="w-full max-w-md">
@@ -21,14 +24,14 @@ export function SuccessScreen({ navigate }: { navigate: NavigateFunction }) {
             アカウントの設定が完了しました。
           </p>
           <p className="text-sm text-gray-500">
-            3秒後にトップページに移動します...
+            {successRedirectMessage(destination.kind)}
           </p>
           <Button 
-            onClick={() => navigate('/', { replace: true })}
+            onClick={() => navigate(destination.url, { replace: true })}
             className="w-full"
             style={{ backgroundColor: THEME.primary }}
           >
-            今すぐトップページへ
+            今すぐ移動する
           </Button>
         </CardContent>
       </Card>
@@ -46,35 +49,34 @@ interface ReopenLinkScreenProps {
   resendLoading: boolean
   setResendLoading: Dispatch<SetStateAction<boolean>>
   navigate: NavigateFunction
+  /** リンクが使えなかった理由（URL から読んだもの） */
+  linkError: SignupLinkError
+  /** 登録後に戻る画面（再送するメールのリンクにも載せる） */
+  nextUrl: string | null
 }
 
-export function ReopenLinkScreen({ resendEmailInput, setResendEmailInput, resendMessage, setResendMessage, resendError, setResendError, resendLoading, setResendLoading, navigate }: ReopenLinkScreenProps) {
+/**
+ * 確認メールのリンクが使えないとき（期限切れ・使用済み・ログイン情報なし）の画面（点検 11）。
+ * 今の仕組みはどのブラウザで開いてもよいため「同じブラウザで開く」案内はしない。
+ */
+export function ReopenLinkScreen({ resendEmailInput, setResendEmailInput, resendMessage, setResendMessage, resendError, setResendError, resendLoading, setResendLoading, navigate, linkError, nextUrl }: ReopenLinkScreenProps) {
+  const title = linkError === 'other' ? '確認リンクを開けませんでした' : 'リンクの期限が切れました'
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
       <Card className="w-full max-w-md">
         <CardContent className="p-6 sm:p-8 text-center space-y-4">
           <AlertCircle className="w-16 h-16 text-amber-500 mx-auto" />
-          <h2 className="text-xl font-bold text-amber-800">確認リンクを開き直してください</h2>
+          <h2 className="text-xl font-bold text-amber-800">{title}</h2>
           <p className="text-muted-foreground text-sm">
-            セキュリティのため、確認メールのリンクは<br />
-            <strong>登録時と同じブラウザ</strong>で開く必要があります。
+            もう一度メールを送ってください。<br />
+            確認メールのリンクは一度だけ使え、時間が経つと使えなくなります。
           </p>
-          <div className="bg-amber-50 border border-amber-200 rounded p-3 text-left text-sm">
-            <p className="font-medium text-amber-800 mb-2">解決方法：</p>
-            <ol className="list-decimal list-inside text-amber-700 space-y-1">
-              <li>登録時に使ったブラウザを開く</li>
-              <li>確認メールのリンクをコピー</li>
-              <li>そのブラウザに貼り付けて開く</li>
-            </ol>
-          </div>
-          <div className="border border-gray-200 rounded-lg p-4 text-left space-y-2 bg-white">
-            <p className="text-sm font-medium text-gray-800">確認メールを再送する</p>
-            <p className="text-xs text-gray-600">
-              登録時のメールアドレスを入力して送信してください（登録途中の場合に再送できます）。
-            </p>
+          <div className="border border-border rounded-lg p-4 text-left space-y-2 bg-white">
+            <label htmlFor="resend-email" className="ts-label block">登録したメールアドレス</label>
             <Input
+              id="resend-email"
               type="email"
-              placeholder="登録したメールアドレス"
+              placeholder="例: your@email.com"
               value={resendEmailInput}
               onChange={(e) => {
                 setResendEmailInput(e.target.value)
@@ -91,13 +93,13 @@ export function ReopenLinkScreen({ resendEmailInput, setResendEmailInput, resend
             )}
             <Button
               type="button"
-              variant="secondary"
               className="w-full"
+              style={{ backgroundColor: THEME.primary }}
               disabled={resendLoading}
               onClick={async () => {
                 setResendError('')
                 setResendMessage('')
-                const redirect = `${window.location.origin}/complete-profile`
+                const redirect = buildSignupEmailRedirectTo(window.location.origin, nextUrl)
                 setResendLoading(true)
                 try {
                   const result = await resendSignupConfirmationEmail(
@@ -106,7 +108,7 @@ export function ReopenLinkScreen({ resendEmailInput, setResendEmailInput, resend
                   )
                   if (result.ok) {
                     setResendMessage(
-                      '送信しました。メールをご確認ください（迷惑メールフォルダもご確認ください）。'
+                      '送信しました。届いたメールのリンクを開いてください（迷惑メールフォルダもご確認ください）。'
                     )
                   } else {
                     setResendError(result.message)
@@ -116,18 +118,15 @@ export function ReopenLinkScreen({ resendEmailInput, setResendEmailInput, resend
                 }
               }}
             >
-              {resendLoading ? '送信中…' : '確認メールを再送'}
+              {resendLoading ? '送信中…' : 'もう一度メールを送る'}
             </Button>
           </div>
-          <p className="text-xs text-gray-500">
-            別のメールでやり直す場合は新規登録画面へ。
-          </p>
-          <Button 
-            onClick={() => navigate('/signup', { replace: true })}
+          <Button
+            onClick={() => navigate(buildAuthUrl('signup', nextUrl), { replace: true })}
             className="w-full"
             variant="outline"
           >
-            新規登録画面に戻る
+            別のメールアドレスで登録する
           </Button>
         </CardContent>
       </Card>

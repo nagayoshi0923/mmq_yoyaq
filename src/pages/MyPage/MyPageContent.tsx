@@ -10,7 +10,10 @@ import { EditPlayHistoryDialog } from './components/EditPlayHistoryDialog'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import { ReservationsTab, type ReservationsSubTab } from './components/ReservationsTab'
 import { buildPrivateBookingView, countActivePrivateBookings, isPrivateReservation } from './components/PrivateBookingCards/privateBookingModel'
-import { usePrivateSurveyStatusQuery } from './hooks/usePrivateSurveyStatusQuery'
+import { usePrivateCastingConfirmedQuery, usePrivateSurveyStatusQuery } from './hooks/usePrivateSurveyStatusQuery'
+import { useQuery } from '@tanstack/react-query'
+import { fetchAlbumCovers } from '@/lib/privateGroupChat'
+import { findAlbumCover, memoriesHref } from './utils/albumCovers'
 import { useCouponsQuery } from './hooks/useCouponsQuery'
 import { countUsableCoupons } from './utils/couponListVisibility'
 import { formatJstDateJa, toJstYmd } from '@/utils/jstDate'
@@ -131,7 +134,15 @@ export function MyPageContent({
   addManualHistoryMutation, handleAddManualHistory, handleDeleteManualHistory,
   duplicateConfirmTitle, setDuplicateConfirmTitle, handleConfirmDuplicateAdd,
 }: MyPageContentProps) {
+  // 貸切グループの写真（段階 4）。アルバムを開いたときだけ読む。署名付き URL は 1 時間なので 50 分で読み直す
+  const { data: albumCovers = [] } = useQuery({
+    queryKey: ['mypage-album-covers'],
+    enabled: activeTab === 'album' && Boolean(customerId),
+    staleTime: 50 * 60 * 1000,
+    queryFn: fetchAlbumCovers,
+  })
   const renderAlbumCard = (scenario: PlayedScenario) => {
+    const cover = findAlbumCover(scenario, albumCovers)
     const isHidden = isScenarioHidden(scenario)
     const isDeleted = isScenarioDeleted(scenario)
     const isOverridden = isScenarioOverridden(scenario)
@@ -181,6 +192,21 @@ export function MyPageContent({
             <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
               <span className="text-4xl opacity-30">🎭</span>
             </div>
+          )}
+          {/* その公演の貸切グループの写真（最新 1 枚）。押すとグループの思い出へ */}
+          {cover && (
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); navigate(memoriesHref(cover)) }}
+              className="absolute right-1.5 bottom-1.5 z-10 w-14 h-14 rounded-md overflow-hidden border-2 border-white shadow-md bg-muted"
+              aria-label={`グループの写真（${cover.photoCount}枚）を見る`}
+              data-testid="album-group-photo"
+            >
+              <img src={cover.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+              {cover.photoCount > 1 && (
+                <span className="absolute right-0 bottom-0 bg-black/60 text-white text-xs leading-none px-1 py-0.5 rounded-tl-md">{cover.photoCount}</span>
+              )}
+            </button>
           )}
         </div>
         {/* タイトル・日付部分 */}
@@ -426,9 +452,10 @@ export function MyPageContent({
     .sort((a, b) => new Date(b.requested_datetime).getTime() - new Date(a.requested_datetime).getTime())
 
   const { data: surveyPending } = usePrivateSurveyStatusQuery(privateGroups, todayYmd)
+  const { data: castingConfirmed } = usePrivateCastingConfirmedQuery(privateGroups, todayYmd)
   const privateView = useMemo(
-    () => buildPrivateBookingView({ groups: privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending: surveyPending ?? {}, todayYmd }),
-    [privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending, todayYmd],
+    () => buildPrivateBookingView({ groups: privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending: surveyPending ?? {}, castingConfirmed: castingConfirmed ?? {}, todayYmd, stores }),
+    [privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending, castingConfirmed, todayYmd, stores],
   )
 
   // タブのバッジの数字（意味は docs/product-spec/マイページ改修_2026-10.md「数字の意味」）
@@ -521,18 +548,19 @@ export function MyPageContent({
                   aria-selected={isActive}
                   aria-label={count !== null && count > 0 && COUNT_MEANINGS[item.id] ? `${item.label}（${COUNT_MEANINGS[item.id](count)}）` : item.label}
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-medium transition-all relative ${
+                  className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 min-h-14 py-2 sm:py-4 text-xs sm:text-sm font-medium transition-all relative ${
                     isActive 
                       ? 'text-mypage-primary' 
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   <Icon className="w-5 h-5" aria-hidden="true" />
-                  <span className="hidden sm:inline">{item.label}</span>
+                  {/* スマホでもアイコンの下に文字を出す（点検 40） */}
+                  <span>{item.label}</span>
                   {count !== null && count > 0 && (
                     <span 
                       aria-hidden="true"
-                      className={`text-xs px-1.5 py-0.5 rounded-full ${
+                      className={`absolute top-1 right-1 sm:static text-xs px-1.5 py-0.5 rounded-full ${
                         isActive ? 'text-white bg-mypage-primary' : 'bg-gray-200 text-gray-600'
                       }`}
                     >
@@ -732,13 +760,13 @@ export function MyPageContent({
       {/* フローティングアクションボタン - シャープデザイン */}
       <div className="fixed bottom-6 right-6 z-20">
         <Button 
-          className="w-14 h-14 text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-mypage-primary hover:bg-mypage-primary-hover rounded-none"
-          size="icon"
+          className="h-12 px-4 gap-2 text-sm font-bold text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-mypage-primary hover:bg-mypage-primary-hover rounded-none"
           onClick={() => navigate('/')}
           aria-label="公演を探す（トップへ）"
           title="公演を探す"
         >
-          <Sparkles className="w-6 h-6" aria-hidden="true" />
+          <Sparkles className="w-5 h-5" aria-hidden="true" />
+          公演を探す
         </Button>
       </div>
 

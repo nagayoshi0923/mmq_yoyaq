@@ -1,5 +1,5 @@
 -- 正規ソース: supabase/schemas/reservations.sql
--- 最終更新: 2026-09-27
+-- 最終更新: 2026-10-12
 CREATE TABLE public.reservations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   reservation_number TEXT UNIQUE DEFAULT generate_reservation_number(),
@@ -65,7 +65,13 @@ CREATE TABLE public.reservations (
     CHECK (cancellation_policy_fees IS NULL OR jsonb_typeof(cancellation_policy_fees) = 'array'),
   cancellation_policy_fee_basis TEXT
     CHECK (cancellation_policy_fee_basis IN ('participant_total', 'performance_total')),
-  cancellation_policy_updated_at TIMESTAMPTZ
+  cancellation_policy_updated_at TIMESTAMPTZ,
+  -- migration 20260612230000: 予約が確定した日時
+  confirmed_at TIMESTAMPTZ,
+  -- migration 20260612234000: 取消したスタッフ
+  cancelled_by UUID REFERENCES public.staff(id),
+  -- migration 20260627120000: 遅刻して来店したか（checked_in 時のみ意味を持つ）
+  arrived_late BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- Indexes

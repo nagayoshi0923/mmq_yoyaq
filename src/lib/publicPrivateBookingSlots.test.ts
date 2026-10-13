@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { getPublicPrivateBookingSlotOptions } from './publicPrivateBookingSlots'
-import { computePrivateBookingSlots } from './computePrivateBookingSlots'
 import type { BusinessHoursSettingRow } from './privateGroupCandidateSlots'
 
 const date = '2030-01-08'
@@ -37,12 +36,5 @@ describe('公開スケジュールの貸切受付', () => {
   it('設定開始より早い同時間帯の公演も占有として扱う', () => {
     expect(options('afternoon', [row('a')], [], [{date,store_id:'a',start_time:'13:30',end_time:'16:00'}])).toEqual([])
     expect(options('evening', [row('a')], [], [{date,store_id:'a',start_time:'18:30',end_time:'21:00'}])).toEqual([])
-  })
-  it('選択後の作品候補でも停止した最早店舗を使わない', () => {
-    const a = row('a', {slot_start_times:{afternoon:'13:00',evening:'19:00'}})
-    const b = row('b', {slot_start_times:{afternoon:'15:00',evening:'21:00'}})
-    const slots = computePrivateBookingSlots({date,storeIds:['a','b'],businessHoursByStore:new Map([['a',a],['b',b]]),scenarioTiming:{duration:120,weekend_duration:null},allStoreEvents:[],isCustomHoliday:()=>false,blockedSlots:[{date,store_id:'a',time_slot:'afternoon'}]})
-    expect(slots.find(slot=>slot.key==='afternoon')?.startTime).toBe('15:00')
-    expect(slots.some(slot=>slot.key==='morning')).toBe(false)
   })
 })

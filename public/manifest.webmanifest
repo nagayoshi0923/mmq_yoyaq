@@ -1,0 +1,16 @@
+{
+  "name": "MMQ マーダーミステリー予約",
+  "short_name": "MMQ",
+  "description": "マーダーミステリーの公演予約と貸切グループ",
+  "lang": "ja",
+  "start_url": "/mypage?tab=reservations&sub=private",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

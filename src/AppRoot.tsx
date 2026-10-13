@@ -13,7 +13,10 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { supabase } from '@/lib/supabase'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import { isCustomerProfileComplete } from '@/utils/customerProfileGate'
+import { isBrowseOnlyPage } from '@/lib/profileGate'
+import { buildCompleteProfilePath, readReturnToFromSearch } from '@/lib/authReturn'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
+import { isPublicStoresPath } from '@/lib/seo'
 import { useFavicon } from '@/hooks/useFavicon'
 import { GlobalCommandPalette } from '@/components/GlobalCommandPalette'
 
@@ -210,7 +213,8 @@ function BookingShellLazyFallback() {
 // ⚠️ ダイアログ状態用の query param（event=xxx 等）はナビゲーションと見なさない。
 //    setSearchParams で ?event=xxx を付けるとここで scroll=0 が走り、スケジュール
 //    画面で公演ダイアログを開いた瞬間に最上部に飛ぶ問題があったため。
-const DIALOG_QUERY_PARAMS = ['event']
+// event・count は作品ページで選んだ公演と人数（選ぶたびに URL を書き換えるため、上へ戻さない）
+const DIALOG_QUERY_PARAMS = ['event', 'count']
 
 function stripDialogParams(search: string): string {
   if (!search) return ''
@@ -368,7 +372,10 @@ function AppRoutes() {
     const isInvitePage = location.pathname.startsWith('/group/invite/')
     const isPartnerReportPage = location.pathname.startsWith('/partner-report/')
 
-    if (location.pathname === '/coupon-claim' || location.pathname === '/recruitment-response' || !user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage || isInvitePage || isPartnerReportPage) {
+    // 見るだけのページ（トップ・作品ページ・店舗一覧など）は登録前でも見せる。予約などを押した時に求める（点検 9）
+    const isBrowseOnly = isBrowseOnlyPage(location.pathname, location.search)
+
+    if (location.pathname === '/coupon-claim' || location.pathname === '/recruitment-response' || !user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage || isInvitePage || isPartnerReportPage || isBrowseOnly) {
       setIsProfileCheckRunning(false)
       return
     }
@@ -391,18 +398,17 @@ function AppRoutes() {
 
         if (error) {
           // 読み取り失敗時は安全側（必須情報が揃っていると確定できない）
-          navigate('/complete-profile?next=' + encodeURIComponent(location.pathname), { replace: true })
+          navigate(buildCompleteProfilePath(`${location.pathname}${location.search}`), { replace: true })
           return
         }
 
         const isComplete = isCustomerProfileComplete(customer, user.email)
         if (!isComplete) {
-          const next = `${location.pathname}${location.search}`
-          navigate(`/complete-profile?next=${encodeURIComponent(next)}`, { replace: true })
+          navigate(buildCompleteProfilePath(`${location.pathname}${location.search}`), { replace: true })
         }
       } catch {
         if (!cancelled) {
-          navigate('/complete-profile?next=' + encodeURIComponent(location.pathname), { replace: true })
+          navigate(buildCompleteProfilePath(`${location.pathname}${location.search}`), { replace: true })
         }
       } finally {
         if (!cancelled) setIsProfileCheckRunning(false)
@@ -485,7 +491,9 @@ function AppRoutes() {
       const authenticatedHome = user.isStoreRepresentative
         ? `${organization?.slug ? `/${organization.slug}` : ''}/store-dashboard`
         : '/dashboard'
-      return <Navigate to={user.role === 'customer' ? '/' : authenticatedHome} replace />
+      // 戻り先付きで開かれたお客様は、その画面へ（例: 別のタブで先にログインしていた）
+      const customerHome = readReturnToFromSearch(location.search) ?? '/'
+      return <Navigate to={user.role === 'customer' ? customerHome : authenticatedHome} replace />
     }
     return (
       <Suspense fallback={<FullPageSpinner />}>
@@ -499,7 +507,8 @@ function AppRoutes() {
       const authenticatedHome = user.isStoreRepresentative
         ? `${organization?.slug ? `/${organization.slug}` : ''}/store-dashboard`
         : '/dashboard'
-      return <Navigate to={user.role === 'customer' ? '/' : authenticatedHome} replace />
+      const customerHome = readReturnToFromSearch(location.search) ?? '/'
+      return <Navigate to={user.role === 'customer' ? customerHome : authenticatedHome} replace />
     }
     return (
       <Suspense fallback={<FullPageSpinner />}>
@@ -555,7 +564,11 @@ function AppRoutes() {
         '/sales',
         '/settings',
       ]
-      if (adminPaths.some((path) => location.pathname.startsWith(path))) {
+      // `/stores` は公開の参加店舗一覧（フッターの「参加店舗一覧」）。管理画面の旧 URL と同じ綴りなのでここで除く
+      if (
+        !isPublicStoresPath('stores', location.pathname)
+        && adminPaths.some((path) => location.pathname.startsWith(path))
+      ) {
         // 未ログインはログインへ（戻り先保持）。顧客は予約サイトへ。
         if (!user) {
           const redirect = encodeURIComponent(location.pathname + location.search)

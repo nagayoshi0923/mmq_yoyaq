@@ -1,0 +1,6 @@
+{
+ "stores_public": {
+  "def": " SELECT id,\n    name,\n    short_name,\n    address,\n    opening_date,\n    status,\n    capacity,\n    rooms,\n    color,\n    is_temporary,\n    temporary_date,\n    temporary_dates,\n    organization_id,\n    display_order,\n    region,\n    temporary_venue_names,\n    kit_group_id,\n    access_info,\n    created_at,\n    updated_at,\n    ownership_type,\n    public_name\n   FROM stores\n  WHERE ownership_type IS NULL OR ownership_type <> 'office'::text;",
+  "kind": "v"
+ }
+}

@@ -25,9 +25,11 @@ export interface AvailabilityEventRow {
   end_time: string
 }
 
-/** 申請に含める候補（選択したもののうち却下済みを除く） */
-export function selectBookableCandidates<T extends BookingCandidate>(candidates: T[] | undefined, selectedIds: Set<string>): T[] {
-  return candidates?.filter(cd => selectedIds.has(cd.id) && cd.status !== 'rejected') || []
+/** 申請に含める候補（選んだ順＝優先順のまま。却下済み・見つからない id は除く） */
+export function selectBookableCandidates<T extends BookingCandidate>(candidates: T[] | undefined, orderedIds: ReadonlyArray<string>): T[] {
+  return orderedIds
+    .map(id => candidates?.find(cd => cd.id === id))
+    .filter((cd): cd is T => Boolean(cd) && cd!.status !== 'rejected')
 }
 
 /** 締切日数を数値として読めたときだけ返す（読めないときは止めず、DB の確認に任せる） */
@@ -88,7 +90,7 @@ export function generateReservationNumber(now: Date = new Date(), random: () => 
   return `${dateStr}-${randomStr}`
 }
 
-/** 申込に保存する候補日時（終了は営業枠ではなくシナリオ公演時間）と希望店舗 */
+/** 申込に保存する候補日時（並び＝優先順。order は 1 から。終了は営業枠ではなくシナリオ公演時間）と希望店舗 */
 export function buildCandidateDatetimes(
   candidates: BookingCandidate[],
   stores: Array<{ id: string; name: string }>,

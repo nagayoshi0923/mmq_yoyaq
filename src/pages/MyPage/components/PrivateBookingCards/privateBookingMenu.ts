@@ -36,7 +36,7 @@ export interface PrivateBookingMenuContext {
   hasGroup: boolean
   /** 紐づく申込・予約がある（取り下げ・キャンセルの対象） */
   hasReservation: boolean
-  /** 公演前アンケートがある（確定後のみ意味がある） */
+  /** 事前配役アンケートがある（確定後のみ意味がある） */
   hasSurvey: boolean
   /** 自分が未回答の候補日がある（メンバーのみ） */
   hasUnansweredDates: boolean
@@ -51,7 +51,7 @@ const LABELS: Record<PrivateBookingMenuItemId, string> = {
   manage_members: 'メンバーを管理',
   cancel_handover: '引き継ぎの依頼を取り消す',
   answer_dates: '日程に回答する',
-  view_survey: 'アンケートを見る',
+  view_survey: '事前配役アンケートを見る',
   contact_store: '店舗に問い合わせる',
   close_group: 'グループを閉じる',
   withdraw: '申込を取り下げる',
@@ -181,6 +181,10 @@ export interface PrivateGroupInquiryInfo {
   /** いまの状態（例「人集め中」「店舗の返事待ち」「確定 10/25(土)」） */
   statusLabel: string
   inviteCode: string | null
+  /** 公演日時（例「10/29(木) 19:00 開演」）。通常の予約の問い合わせで入れる */
+  datetimeLabel?: string | null
+  /** 会場名 */
+  storeName?: string | null
 }
 
 /** 問い合わせ本文の初期値。予約情報を先頭に入れ、その下にお客様が書く欄を空けておく */
@@ -188,6 +192,8 @@ export function buildInquiryMessage(info: PrivateGroupInquiryInfo): string {
   const lines = ['【予約情報】']
   if (info.reservationNumber) lines.push(`予約番号: ${info.reservationNumber}`)
   lines.push(`作品: ${info.title || '-'}`)
+  if (info.datetimeLabel) lines.push(`日時: ${info.datetimeLabel}`)
+  if (info.storeName) lines.push(`会場: ${info.storeName}`)
   lines.push(`状態: ${info.statusLabel}`)
   if (info.inviteCode) lines.push(`招待コード: ${info.inviteCode}`)
   lines.push('', '【お問い合わせ内容】', '')

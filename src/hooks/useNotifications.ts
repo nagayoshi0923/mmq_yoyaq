@@ -4,7 +4,7 @@ import { customerLookupReadApi, notificationReadApi } from '@/lib/api/customerHo
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { formatJstYmd } from '@/utils/jstDate'
+import { formatJstMonthDay, formatJstTime, formatJstYmd } from '@/utils/jstDate'
 import { userNotificationApi } from '@/lib/api/globalSettingsApi'
 
 export interface Notification {
@@ -130,7 +130,8 @@ export function useNotifications() {
           id: notifId,
           type: 'reservation_confirmed',
           title: '予約が確定しました',
-          message: `「${res.title}」のご予約を承りました`,
+          // DB 側の通知と同じ形（「作品」10/25(日) 14:00のご予約を承りました）
+          message: `「${res.title}」${res.requested_datetime ? ` ${formatJstMonthDay(res.requested_datetime, true)} ${formatJstTime(res.requested_datetime)}` : ''}のご予約を承りました`,
           timestamp: new Date(res.created_at),
           read: readIds.has(notifId),
           link: '/mypage',

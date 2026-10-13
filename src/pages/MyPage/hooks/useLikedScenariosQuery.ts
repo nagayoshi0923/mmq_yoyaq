@@ -86,6 +86,9 @@ export interface WishlistNextEvent {
   startTime: string
   venue: string | null
   remaining: number | null
+  /** 予約済みの人数と定員（残席の「2/8」表記用。定員が分からなければ null） */
+  booked: number
+  capacity: number | null
   /** 作品ページの公演選択へ（?event= で公演を選んだ状態で開く） */
   href: string
 }
@@ -124,6 +127,8 @@ export function pickNextEvents(rows: UpcomingEventRow[], now: { date: string; ti
       startTime: pick.start_time.slice(0, 5),
       venue: pick.venue,
       remaining: remainingOf(pick),
+      booked: pick.current_participants ?? 0,
+      capacity: pick.max_participants ?? null,
       href: `${path}?event=${encodeURIComponent(pick.id)}`,
     }
   }

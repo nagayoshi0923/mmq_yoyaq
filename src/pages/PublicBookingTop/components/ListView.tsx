@@ -4,7 +4,10 @@ import { memo, useMemo, useCallback } from 'react'
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BookingFilters } from './BookingFilters'
-import { OptimizedImage } from '@/components/ui/optimized-image'
+import { KeyVisualThumb } from '@/components/public-top/KeyVisualThumb'
+import type { StoreOption } from '@/components/public-top/StorePicker'
+import { storeShortDisplayName } from '@/lib/publicStoreName'
+import { isFewSeats, seatCountText } from '@/lib/seatLabel'
 import { formatDateJST } from '@/utils/dateUtils'
 import { scenarioCardId, scenarioCardTitle, type EnrichedPublicEvent, type PublicCalendarEvent, type PublicEventRow, type PublicStoreRow, type ScenarioCard } from '../hooks/useBookingData'
 
@@ -19,6 +22,9 @@ interface ListViewProps {
   selectedStoreIds: string[]
   onStoreIdsChange: (storeIds: string[]) => void
   stores: PublicStoreRow[]
+  /** 上の操作列の店舗の選択肢（お客様向けの名前） */
+  storeOptions: StoreOption[]
+  primaryColor: string
   listViewData: ListViewData[]
   getEventsForDateStore: (date: number, storeId: string) => EnrichedPublicEvent[]
   getColorFromName: (color: string) => string
@@ -38,6 +44,7 @@ interface ListViewProps {
 
 /**
  * リストビューコンポーネント
+ * 2026-10-12 社長決定: 元の見た目を維持。変えたのは店舗名（お客様向けの短い名前）・上の操作列のチップ・作品画像の比率だけ。
  */
 export const ListView = memo(function ListView({
   listViewMonth,
@@ -45,6 +52,8 @@ export const ListView = memo(function ListView({
   selectedStoreIds,
   onStoreIdsChange,
   stores,
+  storeOptions,
+  primaryColor,
   listViewData,
   getEventsForDateStore,
   getColorFromName,
@@ -105,7 +114,6 @@ export const ListView = memo(function ListView({
     return blockedEventsByDateStoreSlot.get(key) || []
   }, [blockedEventsByDateStoreSlot, listViewMonth])
   
-  // 前公演のend_time + 1時間から開始時間を計算
   const renderEventCell = (events: EnrichedPublicEvent[], store: PublicStoreRow, timeSlot: 'morning' | 'afternoon' | 'evening', date: number) => {
     // GMテスト等のブロックイベントを取得してマージ
     const blockedEvents = getBlockedEvents(date, store.id, timeSlot)
@@ -154,15 +162,15 @@ export const ListView = memo(function ListView({
     if (allEvents.length === 0) {
       // 締切を過ぎている場合は貸切ボタンを表示しない
       if (!canApplyPrivateBooking) {
-        return <div className="p-1 sm:p-2 text-xs text-gray-400 text-center">-</div>
+        return <div className="p-1 sm:p-2 text-xs fg-gray-400 text-center">-</div>
       }
       const options = getPrivateOptions(dateStr, timeSlot, [store.id])
-      if (options.length === 0) return <div className="p-1 sm:p-2 text-xs text-gray-400 text-center">-</div>
+      if (options.length === 0) return <div className="p-1 sm:p-2 text-xs fg-gray-400 text-center">-</div>
       const suggestedTime = options[0].startTime
       return (
         <div className="p-1 sm:p-2">
           <button
-            className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
+            className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 fg-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
             onClick={() => {
               const basePath = organizationSlug ? `/${organizationSlug}` : ''
               const storeParam = options.map(option => option.storeId).join(',')
@@ -201,7 +209,7 @@ export const ListView = memo(function ListView({
         return (
           <div key={idx} className="p-1 sm:p-2">
             <div
-              className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed flex items-center justify-between"
+              className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-gray-200 bg-gray-100 fg-gray-400 cursor-not-allowed flex items-center justify-between"
             >
               <span>{event.start_time?.slice(0, 5)}</span>
               <span>貸切満席</span>
@@ -231,32 +239,13 @@ export const ListView = memo(function ListView({
             <div className={`flex-shrink-0 w-[28px] sm:w-[46px] self-stretch overflow-hidden ${
               imageUrl ? 'bg-gray-200' : 'bg-gray-200'
             }`}>
-              {imageUrl ? (
-                <OptimizedImage
-                  src={imageUrl}
-                  alt={event.scenario || (scenario && scenarioCardTitle(scenario)) || 'シナリオ画像'}
-                  responsive={false}
-                  useWebP={true}
-                  quality={70}
-                  lazy={true}
-                  srcSetSizes={[50, 100]}
-                  breakpoints={{ mobile: 50, tablet: 75, desktop: 100 }}
-                  className="w-full h-full object-cover"
-                  fallback={
-                    <div className="w-full h-full bg-gray-200 relative">
-                      <span className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">
-                        No Image
-                      </span>
-                    </div>
-                  }
-                />
-              ) : (
-                <div className="w-full h-full bg-gray-200 relative">
-                  <span className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">
-                    No Image
-                  </span>
-                </div>
-              )}
+              <KeyVisualThumb
+                src={imageUrl}
+                alt={event.scenario || (scenario && scenarioCardTitle(scenario)) || 'シナリオ画像'}
+                seed={event.scenario_master_id || event.id || String(idx)}
+                width={100}
+                className="h-full w-full rounded-none bg-gray-200"
+              />
             </div>
 
             {/* 右カラム: 情報 */}
@@ -264,17 +253,22 @@ export const ListView = memo(function ListView({
               <div className="text-xs sm:text-sm text-left leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
                   {event.start_time?.slice(0, 5)}
                 </div>
-              <div className="text-xs sm:text-sm text-left truncate leading-tight text-gray-800">
+              <div className="text-xs sm:text-sm text-left truncate leading-tight fg-gray-800">
                 {event.scenario}
               </div>
               <div className={`text-xs sm:text-sm text-right leading-tight flex items-center justify-end gap-1`}>
                 {isConfirmed && (
-                  <span className="text-[10px] font-bold px-1 py-0.5 bg-blue-100 text-blue-700">
+                  <span className="ts-10 font-bold px-1 py-0.5 bg-blue-100 text-blue-700">
                     開催決定
                   </span>
                 )}
-                <span className={isFull ? 'text-gray-500' : 'text-gray-600'}>
-                  {isFull ? '満席' : `残${available}`}
+                {isFewSeats(available) && (
+                  <span className="ts-10 font-bold px-1 py-0.5 bg-orange-100 text-orange-600">
+                    残少
+                  </span>
+                )}
+                <span className={isFull ? 'fg-gray-500' : 'fg-gray-600'}>
+                  {isFull ? '満席' : seatCountText(currentParticipants, maxParticipants)}
                 </span>
               </div>
             </div>
@@ -292,12 +286,13 @@ export const ListView = memo(function ListView({
         onMonthChange={onMonthChange}
         selectedStoreIds={selectedStoreIds}
         onStoreIdsChange={onStoreIdsChange}
-        stores={stores}
+        storeOptions={storeOptions}
         hideSoldOut={hideSoldOut}
         onHideSoldOutChange={onHideSoldOutChange}
         hidePlayed={hidePlayed}
         onHidePlayedChange={onHidePlayedChange}
         isLoggedIn={isLoggedIn}
+        primaryColor={primaryColor}
       />
 
       {/* リスト表示テーブル */}
@@ -319,17 +314,17 @@ export const ListView = memo(function ListView({
               <TableHead className="border-r text-xs sm:text-sm text-center">
                 <span className="sm:hidden">朝</span>
                 <span className="hidden sm:inline">朝公演</span>
-                <div className="text-[10px] text-gray-400 font-normal">9:00-12:00</div>
+                <div className="ts-10 fg-gray-400 font-normal">9:00-12:00</div>
               </TableHead>
               <TableHead className="border-r text-xs sm:text-sm text-center">
                 <span className="sm:hidden">昼</span>
                 <span className="hidden sm:inline">昼公演</span>
-                <div className="text-[10px] text-gray-400 font-normal">14:00-18:00</div>
+                <div className="ts-10 fg-gray-400 font-normal">14:00-18:00</div>
               </TableHead>
               <TableHead className="text-xs sm:text-sm text-center">
                 <span className="sm:hidden">夜</span>
                 <span className="hidden sm:inline">夜公演</span>
-                <div className="text-[10px] text-gray-400 font-normal">19:00-23:00</div>
+                <div className="ts-10 fg-gray-400 font-normal">19:00-23:00</div>
               </TableHead>
           </TableRow>
         </TableHeader>
@@ -386,7 +381,7 @@ export const ListView = memo(function ListView({
                 {/* 店舗セル */}
                   <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-xs sm:text-sm w-10 sm:w-16">
                     <div className="whitespace-nowrap overflow-hidden text-ellipsis" style={{ color: getColorFromName(store.color) }}>
-                    {store.short_name || store.name}
+                    {storeShortDisplayName(store, `${listViewMonth.getFullYear()}-${String(listViewMonth.getMonth() + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`)}
                   </div>
                 </TableCell>
 

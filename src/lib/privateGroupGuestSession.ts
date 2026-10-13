@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { requestKey, withRepeatFailureBackoff } from '@/lib/repeatFailureBackoff'
 
 /**
  * ゲストの本人確認の印と参加情報の保存先。
@@ -29,6 +30,25 @@ export const guestStorage = {
 
 const key = (groupId: string) => `private_group_access_${groupId}`
 
+/**
+ * この端末でこの招待のグループにゲストとして参加した印（点検 53）。
+ * 本人確認の期限切れ・「この端末から退出」のあとに開き直したとき、新規参加ではなく「PIN で入る」を大きく出すために使う。
+ * 名前やメールアドレスは残さない。グループから抜けたら消す。
+ */
+const joinedKey = (inviteCode: string) => `private_group_guest_joined_${inviteCode}`
+
+export function markGuestJoined(inviteCode: string) {
+  guestStorage.setItem(joinedKey(inviteCode), '1')
+}
+
+export function hasGuestJoined(inviteCode: string): boolean {
+  return guestStorage.getItem(joinedKey(inviteCode)) === '1'
+}
+
+export function clearGuestJoined(inviteCode: string) {
+  guestStorage.removeItem(joinedKey(inviteCode))
+}
+
 export function savePrivateGroupGuestToken(groupId: string, token: string) {
   guestStorage.setItem(key(groupId), token)
 }
@@ -48,13 +68,18 @@ export async function privateGroupMemberAction(
   action: 'validate' | 'date_responses' | 'message' | 'survey_read' | 'survey_write' | 'character_preference' | 'leave',
   payload: unknown = {},
 ) {
-  const result = await supabase.rpc('private_group_member_action', {
-    p_group_id: groupId,
-    p_member_id: memberId,
-    p_action: action,
-    p_payload: payload,
-    p_guest_token: getPrivateGroupGuestToken(groupId),
-  })
+  // 同じ操作・同じ内容が 3 回続けて失敗したら、次からは 10 秒空けて送る（再送ループで DB が混んだ 2026-10-13 の対策）
+  const result = await withRepeatFailureBackoff(
+    requestKey(`private_group_member_action:${groupId}:${memberId}:${action}`, payload),
+    async () => supabase.rpc('private_group_member_action', {
+      p_group_id: groupId,
+      p_member_id: memberId,
+      p_action: action,
+      p_payload: payload,
+      p_guest_token: getPrivateGroupGuestToken(groupId),
+    }),
+    r => Boolean(r.error),
+  )
   if (result.error?.code === '42501' && /本人確認が必要|参加情報が見つかりません/.test(result.error.message)) {
     clearPrivateGroupGuestToken(groupId)
     window.dispatchEvent(new CustomEvent('private-group-auth-expired', { detail: { groupId } }))

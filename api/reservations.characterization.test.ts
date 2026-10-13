@@ -93,6 +93,7 @@ vi.mock('./_lib/gmResponses.js', () => ({
 }))
 
 import handler from './reservations'
+import { resetWriteFailureLimiter } from './_lib/writeFailureLimiter'
 
 const STAFF = { userId: 'u-staff', role: 'staff', orgId: 'org-1', jwt: 'jwt-fixture' }
 const CUSTOMER = { userId: 'u-cust', role: 'customer', orgId: '', jwt: 'jwt-fixture' }
@@ -667,7 +668,8 @@ describe('スタッフ参加の同期 RPC', () => {
     const statuses: Record<string, number> = {}
     for (const code of ['42501', '40001', '55P03', '23514', '22023', '22P02', 'XX000']) {
       mock.rpcResults.sync_event_staff_participations = { data: null, error: { code, message: `fixture ${code}` } }
-      statuses[code] = (await call('POST', { action: 'sync-staff-participation' }, { schedule_event_id: 'ev1' })).status
+      // 公演を変えて送る（同じ送り元・同じ公演の失敗が 5 回を超えると 429 で待たせるため）
+      statuses[code] = (await call('POST', { action: 'sync-staff-participation' }, { schedule_event_id: `ev-${code}` })).status
     }
     const noId = await call('POST', { action: 'sync-staff-participation' }, {})
     expect({ get: [get.status, get.body], save: [save.status, save.body], rpcs: save.rpcs.slice(0, 2), statuses, noId: [noId.status, noId.body] }).toMatchInlineSnapshot(`
@@ -720,6 +722,43 @@ describe('スタッフ参加の同期 RPC', () => {
         },
       }
     `)
+  })
+})
+
+describe('スタッフ参加の保存: 失敗が続く送り元を待たせる（2026-10-13）', () => {
+  it('同じ公演の失敗が 5 回を超えると DB へ送らず 429 と Retry-After を返し、待てば再び送れ、成功で数が消える', async () => {
+    resetWriteFailureLimiter()
+    mock.rpcResults.sync_event_staff_participations = { data: null, error: { code: '40001', message: 'fixture 40001' } }
+    const save = (eventId = 'ev-loop') => call('POST', { action: 'sync-staff-participation' }, { schedule_event_id: eventId })
+    const first: number[] = []
+    for (let i = 0; i < 6; i++) first.push((await save()).status)
+    const blocked = await save()
+    const other = await save('ev-other')
+    vi.advanceTimersByTime(2000)
+    const afterWait = await save()
+    const blockedLonger = await save()
+    vi.advanceTimersByTime(4000)
+    mock.rpcResults.sync_event_staff_participations = { data: { entries: [] }, error: null }
+    const ok = await save()
+    mock.rpcResults.sync_event_staff_participations = { data: null, error: { code: '40001', message: 'fixture 40001' } }
+    const freshFailure = await save()
+    expect({
+      first,
+      blocked: [blocked.status, blocked.rpcs.length, blocked.body],
+      other: other.status,
+      afterWait: [afterWait.status, afterWait.rpcs.length],
+      blockedLonger: [blockedLonger.status, blockedLonger.rpcs.length],
+      ok: ok.status,
+      freshFailure: [freshFailure.status, freshFailure.rpcs.length],
+    }).toEqual({
+      first: [409, 409, 409, 409, 409, 409],
+      blocked: [429, 0, { error: '保存の失敗が続いています。2 秒ほど待ってから公演を開き直してください' }],
+      other: 409,
+      afterWait: [409, 1],
+      blockedLonger: [429, 0],
+      ok: 200,
+      freshFailure: [409, 1],
+    })
   })
 })
 
@@ -1329,7 +1368,7 @@ describe('PATCH update-participants-with-lock / recalculate-prices', () => {
     `)
   })
 
-  it.each(['P0050', 'P0006', 'P0007', 'P0008', 'P0010', 'P0011', '42501', 'XX000'])('人数変更の RPC エラー %s の変換', async code => {
+  it.each(['P0050', 'P0006', 'P0007', 'P0008', 'P0010', 'P0011', 'P0056', '42501', 'XX000'])('人数変更の RPC エラー %s の変換', async code => {
     mock.user = { ...CUSTOMER }
     mock.rpcResults.update_reservation_participants = { data: null, error: { code, message: `fixture ${code}` } }
     const r = await call('PATCH', { action: 'update-participants-with-lock', id: 'r1' }, { new_count: 5 })

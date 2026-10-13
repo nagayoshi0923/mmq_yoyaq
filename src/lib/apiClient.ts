@@ -6,6 +6,7 @@
  * - エラー時は ApiClientError を throw する
  */
 import { supabase } from './supabase'
+import { requestKey, withRepeatFailureBackoff } from './repeatFailureBackoff'
 
 export class ApiClientError extends Error {
   constructor(
@@ -101,12 +102,24 @@ async function apiFetch<T>(path: string, options?: ApiFetchOptions): Promise<T> 
   return res.json() as Promise<T>
 }
 
+/**
+ * 書き込み（POST/PATCH/DELETE）は、同じ宛先・同じ内容が 3 回続けて失敗したら次から 10 秒空けて送る。
+ * 失敗する保存を画面が即座に再送し続け、DB が混んだ（2026-10-13）ための歯止め。読み込み（GET）は対象外。
+ */
+function writeWithBackoff<T>(method: string, path: string, options: ApiFetchOptions): Promise<T> {
+  return withRepeatFailureBackoff<{ ok: true; value: T } | { ok: false; error: unknown }>(
+    requestKey(`${method} ${path}`, options.body ?? ''),
+    () => apiFetch<T>(path, options).then(value => ({ ok: true as const, value }), error => ({ ok: false as const, error })),
+    r => !r.ok,
+  ).then(r => { if (r.ok) return r.value; throw r.error })
+}
+
 export const apiClient = {
   get: <T>(path: string, options?: { allowAnon?: boolean }) =>
     apiFetch<T>(path, options),
-  post: <T>(path: string, body: unknown) =>
-    apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+  post: <T>(path: string, body: unknown, options?: { allowAnon?: boolean }) =>
+    writeWithBackoff<T>('POST', path, { method: 'POST', body: JSON.stringify(body), ...options }),
   patch: <T>(path: string, body: unknown) =>
-    apiFetch<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
-  delete: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
+    writeWithBackoff<T>('PATCH', path, { method: 'PATCH', body: JSON.stringify(body) }),
+  delete: <T>(path: string) => writeWithBackoff<T>('DELETE', path, { method: 'DELETE' }),
 }

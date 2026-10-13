@@ -1,40 +1,35 @@
-import { WithdrawCandidateButton } from './WithdrawCandidateButton'
 import { ConfirmedGroupSchedule } from './ConfirmedGroupSchedule'
 import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
-// 貸切グループ 非チャット表示（招待/参加フロー・進捗ステップ/タブ/参加費/PIN認証/ゲスト情報 等）
-// PrivateGroupInvite/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
+// 貸切グループ 招待リンクを開いただけの人の表示（参加フロー・参加費・PIN認証・ゲスト情報 等）
+// 参加中の人はグループページ刷新 段階 1 の GroupMemberScreen（groupPage/）で表示する
 import React, { useState } from 'react'
-import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Calendar, Clock, Users, AlertCircle, Circle, HelpCircle, Loader2, Ticket, CreditCard, LogOut, MessageCircle, Check, UserPlus, Copy, Share2, ArrowLeft, X } from 'lucide-react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { GroupChat } from '@/pages/PrivateGroupManage/components/GroupChat'
-import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
-import { SurveyResponseForm } from './SurveyResponseForm'
-import { PinResetRequest } from './PinResetRequest'
-import { InviteProgressCard } from './InviteProgressCard'
+import { Users, AlertCircle, Loader2, Ticket, CreditCard, LogOut, ArrowLeft } from 'lucide-react'
+import { GuestJoinPanel, type GuestJoinMode } from './GuestJoinPanel'
+import { InvitePreviewStatus } from './InvitePreviewStatus'
+import { buildInvitePreview } from '../invitePreviewModel'
+import { privateGroupProgress } from '@/components/patterns/privateGroup/privateGroupScheduleRules'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import { formatJstDateJa } from '@/utils/jstDate'
 import type { NavigateFunction } from 'react-router-dom'
 import type { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInviteCode'
 import type { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import type { useAuth } from '@/contexts/AuthContext'
-import type { DateResponse } from '@/types'
-import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
 import { leaveStoreNotice, privateBookingPhase } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingMenu'
+import { ScenarioAboutSection } from '../groupPage/overview/ScenarioAboutSection'
+import { useGroupScenarioInfo } from '../groupPage/useGroupScenarioInfo'
+import { scenarioPageUrl } from '../groupPage/overviewModel'
+import { loginUrlWithIntent } from '@/lib/authReturn'
 
 type GroupType = NonNullable<ReturnType<typeof usePrivateGroupByInviteCode>['group']>
-type GroupMember = NonNullable<GroupType['members']>[number]
-type ResponseValue = DateResponse | null
 interface Coupon {
   id: string
   name: string
@@ -57,8 +52,6 @@ type ScenarioView = {
 interface GroupInviteViewProps {
   group: GroupType
   scenario: ScenarioView
-  joinedMembers: GroupMember[]
-  organizerMember: GroupMember | undefined
   organizerName: string
   memberCount: number
   inviteMemberCap: number | null
@@ -66,24 +59,12 @@ interface GroupInviteViewProps {
   user: ReturnType<typeof useAuth>['user']
   code: string | null
   existingMemberId: string | null
-  responses: Record<string, ResponseValue>
-  isOrganizer: boolean | null
-  isChatMode: string | boolean | null
   isScheduleConfirmedUi: boolean
-  allMembersResponded: boolean
-  canMutateScheduleBeforeStoreReply: boolean
-  bookingProgressReady: boolean
-  hasCharacters: boolean | undefined
-  needsCharAssignmentChoice: boolean
-  charAssignmentMethod: string | null
-  scenarioCharacters: any[]
-  scenarioMax: number | null
-  confirmedByName: ReturnType<typeof usePrivateGroupByInviteCode>['confirmedByName']
   actionLoading: boolean
-  copied: boolean
   error: string | null
-  activeTab: string
-  showPinAuth: boolean
+  /** ゲスト（未ログイン・未参加）の参加欄: はじめて／再訪／PIN */
+  guestMode: GuestJoinMode
+  isCustomHoliday?: (date: string) => boolean
   guestName: string
   guestEmail: string
   pinEmail: string
@@ -96,7 +77,6 @@ interface GroupInviteViewProps {
   perPersonPrice: number
   discountAmount: number
   finalAmount: number
-  setActiveTab: (tab: string) => void
   setExistingMemberId: React.Dispatch<React.SetStateAction<string | null>>
   setGuestName: React.Dispatch<React.SetStateAction<string>>
   setGuestEmail: React.Dispatch<React.SetStateAction<string>>
@@ -106,34 +86,40 @@ interface GroupInviteViewProps {
   navigate: NavigateFunction
   refetch: ReturnType<typeof usePrivateGroupByInviteCode>['refetch']
   leaveGroup: ReturnType<typeof usePrivateGroup>['leaveGroup']
-  formatDate: (dateStr: string) => string
-  getResponseIcon: (response: ResponseValue, type: DateResponse) => React.ReactNode
-  getInviteUrl: () => string
   openSheet: (name: string) => void
   closeSheet: () => void
   clearGuestSession: () => void
-  handleCancelGroup: () => void
   handlePinAuth: () => Promise<void>
-  handleCopyUrl: () => Promise<void>
-  handleRemoveMember: (memberId: string) => Promise<void>
-  handleResponseChange: (candidateDateId: string, response: DateResponse) => void
-  handleOpenBookingDialog: () => Promise<void>
   handleSubmit: (options?: { skipSuccessPage?: boolean }) => Promise<void>
 }
 
 export function GroupInviteView({
-  group, scenario, joinedMembers, organizerMember, organizerName, memberCount, inviteMemberCap, isGroupFull,
-  user, code, existingMemberId, responses, isOrganizer, isChatMode, isScheduleConfirmedUi, allMembersResponded,
-  canMutateScheduleBeforeStoreReply, bookingProgressReady, hasCharacters, needsCharAssignmentChoice, charAssignmentMethod,
-  scenarioCharacters, scenarioMax, confirmedByName, actionLoading, copied, error, activeTab, showPinAuth,
+  group, scenario, organizerName, memberCount, inviteMemberCap, isGroupFull,
+  user, code, existingMemberId, isScheduleConfirmedUi, actionLoading, error, guestMode, isCustomHoliday,
   guestName, guestEmail, pinEmail, pinCode, pinError, couponLoading, coupons, selectedCoupon, selectedCouponId,
   perPersonPrice, discountAmount, finalAmount,
-  setActiveTab, setExistingMemberId, setGuestName, setGuestEmail, setPinEmail, setPinCode, setSelectedCouponId,
-  navigate, refetch, leaveGroup, formatDate, getResponseIcon, getInviteUrl, openSheet, closeSheet, clearGuestSession,
-  handleCancelGroup, handlePinAuth, handleCopyUrl, handleRemoveMember, handleResponseChange, handleOpenBookingDialog, handleSubmit,
+  setExistingMemberId, setGuestName, setGuestEmail, setPinEmail, setPinCode, setSelectedCouponId,
+  navigate, refetch, leaveGroup, openSheet, closeSheet, clearGuestSession,
+  handlePinAuth, handleSubmit,
 }: GroupInviteViewProps) {
+  // ログイン・新規登録画面に「何に参加しようとしているか」を出す（点検 25）
+  const inviteIntentLabel = `「${scenario?.title || '貸切'}」の貸切グループへの参加`
   // 確認ダイアログ（グループから退出）
   const [showLeaveGroupConfirm, setShowLeaveGroupConfirm] = useState(false)
+  // 作品の公開情報（作品ページと同じ読み取り。招待リンクだけの人・未ログインも読める）
+  const { data: scenarioData } = useGroupScenarioInfo(group.scenario_master_id, group.organization_id)
+  // 参加前に見せる「このグループのいま」（状態・候補日・1 人あたりの料金。点検 51）
+  const preview = buildInvitePreview({
+    progress: privateGroupProgress(group, null),
+    candidates: group.candidate_dates ?? [],
+    savedPerPerson: group.per_person_price,
+    fee: scenarioData?.scenario?.participationFee,
+    costs: scenarioData?.scenario?.participationCosts,
+    isCustomHoliday,
+  })
+  const goLogin = () => navigate(loginUrlWithIntent('login', location.pathname, inviteIntentLabel))
+  const goSignup = () => navigate(loginUrlWithIntent('signup', location.pathname, inviteIntentLabel))
+  const isGuestJoin = !user && !existingMemberId
 
   const handleConfirmLeaveGroup = async () => {
     try {
@@ -162,7 +148,8 @@ export function GroupInviteView({
       <NavigationBar currentPage="/" />
 
       <div className="container mx-auto max-w-lg px-4 py-6">
-        <ConfirmedGroupSchedule group={group} />
+        {/* 参加前（preview）は下の「このグループのいま」に状態・候補日を出すので、ここでは出さない（点検 51） */}
+        {group.confirmed_performance_access !== 'preview' && <ConfirmedGroupSchedule group={group} />}
         {/* 戻るボタン（未ログインのゲストにはマイページが無いので出さない） */}
         {user && (
           <button
@@ -179,77 +166,37 @@ export function GroupInviteView({
             <p className="text-sm text-purple-800">
               <span className="font-medium">{organizerName}</span>さんからの貸切お誘い
             </p>
+            {isGuestJoin && guestMode === 'new' && (
+              <p className="mt-1 text-xs text-purple-700" data-testid="invite-guest-lead">アカウント登録なしで、お名前だけで参加できます</p>
+            )}
           </CardContent>
         </Card>
 
-        {/* ログイン案内 */}
-        {!user && (
-          <Card className="mb-6 border-purple-200 bg-purple-50/50">
-            <CardContent className="p-4">
-              <div className="flex-1">
-                <p className="text-sm font-medium">
-                  アカウントで参加すると、マイページから確認できます
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  ゲストのまま参加する場合は、下のお名前とメールアドレスを入力してください
-                </p>
+        {/* 作品について（短い版。参加前に何に参加するのかが分かるように。点検 51 番の一部） */}
+        <div className="mb-6">
+          <ScenarioAboutSection
+            compact
+            title={scenario?.title || 'シナリオ'}
+            imageUrl={scenario?.key_visual_url ?? null}
+            playerRange={{
+              min: scenario?.effective_player_count_min ?? scenario?.player_count_min ?? null,
+              max: scenario?.effective_player_count_max ?? scenario?.player_count_max ?? null,
+            }}
+            info={scenarioData?.scenario ?? null}
+            scenarioUrl={scenarioPageUrl(scenarioData?.orgSlug, scenarioData?.scenario?.slug ?? scenario?.slug, group.scenario_master_id ?? scenario?.id)}
+            extra={(
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                {group.name && <span>{group.name}</span>}
+                <span className="inline-flex items-center gap-1"><Users className="w-3.5 h-3.5" aria-hidden="true" />参加 {memberCount}/{inviteMemberCap ?? '?'}名</span>
+                <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">貸切リクエスト</Badge>
               </div>
-              <div className="flex gap-2 mt-3">
-                <Button
-                  className="flex-1"
-                  onClick={() => navigate(`/signup?redirect=${encodeURIComponent(location.pathname)}`)}
-                >
-                  新規登録
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)}
-                >
-                  ログイン
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
+          />
+        </div>
 
-        {/* シナリオ情報 */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex gap-4">
-              {scenario?.key_visual_url && (
-                <img
-                  src={scenario.key_visual_url}
-                  alt={scenario.title || ''}
-                  className="w-20 h-28 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => scenario && navigate(`/scenario/${scenario.slug || scenario.id}`)}
-                />
-              )}
-              <div className="flex-1">
-                <h2 
-                  className="text-base font-medium cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => scenario && navigate(`/scenario/${scenario.slug || scenario.id}`)}
-                >
-                  {scenario?.title || 'シナリオ'}
-                </h2>
-                {group.name && (
-                  <p className="text-sm text-muted-foreground mt-1">{group.name}</p>
-                )}
-                <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Users className="w-4 h-4" />
-                    <span>
-                      {memberCount}/{inviteMemberCap ?? '?'}名
-                    </span>
-                  </div>
-                </div>
-                <Badge variant="outline" className="mt-2 bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                  貸切リクエスト
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="mb-6">
+          <InvitePreviewStatus preview={preview} />
+        </div>
 
         {error && (
           <Card className="mb-4 border-2 border-red-200 bg-red-50">
@@ -260,305 +207,30 @@ export function GroupInviteView({
           </Card>
         )}
 
-        {/* 進捗ステップ表示（参加済みメンバー向け、チャットモード時は非表示） */}
-        {existingMemberId && (group.status as string) !== 'cancelled' && !isChatMode && (
-          <InviteProgressCard group={group} joinedMembers={joinedMembers} allMembersResponded={allMembersResponded} bookingProgressReady={bookingProgressReady} hasCharacters={hasCharacters} isScheduleConfirmedUi={isScheduleConfirmedUi} confirmedByName={confirmedByName} setActiveTab={setActiveTab} />
-        )}
-
-        {/* 参加済みメンバー向けタブ */}
-        {existingMemberId && group.members && (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-            <TabsList className={`grid w-full mb-4 ${isOrganizer ? 'grid-cols-4' : 'grid-cols-3'}`}>
-              <TabsTrigger value="schedule" className="gap-1.5">
-                <Calendar className="w-4 h-4" />
-                日程
-              </TabsTrigger>
-              <TabsTrigger value="chat" className="gap-1.5">
-                <MessageCircle className="w-4 h-4" />
-                チャット
-              </TabsTrigger>
-              <TabsTrigger value="members" className="gap-1.5">
-                <Users className="w-4 h-4" />
-                メンバー
-              </TabsTrigger>
-              {isOrganizer && (
-                <TabsTrigger value="manage" className="gap-1.5">
-                  <UserPlus className="w-4 h-4" />
-                  管理
-                </TabsTrigger>
-              )}
-            </TabsList>
-
-            {/* 日程タブ */}
-            <TabsContent value="schedule">
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold">{group.confirmed_performance ? '申請時の候補日程（履歴）' : '参加可能な日時を選んでください'}</h3>
-                {group.candidate_dates?.map((cd, index) => {
-                  const dateResponses = cd.responses || []
-                  const okCount = dateResponses.filter(r => r.response === 'ok').length
-                  const maybeCount = dateResponses.filter(r => r.response === 'maybe').length
-                  const ngCount = dateResponses.filter(r => r.response === 'ng').length
-                  const totalMembers = joinedMembers.length
-                  const respondedCount = dateResponses.length
-                  const isRejected = cd.status === 'rejected'
-                  const showIcons = group.status === 'gathering' && !isRejected
-                  
-                  return (
-                    <Card key={cd.id} className={isRejected ? 'opacity-70 bg-gray-50' : ''}>
-                      <CardContent className="p-2.5 sm:p-3">
-                        <div className={`flex items-center gap-2 ${showIcons ? 'mb-1.5' : ''}`}>
-                          <div className="flex-1 min-w-0 leading-tight">
-                            <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                              {isRejected ? (
-                                <Badge variant="outline" className="h-5 px-1.5 py-0 text-[10px] bg-red-100 text-red-800 border-red-200">
-                                  却下
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="h-5 px-1.5 py-0 text-[10px] bg-purple-100 text-purple-800 border-purple-200">
-                                  {index + 1}
-                                </Badge>
-                              )}
-                              <Calendar className="w-3 h-3 text-muted-foreground shrink-0" />
-                              <span className={`font-medium ${isRejected ? 'line-through text-muted-foreground' : ''}`}>{formatDate(cd.date)}</span>
-                            </div>
-                            <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
-                              <Clock className="w-3 h-3 shrink-0" />
-                              <span className={isRejected ? 'line-through' : ''}>{candidateTimeSlotFromDb(cd.time_slot)} {cd.start_time} - {cd.end_time}</span>
-                            </div>
-                          </div>
-                          {isOrganizer && canMutateScheduleBeforeStoreReply && !isRejected && (
-                            <WithdrawCandidateButton groupId={group.id} candidate={cd} onWithdrawn={() => refetch()} />
-                          )}
-                          {/* 回答状況サマリー（却下された場合は非表示） */}
-                          {!isRejected && (
-                            <div className="text-right shrink-0">
-                              <div className="flex items-center justify-end gap-0.5 text-[10px]">
-                                <span className="text-green-600">○{okCount}</span>
-                                <span className="text-amber-600">△{maybeCount}</span>
-                                <span className="text-red-600">×{ngCount}</span>
-                              </div>
-                              <div className="text-[9px] text-muted-foreground leading-none mt-0.5">
-                                {respondedCount}/{totalMembers}人
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        {/* 回答ボタン（日程申込前かつ却下されていない場合のみ表示） */}
-                        {showIcons && (
-                          <div className="flex gap-2">
-                            <div onClick={() => handleResponseChange(cd.id, 'ok')}>
-                              {getResponseIcon(responses[cd.id], 'ok')}
-                            </div>
-                            <div onClick={() => handleResponseChange(cd.id, 'maybe')}>
-                              {getResponseIcon(responses[cd.id], 'maybe')}
-                            </div>
-                            <div onClick={() => handleResponseChange(cd.id, 'ng')}>
-                              {getResponseIcon(responses[cd.id], 'ng')}
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-                <div className="flex justify-center gap-6 mt-3 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
-                      <Circle className="w-2 h-2 text-white" />
-                    </div>
-                    参加可能
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center">
-                      <HelpCircle className="w-2 h-2 text-white" />
-                    </div>
-                    未定
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
-                      <X className="w-2 h-2 text-white" />
-                    </div>
-                    不可
-                  </div>
-                </div>
-                
-                {/* 回答更新ボタン（日程申込前のみ表示） */}
-                {group.status === 'gathering' && (
-                  <Button
-                    onClick={() => handleSubmit()}
-                    disabled={actionLoading}
-                    className="w-full bg-purple-600 hover:bg-purple-700 mt-4"
-                  >
-                    {actionLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        送信中...
-                      </>
-                    ) : '回答を更新する'}
-                  </Button>
-                )}
-                
-                {/* 主催者向け申請ボタン（日程調整中・再調整中の両方） */}
-                {isOrganizer && canMutateScheduleBeforeStoreReply && (group.candidate_dates?.length || 0) > 0 && (
-                  <Button
-                    onClick={handleOpenBookingDialog}
-                    className="w-full bg-green-600 hover:bg-green-700 mt-3"
-                  >
-                    予約リクエストを作成
-                  </Button>
-                )}
-              </div>
-            </TabsContent>
-
-            {/* チャットタブ */}
-            <TabsContent value="chat">
-              <GroupChat
-                groupId={group.id}
-                currentMemberId={existingMemberId}
-                members={group.members}
-                onGoToSchedule={() => setActiveTab('schedule')}
-                onOpenSurvey={() => setActiveTab('survey')}
-                scenarioId={group.scenario_master_id || undefined}
-                organizationId={group.organization_id || undefined}
-                performanceDate={group.confirmed_performance?.date}
-                needsCharAssignmentChoice={needsCharAssignmentChoice}
-                onCharAssignmentMethodSelected={async (method) => {
-                  const { error } = await privateGroupRpcApi.setCharacterMethod({
-                    p_group_id: group.id, p_method: method,
-                    p_expected_method: group.character_assignment_method || null,
-                    p_expected_assignments: group.character_assignments || {},
-                  })
-                  if (error) throw error
-                  await refetch()
-                }}
-                charAssignmentMethod={charAssignmentMethod}
-                characters={scenarioCharacters}
-                isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
-                onCharAssignmentConfirmed={() => refetch()}
-                onResetCharAssignmentMethod={async () => {
-                  const { error } = await privateGroupRpcApi.setCharacterMethod({
-                    p_group_id: group.id, p_method: null,
-                    p_expected_method: group.character_assignment_method || null,
-                    p_expected_assignments: group.character_assignments || {},
-                  })
-                  if (error) throw error
-                  await refetch()
-                }}
-                scenarioPlayerCount={scenarioMax}
-              />
-            </TabsContent>
-
-            {/* メンバータブ */}
-            <TabsContent value="members">
-              <div className="space-y-3">
-                <h3 className="text-base font-semibold">参加メンバー（{group.members.filter(m => m.status === 'joined').length}名）</h3>
-                {group.members.filter(m => m.status === 'joined').map(member => (
-                  <Card key={member.id}>
-                    <CardContent className="p-3 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                          <Users className="w-4 h-4 text-purple-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">
-                            {member.guest_name || member.users?.nickname || member.users?.email?.split('@')[0] || 'メンバー'}
-                          </p>
-                          {member.is_organizer && (
-                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
-                              主催者
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {member.id === existingMemberId && (
-                          <Badge variant="outline" className="text-xs">あなた</Badge>
-                        )}
-                        {isOrganizer && !member.is_organizer && member.id !== existingMemberId && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleRemoveMember(member.id)}
-                            className="text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50 hover:border-red-300"
-                          >
-                            外す
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
-
-            {/* 管理タブ（主催者のみ） */}
-            {isOrganizer && (
-              <TabsContent value="manage">
-                <div className="space-y-6">
-                  {/* 招待URL共有 */}
-                  <Card>
-                    <CardContent className="p-4 space-y-3">
-                      <h3 className="text-base font-semibold flex items-center gap-2">
-                        <Share2 className="w-4 h-4" />
-                        招待リンクを共有
-                      </h3>
-                      <div className="flex gap-2">
-                        <Input
-                          value={getInviteUrl()}
-                          readOnly
-                          className="text-sm"
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleCopyUrl}
-                          className="shrink-0"
-                        >
-                          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* 候補日追加 */}
-                  {isOrganizer && canMutateScheduleBeforeStoreReply && (
-                    <AddCandidateDates
-                      groupId={group.id}
-                      organizationId={group.organization_id || ''}
-                      scenarioId={group.scenario_master_id || ''}
-                      storeIds={group.preferred_store_ids || []}
-                      existingDates={group.candidate_dates || []}
-                      onDatesAdded={refetch}
-                    />
-                  )}
-
-                  {/* 申込ガイダンス */}
-                  {isOrganizer && canMutateScheduleBeforeStoreReply && (group.candidate_dates?.length || 0) > 0 && (
-                    <Card className="border-green-200 bg-green-50">
-                      <CardContent className="p-4 text-center text-sm text-muted-foreground">
-                        ↑ 上の候補日から採用する日程を選んで「この日程で申請する」を押してください
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* グループを閉じる（確認ダイアログで影響を見せる。処理はマイページの「操作」と共通） */}
-                  {canMutateScheduleBeforeStoreReply && (
-                    <Card className="border-red-200">
-                      <CardContent className="p-4">
-                        <Button
-                          variant="outline"
-                          onClick={handleCancelGroup}
-                          className="w-full text-red-600 border-red-300 hover:bg-red-50"
-                        >
-                          グループを閉じる
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              </TabsContent>
-            )}
-          </Tabs>
+        {/* ゲストの参加欄（名前だけで参加・PIN で入る。点検 52〜54・56） */}
+        {isGuestJoin && (
+          <GuestJoinPanel
+            mode={guestMode}
+            code={code}
+            guestName={guestName}
+            guestEmail={guestEmail}
+            setGuestName={setGuestName}
+            setGuestEmail={setGuestEmail}
+            pinEmail={pinEmail}
+            pinCode={pinCode}
+            pinError={pinError}
+            setPinEmail={setPinEmail}
+            setPinCode={setPinCode}
+            actionLoading={actionLoading}
+            isGroupFull={isGroupFull}
+            inviteMemberCap={inviteMemberCap}
+            onSubmit={() => void handleSubmit()}
+            onPinAuth={() => void handlePinAuth()}
+            onOpenPin={() => openSheet('pin')}
+            onClosePin={closeSheet}
+            onLogin={goLogin}
+            onSignup={goSignup}
+          />
         )}
 
         {/* 参加費・クーポン */}
@@ -643,122 +315,8 @@ export function GroupInviteView({
               )}
 
               <p className="text-xs text-muted-foreground bg-gray-50 p-2 rounded">
-                💡 お支払いは当日、店舗でお願いします。現金またはクレジットカードがご利用いただけます。
+                お支払いは当日、店舗でお願いします。現金またはクレジットカードがご利用いただけます。
               </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ゲスト情報（非ログイン時） */}
-        {!user && !existingMemberId && !showPinAuth && (
-          <Card className="mb-6">
-            <CardContent className="p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold">お名前を入力</h3>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="text-purple-600 hover:text-purple-700 p-0 h-auto"
-                  onClick={() => navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)}
-                >
-                  ログインして参加 →
-                </Button>
-              </div>
-              <div>
-                <Label className="text-sm font-medium mb-1.5 block">お名前 *</Label>
-                <Input
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  placeholder="山田 太郎"
-                  className="text-sm"
-                />
-              </div>
-              <div>
-                <Label className="text-sm font-medium mb-1.5 block">メールアドレス *</Label>
-                <Input
-                  type="email"
-                  value={guestEmail}
-                  onChange={(e) => setGuestEmail(e.target.value)}
-                  placeholder="example@example.com"
-                  className="text-sm"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  再訪問時の認証と予約確定のご連絡に使用します
-                </p>
-              </div>
-              
-              {/* 既に参加済みの方向け */}
-              <div className="border-t pt-3">
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="text-gray-600 hover:text-gray-800 p-0 h-auto text-xs"
-                  onClick={() => openSheet('pin')}
-                >
-                  既に参加済みの方はこちら（PIN認証）
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* PIN認証フォーム */}
-        {!user && !existingMemberId && showPinAuth && (
-          <Card className="mb-6 border-purple-200">
-            <CardContent className="p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold">PINで認証</h3>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="text-gray-500 hover:text-gray-700 p-0 h-auto text-xs"
-                  onClick={() => closeSheet()}
-                >
-                  新規参加に戻る
-                </Button>
-              </div>
-              
-              <p className="text-sm text-muted-foreground">
-                以前参加登録した際のメールアドレスとPINを入力してください
-              </p>
-              
-              {pinError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-2 rounded">
-                  {pinError}
-                </div>
-              )}
-              
-              <div>
-                <Label className="text-sm font-medium mb-1.5 block">メールアドレス</Label>
-                <Input
-                  type="email"
-                  value={pinEmail}
-                  onChange={(e) => setPinEmail(e.target.value)}
-                  placeholder="example@example.com"
-                  className="text-sm"
-                />
-              </div>
-              <div>
-                <Label className="text-sm font-medium mb-1.5 block">PIN（4桁）</Label>
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={4}
-                  value={pinCode}
-                  onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="1234"
-                  className="text-sm text-center text-xl tracking-widest font-mono"
-                />
-              </div>
-              <Button
-                onClick={handlePinAuth}
-                className="w-full bg-purple-600 hover:bg-purple-700"
-                disabled={!pinEmail || pinCode.length !== 4}
-              >
-                認証する
-              </Button>
-              {code && <PinResetRequest inviteCode={code} email={pinEmail} />}
             </CardContent>
           </Card>
         )}
@@ -774,19 +332,8 @@ export function GroupInviteView({
           </Card>
         )}
 
-        {/* 公演前アンケート（日程確定後）。配役方法に関わらず回答できる。配役方法が「アンケート」でない間はキャラクターの質問を出さない（#911） */}
-        {isScheduleConfirmedUi && existingMemberId && group.scenario_master_id && (
-          <SurveyResponseForm
-            groupId={group.id}
-            memberId={existingMemberId}
-            performanceDate={group.confirmed_performance?.date}
-            characters={(group as any).scenario_characters || []}
-            hideCharacterSelection={charAssignmentMethod !== 'survey'}
-          />
-        )}
-
-        {/* 送信ボタン（新規参加時のみ表示） */}
-        {!existingMemberId && (
+        {/* 送信ボタン（ログイン中の新規参加のみ。ゲストは参加欄の中に置く） */}
+        {user && !existingMemberId && (
           <>
             {isGroupFull && (
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm text-center mb-2">

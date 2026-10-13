@@ -8,6 +8,7 @@ import { fetchPublicRelatedScenariosByAuthor } from '@/lib/scenarioRelatedPublic
 import { formatDateJST } from '@/utils/dateUtils'
 import type { ScenarioDetail, EventSchedule } from '../utils/types'
 import { getAvailableSeats } from '@/lib/participantUtils'
+import { storeDisplayName } from '@/lib/publicStoreName'
 
 /**
  * シナリオ詳細データを取得する関数
@@ -20,12 +21,14 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   
   // Step 1: organizationSlugからorganization_idを取得（必須、他のクエリに必要）
   let orgId: string | undefined = undefined
+  let orgName: string | null = null
   if (organizationSlug) {
     const orgData = await resolveOrganizationFromPathSegment(organizationSlug, {
       requireActive: true,
     })
     if (orgData?.id) {
       orgId = orgData.id
+      orgName = orgData.name ?? null
     }
   }
   
@@ -174,8 +177,9 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
         start_time: event.start_time,
         end_time: event.end_time,
         store_id: event.store_id,
-        store_name: store?.name || event.venue,
-        store_short_name: store?.short_name || event.venue,
+        // お客様向けの店舗名（トップと同じ関数。臨時会場の日付別の名前・お客様向けの名前を優先）
+        store_name: storeDisplayName(store, { organizationName: orgName, date: event.date, fallback: event.venue }),
+        store_short_name: storeDisplayName(store, { organizationName: orgName, date: event.date, fallback: event.venue }),
         store_color: storeColor,
         store_address: store?.address,
         max_participants: event.max_participants ?? event.capacity ?? scenarioData.player_count_max ?? 8,
@@ -225,7 +229,11 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   return {
     scenario,
     events: scenarioEvents as EventSchedule[],
-    stores: storesData,
+    // 作品ページの店舗名はすべてお客様向けの名前（店舗の選択・会場アクセス・公演可能店舗）。判定は id で行う
+    stores: storesData.map((s) => {
+      const display = storeDisplayName(s, { organizationName: orgName })
+      return { ...s, name: display, short_name: display }
+    }),
     relatedScenarios: relatedScenariosResult,
     organizationId: orgId
   }

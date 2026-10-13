@@ -11,7 +11,7 @@ export const privateGroupPageReadApi = {
   async findScenarioForGroup(scenarioMasterId: string, organizationId: string) {
     return supabase
       .from('organization_scenarios_with_master')
-      .select('id, organization_id, scenario_master_id, title, key_visual_url, player_count_min, player_count_max, available_stores')
+      .select('id, organization_id, scenario_master_id, title, key_visual_url, player_count_min, player_count_max, available_stores, duration')
       .eq('scenario_master_id', scenarioMasterId)
       .eq('organization_id', organizationId)
       .single()
@@ -35,6 +35,11 @@ export const privateGroupPageReadApi = {
       .select('id, name, contact_email')
       .eq('id', organizationId)
       .single()
+  },
+
+  /** 組織の slug（作品ページ・注意事項への導線。お客様・ゲストも読める） */
+  async findOrganizationSlug(organizationId: string) {
+    return supabase.from('organizations').select('slug').eq('id', organizationId).maybeSingle()
   },
 
   /** 組織の連絡先メール */

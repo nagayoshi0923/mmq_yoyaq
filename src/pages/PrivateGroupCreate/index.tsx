@@ -21,6 +21,10 @@ import {
 import { scenarioApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
 import { getErrorMessage } from '@/lib/errorFields'
+import { toast } from 'sonner'
+import { announceNextGroup } from '@/lib/privateGroupChat'
+import { clearNextGroupSource, loadNextGroupSource } from '@/lib/nextPrivateGroup'
+import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
 
 export function PrivateGroupCreate() {
   const navigate = useNavigate()
@@ -58,7 +62,7 @@ export function PrivateGroupCreate() {
       const { data: storesData, error: storesError } = await privateGroupPageReadApi.listActiveStoresForGroup(organizationId)
       if (storesError) throw storesError
 
-      return { scenario: scenarioData, stores: storesData || [] }
+      return { scenario: scenarioData, stores: storesData || [], organizationId }
     },
   })
   const scenario = scenarioStoreData?.scenario ?? null
@@ -69,6 +73,10 @@ export function PrivateGroupCreate() {
   const [notes, setNotes] = useState('')
 
   const [createdGroup, setCreatedGroup] = useState<any>(null)
+  // 「同じメンバーで次の貸切」（グループページ 段階 4）から来たとき: 作ったグループの招待をもとのグループのチャットに流す
+  const [nextSource] = useState(() => loadNextGroupSource())
+  const [announceNext, setAnnounceNext] = useState(true)
+  const nextSameOrg = Boolean(nextSource && scenarioStoreData?.organizationId && nextSource.organizationId === scenarioStoreData.organizationId)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -89,7 +97,11 @@ export function PrivateGroupCreate() {
   }, [stores, scenarioStoreAllowlist])
 
   useEffect(() => {
-    setSelectedStoreIds((prev) => prev.filter((id) => eligibleStores.some((s) => s.id === id)))
+    // 何も外れないときは同じ配列を返す（読み込み中は stores が毎回新しい [] になり、再描画が止まらなくなるため）
+    setSelectedStoreIds((prev) => {
+      const next = prev.filter((id) => eligibleStores.some((s) => s.id === id))
+      return next.length === prev.length ? prev : next
+    })
   }, [eligibleStores])
 
   /** 貸切グループの定員はシナリオ最大人数に固定（主催が別数値を選ばない） */
@@ -167,6 +179,17 @@ export function PrivateGroupCreate() {
         notes: notes || undefined,
       })
 
+      if (nextSource && nextSameOrg && announceNext) {
+        try {
+          await announceNextGroup(nextSource.groupId, nextSource.memberId, group.id)
+          toast.success(`「${nextSource.title}」のグループのチャットに招待を送りました`)
+        } catch (err) {
+          logger.error('次の貸切の招待をチャットに流せませんでした', err)
+          toast.error('前のグループのチャットに招待を送れませんでした。招待リンクを直接送ってください')
+        }
+      }
+      if (nextSource) clearNextGroupSource()
+
       if (mode === 'no-dates') {
         navigate(`/group/invite/${group.invite_code}`)
       } else {
@@ -209,11 +232,24 @@ export function PrivateGroupCreate() {
               <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
               <h2 className="text-lg font-medium mb-2">ログインが必要です</h2>
               <p className="text-sm text-muted-foreground mb-4">
-                貸切リクエストを作成するにはログインしてください
+                貸切リクエストを作成するにはログインしてください。ログイン・登録の後、この画面に戻ります。
               </p>
-              <Button onClick={() => navigate('/login')}>
-                ログイン
-              </Button>
+              {/* 行き止まりにしない: 戻り先付きのログイン・新規登録と、作品に戻る（点検 3） */}
+              <div className="flex flex-col gap-2 max-w-xs mx-auto">
+                <Button onClick={() => navigate(buildAuthUrl('login', currentPathWithSearch()))}>
+                  ログイン
+                </Button>
+                <Button variant="outline" onClick={() => navigate(buildAuthUrl('signup', currentPathWithSearch()))}>
+                  新規登録
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate(scenarioId ? `${bookingBasePath}/scenario/${encodeURIComponent(scenarioId)}` : bookingBasePath)}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1" />
+                  {scenarioId ? '作品に戻る' : '予約サイトに戻る'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -343,6 +379,26 @@ export function PrivateGroupCreate() {
             <CardContent className="p-4 flex items-center gap-2 text-red-800 text-sm">
               <AlertCircle className="w-5 h-5" />
               <span>{error || groupError}</span>
+            </CardContent>
+          </Card>
+        )}
+
+        {nextSource && (
+          <Card className="mb-6 border-purple-200 bg-purple-50" data-testid="next-group-banner">
+            <CardContent className="p-4 text-sm">
+              {nextSameOrg ? (
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <Checkbox checked={announceNext} onCheckedChange={v => setAnnounceNext(v === true)} className="mt-0.5" />
+                  <span>
+                    <span className="font-bold text-purple-800">同じメンバーで次の貸切</span>
+                    <span className="block text-foreground/80 mt-0.5">
+                      作ったグループの招待を「{nextSource.title}」のグループのチャットに送ります（メンバー {nextSource.memberCount}名）。参加はそれぞれが招待から行います。
+                    </span>
+                  </span>
+                </label>
+              ) : (
+                <p className="text-foreground/80">「{nextSource.title}」とは別の店舗の作品のため、前のグループのチャットには招待を送れません。作成後に招待リンクを直接送ってください。</p>
+              )}
             </CardContent>
           </Card>
         )}

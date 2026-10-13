@@ -298,6 +298,19 @@ html, body {
   .ts-caption { @apply text-xs text-muted-foreground; }
   .ts-emph    { @apply text-base font-bold; }
 
+  /* 横スクロールのチップ・カードの列（トップページ）。スクロールバーは出さない */
+  /* カレンダーのマスの小さな件数（「+6 空き」）。スマホの狭いマスで折り返さない大きさ */
+  .ts-micro { font-size: 10px; line-height: 1.1; }
+  /* 予約サイトのカレンダー・リスト（元の見た目を維持、2026-10-12 社長決定）。元の 10px・8px の文字と灰色の文字色と同じ値 */
+  .ts-10 { font-size: 10px; }
+  .ts-8 { font-size: 8px; }
+  .fg-gray-400 { color: rgb(156 163 175); }
+  .fg-gray-500 { color: rgb(107 114 128); }
+  .fg-gray-600 { color: rgb(75 85 99); }
+  .fg-gray-800 { color: rgb(31 41 55); }
+  .scroll-row { scrollbar-width: none; }
+  .scroll-row::-webkit-scrollbar { display: none; }
+
   .mypage-avatar-gradient {
     background: linear-gradient(to bottom right, var(--mypage-gradient-from), var(--mypage-gradient-to));
   }

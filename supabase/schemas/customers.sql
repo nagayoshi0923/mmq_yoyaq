@@ -1,15 +1,11 @@
 -- 正規ソース: supabase/schemas/customers.sql
--- 最終更新: 2026-04-10
+-- 最終更新: 2026-10-12
 CREATE TABLE public.customers (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id),
   name TEXT NOT NULL,
   phone TEXT,
   line_id TEXT,
-  notes TEXT,
-  visit_count INTEGER DEFAULT 0,
-  total_spent INTEGER DEFAULT 0,
-  last_visit DATE,
   preferences TEXT[] DEFAULT '{}'::text[],
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),

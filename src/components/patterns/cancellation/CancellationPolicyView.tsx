@@ -129,12 +129,19 @@ export function PolicyTypeSection({
 interface CancellationPolicyViewProps {
   policy: PublicCancellationPolicy
   showStoreHeading?: boolean
+  /** 同じ規定の店舗をまとめて出すときの店舗名（点検 21）。無ければ policy.store_name */
+  storeNames?: string[]
 }
 
 export function CancellationPolicyView({
   policy,
   showStoreHeading = true,
+  storeNames,
 }: CancellationPolicyViewProps) {
+  const names = storeNames && storeNames.length > 0 ? storeNames : [policy.store_name]
+  const heading = names.join('、')
+  const headingLabel = names.length > 1 ? `対象店舗（${names.length}店舗）` : '対象店舗'
+
   // 中止判定のルールは、実際の判定と同じ設定から作る（#714）。設定が取れないときだけ、保存された文を使う
   // （全部の欄が空のまま保存された行だけ出さない。空欄だと「 → 」だけが表示されていた。一部だけ書いた行は残す、#866）
   const judgmentRules = policy.judgment
@@ -153,9 +160,14 @@ export function CancellationPolicyView({
   if (!policy.is_configured) {
     return (
       <section className="border bg-card p-5 space-y-2">
-        {showStoreHeading && <h2>{policy.store_name}</h2>}
+        {showStoreHeading && (
+          <>
+            <p className="ts-muted">{headingLabel}</p>
+            <h2>{heading}</h2>
+          </>
+        )}
         <p className="ts-body text-muted-foreground">
-          この店舗のキャンセルポリシーは現在準備中です。店舗へお問い合わせください。
+          {names.length > 1 ? 'これらの店舗' : 'この店舗'}のキャンセルポリシーは現在準備中です。店舗へお問い合わせください。
         </p>
       </section>
     )
@@ -166,8 +178,8 @@ export function CancellationPolicyView({
       {showStoreHeading && (
         <header className="flex flex-col gap-1 border-b pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="ts-muted">店舗別ポリシー</p>
-            <h2>{policy.store_name}</h2>
+            <p className="ts-muted">{headingLabel}</p>
+            <h2>{heading}</h2>
           </div>
           {policy.policy_updated_at && (
             <p className="ts-muted">最終更新日: {formatJstDateJa(policy.policy_updated_at)}</p>

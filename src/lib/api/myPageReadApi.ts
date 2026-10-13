@@ -5,6 +5,7 @@
  * 絞り込み条件・select の列・戻り値（{ data, error }）は元の呼び出しのまま。
  */
 import { supabase } from '@/lib/supabase'
+import { toCustomerStoreRow } from '@/lib/publicStoreName'
 import { RESERVATION_STATUSES_BLOCKING_WITHDRAWAL } from '@/lib/reservationWithdrawalGuard'
 
 export const myPageSettingsReadApi = {
@@ -148,9 +149,10 @@ export const myPageDataReadApi = {
     return supabase.rpc('get_private_group_schedules', { p_group_ids: groupIds })
   },
 
-  /** 店舗の名前・住所・色を id で */
+  /** 店舗の名前・住所・色を id で（名前はお客様向けの名前に置き換える） */
   async listStoresByIds(ids: string[]) {
-    return supabase.from('stores').select('id, name, address, color').in('id', ids)
+    const result = await supabase.from('stores').select('id, name, address, color, public_name, organizations(name)').in('id', ids)
+    return { ...result, data: result.data ? result.data.map(toCustomerStoreRow) : result.data }
   },
 
   /** 公開中のシナリオ（題名順） */
@@ -169,7 +171,7 @@ export const myPageReservationReadApi = {
   async findReservationDetail(reservationId: string) {
     return supabase
       .from('reservations')
-      .select(`id, reservation_number, title, requested_datetime, participant_count, unit_price, final_price, total_price, status, payment_status, notes, scenario_id, scenario_master_id, store_id, organization_id, created_at, schedule_event_id, reservation_source, candidate_datetimes, customer_name, customer_email, customer_phone, private_group_id, reservation_change_deadline_hours_snapshot, cancellation_policy_snapshot_version, cancellation_policy_store_id, cancellation_policy_performance_type, cancellation_policy_deadline_hours, cancellation_policy_fees, cancellation_policy_fee_basis, cancellation_policy_updated_at`)
+      .select(`id, reservation_number, title, requested_datetime, participant_count, unit_price, final_price, total_price, discount_amount, status, payment_status, notes, scenario_id, scenario_master_id, store_id, organization_id, created_at, schedule_event_id, reservation_source, candidate_datetimes, customer_name, customer_email, customer_phone, private_group_id, reservation_change_deadline_hours_snapshot, cancellation_policy_snapshot_version, cancellation_policy_store_id, cancellation_policy_performance_type, cancellation_policy_deadline_hours, cancellation_policy_fees, cancellation_policy_fee_basis, cancellation_policy_updated_at`)
       .eq('id', reservationId)
       .maybeSingle()
   },
@@ -178,14 +180,15 @@ export const myPageReservationReadApi = {
   async findPublicEvent(eventId: string) {
     return supabase
       .from('schedule_events_public')
-      .select('date, start_time, category, current_participants, max_participants, store_id')
+      .select('date, start_time, end_time, category, current_participants, max_participants, store_id')
       .eq('id', eventId)
       .maybeSingle()
   },
 
-  /** 店舗の名前・住所 */
+  /** 店舗の名前・住所（名前はお客様向けの名前に置き換える） */
   async findStore(storeId: string) {
-    return supabase.from('stores').select('id, name, address').eq('id', storeId).single()
+    const result = await supabase.from('stores').select('id, name, address, public_name, organizations(name)').eq('id', storeId).single()
+    return { ...result, data: result.data ? toCustomerStoreRow(result.data) : result.data }
   },
 
   /** 店舗の予約設定（キャンセル規定・期限） */

@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({ scenario: vi.fn(), stores: vi.fn(), compute: v
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }))
 vi.mock('@/hooks/useOrganization', () => ({ useOrganization: () => ({ organization: { id: 'org', slug: 'test' } }) }))
 vi.mock('@/hooks/useCustomHolidays', () => ({ useCustomHolidays: () => ({ isCustomHoliday: mocks.holiday, isLoading: false }) }))
-vi.mock('@/lib/api', () => ({ scenarioApi: { getById: mocks.scenario }, storeApi: { getAllPublic: mocks.stores } }))
+vi.mock('@/lib/api', () => ({ scenarioApi: { getById: mocks.scenario }, storeApi: { getAllPublic: mocks.stores, getAllPublicForCustomer: mocks.stores } }))
 vi.mock('@/lib/supabase', () => ({ supabase: { from: mocks.from } }))
 vi.mock('@/lib/computePrivateBookingSlots', () => ({ computePrivateBookingSlots: mocks.compute }))
 vi.mock('@/lib/organization', () => ({ resolveOrganizationFromPathSegment: vi.fn() }))

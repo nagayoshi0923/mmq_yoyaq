@@ -16,6 +16,9 @@ export type GroupMessageRow = {
   message: string
   created_at: string
   member_id: string | null
+  /** 段階 2: 本人が削除した時刻・写真の枚数（写真そのものはスタッフには出さない） */
+  deleted_at?: string | null
+  photos?: Array<{ position: number }> | null
 }
 
 function formatDateTimeJa(iso: string) {
@@ -506,8 +509,11 @@ export function PrivateGroupAnnouncementHistoryDialog({
                                 </span>
                               </div>
                               <p className="text-foreground whitespace-pre-wrap break-words leading-relaxed">
-                                {row.message}
+                                {row.deleted_at ? <span className="text-muted-foreground">メッセージを削除しました</span> : row.message}
                               </p>
+                              {!row.deleted_at && (row.photos?.length ?? 0) > 0 && (
+                                <p className="text-xs text-muted-foreground mt-0.5">（写真 {row.photos!.length} 枚。写真はグループの参加者だけが見られます）</p>
+                              )}
                             </div>
                           </div>
                         )

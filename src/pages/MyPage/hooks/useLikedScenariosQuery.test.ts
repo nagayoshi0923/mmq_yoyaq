@@ -11,7 +11,7 @@ it('作品ごとに残席のある最も早い公演を 1 件選び、作品ペ�
     row({ id: 'open', date: '2026-10-12', current_participants: 2 }),
     row({ id: 'other', scenario_master_id: 'T', date: '2026-10-20', max_participants: null }),
   ], NOW, { org: 'queens-waltz' })
-  expect(result.S).toEqual({ eventId: 'open', date: '2026-10-12', startTime: '13:00', venue: '本店', remaining: 4, href: '/queens-waltz/scenario/S?event=open' })
+  expect(result.S).toEqual({ eventId: 'open', date: '2026-10-12', startTime: '13:00', venue: '本店', remaining: 4, booked: 2, capacity: 6, href: '/queens-waltz/scenario/S?event=open' })
   expect(result.T.remaining).toBeNull()
 })
 

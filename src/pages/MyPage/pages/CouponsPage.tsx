@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import { previewCouponUse } from '@/lib/api/couponApi'
 import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle, Scissors } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { CouponUsableStores } from '../components/CouponUsableStores'
 import type { CustomerCoupon, CustomerCouponUsageWithReservation } from '@/types'
 import { useCouponsQuery, useCurrentReservationsQuery, useUseCouponMutation } from '../hooks/useCouponsQuery'
 import { countUsableCoupons, getLastCouponUsedAt, isUsedCouponVisible, resolveCouponDisplayStatus } from '../utils/couponListVisibility'
@@ -218,6 +219,9 @@ export function CouponsPage() {
                     <h4 className="font-medium text-gray-900 text-sm">{campaign.name}</h4>
                     {campaign.description && (
                       <p className="ts-muted mt-1">{campaign.description}</p>
+                    )}
+                    {coupon.usable_stores_label && (
+                      <CouponUsableStores label={coupon.usable_stores_label} storeNames={coupon.usable_store_names} />
                     )}
                     <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                       {coupon.expires_at && (

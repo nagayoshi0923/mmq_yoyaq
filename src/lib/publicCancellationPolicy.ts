@@ -6,6 +6,7 @@ import {
   DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
 } from '@/constants/cancellationPolicyDefaults'
 import { supabase } from '@/lib/supabase'
+import { storeDisplayName, type StoreNameSource } from '@/lib/publicStoreName'
 import type { CancellationFeeBasis, CancellationFeeRule } from '@/types'
 
 export interface PublicPolicyItem {
@@ -188,6 +189,29 @@ export async function fetchPublicPerformanceJudgments({ slug, storeId, scenarioM
   return judgmentByStore
 }
 
+/**
+ * 店舗名をお客様向けの名前（「お客様向けの名前」→ 組織名を外した店舗名）にする（点検 21）。
+ * 店舗の公開情報が読めなくても規定の表示は続ける（店舗名から組織名を外すだけ）。
+ */
+async function withCustomerStoreNames(policies: PublicCancellationPolicy[]): Promise<PublicCancellationPolicy[]> {
+  const ids = [...new Set(policies.map(policy => policy.store_id).filter(Boolean))]
+  const storeById = new Map<string, StoreNameSource>()
+  if (ids.length > 0) {
+    const { data } = await supabase
+      .from('stores_public')
+      .select('id, name, short_name, public_name, is_temporary')
+      .in('id', ids)
+    for (const row of toArray<StoreNameSource & { id?: string }>(data)) {
+      if (row.id) storeById.set(row.id, row)
+    }
+  }
+  return policies.map(policy => {
+    const store = storeById.get(policy.store_id) ?? { name: policy.store_name, short_name: policy.store_short_name }
+    const display = storeDisplayName(store, { organizationName: policy.organization_name, fallback: policy.store_name })
+    return { ...policy, store_name: display, store_short_name: display }
+  })
+}
+
 export async function fetchPublicCancellationPolicies({
   organizationSlug,
   storeId,
@@ -213,7 +237,7 @@ export async function fetchPublicCancellationPolicies({
     throw error
   }
 
-  const policies = toArray<Record<string, unknown>>(data).map(normalizePublicPolicy)
+  const policies = await withCustomerStoreNames(toArray<Record<string, unknown>>(data).map(normalizePublicPolicy))
   // 中止判定のルールは、実際の判定と同じ設定から作る（#714）。取れなくても規定の表示は続ける
   const judgmentByStore = await fetchPublicPerformanceJudgments({ slug, storeId, scenarioMasterId, eventId })
   const withJudgment = policies.map(policy => ({ ...policy, judgment: (policy.store_id && judgmentByStore.get(policy.store_id)) || null }))
@@ -244,4 +268,49 @@ export function formatCancellationFeePeriod(
   const start = `${formatPolicyHours(fee.hours_before)}から`
   if (!nextFee || nextFee.hours_before < 0) return `${start}開演時刻まで`
   return `${start}${formatPolicyHours(nextFee.hours_before)}になるまで`
+}
+
+export interface PublicCancellationTerms {
+  deadlineHours: number | null
+  fees: CancellationFeeRule[]
+  /** 人数を変更できる期限（公演の何時間前まで）。未設定は null */
+  changeDeadlineHours: number | null
+  /** 店舗の規定を読めなかったので既定値を出している */
+  isFallback: boolean
+}
+
+/**
+ * 予約確認画面の要点表示用（オープン公演）。規定全文の取得（中止判定・返金案内まで読む）より軽い。
+ * 読めないときは既定値（マイページの取消判定の既定と同じ）を返し、isFallback を立てる。
+ */
+export async function fetchPublicCancellationTerms({
+  organizationSlug,
+  storeId,
+  eventId,
+}: { organizationSlug?: string | null; storeId?: string | null; eventId?: string | null }): Promise<PublicCancellationTerms> {
+  const fallback: PublicCancellationTerms = {
+    deadlineHours: DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
+    fees: DEFAULT_OPEN_CANCELLATION_FEES.map(fee => ({ ...fee })),
+    changeDeadlineHours: null,
+    isFallback: true,
+  }
+  const slug = organizationSlug?.trim()
+  if (!slug) return fallback
+  const { data, error } = await supabase.rpc('get_public_cancellation_policy_for_context', {
+    p_organization_slug: slug, p_store_id: storeId || null,
+    p_scenario_master_id: null, p_event_id: eventId || null,
+  })
+  if (error) return fallback
+  const rows = toArray<Record<string, unknown>>(data).map(normalizePublicPolicy)
+  const policy = rows.find(row => storeId && row.store_id === storeId) ?? rows[0]
+  // 店舗が規定を個別に設定していなくても（is_configured=false）、RPC が返す値は DB の既定の規定で、
+  // 予約時に固定される値と同じもの。値がそろっていれば「読めた」扱いにする（札幌店のように設定行が無い店舗）。
+  // 行が無い・値が欠けているときだけ既定値に落として isFallback を立てる。
+  if (!policy || policy.cancellation_deadline_hours == null || policy.cancellation_fees.length === 0) return fallback
+  return {
+    deadlineHours: policy.cancellation_deadline_hours,
+    fees: policy.cancellation_fees,
+    changeDeadlineHours: policy.reservation_change_deadline_hours,
+    isFallback: false,
+  }
 }

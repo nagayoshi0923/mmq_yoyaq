@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, Plus, X, Loader2 } from 'lucide-react'
+import { Calendar, Clock, Users, MapPin, ArrowLeft, AlertCircle, Plus, X, Loader2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCustomerData } from '../BookingConfirmation/hooks/useCustomerData'
 import { usePrivateBookingForm } from './hooks/usePrivateBookingForm'
@@ -22,6 +22,8 @@ import { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import { logger } from '@/utils/logger'
 import { formatDate } from './utils/privateBookingFormatters'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
+import { PrivateBookingRequestSuccess } from './components/PrivateBookingRequestSuccess'
+import { privateCancelNoticeText } from '@/lib/privateCancelNotice'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { usePrivateBookingDeadlineDays } from '@/hooks/usePrivateBookingDeadlineDays'
 import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
@@ -39,6 +41,7 @@ import { resolveOrgIdFromPageContext } from '@/lib/organization'
 import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
 import { toJstYmd } from '@/utils/jstDate'
 import { getErrorMessage } from '@/lib/errorFields'
+import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
 
 const MAX_TIME_SLOTS = 6
 const CANDIDATE_HORIZON_DAYS = 180
@@ -472,44 +475,16 @@ export function PrivateBookingRequest({
     }
   }
 
-  // 成功画面
+  // 成功画面（店舗の返事の目安・メンバー招待・取消の案内。点検 43・35）
   if (success) {
     return (
-      <div className="booking-shell min-h-screen bg-background overflow-x-clip">
-        <Header />
-        <NavigationBar currentPage={bookingBasePath} />
-        
-        <div className="container mx-auto max-w-3xl px-2 md:px-4 py-12">
-          <Card className="border-2 border-purple-200 bg-purple-50">
-            <CardContent className="p-8 text-center space-y-4">
-              <CheckCircle2 className="w-16 h-16 text-purple-600 mx-auto" />
-              <h2 className="text-lg text-purple-800">貸切リクエストを受け付けました！</h2>
-              <p className="text-sm text-purple-700 leading-relaxed">
-                リクエストありがとうございます。<br />
-                {confirmationEmailAccepted ? `確認メールの送信を受け付けました（${customerEmail}）。` : '確認メールの送信を確認できませんでした。受付内容はマイページで確認できます。再申込は不要です。'}<br />
-                担当者より折り返しご連絡させていただきます。
-              </p>
-              <div className="pt-4 flex flex-col gap-3">
-                {createdInviteCode && (
-                  <Button
-                    onClick={() => navigate(`/group/invite/${createdInviteCode}`)}
-                    className="bg-purple-600 hover:bg-purple-700"
-                  >
-                    <Users className="w-4 h-4 mr-2" />
-                    グループを開く
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  onClick={() => navigate(bookingBasePath)}
-                >
-                  予約サイトトップに戻る
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <PrivateBookingRequestSuccess
+        bookingBasePath={bookingBasePath}
+        scenarioTitle={scenarioTitle}
+        customerEmail={customerEmail}
+        confirmationEmailAccepted={confirmationEmailAccepted}
+        inviteCode={createdInviteCode}
+      />
     )
   }
 
@@ -851,6 +826,10 @@ export function PrivateBookingRequest({
               </Card>
             </div>
 
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 leading-relaxed" data-testid="private-request-cancel-notice">
+              <span className="font-bold">取消について: </span>{privateCancelNoticeText()}
+            </p>
+
             {/* 注意事項（DBから取得） */}
             <BookingNotice
               mode="private"
@@ -866,9 +845,8 @@ export function PrivateBookingRequest({
                 </p>
                 <Button
                   onClick={() => {
-                    // 未ログイン時は戻り先URLを保存してログインページへ（入力途中で「ログインが必要です」にならないようにする）
-                    sessionStorage.setItem('returnUrl', window.location.pathname + window.location.search)
-                    navigate('/login')
+                    // 未ログイン時は戻り先付きでログインへ（入力途中で「ログインが必要です」にならないようにする）
+                    navigate(buildAuthUrl('login', currentPathWithSearch()))
                   }}
                   className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
                 >

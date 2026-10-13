@@ -5,7 +5,7 @@ const base = { toName: '架空 太郎', scenarioTitle: '架空の作品', perfor
 
 Deno.test('件名・日付・期限・リンク・署名を普段のリマインドと同じ形で組む', () => {
   const m = buildSurveyReminderEmail(base)
-  assertEquals(m.subject, '【アンケートのお願い】架空の作品 - 2026年11月7日(土) | クインズワルツ')
+  assertEquals(m.subject, '【事前配役アンケートのお願い】架空の作品 - 2026年11月7日(土) | クインズワルツ')
   assertStringIncludes(m.text, '架空 太郎 様\n\n2026年11月7日(土)の貸切公演「架空の作品」')
   assertStringIncludes(m.text, '回答期限: 2026年10月24日(土)まで')
   assertStringIncludes(m.text, '回答はこちら: https://mmq.game/group/invite/JQZS5U5T?tab=survey')

@@ -17,7 +17,10 @@ import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCustomerData } from './hooks/useCustomerData'
 import { useBookingForm } from './hooks/useBookingForm'
-import { useBookingSubmit, checkDuplicateReservation } from './hooks/useBookingSubmit'
+import { useBookingSubmit, checkDuplicateReservation, BOOKING_PROGRESS_LABELS } from './hooks/useBookingSubmit'
+import { cancellationTermsGate, useBookingCancellationTerms } from './hooks/useBookingCancellationTerms'
+import { BookingCancellationTerms } from './components/BookingCancellationTerms'
+import { PRICE_NOTE } from '@/lib/priceNote'
 import { formatDate, formatTime, formatPrice } from './utils/bookingFormatters'
 import { BookingDeadlineNotice } from '@/components/BookingDeadlineNotice'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
@@ -31,6 +34,8 @@ import { CancellationPolicyLink } from '@/components/patterns/cancellation/Cance
 import { upsertOwnCustomer } from '@/lib/api/customerApi'
 import { waitlistApi } from '@/lib/api/globalSettingsApi'
 import { getErrorMessage } from '@/lib/errorFields'
+import { AddToCalendarButton, absolutePageUrl } from '@/components/patterns/schedule'
+import { isFewSeats, seatCountText } from '@/lib/seatLabel'
 
 export function BookingConfirmation({
   eventId,
@@ -138,7 +143,14 @@ export function BookingConfirmation({
     validateForm
   } = useBookingForm({ initialParticipantCount, availableSeats })
 
-  const { isSubmitting, success, completedReservation, confirmationEmailOutcome, handleSubmit } = useBookingSubmit({
+  const cancellationTerms = useBookingCancellationTerms({ organizationSlug, storeId, eventId, eventDate, startTime })
+  // 取消期限を過ぎた公演は、キャンセル料に同意してから予約する（点検 34）
+  const [lateCancelAgreed, setLateCancelAgreed] = useState(false)
+  // 規定を読めるまで（ready）確定させない。取得失敗・既定値でも確定させない（公開前検証 P1）
+  const termsGate = cancellationTermsGate(cancellationTerms.status, cancellationTerms.terms, lateCancelAgreed)
+  const needsLateCancelAgreement = termsGate.needsLateCancelAgreement
+
+  const { isSubmitting, progress, success, completedReservation, confirmationEmailOutcome, handleSubmit } = useBookingSubmit({
     eventId,
     scenarioTitle,
     scenarioId,
@@ -164,6 +176,7 @@ export function BookingConfirmation({
   const onSubmit = async () => {
     setError(null)
     if (!couponReady) { setError('クーポンの確認完了を待つか、選択を解除してください'); return }
+    if (!termsGate.canSubmit) { setError(termsGate.message); return }
     
     if (!validateForm(customerName, customerEmail, customerPhone)) {
       return
@@ -392,7 +405,7 @@ export function BookingConfirmation({
                     )}
                     <div className="flex justify-between border-t pt-2 mt-2">
                       <span className="text-muted-foreground">合計金額</span>
-                      <span className="font-bold">{formatPrice(completedReservation.totalPrice)}</span>
+                      <span className="font-bold">¥{formatPrice(completedReservation.totalPrice)}</span>
                     </div>
                   </div>
                 </div>
@@ -400,13 +413,33 @@ export function BookingConfirmation({
               
               <p className="ts-body text-green-700 leading-relaxed">
                 ご予約ありがとうございます。<br />
-                {confirmationEmailOutcome?.status === 'accepted' ? <>
+                {confirmationEmailOutcome === null ? <span data-testid="booking-email-sending">
+                  {BOOKING_PROGRESS_LABELS.sending_email}送信先：<span className="font-medium">{customerEmail}</span>
+                </span> : confirmationEmailOutcome.status === 'accepted' ? <>
                   確認メールの送信を受け付けました。送信先：<span className="font-medium">{customerEmail}</span>
                 </> : <>予約は確定しましたが、確認メールの送信を確認できませんでした。再予約せず、マイページで予約内容をご確認ください。</>}
               </p>
               {confirmationEmailOutcome?.status === 'accepted' && <p className="text-xs text-green-600">
                 メールが届かない場合は、迷惑メールフォルダもご確認ください。
               </p>}
+              {completedReservation && (
+                <div className="flex justify-center">
+                  <AddToCalendarButton
+                    event={{
+                      scenarioTitle,
+                      kind: 'open',
+                      date: eventDate,
+                      startTime,
+                      endTime,
+                      storeName,
+                      address: storeAddress ?? null,
+                      reservationNumber: completedReservation.reservationNumber,
+                      pageUrl: absolutePageUrl(`/mypage/reservation/${completedReservation.reservationId}`),
+                    }}
+                    testId="booking-complete-calendar"
+                  />
+                </div>
+              )}
               <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
                   onClick={() => navigate('/mypage')}
@@ -554,7 +587,7 @@ export function BookingConfirmation({
 
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-muted-foreground" />
-                      <span>残り {availableSeats} 席</span>
+                      <span>{seatCountText(currentParticipants, maxParticipants)}{isFewSeats(availableSeats) && <span className="ml-1.5 font-bold text-orange-600">残少</span>}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -674,6 +707,7 @@ export function BookingConfirmation({
                         ¥{formatPrice(totalPrice)}
                       </div>
                     )}
+                    <p className="text-xs text-muted-foreground mt-1" data-testid="booking-price-note">{PRICE_NOTE}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -696,6 +730,16 @@ export function BookingConfirmation({
                 </CardContent>
               </Card>
             </div>
+
+            {/* キャンセル規定の要点・取消期限を過ぎた公演の注意（点検 20・34） */}
+            <BookingCancellationTerms
+              state={cancellationTerms}
+              agreed={lateCancelAgreed}
+              onAgreedChange={setLateCancelAgreed}
+              eventId={eventId}
+              storeId={storeId}
+              organizationSlug={organizationSlug}
+            />
 
             {/* 注意事項（DBから取得） */}
             <BookingNotice
@@ -755,7 +799,7 @@ export function BookingConfirmation({
                   <Button
                     onClick={() => setWaitlistMode(true)}
                     variant="outline"
-                    className="w-full h-9 text-sm"
+                    className="w-full h-11 text-sm"
                   >
                     <Bell className="w-4 h-4 mr-2" />
                     キャンセル待ちに登録
@@ -796,7 +840,7 @@ export function BookingConfirmation({
                         !hasNonEmptyCustomerPhone(customerPhone) ||
                         !/^\d{10,11}$/.test(customerPhone.replace(/[-\s]/g, ''))
                       }
-                      className="w-full h-9 text-sm"
+                      className="w-full h-11 text-sm"
                     >
                       <Bell className="w-4 h-4 mr-2" />
                       {waitlistSubmitting ? '登録中...' : 'キャンセル待ちに登録'}
@@ -804,21 +848,33 @@ export function BookingConfirmation({
                     <Button
                       variant="ghost"
                       onClick={() => setWaitlistMode(false)}
-                      className="w-full h-8 text-xs"
+                      className="w-full h-11 text-sm"
                     >
-                      キャンセル
+                      閉じる
                     </Button>
                   </div>
                 )}
               </div>
             ) : (
-              <Button
-                onClick={onSubmit}
-                disabled={isSubmitting || !couponReady || (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict)}
-                className="w-full h-9 text-sm"
-              >
-                {isSubmitting ? '予約処理中...' : (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict) ? '重複のため予約不可' : '予約を確定する'}
-              </Button>
+              <div className="space-y-1">
+                <Button
+                  onClick={onSubmit}
+                  disabled={isSubmitting || !couponReady || !termsGate.canSubmit || (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict)}
+                  className="w-full h-11 text-sm"
+                  data-testid="booking-submit"
+                >
+                  {isSubmitting ? (progress ? BOOKING_PROGRESS_LABELS[progress] : '予約処理中...') : (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict) ? '重複のため予約不可' : '予約を確定する'}
+                </Button>
+                {isSubmitting && (
+                  <p className="text-xs text-center text-muted-foreground" role="status">数秒かかることがあります。画面を閉じずにお待ちください。</p>
+                )}
+                {needsLateCancelAgreement && !isSubmitting && (
+                  <p className="text-xs text-center text-red-700">上の「キャンセル料がかかることを確認しました」にチェックを入れると予約できます。</p>
+                )}
+                {!termsGate.canSubmit && !needsLateCancelAgreement && !isSubmitting && (
+                  <p className={`text-xs text-center ${cancellationTerms.status === 'loading' ? 'text-muted-foreground' : 'text-red-700'}`} data-testid="booking-terms-gate-message">{termsGate.message}</p>
+                )}
+              </div>
             )}
           </div>
         </div>

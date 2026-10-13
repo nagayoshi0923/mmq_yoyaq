@@ -1,97 +1,105 @@
-import { MonthSwitcher } from '@/components/patterns/calendar'
-import { StoreMultiSelect } from '@/components/ui/store-multi-select'
-import { Button } from '@/components/ui/button'
-import { EyeOff } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronDown, ChevronLeft, ChevronRight, EyeOff } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ChipButton } from '@/components/public-top/ChipButton'
+import { StorePicker, type StoreOption } from '@/components/public-top/StorePicker'
+import { cn } from '@/lib/utils'
 
 interface BookingFiltersProps {
   currentMonth: Date
   onMonthChange: (date: Date) => void
   selectedStoreIds: string[]
   onStoreIdsChange: (storeIds: string[]) => void
-  stores: any[]
+  /** お客様向けの店舗名にした選択肢 */
+  storeOptions: StoreOption[]
   hideSoldOut?: boolean
   onHideSoldOutChange?: (value: boolean) => void
+  /** ログイン中だけ「体験済みを非表示」 */
   hidePlayed?: boolean
   onHidePlayedChange?: (value: boolean) => void
   isLoggedIn?: boolean
+  /** 選べる月の数（今月から） */
+  monthCount?: number
+  primaryColor: string
+}
+
+function monthStart(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1) // jst-ignore（カレンダーの月の計算。日付の表示には使わない）
 }
 
 /**
- * 予約サイト用のフィルターコンポーネント（月ナビゲーション + 店舗フィルター + 表示切替）
- * カレンダー表示とリスト表示で共通利用
+ * 予約サイトのカレンダー・リスト共通の操作（年月・店舗・満席を非表示・ログイン中は体験済みを非表示）。
+ * 元の操作のまま、見た目は新しいトップのチップに合わせた（2026-10-12 社長決定）。
  */
 export function BookingFilters({
   currentMonth,
   onMonthChange,
   selectedStoreIds,
   onStoreIdsChange,
-  stores,
+  storeOptions,
   hideSoldOut = false,
   onHideSoldOutChange,
   hidePlayed = false,
   onHidePlayedChange,
   isLoggedIn = false,
+  monthCount = 3,
+  primaryColor,
 }: BookingFiltersProps) {
-  const filteredStores = stores.filter(store => !store.is_temporary)
-  
-  return (
-    <div className="space-y-3 mb-4 sm:mb-6">
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        {/* 月ナビゲーション */}
-        <div className="w-full sm:w-auto flex justify-center sm:justify-start">
-          <MonthSwitcher
-            value={currentMonth}
-            onChange={onMonthChange}
-            showToday
-            quickJump
-          />
-        </div>
-        
-        {/* 店舗フィルター */}
-        <div className="flex items-center gap-2 justify-center sm:justify-end">
-          <label className="text-xs sm:text-sm whitespace-nowrap">店舗:</label>
-          <div className="w-full sm:w-52">
-            <StoreMultiSelect
-              stores={filteredStores}
-              selectedStoreIds={selectedStoreIds}
-              onStoreIdsChange={onStoreIdsChange}
-              hideLabel={true}
-              placeholder="すべて"
-            />
-          </div>
-        </div>
-      </div>
+  const [monthOpen, setMonthOpen] = useState(false)
+  const thisMonth = monthStart(new Date())
+  const current = monthStart(currentMonth)
+  const months = Array.from({ length: monthCount }, (_, i) => new Date(thisMonth.getFullYear(), thisMonth.getMonth() + i, 1))
+  const isFirst = current.getTime() <= thisMonth.getTime()
+  const isLast = current.getTime() >= months[months.length - 1].getTime()
+  const label = `${current.getFullYear()}年${current.getMonth() + 1}月`
+  const navButton = 'inline-flex h-8 w-8 items-center justify-center rounded-full border border-input bg-white hover:bg-muted disabled:opacity-30'
 
-      {/* 表示切替ボタン */}
-      {(onHideSoldOutChange || (onHidePlayedChange && isLoggedIn)) && (
-        <div className="flex items-center gap-2 flex-wrap">
-          {onHideSoldOutChange && (
-            <Button
-              type="button"
-              variant={hideSoldOut ? 'default' : 'outline'}
-              size="sm"
-              className={`h-8 sm:h-7 text-xs gap-1 flex-1 sm:flex-none ${hideSoldOut ? 'bg-gray-700 hover:bg-gray-800' : ''}`}
-              onClick={() => onHideSoldOutChange(!hideSoldOut)}
-            >
-              <EyeOff className="w-3 h-3 shrink-0" />
-              満席を非表示
-            </Button>
-          )}
-          {onHidePlayedChange && isLoggedIn && (
-            <Button
-              type="button"
-              variant={hidePlayed ? 'default' : 'outline'}
-              size="sm"
-              className={`h-8 sm:h-7 text-xs gap-1 flex-1 sm:flex-none ${hidePlayed ? 'bg-green-700 hover:bg-green-800' : ''}`}
-              onClick={() => onHidePlayedChange(!hidePlayed)}
-            >
-              <EyeOff className="w-3 h-3 shrink-0" />
-              体験済みを非表示
-            </Button>
-          )}
-        </div>
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-1.5">
+      <div className="flex items-center gap-1">
+        <button type="button" aria-label="前の月" disabled={isFirst} className={navButton} onClick={() => onMonthChange(new Date(current.getFullYear(), current.getMonth() - 1, 1))}>
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <Popover open={monthOpen} onOpenChange={setMonthOpen}>
+          <PopoverTrigger asChild>
+            <ChipButton className="font-bold">
+              {label}
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden />
+            </ChipButton>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-44 rounded-lg p-1.5">
+            {months.map((m) => (
+              <button
+                key={m.getTime()}
+                type="button"
+                onClick={() => { onMonthChange(m); setMonthOpen(false) }}
+                className={cn('block w-full rounded-md px-2.5 py-2 text-left text-sm hover:bg-muted', m.getTime() === current.getTime() && 'font-bold')}
+              >
+                {m.getFullYear()}年{m.getMonth() + 1}月
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
+        <button type="button" aria-label="次の月" disabled={isLast} className={navButton} onClick={() => onMonthChange(new Date(current.getFullYear(), current.getMonth() + 1, 1))}>
+          <ChevronRight className="h-4 w-4" />
+        </button>
+        {!isFirst && (
+          <ChipButton onClick={() => onMonthChange(thisMonth)}>今月</ChipButton>
+        )}
+      </div>
+      {storeOptions.length > 1 && (
+        <StorePicker options={storeOptions} value={selectedStoreIds} onChange={onStoreIdsChange} primaryColor={primaryColor} />
+      )}
+      {onHideSoldOutChange && (
+        <ChipButton selected={hideSoldOut} primaryColor={primaryColor} onClick={() => onHideSoldOutChange(!hideSoldOut)}>
+          <EyeOff className="h-3.5 w-3.5" aria-hidden />満席を非表示
+        </ChipButton>
+      )}
+      {onHidePlayedChange && isLoggedIn && (
+        <ChipButton selected={hidePlayed} tone="green" onClick={() => onHidePlayedChange(!hidePlayed)}>
+          <EyeOff className="h-3.5 w-3.5" aria-hidden />体験済みを非表示
+        </ChipButton>
       )}
     </div>
   )
 }
-
