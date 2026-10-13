@@ -1078,7 +1078,7 @@ export function ComponentGallery() {
             <Section
               id="scenario-card"
               title="シナリオカード"
-              description="@/components/public-top/PerformanceResultCard.tsx（2026-10 トップ刷新で旧カードを置き換え）"
+              description="@/components/public-top/ScenarioCard.tsx（2026-10-13 本番の作品カードの見た目に戻した。トップの残りわずか・探す結果・作品から探すで共通）"
             >
               <SubSection title="シャープデザイン（PlatformTop）">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

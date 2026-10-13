@@ -4,7 +4,7 @@
  */
 import { getAvailableSeats } from '@/lib/participantUtils'
 import { isBeginnerFriendly, type PublicPerformance } from '@/lib/publicPerformanceSearch'
-import { storeDisplayName, storePrefecture, type StoreAreaSource, type StoreNameSource } from '@/lib/publicStoreName'
+import { storeDisplayName, storePrefecture, storeShortDisplayName, type StoreAreaSource, type StoreNameSource } from '@/lib/publicStoreName'
 import { calculateParticipationFee, isWeekendOrHoliday, type ParticipationCost } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
 
 export interface PerformanceEventRow {
@@ -24,6 +24,7 @@ export interface PerformanceEventRow {
   is_private_booking?: boolean | null
   published?: boolean | null
   is_reservation_enabled?: boolean | null
+  is_extended?: boolean | null
 }
 
 export interface PerformanceScenarioRow {
@@ -40,7 +41,7 @@ export interface PerformanceScenarioRow {
   genre?: string[] | null
 }
 
-export type PerformanceStoreRow = StoreNameSource & StoreAreaSource & { id: string }
+export type PerformanceStoreRow = StoreNameSource & StoreAreaSource & { id: string; color?: string | null }
 
 export interface PerformanceOrganization {
   id: string
@@ -96,5 +97,8 @@ export function buildPublicPerformance(
     reservation_deadline_hours: row.reservation_deadline_hours ?? 0,
     genres,
     beginner_friendly: isBeginnerFriendly(genres),
+    store_short_name: storeShortDisplayName(store, row.date, row.venue),
+    store_color: store?.color ?? null,
+    is_extended: row.is_extended === true,
   }
 }

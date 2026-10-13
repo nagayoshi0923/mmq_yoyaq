@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import type { PerformanceSearchState } from '@/components/public-top/usePerformanceSearchParams'
 import type { PublicPerformance } from '@/lib/publicPerformanceSearch'
+import { indexUpcoming } from '@/components/public-top/scenarioCards'
 import { StoreSearchSection } from './StoreSearchSection'
 
 vi.mock('./ClassicViews', () => ({ ClassicCalendar: () => null, ClassicList: () => null }))
@@ -35,7 +36,8 @@ function render(performances: PublicPerformance[], state: PerformanceSearchState
         today={today}
         nowMs={NOW}
         primaryColor="#E60012"
-        onSelect={() => {}}
+        source={{ upcoming: indexUpcoming(performances, NOW), meta: () => undefined }}
+        onOpen={() => {}}
         classic={{
           organizationId: 'o1', allEvents: [], blockedSlots: [], stores: [], scenarios: [], organizationSlug: 'queens-waltz',
           organizationName: 'クインズワルツ', privateBookingDeadlineDays: 7, onCardClick: () => {},
@@ -71,5 +73,21 @@ describe('店舗トップ「空いている公演を探す」', () => {
   it('読み込み中は「来週」に切り替えない', () => {
     const html = render([], base, '2026-10-12', true)
     expect(html).toContain('10/12(月)〜10/18(日)')
+  })
+  it('結果は本番の作品カードを 2 列で出し、同じ作品の該当公演は 1 枚にまとめて行を色付けする', () => {
+    const html = render([
+      perf({ id: 'a1', title: '作品A', date: '2026-10-14' }),
+      perf({ id: 'a2', title: '作品A', date: '2026-10-16', start_time: '19:00' }),
+      perf({ id: 'a3', title: '作品A', date: '2026-10-28' }),
+      perf({ id: 'b1', title: '作品B', scenario_id: 'sc2', scenario_slug: 'sc2', date: '2026-10-15' }),
+    ])
+    expect(html).toContain('grid grid-cols-2 gap-2 md:grid-cols-4')
+    expect(html.match(/>作品A</g)).toHaveLength(1)
+    expect(html.match(/>作品B</g)).toHaveLength(1)
+    // 作品A は該当 2 件（色付き）（行は 2 件まで。同じ作品の 10/28 は「+1件」）
+    expect(html.match(/data-highlighted="true"/g)).toHaveLength(3)
+    expect(html).not.toContain('10/28')
+    expect(html).toContain('+1件')
+    expect(html).toContain('カードを押すと作品ページが、色付きの公演を選んだ状態で開きます。')
   })
 })

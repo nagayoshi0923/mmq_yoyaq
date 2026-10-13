@@ -120,7 +120,7 @@ export const publicBookingListReadApi = {
     const pageSize = 1000
     const fetchPage = (page: number) => supabase
       .from('schedule_events_public')
-      .select('id, date, start_time, end_time, scenario_master_id, scenario, store_id, venue, current_participants, max_participants, capacity, is_reservation_enabled, published, category, is_private_booking, reservation_deadline_hours, organization_id')
+      .select('id, date, start_time, end_time, scenario_master_id, scenario, store_id, venue, current_participants, max_participants, capacity, is_reservation_enabled, published, category, is_private_booking, is_extended, reservation_deadline_hours, organization_id')
       .gte('date', startDate)
       .lte('date', endDate)
       .eq('is_cancelled', false)

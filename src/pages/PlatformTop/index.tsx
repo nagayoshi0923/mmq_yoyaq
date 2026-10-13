@@ -22,6 +22,7 @@ import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
 import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
 import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
 import { PerformanceResultList } from '@/components/public-top/PerformanceResultList'
+import { indexUpcoming, scenarioBrowseCard, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
 import { TopSection } from '@/components/public-top/TopSection'
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
 import {
@@ -30,7 +31,6 @@ import {
   datesWithOpenings,
   isBookableNow,
   nearlyFullPerformances,
-  performanceDetailPath,
   resolvePresetRange,
   searchPerformances,
   todayJst,
@@ -79,6 +79,11 @@ export function PlatformTop() {
     return { range: r, results: find(r) }
   }, [performances, search.preset, search.date, today, isLoading, search.onlyAvailable, search.area, nowMs])
   const nearlyFull = useMemo(() => nearlyFullPerformances(performances, nowMs), [performances, nowMs])
+  // 作品カード（本番の見た目）の材料。全体トップでは画像の左上に組織名の帯を出す
+  const cardSource = useMemo<ScenarioCardSource>(() => {
+    const meta = new Map<string, ScenarioCardMeta>((data?.scenarios ?? []).map((s) => [s.id, s]))
+    return { upcoming: indexUpcoming(performances, nowMs), meta: (id) => meta.get(id), showOrganization: true }
+  }, [data, performances, nowMs])
   const openDates = useMemo(() => datesWithOpenings(
     search.area ? performances.filter((p) => p.prefecture === search.area) : performances, nowMs,
   ), [performances, search.area, nowMs])
@@ -98,43 +103,36 @@ export function PlatformTop() {
     return map
   }, [performances, today, nowMs])
 
-  // 作品から探す: 全国の公開作品。補足は「N 店舗で上演・次回 M/D」（予約を受け付けている公演から）
+  // 作品から探す: 全国の公開作品。カードの次回公演は全店舗の予約を受け付けている公演から
   const browseScenarios = useMemo<BrowseScenario[]>(() => {
-    const stats = new Map<string, { stores: Set<string>; next: string | null }>()
-    for (const p of performances) {
-      if (!isBookableNow(p, nowMs)) continue
-      const st = stats.get(p.scenario_id) ?? { stores: new Set<string>(), next: null }
-      st.stores.add(`${p.organization_id}_${p.store_id ?? p.store_name}`)
-      if (p.available_seats > 0 && (!st.next || p.date < st.next)) st.next = p.date
-      stats.set(p.scenario_id, st)
-    }
+    const byScenario = new Map<string, PublicPerformance[]>()
+    cardSource.upcoming.forEach((list) => {
+      if (list.length === 0) return
+      const id = list[0].scenario_id
+      byScenario.set(id, [...(byScenario.get(id) ?? []), ...list])
+    })
     const newSince = addJstDays(today, -30)
     return (data?.scenarios ?? []).map((s) => {
-      const st = stats.get(s.id)
-      const parts = [
-        st && st.stores.size > 0 ? `${st.stores.size} 店舗で上演` : '',
-        st?.next ? `次回 ${formatJstMonthDay(st.next)}` : '',
-      ].filter(Boolean)
+      const events = byScenario.get(s.id) ?? []
+      const next = events.filter((p) => p.available_seats > 0).reduce<string | null>((min, p) => (!min || p.date < min ? p.date : min), null)
       return {
         id: s.id,
         title: s.title,
         author: s.author,
-        key_visual_url: s.key_visual_url,
         genres: s.genres,
         player_count_min: s.player_count_min,
         player_count_max: s.player_count_max,
         is_new: s.genres.includes('新作') || (!!s.release_date && s.release_date >= newSince),
         is_popular: s.is_recommended || s.genres.includes('オススメ'),
-        next_date: st?.next ?? null,
-        note: parts.length > 0 ? parts.join('・') : '貸切で遊べます',
-        path: `/scenario/${encodeURIComponent(s.slug)}`,
+        next_date: next,
+        card: scenarioBrowseCard(s, events, `/scenario/${encodeURIComponent(s.slug)}`),
       }
     })
-  }, [data, performances, nowMs, today])
+  }, [data, cardSource, today])
 
-  const openPerformance = useCallback((p: PublicPerformance) => {
+  const openCard = useCallback((card: ScenarioCardData) => {
     saveScrollPositionForCurrentUrl()
-    navigate(performanceDetailPath(p))
+    navigate(card.path)
   }, [navigate])
 
   const dateTitle = search.preset === 'date'
@@ -171,16 +169,17 @@ export function PlatformTop() {
         <TopSection id="results" title={`${dateTitle}に入れる公演`} aside={search.area ?? '全国'}>
           <PerformanceResultList
             performances={results}
+            source={cardSource}
+            marks={marks}
             isLoading={isLoading}
-            showOrganization
             resetKey={resetKey}
-            onSelect={openPerformance}
+            onOpen={openCard}
             empty={<>条件に合う公演がありません。日付やエリアを変えてみてください。</>}
           />
-          {results.length > 0 && <p className="mt-1.5 text-xs text-muted-foreground">押すと各店舗の作品ページが、その公演を選んだ状態で開きます。</p>}
+          {results.length > 0 && <p className="mt-1.5 text-xs text-muted-foreground">カードを押すと各店舗の作品ページが、色付きの公演を選んだ状態で開きます。</p>}
         </TopSection>
 
-        <NearlyFullStrip performances={nearlyFull} showOrganization aside="全店舗・日付順" onSelect={openPerformance} />
+        <NearlyFullStrip performances={nearlyFull} source={cardSource} marks={marks} aside="全店舗・日付順" onOpen={openCard} />
 
         <PrivateBookingSection
           text="人数が集まれば、好きな店舗・好きな作品・好きな日に。候補日を出してメンバーの都合を聞き、店舗に申し込むまでサイトで完結します。"
@@ -196,6 +195,8 @@ export function PlatformTop() {
             searchPath={(q) => `/scenario?q=${encodeURIComponent(q)}`}
             marks={marks}
             primaryColor={primaryColor}
+            allButtonLabel="カタログを見る"
+            onOpen={openCard}
           />
         )}
 

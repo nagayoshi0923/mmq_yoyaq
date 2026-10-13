@@ -19,13 +19,13 @@ import { orgBookingDescription, orgBookingTitle } from '@/lib/seo'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { autoOrganizationTagline } from '@/lib/publicStoreName'
-import { nearlyFullPerformances, performanceDetailPath, todayJst, type PublicPerformance } from '@/lib/publicPerformanceSearch'
-import { formatJstMonthDay } from '@/utils/jstDate'
+import { nearlyFullPerformances, todayJst } from '@/lib/publicPerformanceSearch'
 import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top/InfoSections'
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
 import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
 import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
 import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
+import { cardKey, indexUpcoming, scenarioBrowseCard, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
 import { useBookingData } from './hooks/useBookingData'
 import { useStoreTopPerformances } from './hooks/useStoreTopPerformances'
 import { StoreHero } from './components/top/StoreHero'
@@ -80,6 +80,11 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     allEvents, stores, organizationId, organizationSlug: slug, organizationName, nowMs,
   })
   const nearlyFull = useMemo(() => nearlyFullPerformances(performances, nowMs), [performances, nowMs])
+  // 作品カード（本番の見た目）の材料: 作品ごとの今後の公演と、作者・おすすめ・遊びたい数・リリース日
+  const cardSource = useMemo<ScenarioCardSource>(() => {
+    const meta = new Map<string, ScenarioCardMeta>(scenarios.map((s) => [s.scenario_id, s]))
+    return { upcoming: indexUpcoming(performances, nowMs), meta: (id) => meta.get(id) }
+  }, [scenarios, performances, nowMs])
 
   const tagline = useMemo(
     () => organizationPublicBookingHeroDescription?.trim() || autoOrganizationTagline(stores),
@@ -121,28 +126,39 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     navigate(`/${slug}/scenario/${slugOrId}`)
   }, [navigate, slug])
 
-  const openPerformance = useCallback((p: PublicPerformance) => {
+  const openCard = useCallback((card: ScenarioCardData) => {
     saveScrollPositionForCurrentUrl()
-    navigate(performanceDetailPath(p))
+    navigate(card.path)
   }, [navigate])
 
   const browseScenarios = useMemo<BrowseScenario[]>(() => scenarios.map((s) => {
-    const next = nextDates.get(s.scenario_id) ?? null
+    const path = `/${slug}/scenario/${s.scenario_slug || s.scenario_id}`
+    const events = cardSource.upcoming.get(cardKey({ organization_id: organizationId ?? '', scenario_id: s.scenario_id })) ?? []
     return {
       id: s.scenario_id,
       title: s.scenario_title,
       author: s.author ?? '',
-      key_visual_url: s.key_visual_url,
       genres: s.genre,
       player_count_min: s.player_count_min,
       player_count_max: s.player_count_max,
       is_new: !!s.is_new || s.genre.includes('新作'),
       is_popular: !!s.is_recommended || (s.favorite_count ?? 0) >= POPULAR_FAVORITES || s.genre.includes('オススメ'),
-      next_date: next,
-      note: next ? `次回 ${formatJstMonthDay(next)}` : '貸切で遊べます',
-      path: `/${slug}/scenario/${s.scenario_slug || s.scenario_id}`,
+      next_date: nextDates.get(s.scenario_id) ?? null,
+      card: scenarioBrowseCard({
+        id: s.scenario_id,
+        title: s.scenario_title,
+        key_visual_url: s.key_visual_url,
+        player_count_min: s.player_count_min,
+        player_count_max: s.player_count_max,
+        duration_minutes: s.duration,
+        fee: s.participation_fee,
+        author: s.author,
+        is_recommended: s.is_recommended,
+        favorite_count: s.favorite_count,
+        release_date: s.release_date,
+      }, events, path),
     }
-  }), [scenarios, nextDates, slug])
+  }), [scenarios, nextDates, slug, cardSource, organizationId])
 
   if (organizationNotFound) {
     return (
@@ -175,7 +191,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
       />
 
       <main className="mx-auto max-w-4xl space-y-3 px-4 py-3 md:py-5">
-        <NearlyFullStrip performances={nearlyFull} onSelect={openPerformance} />
+        <NearlyFullStrip performances={nearlyFull} source={cardSource} marks={marks} onOpen={openCard} />
         <StoreSearchSection
           performances={performances}
           isLoading={isLoading}
@@ -185,7 +201,9 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
           today={today}
           nowMs={nowMs}
           primaryColor={primaryColor}
-          onSelect={openPerformance}
+          source={cardSource}
+          marks={marks}
+          onOpen={openCard}
           classic={{
             organizationId,
             allEvents,
@@ -210,6 +228,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
             searchPath={(q) => `/${slug}/catalog?q=${encodeURIComponent(q)}`}
             marks={marks}
             primaryColor={primaryColor}
+            onOpen={openCard}
           />
         )}
         <FirstTimeSection faqPath={slug ? `/${slug}/faq` : '/faq'} />
