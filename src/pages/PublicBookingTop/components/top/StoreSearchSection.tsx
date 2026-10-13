@@ -50,6 +50,7 @@ interface StoreSearchSectionProps {
  * チップ「今週／来週／今月」は日付順のカード（店舗・空席あり・初心者向けで絞れる）、
  * 「カレンダー」「リスト」は元の部品（年月・店舗・満席を非表示の操作）を出す（2026-10-12 社長決定）。
  * 人数の絞り込みは置かない（2026-10-12 社長指示。空席ありは 1 名以上の空き）。
+ * 初期選択は「今月」、結果は折りたたまず全部並べる（2026-10-13 社長指示）。
  */
 export function StoreSearchSection({ performances, isLoading, state, onChange, storeOptions, today, nowMs, primaryColor, source, marks, onOpen, classic }: StoreSearchSectionProps) {
   // 元のカレンダー・リストの操作（両方で共通にし、切り替えても保つ）
@@ -57,7 +58,7 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
   const [hideSoldOut, setHideSoldOut] = useState(false)
   const [hidePlayed, setHidePlayed] = useState(false)
   const isCards = state.view === 'cards'
-  // カレンダー・リストから日付のチップに戻るときは「今週」から（日付の指定は持ち越さない）
+  // カレンダー・リストから日付のチップに戻るときは「今月」から（日付の指定は持ち越さない）
   const preset = state.preset === 'date' ? DEFAULT_DATE_PRESET : state.preset
   const { range, results } = useMemo(() => {
     const search = (r: ReturnType<typeof resolvePresetRange>) => searchPerformances(performances, {
@@ -66,12 +67,11 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
       beginnerOnly: state.beginnerOnly,
       storeIds: state.storeIds,
     }, nowMs)
-    // 「今週」が 0 件なら「来週」に切り替える（読み込み中は切り替えない）
+    // 「今月」が 0 件なら来月、「今週」が 0 件なら「来週」に切り替える（読み込み中は切り替えない）
     const r = resolvePresetRange(preset, today, null, (cand) => (isLoading ? 1 : search(cand).length))
     return { range: r, results: search(r) }
   }, [performances, preset, today, isLoading, state.onlyAvailable, state.beginnerOnly, state.storeIds, nowMs])
   const hasBeginner = useMemo(() => performances.some((p) => p.beginner_friendly), [performances])
-  const resetKey = `${range.from}_${range.to}_${state.onlyAvailable}_${state.beginnerOnly}_${state.storeIds.join(',')}`
   const classicProps = {
     ...classic,
     storeOptions,
@@ -124,7 +124,6 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
             source={source}
             marks={marks}
             isLoading={isLoading}
-            resetKey={resetKey}
             onOpen={onOpen}
             empty={<>条件に合う公演がありません。日付や条件を変えてみてください。</>}
           />

@@ -4,15 +4,15 @@ import type { PerformanceSearchState } from '@/components/public-top/usePerforma
 import { PlatformSearchForm } from './PlatformSearchForm'
 
 const state: PerformanceSearchState = {
-  preset: 'week', date: null, onlyAvailable: true, beginnerOnly: false, storeIds: [], area: null, view: 'cards',
+  preset: 'month', date: null, onlyAvailable: true, beginnerOnly: false, storeIds: [], area: null, view: 'cards',
 }
 
 describe('MMQ 全体トップの横断検索', () => {
-  it('人数の選択が無く、日付の既定は「今週」', () => {
+  it('人数の選択が無く、日付の既定は「今月」（2026-10-13 社長指示）', () => {
     const html = renderToStaticMarkup(
       <PlatformSearchForm
         state={state}
-        range={{ from: '2026-10-12', to: '2026-10-18' }}
+        range={{ from: '2026-10-12', to: '2026-10-31' }}
         prefectures={['東京都']}
         today="2026-10-12"
         maxDate="2026-12-31"
@@ -22,7 +22,7 @@ describe('MMQ 全体トップの横断検索', () => {
         onSubmit={() => {}}
       />,
     )
-    expect(html).toContain('今週')
+    expect(html).toContain('今月')
     expect(html).not.toContain('今週末')
     expect(html).not.toContain('人数')
     expect(html).not.toContain('名</span>')

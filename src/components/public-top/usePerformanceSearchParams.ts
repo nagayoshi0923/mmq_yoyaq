@@ -16,7 +16,7 @@ export interface PerformanceSearchState {
 }
 
 /**
- * 絞り込みを URL（?when=&date=&stores=&avail=&beginner=&area=&view=）に持つ。初期表示は「今週・空席あり」。
+ * 絞り込みを URL（?when=&date=&stores=&avail=&beginner=&area=&view=）に持つ。初期表示は「今月・空席あり」（2026-10-13 社長指示で「今週」から変更）。
  * 作品ページから戻ったときに同じ条件で開き直せ、旧 /calendar からも ?when=date で渡せる。
  * 人数（?people=）は 2026-10-12 に絞り込みごと外した。古いリンクに残っていても無視し、次の操作で URL から消す。
  */
