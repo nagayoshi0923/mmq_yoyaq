@@ -71,7 +71,7 @@ describe('狭いカード（幅 200px 未満）の決まった形', () => {
   })
   it('人数・時間・参加費はアイコンを外し中黒区切りの 1 行、参加費だけ省略', () => {
     expect(html).toContain('card-narrow:flex-nowrap')
-    expect(html).toContain('card-narrow:text-[10px]')
+    expect(html).toContain('card-narrow:ts-10')
     expect(html.match(/hidden card-narrow:inline">・</g)).toHaveLength(2)
     expect(html).toContain('card-narrow:min-w-0 card-narrow:truncate')
   })

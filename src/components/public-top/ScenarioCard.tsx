@@ -92,7 +92,7 @@ export const ScenarioCard = memo(function ScenarioCard({ card, onOpen, marks, cl
           <h3 className="mb-2 line-clamp-2 text-sm font-bold leading-snug text-foreground">{card.title}</h3>
 
           {/* 広いカード: アイコン付きで横に並べる。狭いカード（幅 200px 未満）: アイコンなし・中黒区切りの 1 行、はみ出す参加費だけ「…」 */}
-          <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground card-narrow:flex-nowrap card-narrow:gap-x-0 card-narrow:whitespace-nowrap card-narrow:text-[10px]">
+          <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground card-narrow:flex-nowrap card-narrow:gap-x-0 card-narrow:whitespace-nowrap card-narrow:ts-10">
             <span className="flex shrink-0 items-center gap-1"><Users className="h-3 w-3 card-narrow:hidden" />{formatPlayers(card.player_count_min, card.player_count_max)}</span>
             {!!card.duration_minutes && (
               <span className="flex shrink-0 items-center gap-1 card-narrow:gap-0">
