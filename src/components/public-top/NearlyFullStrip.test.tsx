@@ -49,9 +49,9 @@ describe('残りわずか（本番の作品カード）', () => {
 
   it('残 2 以下は「残N」を残少の色、残 3 以上は通常の色で出す', () => {
     expect(render([perf({ available_seats: 2, current_participants: 2, player_count_max: 4, player_count_min: 4 })]))
-      .toContain(`${CHIP} rounded-none bg-booking-seat-low-bg text-booking-seat-low-text">残2<`)
+      .toContain(`${CHIP} rounded-none bg-booking-seat-low-bg text-booking-seat-low-text card-narrow:text-red-700">残2<`)
     expect(render([perf({ available_seats: 5, current_participants: 0 })]))
-      .toContain(`${CHIP} rounded-none bg-booking-accent-light text-booking-accent">残5<`)
+      .toContain(`${CHIP} rounded-none bg-booking-accent-light text-booking-accent card-narrow:bg-green-100 card-narrow:text-green-700">残5<`)
   })
 
   it('最低人数に達していて満席でなければ「開催決定」を出す', () => {

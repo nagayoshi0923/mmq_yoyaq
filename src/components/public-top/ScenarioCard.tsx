@@ -61,19 +61,20 @@ export const ScenarioCard = memo(function ScenarioCard({ card, onOpen, marks, cl
           {ribbon && <div className={cn('absolute bottom-0 left-0 px-3 py-1 text-xs font-bold', ribbon.className)}>{ribbon.label}</div>}
         </div>
 
-        <div className="min-w-0 flex-1 p-2 sm:p-3">
-          <div className="mb-1 flex items-center justify-between gap-1">
-            <p className="min-w-0 truncate text-xs text-muted-foreground">{card.author}</p>
-            <div className="flex shrink-0 items-center gap-0.5">
+        {/* 狭いカード（幅 200px 未満。スマホの 2 列・残りわずかの 150px）は見本 Top.dc.html の .pc と同じ寸法: 文字を小さくして各行を 1 行に収める */}
+        <div className="min-w-0 flex-1 p-2 sm:p-3 card-narrow:!p-2">
+          <div className="mb-1 flex items-center justify-between gap-1 card-narrow:mb-0.5">
+            <p className="min-w-0 truncate text-xs text-muted-foreground card-narrow:!ts-11 card-narrow:!fg-gray-500">{card.author}</p>
+            <div className="flex shrink-0 items-center gap-0.5 card-narrow:gap-1">
               <button
                 type="button"
                 aria-label={isPlayed ? '体験済みを外す' : '体験済みにする'}
                 aria-pressed={isPlayed}
                 disabled={!marks}
                 onClick={(e) => { e.stopPropagation(); marks?.togglePlayed(card.scenario_id, card.title) }}
-                className={cn('rounded-sm p-1 transition-colors', marks ? 'cursor-pointer hover:bg-green-50' : 'cursor-default')}
+                className={cn('rounded-sm p-1 transition-colors card-narrow:p-0', marks ? 'cursor-pointer hover:bg-green-50' : 'cursor-default')}
               >
-                <CheckCheck className={cn('h-4 w-4', isPlayed ? 'text-green-500' : 'text-muted-foreground/40')} />
+                <CheckCheck className={cn('h-4 w-4 card-narrow:h-[13px] card-narrow:w-[13px]', isPlayed ? 'text-green-500' : 'text-muted-foreground/40')} />
               </button>
               {marks && (
                 <button
@@ -81,61 +82,54 @@ export const ScenarioCard = memo(function ScenarioCard({ card, onOpen, marks, cl
                   aria-label={isFavorite ? '遊びたいから外す' : '遊びたいに入れる'}
                   aria-pressed={isFavorite}
                   onClick={(e) => { e.stopPropagation(); marks.toggleFavorite(card.scenario_id) }}
-                  className="rounded-sm p-1 transition-colors hover:bg-red-50"
+                  className="rounded-sm p-1 transition-colors hover:bg-red-50 card-narrow:p-0"
                 >
-                  <Heart className={cn('h-4 w-4 fill-current text-red-500', isFavorite ? 'opacity-100' : 'opacity-30')} />
+                  <Heart className={cn('h-4 w-4 fill-current text-red-500 card-narrow:h-[13px] card-narrow:w-[13px]', isFavorite ? 'opacity-100' : 'opacity-30')} />
                 </button>
               )}
             </div>
           </div>
 
-          <h3 className="mb-2 line-clamp-2 text-sm font-bold leading-snug text-foreground">{card.title}</h3>
+          <h3 className="mb-2 line-clamp-2 text-sm font-bold leading-snug text-foreground card-narrow:mb-1.5 card-narrow:!ts-13">{card.title}</h3>
 
-          {/* 広いカード: アイコン付きで横に並べる。狭いカード（幅 200px 未満）: アイコンなし・中黒区切りの 1 行、はみ出す参加費だけ「…」 */}
-          <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground card-narrow:flex-nowrap card-narrow:gap-x-0 card-narrow:whitespace-nowrap card-narrow:ts-10">
+          {/* 広いカード: アイコン付きで横に並べる。狭いカード: アイコンなしの 1 行（11px・間隔 10px）、はみ出す参加費だけ「…」 */}
+          <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground card-narrow:mb-1.5 card-narrow:flex-nowrap card-narrow:gap-x-2.5 card-narrow:whitespace-nowrap card-narrow:!ts-11 card-narrow:!fg-gray-600">
             <span className="flex shrink-0 items-center gap-1"><Users className="h-3 w-3 card-narrow:hidden" />{formatPlayers(card.player_count_min, card.player_count_max)}</span>
             {!!card.duration_minutes && (
-              <span className="flex shrink-0 items-center gap-1 card-narrow:gap-0">
-                <span aria-hidden className="hidden card-narrow:inline">・</span>
-                <Clock className="h-3 w-3 card-narrow:hidden" />{formatDuration(card.duration_minutes)}
-              </span>
+              <span className="flex shrink-0 items-center gap-1"><Clock className="h-3 w-3 card-narrow:hidden" />{formatDuration(card.duration_minutes)}</span>
             )}
-            {!!card.fee && (
-              <span className="card-narrow:min-w-0 card-narrow:truncate">
-                <span aria-hidden className="hidden card-narrow:inline">・</span>¥{card.fee.toLocaleString('ja-JP')}〜
-              </span>
-            )}
+            {!!card.fee && <span className="card-narrow:min-w-0 card-narrow:truncate">¥{card.fee.toLocaleString('ja-JP')}〜</span>}
           </div>
 
           {rows.length > 0 && (
-            <div className="space-y-1 border-t border-gray-100 pt-2">
+            <div className="space-y-1 border-t border-gray-100 pt-2 card-narrow:pt-1.5">
               {rows.map((ev) => {
                 const wd = getJstWeekdayIndex(ev.date)
                 return (
                   <div
                     key={ev.id}
                     data-highlighted={ev.highlighted || undefined}
-                    className={cn('flex items-stretch gap-1 ts-11', ev.highlighted && '-mx-2 bg-orange-50 px-2 py-0.5 sm:-mx-3 sm:px-3')}
+                    className={cn('flex items-stretch gap-1 ts-11 card-narrow:items-center', ev.highlighted && '-mx-2 bg-orange-50 px-2 py-0.5 sm:-mx-3 sm:px-3 card-narrow:!-mx-2 card-narrow:!px-2')}
                   >
-                    <span className="w-[3px] shrink-0" style={{ backgroundColor: ev.store_color ? getColorFromName(ev.store_color) : 'var(--booking-primary)' }} />
-                    {/* 広いカード: 日付・時刻・店舗・残席を 1 行。狭いカード: 1 行目「日付(曜日) 時刻」、2 行目「店舗（左）・残席（右）」の決まった 2 行 */}
-                    <div className="flex min-w-0 flex-1 items-center gap-x-1 card-narrow:grid card-narrow:grid-cols-[minmax(0,1fr)_auto] card-narrow:gap-y-0.5">
-                      <span className="flex shrink-0 items-center gap-x-1 whitespace-nowrap card-narrow:col-span-2">
-                        <span className="font-medium text-foreground">
+                    {/* 狭いカード: 左に「縦棒・日付(曜日)・時刻・店舗」、右に残席。縮むのは店舗名だけ */}
+                    <span className="w-[3px] shrink-0 card-narrow:h-3.5" style={{ backgroundColor: ev.store_color ? getColorFromName(ev.store_color) : 'var(--booking-primary)' }} />
+                    <div className="flex min-w-0 flex-1 items-center gap-x-1 card-narrow:justify-between card-narrow:gap-x-1.5">
+                      <span className="flex min-w-0 items-center gap-x-1 card-narrow:gap-x-[5px]">
+                        <span className="shrink-0 whitespace-nowrap font-medium text-foreground card-narrow:font-semibold">
                           {formatJstMonthDay(ev.date)}
-                          <span className={cn('ml-0.5 font-normal', wd === 0 ? 'text-red-500' : wd === 6 ? 'text-blue-500' : 'text-muted-foreground')}>
+                          <span className={cn('ml-0.5 font-normal', wd === 0 ? 'text-red-500' : wd === 6 ? 'text-blue-500' : 'text-muted-foreground card-narrow:!fg-gray-400')}>
                             ({formatJstWeekday(ev.date)})
                           </span>
                         </span>
-                        {ev.start_time && <span className="text-muted-foreground">{ev.start_time.slice(0, 5)}</span>}
+                        {ev.start_time && <span className="shrink-0 whitespace-nowrap text-muted-foreground card-narrow:!fg-gray-500">{ev.start_time.slice(0, 5)}</span>}
+                        <span className="min-w-0 truncate text-muted-foreground card-narrow:!fg-gray-400">{ev.store_name}</span>
                       </span>
-                      <span className="min-w-0 truncate text-muted-foreground">{ev.store_name}</span>
-                      <SeatChips performance={ev} className="ml-auto shrink-0 justify-self-end" />
+                      <SeatChips performance={ev} className="ml-auto shrink-0" />
                     </div>
                   </div>
                 )
               })}
-              {more > 0 && <p className="ts-10 text-muted-foreground">+{more}件</p>}
+              {more > 0 && <p className="ts-10 text-muted-foreground card-narrow:!fg-gray-400">+{more}件</p>}
             </div>
           )}
         </div>

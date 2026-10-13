@@ -306,6 +306,8 @@ html, body {
   .ts-8 { font-size: 8px; }
   /* トップページの作品カードの次回公演の行（見本 Top.dc.html と同じ 11px。2 列・幅 150px のカードで店舗名まで 1 行に収める） */
   .ts-11 { font-size: 11px; line-height: 1.4; }
+  /* 狭い作品カードの作品名（見本 Top.dc.html の .pc .ti と同じ 13px・行間 1.35） */
+  .ts-13 { font-size: 13px; line-height: 1.35; }
   .fg-gray-400 { color: rgb(156 163 175); }
   .fg-gray-500 { color: rgb(107 114 128); }
   .fg-gray-600 { color: rgb(75 85 99); }
