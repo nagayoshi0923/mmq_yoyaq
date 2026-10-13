@@ -113,12 +113,15 @@ BEGIN
  WHEN 'validate' THEN RETURN jsonb_build_object('valid',true);
  WHEN 'date_responses' THEN
   IF jsonb_typeof(p_payload)<>'array' OR jsonb_array_length(p_payload)>100 THEN RAISE EXCEPTION '日程回答が不正です' USING ERRCODE='22023'; END IF;
+  -- 2026-10-13 恒久対応: 古い版の画面が、取り下げ済み・存在しない候補日を含む内容を即座に再送し続けた。
+  -- 無効な要素（別グループ・存在しない・取り下げ済み・不採用の候補日、不正な回答値）はエラーにせず飛ばし、
+  -- 有効なものだけ保存して成功を返す（全部飛ばした場合も成功）。配列でない／100 件超は従来どおりエラー。
   FOR v_row IN SELECT value FROM jsonb_array_elements(p_payload) LOOP
-   IF coalesce(v_row->>'response','') NOT IN ('ok','ng','maybe') OR NOT EXISTS(SELECT 1 FROM private_group_candidate_dates WHERE id=(v_row->>'candidateDateId')::uuid AND group_id=p_group_id) THEN
-    -- 2026-10-13 緊急の手当て: 存在しない候補日を含む保存を即座に再送し続ける端末があり DB が混むため、エラーの前に 2 秒待つ
-    PERFORM pg_sleep(2);
-    RAISE EXCEPTION '回答対象の日程が見つかりません' USING ERRCODE='22023';
-   END IF;
+   CONTINUE WHEN jsonb_typeof(v_row) IS DISTINCT FROM 'object';
+   CONTINUE WHEN coalesce(v_row->>'response','') NOT IN ('ok','ng','maybe');
+   CONTINUE WHEN coalesce(v_row->>'candidateDateId','') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+   CONTINUE WHEN NOT EXISTS(SELECT 1 FROM private_group_candidate_dates WHERE id=(v_row->>'candidateDateId')::uuid AND group_id=p_group_id
+     AND withdrawn_at IS NULL AND coalesce(status,'active')<>'rejected');
    INSERT INTO private_group_date_responses(group_id,member_id,candidate_date_id,response)
    VALUES(p_group_id,p_member_id,(v_row->>'candidateDateId')::uuid,v_row->>'response')
    ON CONFLICT(member_id,candidate_date_id) DO UPDATE SET response=EXCLUDED.response,updated_at=clock_timestamp();
