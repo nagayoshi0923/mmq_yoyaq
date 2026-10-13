@@ -49,16 +49,17 @@ export async function privateGroupMemberAction(
   action: 'validate' | 'date_responses' | 'message' | 'survey_read' | 'survey_write' | 'character_preference' | 'leave',
   payload: unknown = {},
 ) {
-  // 同じ操作・同じ内容が 3 回続けて失敗したら、次からは 10 秒空けて送る（再送ループで DB が混んだ 2026-10-13 の対策）
-  const result = await withRepeatFailureBackoff(
-    requestKey(`private_group_member_action:${groupId}:${memberId}:${action}`, payload),
-    async () => supabase.rpc('private_group_member_action', {
-      p_group_id: groupId,
-      p_member_id: memberId,
-      p_action: action,
-      p_payload: payload,
-      p_guest_token: getPrivateGroupGuestToken(groupId),
-    }),
+  const send = async () => supabase.rpc('private_group_member_action', {
+    p_group_id: groupId,
+    p_member_id: memberId,
+    p_action: action,
+    p_payload: payload,
+    p_guest_token: getPrivateGroupGuestToken(groupId),
+  })
+  // 読取は制限しない。保存の待機要求は残さず最新画面から再試行する。
+  const result = action === 'validate' || action === 'survey_read' ? await send() : await withRepeatFailureBackoff(
+    requestKey(`private_group_member_action:${groupId}:${memberId}:${action}`),
+    send,
     r => Boolean(r.error),
   )
   if (result.error?.code === '42501' && /本人確認が必要|参加情報が見つかりません/.test(result.error.message)) {

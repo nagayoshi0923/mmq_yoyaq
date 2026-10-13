@@ -37,7 +37,11 @@ GRANT EXECUTE ON FUNCTION public.private_group_withdraw_candidate(uuid,uuid) TO 
 
 -- 古い画面で編集中だった回答の保存で、取り下げ後の履歴を上書きしない。
 CREATE OR REPLACE FUNCTION public.guard_withdrawn_private_group_response()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
 DECLARE withdrawn timestamptz;
 BEGIN
   PERFORM 1 FROM public.private_groups WHERE id=NEW.group_id FOR SHARE NOWAIT;
@@ -52,7 +56,8 @@ BEGIN
 EXCEPTION WHEN lock_not_available THEN
   PERFORM pg_sleep(2);
   RAISE EXCEPTION '候補日が更新中です。画面を更新してから回答してください' USING ERRCODE='40001';
-END $$;
+END $function$
+;
 REVOKE ALL ON FUNCTION public.guard_withdrawn_private_group_response() FROM PUBLIC,anon,authenticated,service_role;
 CREATE TRIGGER guard_withdrawn_private_group_response
   BEFORE INSERT OR UPDATE ON public.private_group_date_responses

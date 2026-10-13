@@ -31,6 +31,9 @@ CREATE FUNCTION fixture_assignments() RETURNS trigger LANGUAGE plpgsql AS $$ BEG
 CREATE TRIGGER fixture_assignments AFTER UPDATE OF gms,gm_roles ON schedule_events FOR EACH ROW EXECUTE FUNCTION fixture_assignments();`)
 const migration=fs.readFileSync('supabase/migrations/20260928001200_staff_participation_seats.sql','utf8')
 await db.exec(migration)
+const releaseSql=fs.readFileSync('supabase/migrations/20261013130001_release_retry_concurrency_no_sleep.sql','utf8')
+const staffDefinition=text=>text.match(/CREATE OR REPLACE FUNCTION public\.sync_event_staff_participations\([\s\S]*?\$function\$\s*;/)[0]
+await db.exec(staffDefinition(releaseSql))
 const read=async()=> (await db.query('SELECT get_event_staff_participations($1) value',[id(30)])).rows[0].value
 let desiredStaff={gms:['A','B'],gm_roles:{A:'staff',B:'staff'}}
 const save=async(entries,expected=[],expectedStaff=desiredStaff) => (await db.query('SELECT sync_event_staff_participations($1,$2::jsonb,$3::jsonb,$4::text[],$5::jsonb,$6::jsonb) value',[id(30),JSON.stringify(entries),JSON.stringify(expected),desiredStaff.gms,JSON.stringify(desiredStaff.gm_roles),JSON.stringify(expectedStaff)])).rows[0].value

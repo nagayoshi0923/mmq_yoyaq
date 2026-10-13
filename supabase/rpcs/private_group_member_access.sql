@@ -100,8 +100,12 @@ END $$;
 REVOKE ALL ON FUNCTION public.join_private_group(text,text,text,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.join_private_group(text,text,text,text,text) TO anon,authenticated,service_role;
 
-CREATE FUNCTION public.private_group_member_action(p_group_id uuid,p_member_id uuid,p_action text,p_payload jsonb DEFAULT '{}'::jsonb,p_guest_token text DEFAULT NULL)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+CREATE OR REPLACE FUNCTION public.private_group_member_action(p_group_id uuid, p_member_id uuid, p_action text, p_payload jsonb DEFAULT '{}'::jsonb, p_guest_token text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 DECLARE v_row jsonb; v_result uuid; v_message text; v_leaving private_group_members%ROWTYPE; v_name text; v_before integer;
 BEGIN
 BEGIN
@@ -163,11 +167,10 @@ BEGIN
  ELSE RAISE EXCEPTION '未対応の操作です' USING ERRCODE='22023';
  END CASE;
 EXCEPTION WHEN OTHERS THEN
-  -- 2026-10-13 緊急の手当て: 失敗する要求を即座に再送し続ける端末があり DB が混むため、どの失敗でも 2 秒待ってから返す
-  PERFORM pg_sleep(2);
   RAISE;
 END;
-END $$;
+END $function$
+;
 REVOKE ALL ON FUNCTION public.private_group_member_action(uuid,uuid,text,jsonb,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.private_group_member_action(uuid,uuid,text,jsonb,text) TO anon,authenticated,service_role;
 
@@ -202,8 +205,11 @@ END $$;
 REVOKE ALL ON FUNCTION public.require_private_group_manager(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.require_private_group_manager(uuid) TO authenticated,service_role;
 
-CREATE FUNCTION public.guard_private_group_browser_write()
-RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $$
+CREATE OR REPLACE FUNCTION public.guard_private_group_browser_write()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
 DECLARE v_row jsonb; v_group uuid; v_manager text; v_owner boolean; v_message jsonb; v_cap integer;
 BEGIN
 BEGIN
@@ -264,11 +270,10 @@ BEGIN
  END IF;
  IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
 EXCEPTION WHEN OTHERS THEN
-  -- 2026-10-13 緊急の手当て: 失敗する書き込みを即座に再送し続ける端末があり DB が混むため、失敗時は 2 秒待ってから返す
-  PERFORM pg_sleep(2);
   RAISE;
 END;
-END $$;
+END $function$
+;
 REVOKE ALL ON FUNCTION public.guard_private_group_browser_write() FROM PUBLIC;
 CREATE TRIGGER guard_private_group_browser_write BEFORE INSERT OR UPDATE OR DELETE ON public.private_group_members FOR EACH ROW EXECUTE FUNCTION public.guard_private_group_browser_write();
 CREATE TRIGGER guard_private_group_browser_write BEFORE INSERT OR UPDATE OR DELETE ON public.private_group_candidate_dates FOR EACH ROW EXECUTE FUNCTION public.guard_private_group_browser_write();

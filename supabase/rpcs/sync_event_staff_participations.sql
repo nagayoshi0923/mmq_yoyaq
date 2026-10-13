@@ -1,10 +1,18 @@
-CREATE FUNCTION public.sync_event_staff_participations(p_event_id uuid,p_entries jsonb,p_expected jsonb,p_gms text[],p_gm_roles jsonb,p_expected_staff jsonb)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+CREATE OR REPLACE FUNCTION public.sync_event_staff_participations(p_event_id uuid, p_entries jsonb, p_expected jsonb, p_gms text[], p_gm_roles jsonb, p_expected_staff jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public'
+AS $function$
 DECLARE v_org uuid:=public.get_user_organization_id(); v_event public.schedule_events; v_current jsonb; v_entry jsonb;
  v_staff public.staff; v_res public.reservations; v_id uuid; v_name text; v_total integer; v_limit integer; v_new_count integer; v_old record; v_after jsonb; v_actor_id uuid; v_actor_name text;
 BEGIN
  IF auth.uid() IS NULL OR v_org IS NULL OR NOT EXISTS(SELECT 1 FROM public.users WHERE id=auth.uid() AND role::text IN ('admin','staff','license_admin')) THEN
   RAISE EXCEPTION 'スタッフ参加を保存する権限がありません' USING ERRCODE='42501';
+ END IF;
+ -- APIインスタンスをまたぐ並列保存もDB接続を待機させず拒否する。
+ IF NOT pg_try_advisory_xact_lock(hashtextextended('mmq-staff-write:'||auth.uid()::text||':'||p_event_id::text,0)) THEN
+  RAISE EXCEPTION 'スタッフ参加が保存中です。少し待って公演を開き直してください' USING ERRCODE='55P03';
  END IF;
  IF jsonb_typeof(p_entries) IS DISTINCT FROM 'array' OR jsonb_typeof(p_expected) IS DISTINCT FROM 'array' THEN
   RAISE EXCEPTION 'スタッフ参加の形式が不正です' USING ERRCODE='22023';
@@ -100,12 +108,10 @@ BEGIN
  END IF;
  RETURN v_after;
 EXCEPTION WHEN lock_not_available THEN
- -- 2026-10-13 緊急の手当て: 失敗する保存を即座に再送し続ける端末があり DB が混むため、失敗時は 2 秒待ってから返す
- PERFORM pg_sleep(2);
  RAISE EXCEPTION '予約が別の操作で更新中です。変更は保存されていません。再読み込みしてください' USING ERRCODE='55P03';
 WHEN OTHERS THEN
- PERFORM pg_sleep(2);
  RAISE;
-END $$;
+END $function$
+;
 REVOKE ALL ON FUNCTION public.sync_event_staff_participations(uuid,jsonb,jsonb,text[],jsonb,jsonb) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.sync_event_staff_participations(uuid,jsonb,jsonb,text[],jsonb,jsonb) TO authenticated,service_role;

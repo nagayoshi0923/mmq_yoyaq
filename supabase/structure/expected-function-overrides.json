@@ -329,7 +329,7 @@
       "postgres=X/postgres"
     ],
     "returns": "trigger",
-    "body_md5": "f0ee74b7475ec21e7639aff4ca2704fc",
+    "body_md5": "e176902a5f68c6e2b1da0a7ce2e32a53",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -403,7 +403,7 @@
       "service_role=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "8a4137e9d4d175376f85a3b7e3cf0273",
+    "body_md5": "99f722252ef3fde05ff9650a2a85c7cc",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -731,6 +731,29 @@
     ],
     "returns": "trigger",
     "body_md5": "fb16c1fa8ffbd39da8c8fe588b690243",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "guard_private_group_browser_write()": {
+    "acl": [
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "trigger",
+    "body_md5": "63e800054a39ac943a2e4d19f00c479b",
+    "language": "plpgsql",
+    "security_definer": false
+  },
+  "sync_event_staff_participations(p_event_id uuid, p_entries jsonb, p_expected jsonb, p_gms text[], p_gm_roles jsonb, p_expected_staff jsonb)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "6463a87b2778f78f6a06b22ea3f3a18c",
     "language": "plpgsql",
     "security_definer": true
   }

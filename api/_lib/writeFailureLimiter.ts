@@ -5,12 +5,11 @@
  * DB 全体が重くなった。DB の中で失敗回数を数えると失敗した取引ごと巻き戻って数が残らず、
  * 別接続で記録する dblink も Supabase ではパスワード無しの自己接続ができないため、API 層で数える。
  *
- * - 10 分の窓で、キー（IP＋ユーザー＋対象）ごとに失敗回数を数える。成功したら数を消す。
+ * - 10 分の窓で、キー（認証済みユーザー＋対象）ごとに失敗回数を数える。成功したら数を消す。
  * - 窓内の失敗が 5 回を超えたら、最後の失敗から min(10, 2×(回数−5)) 秒は DB へ送らず 429 と Retry-After を返す。
  * - 数はサーバーの各インスタンスのメモリに置く（インスタンスが替われば消える）。完全な制限ではなく、
  *   1 台の端末が同じインスタンスへ打ち続けるループを止めるための歯止め。
  */
-import type { VercelRequest } from '@vercel/node'
 
 const WINDOW_MS = 10 * 60 * 1000
 const FREE_FAILURES = 5
@@ -19,12 +18,18 @@ const MAX_KEYS = 5000
 
 type Counter = { windowStartedAt: number; failures: number; lastFailureAt: number }
 const counters = new Map<string, Counter>()
+const inFlight = new Set<string>()
 
-export function clientIp(req: VercelRequest): string {
-  const forwarded = req.headers?.['x-forwarded-for']
-  const first = (Array.isArray(forwarded) ? forwarded[0] : forwarded)?.split(',')[0]?.trim()
-  return first || (req.headers?.['x-real-ip'] as string | undefined) || req.socket?.remoteAddress || 'unknown'
+/** RPC開始前に同じ対象の枠を確保する。待機要求は蓄積しない。 */
+export function beginWrite(key: string): number {
+  const wait = retryAfterSeconds(key)
+  if (wait > 0) return wait
+  if (inFlight.has(key) || inFlight.size >= MAX_KEYS) return 1
+  inFlight.add(key)
+  return 0
 }
+
+export function endWrite(key: string) { inFlight.delete(key) }
 
 function waitSeconds(failures: number) {
   return Math.min(MAX_WAIT_SECONDS, 2 * (failures - FREE_FAILURES))
@@ -59,4 +64,5 @@ export function noteWriteSuccess(key: string) {
 /** テスト用 */
 export function resetWriteFailureLimiter() {
   counters.clear()
+  inFlight.clear()
 }
