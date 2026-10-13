@@ -25,12 +25,12 @@ import { nearlyFullPerformances, todayJst } from '@/lib/publicPerformanceSearch'
 import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top/InfoSections'
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
 import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
+import { TopHero } from '@/components/public-top/TopHero'
 import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
 import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
 import { cardKey, indexUpcoming, scenarioBrowseCard, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
 import { useBookingData } from './hooks/useBookingData'
 import { useStoreTopPerformances } from './hooks/useStoreTopPerformances'
-import { StoreHero } from './components/top/StoreHero'
 import { StoreSearchSection } from './components/top/StoreSearchSection'
 
 const DEFAULT_HERO_COLOR = '#1f2a2e'
@@ -182,7 +182,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
       <Header />
       {isStaff && <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />}
 
-      <StoreHero
+      <TopHero
         name={organizationName || (isLoading ? '' : 'MMQ')}
         tagline={isLoading && stores.length === 0 ? '' : tagline}
         backgroundColor={organizationThemeColor || DEFAULT_HERO_COLOR}
@@ -192,7 +192,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
         onPrivate={() => scrollTo('private-booking')}
       />
 
-      <main className="mx-auto max-w-4xl space-y-3 px-4 py-3 md:py-5">
+      <main className="mx-auto max-w-4xl space-y-3 px-3.5 py-3 sm:px-4 md:py-5">
         <NearlyFullStrip performances={nearlyFull} source={cardSource} marks={marks} onOpen={openCard} />
         <PrivateBookingSection
           text="4〜8 人集まれば、好きな作品を好きな日に。候補日を出して、メンバーの都合を聞いて、店舗に申し込むまでサイトで完結します。"

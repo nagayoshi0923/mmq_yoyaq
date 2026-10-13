@@ -25,7 +25,7 @@ export function StorePicker({ options, value, onChange, primaryColor }: { option
         <button
           type="button"
           className={cn(
-            'inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-sm hover:bg-muted',
+            'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-white px-3 py-1.5 ts-13 leading-5 hover:bg-muted',
             selected.length > 0 ? 'border-2 font-bold' : 'border border-input',
           )}
           style={selected.length > 0 ? { borderColor: primaryColor, color: primaryColor } : undefined}

@@ -7,9 +7,8 @@ import { ScenarioCardImage } from './ScenarioCardImage'
 import { scenarioCardRibbon, type ScenarioCardData } from './scenarioCards'
 import type { ScenarioMarks } from './useScenarioMarks'
 
-/** 次回公演の行は 2 件まで（探す結果で該当が多いときは 4 件まで該当の行を出す） */
+/** 次回公演の行は 2 件まで、残りは「+N件」（探す結果で該当が 3 件以上でも 2 行。2026-10-14 社長指摘・見本どおり） */
 const EVENT_ROWS = 2
-const MAX_HIGHLIGHT_ROWS = 4
 
 function formatPlayers(min: number, max: number): string {
   return min === max ? `${max}人` : `${min}-${max}人`
@@ -37,8 +36,7 @@ interface ScenarioCardProps {
  */
 export const ScenarioCard = memo(function ScenarioCard({ card, onOpen, marks, className }: ScenarioCardProps) {
   const ribbon = scenarioCardRibbon(card)
-  const highlighted = card.events.filter((e) => e.highlighted).length
-  const rows = card.events.slice(0, Math.max(EVENT_ROWS, Math.min(highlighted, MAX_HIGHLIGHT_ROWS)))
+  const rows = card.events.slice(0, EVENT_ROWS)
   const more = card.total_events_count - rows.length
   const isPlayed = marks?.isPlayed(card.scenario_id) ?? false
   const isFavorite = marks?.isFavorite(card.scenario_id) ?? false
@@ -111,13 +109,14 @@ export const ScenarioCard = memo(function ScenarioCard({ card, onOpen, marks, cl
                     data-highlighted={ev.highlighted || undefined}
                     className={cn('flex items-stretch gap-1 ts-11 card-narrow:items-center', ev.highlighted && '-mx-2 bg-orange-50 px-2 py-0.5 sm:-mx-3 sm:px-3 card-narrow:!-mx-2 card-narrow:!px-2')}
                   >
-                    {/* 狭いカード: 左に「縦棒・日付(曜日)・時刻・店舗」、右に残席。縮むのは店舗名だけ */}
+                    {/* 狭いカード: 左に「縦棒・日付(曜日)・時刻・店舗」、右に残席。縮むのは店舗名だけ。
+                        間隔 4px・曜日 10px・残席チップ 2px 5px にして、2〜4 文字の店舗名がなるべく見えるように（2026-10-14 社長指摘） */}
                     <span className="w-[3px] shrink-0 card-narrow:h-3.5" style={{ backgroundColor: ev.store_color ? getColorFromName(ev.store_color) : 'var(--booking-primary)' }} />
-                    <div className="flex min-w-0 flex-1 items-center gap-x-1 card-narrow:justify-between card-narrow:gap-x-1.5">
-                      <span className="flex min-w-0 items-center gap-x-1 card-narrow:gap-x-[5px]">
+                    <div className="flex min-w-0 flex-1 items-center gap-x-1 card-narrow:justify-between card-narrow:gap-x-1">
+                      <span className="flex min-w-0 items-center gap-x-1">
                         <span className="shrink-0 whitespace-nowrap font-medium text-foreground card-narrow:font-semibold">
                           {formatJstMonthDay(ev.date)}
-                          <span className={cn('ml-0.5 font-normal', wd === 0 ? 'text-red-500' : wd === 6 ? 'text-blue-500' : 'text-muted-foreground card-narrow:!fg-gray-400')}>
+                          <span className={cn('ml-0.5 font-normal card-narrow:ml-0 card-narrow:!ts-10', wd === 0 ? 'text-red-500' : wd === 6 ? 'text-blue-500' : 'text-muted-foreground card-narrow:!fg-gray-400')}>
                             ({formatJstWeekday(ev.date)})
                           </span>
                         </span>

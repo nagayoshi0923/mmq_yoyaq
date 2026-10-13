@@ -15,11 +15,11 @@ export function SeatChips({ performance, className }: { performance: SeatFields;
       ? 'bg-booking-seat-low-bg text-booking-seat-low-text card-narrow:text-red-700'
       : 'bg-booking-accent-light text-booking-accent card-narrow:bg-green-100 card-narrow:text-green-700'
   return (
-    <div className={cn('flex items-center gap-1', className)}>
+    <div className={cn('flex items-center gap-1 card-narrow:gap-0.5', className)}>
       {isConfirmed(performance) && (
-        <span className="ts-10 font-bold px-1.5 py-0.5 bg-booking-confirmed-bg text-booking-confirmed-text rounded-none">開催決定</span>
+        <span className="ts-10 font-bold px-1.5 py-0.5 card-narrow:px-[5px] bg-booking-confirmed-bg text-booking-confirmed-text rounded-none">開催決定</span>
       )}
-      <span className={cn('ts-10 font-bold px-1.5 py-0.5 rounded-none', seatClass)}>{seats <= 0 ? '満席' : `残${seats}`}</span>
+      <span className={cn('ts-10 font-bold px-1.5 py-0.5 card-narrow:px-[5px] rounded-none', seatClass)}>{seats <= 0 ? '満席' : `残${seats}`}</span>
     </div>
   )
 }

@@ -24,7 +24,7 @@ function render(nearly: PublicPerformance[], all: PublicPerformance[] = nearly, 
 }
 
 /** 本番の作品カードと同じ角なしの小さな太字チップ（本番と同じ 10px の ts-10。デザインガードのため） */
-const CHIP = 'ts-10 font-bold px-1.5 py-0.5'
+const CHIP = 'ts-10 font-bold px-1.5 py-0.5 card-narrow:px-[5px]'
 
 describe('残りわずか（本番の作品カード）', () => {
   it('横スクロールに幅 150px の作品カードを並べ、作者・人数・時間・参加費・短い店舗名を出す', () => {

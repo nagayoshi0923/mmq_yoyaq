@@ -86,7 +86,8 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
 
   return (
     <TopSection id="search" title="空いている公演を探す">
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="日付・見方">
+      {/* 見本 Top.dc.html の .chips: 1 行の横スクロール（折り返さない）。絞り込みのチップは下の行で折り返してよい */}
+      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 scroll-row" role="group" aria-label="日付・見方">
         {DATE_PRESETS.map((d) => (
           <ChipButton key={d.value} selected={isCards && preset === d.value} primaryColor={primaryColor} onClick={() => onChange({ preset: d.value, view: 'cards' })}>
             {d.label}
