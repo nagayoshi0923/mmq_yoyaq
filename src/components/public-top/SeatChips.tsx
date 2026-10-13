@@ -6,14 +6,14 @@ import { isConfirmed, type SeatFields } from './scenarioCards'
  * トップページの作品カードはすべてこれを使う（2026-10-12・10-13 社長指示）。
  */
 
-/** 「開催決定」と「残N／満席」の角なしチップ（文字の大きさは本番と同じ 10px の ts-10） */
+/** 「開催決定」と「残N／満席」の角なしチップ（文字の大きさは本番と同じ 10px の ts-10）。狭い作品カードの中では見本 Top.dc.html の色（残2以下 #b91c1c、残あり #dcfce7/#15803d） */
 export function SeatChips({ performance, className }: { performance: SeatFields; className?: string }) {
   const seats = performance.available_seats
   const seatClass = seats <= 0
     ? 'bg-booking-seat-full-bg text-booking-seat-full-text'
     : seats <= 2
-      ? 'bg-booking-seat-low-bg text-booking-seat-low-text'
-      : 'bg-booking-accent-light text-booking-accent'
+      ? 'bg-booking-seat-low-bg text-booking-seat-low-text card-narrow:text-red-700'
+      : 'bg-booking-accent-light text-booking-accent card-narrow:bg-green-100 card-narrow:text-green-700'
   return (
     <div className={cn('flex items-center gap-1', className)}>
       {isConfirmed(performance) && (

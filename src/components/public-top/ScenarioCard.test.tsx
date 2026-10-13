@@ -64,20 +64,24 @@ describe('作品カードの中身', () => {
   })
 })
 
-describe('狭いカード（幅 200px 未満）の決まった形', () => {
+describe('狭いカード（幅 200px 未満）は見本 Top.dc.html の .pc の寸法', () => {
   const html = render(card({ duration_minutes: 270, fee: 5000 }, [perf({ id: 'e1', date: '2026-10-18', start_time: '18:30', available_seats: 2 })]))
-  it('カードの幅で切り替える（コンテナクエリ）', () => {
+  it('カードの幅で切り替える（コンテナクエリ）。本文の余白は 8px', () => {
     expect(html).toContain('[container-type:inline-size] [container-name:scenario-card]')
+    expect(html).toContain('card-narrow:!p-2')
   })
-  it('人数・時間・参加費はアイコンを外し中黒区切りの 1 行、参加費だけ省略', () => {
-    expect(html).toContain('card-narrow:flex-nowrap')
-    expect(html).toContain('card-narrow:ts-10')
-    expect(html.match(/hidden card-narrow:inline">・</g)).toHaveLength(2)
-    expect(html).toContain('card-narrow:min-w-0 card-narrow:truncate')
+  it('作者 11px、作品名 13px', () => {
+    expect(html).toContain('card-narrow:!ts-11 card-narrow:!fg-gray-500">')
+    expect(html).toContain('card-narrow:mb-1.5 card-narrow:!ts-13">')
   })
-  it('次回公演は 1 行目に日付・時刻、2 行目に店舗と残席の 2 行', () => {
-    expect(html).toContain('card-narrow:grid card-narrow:grid-cols-[minmax(0,1fr)_auto]')
-    expect(html).toMatch(/card-narrow:col-span-2">.*10\/18.*18:30<\/span><\/span><span class="min-w-0 truncate text-muted-foreground">大塚<\/span>.*残2/)
+  it('人数・時間・参加費はアイコンなしの 1 行（11px・間隔 10px）、中黒なし', () => {
+    expect(html).toContain('card-narrow:flex-nowrap card-narrow:gap-x-2.5 card-narrow:whitespace-nowrap card-narrow:!ts-11 card-narrow:!fg-gray-600')
+    expect(html).not.toContain('>・<')
+  })
+  it('次回公演は 1 行: 縦棒・日付(曜日)・時刻・店舗（縮むのは店舗だけ）、右に残席', () => {
+    expect(html).not.toContain('card-narrow:grid')
+    expect(html).toMatch(/card-narrow:h-3\.5".*card-narrow:justify-between.*card-narrow:font-semibold">10\/18.*\(日\).*whitespace-nowrap[^"]*">18:30<\/span><span class="min-w-0 truncate[^"]*">大塚<\/span><\/span>.*残2/)
+    expect(html).toContain('card-narrow:text-red-700')
   })
 })
 
