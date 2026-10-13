@@ -24,7 +24,7 @@ export const ChipButton = forwardRef<HTMLButtonElement, ChipButtonProps>(functio
       type="button"
       aria-pressed={selected}
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-sm transition-colors',
+        'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-[13px] transition-colors',
         selected ? 'border-2 font-bold' : 'border border-input text-foreground hover:bg-muted',
         className,
       )}

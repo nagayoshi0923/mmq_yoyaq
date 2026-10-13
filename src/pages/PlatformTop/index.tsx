@@ -2,9 +2,10 @@
  * MMQ 全体トップ
  * @path /
  *
- * 2026-10 刷新（社長承認の見本 TopMMQ.dc.html）: 見出しと横断検索 → 残りわずか → 貸切 → 探した結果（今月に入れる公演） →
+ * 2026-10 刷新（社長承認の見本 TopMMQ.dc.html）: 上の帯（見出し・一言・3 つのボタン） → 残りわずか → 貸切 → 空いている公演を探す →
  * 作品から探す → 参加店舗 → はじめての方へ → 店舗の方へ（2026-10-13 社長指示: 店舗トップと同じ順に、初期選択は「今月」、
- * 結果は全部並べる）。他組織の公演も同じ一覧に混ぜる（社長決定）。公開情報だけを使う。
+ * 結果は全部並べる）。2026-10-14 社長指摘: 検索フォームは帯から外し、探すは独立した枠（チップ）に。
+ * 他組織の公演も同じ一覧に混ぜる（社長決定）。公開情報だけを使う。
  * 方針: docs/product-spec/トップページ刷新_2026-10.md
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -22,12 +23,11 @@ import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top
 import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
 import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
 import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
-import { PerformanceResultList } from '@/components/public-top/PerformanceResultList'
 import { indexUpcoming, scenarioBrowseCard, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
+import { TopHero } from '@/components/public-top/TopHero'
 import { TopSection } from '@/components/public-top/TopSection'
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
 import {
-  DATE_PRESETS,
   datePresetRange,
   datesWithOpenings,
   isBookableNow,
@@ -38,9 +38,9 @@ import {
   type DateRange,
   type PublicPerformance,
 } from '@/lib/publicPerformanceSearch'
-import { addJstDays, formatJstMonthDay } from '@/utils/jstDate'
+import { addJstDays } from '@/utils/jstDate'
 import { fetchPlatformTopData, PLATFORM_RANGE_DAYS } from './hooks/platformTopData'
-import { PlatformSearchForm } from './components/PlatformSearchForm'
+import { PlatformSearchSection } from './components/PlatformSearchSection'
 import { OrganizationDirectory } from './components/OrganizationDirectory'
 
 const HERO_COLOR = '#1f2a2e'
@@ -74,11 +74,12 @@ export function PlatformTop() {
   const { range, results } = useMemo(() => {
     const find = (r: DateRange) => searchPerformances(performances, {
       range: r, onlyAvailable: search.onlyAvailable, prefecture: search.area,
+      beginnerOnly: search.beginnerOnly, storeIds: search.storeIds,
     }, nowMs)
     // 「今月」が 0 件なら来月、「今週」が 0 件なら「来週」に切り替える（読み込み中は切り替えない）
     const r = resolvePresetRange(search.preset, today, search.date, (cand) => (isLoading ? 1 : find(cand).length))
     return { range: r, results: find(r) }
-  }, [performances, search.preset, search.date, today, isLoading, search.onlyAvailable, search.area, nowMs])
+  }, [performances, search.preset, search.date, today, isLoading, search.onlyAvailable, search.area, search.beginnerOnly, search.storeIds, nowMs])
   const nearlyFull = useMemo(() => nearlyFullPerformances(performances, nowMs), [performances, nowMs])
   // 作品カード（本番の見た目）の材料。全体トップでは画像の左上に組織名の帯を出す
   const cardSource = useMemo<ScenarioCardSource>(() => {
@@ -136,40 +137,25 @@ export function PlatformTop() {
     navigate(card.path)
   }, [navigate])
 
-  // 0 件で切り替えたとき（今月→来月、今週→来週）は見出しも合わせる
-  const switched = range.from > today && (search.preset === 'month' || search.preset === 'week')
-  const dateTitle = search.preset === 'date'
-    ? formatJstMonthDay(range.from, true)
-    : switched
-      ? (search.preset === 'month' ? '来月' : '来週')
-      : DATE_PRESETS.find((d) => d.value === search.preset)?.label ?? '今月'
+  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   return (
     <div className="booking-shell min-h-screen bg-muted/40">
       <JsonLd data={buildWebsiteJsonLd()} />
       <Header />
 
-      <section className="text-white" style={{ backgroundColor: HERO_COLOR }}>
-        <div className="mx-auto max-w-4xl px-4 pb-4 pt-5">
-          <h1 className="text-xl font-bold leading-snug md:text-2xl">全国のマーダーミステリー公演を、ここから予約</h1>
-          <p className="mt-1 text-sm opacity-85">
-            {isLoading && !data ? ' ' : `参加店舗 ${storeCount} ・ 公演 ${upcomingCount} 件（今後 2 週間）`}
-          </p>
-          <PlatformSearchForm
-            state={search}
-            range={range}
-            prefectures={prefectures}
-            today={today}
-            maxDate={maxDate}
-            markedDates={openDates}
-            primaryColor={primaryColor}
-            onChange={updateSearch}
-            onSubmit={() => document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' })}
-          />
-        </div>
-      </section>
+      <TopHero
+        name="全国のマーダーミステリー公演を、ここから予約"
+        tagline={isLoading && !data ? '' : `参加店舗 ${storeCount} ・ 公演 ${upcomingCount} 件（今後 2 週間）`}
+        accessLabel="参加店舗"
+        backgroundColor={HERO_COLOR}
+        headerImageUrl={null}
+        onFirstTime={() => navigate('/guide')}
+        onAccess={() => scrollTo('organizations')}
+        onPrivate={() => scrollTo('private-booking')}
+      />
 
-      <main className="mx-auto max-w-4xl space-y-3 px-4 py-3 md:py-5">
+      <main className="mx-auto max-w-4xl space-y-3 px-3.5 py-3 sm:px-4 md:py-5">
         <NearlyFullStrip performances={nearlyFull} source={cardSource} marks={marks} aside="全店舗・日付順" onOpen={openCard} />
 
         <PrivateBookingSection
@@ -177,17 +163,22 @@ export function PlatformTop() {
           primaryColor={primaryColor}
         />
 
-        <TopSection id="results" title={`${dateTitle}に入れる公演`} aside={search.area ?? '全国'}>
-          <PerformanceResultList
-            performances={results}
-            source={cardSource}
-            marks={marks}
-            isLoading={isLoading}
-            onOpen={openCard}
-            empty={<>条件に合う公演がありません。日付やエリアを変えてみてください。</>}
-          />
-          {results.length > 0 && <p className="mt-1.5 text-xs text-muted-foreground">カードを押すと各店舗の作品ページが、色付きの公演を選んだ状態で開きます。</p>}
-        </TopSection>
+        <PlatformSearchSection
+          performances={performances}
+          results={results}
+          range={range}
+          isLoading={isLoading}
+          state={search}
+          onChange={updateSearch}
+          prefectures={prefectures}
+          today={today}
+          maxDate={maxDate}
+          markedDates={openDates}
+          primaryColor={primaryColor}
+          source={cardSource}
+          marks={marks}
+          onOpen={openCard}
+        />
 
         {browseScenarios.length > 0 && (
           <ScenarioBrowseSection

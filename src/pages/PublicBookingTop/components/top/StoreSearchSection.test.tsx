@@ -58,6 +58,13 @@ describe('店舗トップ「空いている公演を探す」', () => {
     expect(chipLabels(html)).toEqual(['今週', '来週', '今月', 'カレンダー', 'リスト'])
     expect(html).toMatch(/aria-pressed="true"[^>]*>今月</)
   })
+
+  it('日付・見方のチップは 1 行の横スクロール（折り返さない。2026-10-14 社長指摘）', () => {
+    const html = render([perf({})])
+    const tag = html.match(/<div class="([^"]*)" role="group" aria-label="日付・見方">/)
+    expect(tag?.[1]).toContain('overflow-x-auto')
+    expect(tag?.[1]).not.toContain('flex-wrap')
+  })
   it('人数の選択が無く、空き 1 席の公演も出る（今日〜月末）', () => {
     const html = render([
       perf({ id: 'one', title: '残り1席' }),

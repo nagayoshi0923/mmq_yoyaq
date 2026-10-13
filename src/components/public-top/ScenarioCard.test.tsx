@@ -54,8 +54,8 @@ describe('作品カードの中身', () => {
     expect(html).toContain('6-8人')
     expect(html).toContain('3h30m')
     expect(html).toContain('¥4,500〜')
-    expect(html).toContain('10/17<span class="ml-0.5 font-normal text-blue-500">(土)')
-    expect(html).toContain('10/18<span class="ml-0.5 font-normal text-red-500">(日)')
+    expect(html).toContain('10/17<span class="ml-0.5 font-normal card-narrow:ml-0 card-narrow:!ts-10 text-blue-500">(土)')
+    expect(html).toContain('10/18<span class="ml-0.5 font-normal card-narrow:ml-0 card-narrow:!ts-10 text-red-500">(日)')
     expect(html).toContain('>大塚<')
     expect(html).toContain('>満席<')
     expect(html).not.toContain('10/19')
@@ -100,12 +100,20 @@ describe('探す結果のまとめ方', () => {
     expect(cards[0].total_events_count).toBe(3)
   })
 
-  it('該当行は薄いオレンジ（見本の #fff7ed）で、該当が 3 件以上なら 4 件まで行を出す', () => {
+  it('該当行は薄いオレンジ（見本の #fff7ed）で、該当が 3 件以上でも行は 2 件まで＋「+N件」（2026-10-14 社長指摘）', () => {
     const many = [1, 2, 3, 4, 5].map((d) => perf({ id: `m${d}`, date: `2026-10-1${d + 3}` }))
     const [c] = groupPerformancesIntoCards(many, indexUpcoming(many, NOW), { highlight: true, meta: () => undefined })
     const html = render(c)
-    expect(html.match(/data-highlighted="true" class="[^"]*bg-orange-50/g)).toHaveLength(4)
-    expect(html).toContain('+1件')
+    expect(html.match(/data-highlighted="true" class="[^"]*bg-orange-50/g)).toHaveLength(2)
+    expect(html).toContain('+3件')
+  })
+
+  it('狭いカードの公演行は間隔 4px・曜日 10px・残席チップ 2px 5px（店舗名が見えるように）', () => {
+    const html = render(card({}, [perf({})]))
+    expect(html).toContain('card-narrow:justify-between card-narrow:gap-x-1"')
+    expect(html).not.toContain('card-narrow:gap-x-[5px]')
+    expect(html).toContain('card-narrow:ml-0 card-narrow:!ts-10')
+    expect(html).toContain('card-narrow:px-[5px]')
   })
 
   it('店舗名はお客様向けの短い名前', () => {
