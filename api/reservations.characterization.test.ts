@@ -25,6 +25,7 @@ const mock = vi.hoisted(() => ({
   billingThrows: false,
   snapshot: { date: '2026-10-10', store_id: 'store-1', time_slot: 'afternoon' } as Record<string, unknown> | null,
   gate: { ok: true } as { ok: true } | { ok: false; status: number; error: string },
+  rpcHook: undefined as undefined | (() => Promise<RpcResult>),
   callCount: 0,
 }))
 
@@ -70,6 +71,7 @@ vi.mock('./_lib/auth.js', () => {
     createUserScopedClient: () => ({
       rpc: async (name: string, args: unknown) => {
         mock.rpcs.push({ name, args })
+        if (mock.rpcHook && name === 'sync_event_staff_participations') return mock.rpcHook()
         return mock.rpcResults[name] ?? { data: true, error: null }
       },
     }),
@@ -125,6 +127,8 @@ beforeEach(() => {
     reservation_summary: [{ schedule_event_id: 'ev1', max_participants: 8, current_reservations: 4, available_seats: 4 }],
   }
   mock.tableErrors = {}; mock.inserted = {}; mock.issued = []; mock.writes = []; mock.rpcs = []; mock.rpcResults = {}
+  mock.rpcHook = undefined
+  resetWriteFailureLimiter()
   mock.history = []; mock.billing = []; mock.billingThrows = false
   mock.snapshot = { date: '2026-10-10', store_id: 'store-1', time_slot: 'afternoon' }
   mock.gate = { ok: true }
@@ -1638,4 +1642,34 @@ describe('DELETE と未知のアクション', () => {
       }
     `)
   })
+})
+
+
+describe('スタッフ参加RPCの並列制限', () => {
+  it('RPCが未完了なら同じ対象の並列要求を429で拒否し、成功後は再開する', async () => {
+    let complete!: (result: RpcResult) => void
+    mock.rpcHook = () => new Promise(resolve => { complete = resolve })
+    const first = call('POST', { action: 'sync-staff-participation' }, { schedule_event_id: 'ev1', entries: [] })
+    await vi.waitFor(() => expect(complete).toBeTypeOf('function'))
+    const parallel = await Promise.all(Array.from({length:20}, () => call('POST', { action: 'sync-staff-participation' }, { schedule_event_id: 'ev1', entries: [] })))
+    expect(parallel.every(r => r.status === 429)).toBe(true)
+    complete({ data: {}, error: null }); await first
+    mock.rpcHook = undefined
+    const after = await call('POST', { action: 'sync-staff-participation' }, { schedule_event_id: 'ev1', entries: [] })
+    expect(after.status).toBe(200)
+  })
+  it('RPC例外でも枠を解放し、失敗としてカウントする', async () => {
+    mock.rpcHook = async () => { throw Error('network fixture') }
+    expect((await call('POST', { action: 'sync-staff-participation' }, { schedule_event_id: 'ev1', entries: [] })).status).toBe(500)
+    mock.rpcHook = undefined
+    expect((await call('POST', { action: 'sync-staff-participation' }, { schedule_event_id: 'ev1', entries: [] })).status).toBe(200)
+  })
+})
+
+
+it('古いRPC呼出元向けの競合結果をAPIでは409へ変換する', async()=>{
+  mock.rpcResults.sync_event_staff_participations={data:{success:false,code:'40001',error:'更新されました',entries:[]},error:null}
+  const result=await call('POST',{action:'sync-staff-participation'},{schedule_event_id:'ev1',entries:[]})
+  expect(result.status).toBe(409)
+  expect(result.body).toEqual({error:'更新されました'})
 })
