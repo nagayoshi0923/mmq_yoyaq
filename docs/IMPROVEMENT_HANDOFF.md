@@ -1,3 +1,346 @@
+## 2026-10-13 / 本番 DB の混雑の止血: 失敗する保存を即座に再送し続ける端末（fix/throttle-failing-writes-hotfix、staging 向け PR）
+
+- 事象（2026-10-13 午後）: 本番 DB で失敗する要求を即座に再送し続ける端末が 2 つあり、毎秒約 700 件の失敗・巻き戻しが起きてサイト全体が重くなった。送り元は (1) 貸切グループ `5c12352b-6f5d-4f86-ba76-9e9e1b105af6` への日程回答の保存（`private_group_member_action` の `date_responses`、トリガー `guard_withdrawn_private_group_response`・`guard_private_group_browser_write`）、(2) スケジュール画面のスタッフ参加の保存（`sync_event_staff_participations`）。
+- 止血: 本番の 4 関数を直接書き換え、**失敗するときだけ 2 秒待ってからエラーを返す**ようにした（成功時の動き・結果・エラー文は同じ）。`private_group_member_action` と `guard_private_group_browser_write` は本体全体を `EXCEPTION WHEN OTHERS THEN PERFORM pg_sleep(2); RAISE;` で包む（`date_responses` の「回答対象の日程が見つかりません」は手前でも 2 秒待つので、この失敗は合計 4 秒）。`guard_withdrawn_private_group_response` は取り下げ済み候補日と lock_not_available の 2 つのエラーの前に 2 秒。`sync_event_staff_participations` は既存の lock_not_available と、ほかのすべての失敗で 2 秒。
+- 記録: migration `20261013120000_throttle_failing_private_group_and_staff_writes.sql`（同名 rollback は待ちを入れる前の staging の定義）、`supabase/rpcs/` の 3 ファイルも同じ変更。staging 適用済み。本番と staging の `md5(prosrc)` は 4 関数とも一致（f271968e… / f0ee74b7… / 10bb4df1… / 44a3eab8…）。違いは `guard_withdrawn_private_group_response` の search_path だけ（本番 `public`、staging `public, pg_temp`。migration は staging の版を基準）。ほか 3 関数は staging と本番の元の本文が同じだった。
+- 本番の扱い: この番号は本番の `schema_migrations` に登録していない（本番 DB へは書き込まない方針）。リリース時の `db:push:prod` で同じ本文が再適用されるだけで無害（guard_withdrawn は search_path が staging に揃う）。`prod.json` は直接書き換え後の本番から取り直し、`db:drift:prod` は一致。
+- 確認: `scripts/test-staff-participation-seats-db.mjs` に新しい定義を足して流し、全項目合格・失敗はすべて約 2 秒（成功は即時）。`scripts/test-private-group-access-db.mjs` の手元版でも、存在しない候補日 4 秒・空メッセージ 2 秒・直接書き込みの拒否 2 秒・正しい回答は即時を確認（既存の 2 本は古い migration を読むので、そのままでは新しい定義を通らない）。
+- **恒久対応の候補（未着手）**: (1) 画面側の再送ループを特定して止める（グループページの日程回答の保存と、スケジュール画面のスタッフ参加の保存。失敗時に自動で再送している箇所、react-query の retry・effect の依存の回り続けを疑う）。(2) 失敗時の待ち時間を固定の 2 秒から設定値にする（または失敗の回数に応じて伸ばす）。(3) 原因が直ったら 2 秒待ちを外すかを判断する（`EXCEPTION WHEN OTHERS` は失敗のたびに副トランザクションを作るので、負荷が落ち着いたら外す価値がある）。
+
+## 2026-10-12 / RPC の点検で以前から落ちていた 2 件（fix/rpc-tests-cancellation-fee、staging 向け PR）
+
+- `npm run test:rpcs` の失敗 2 件は、どちらもテストではなく DB 側の古い関数が原因。値の食い違いではなく「呼ぶと必ずエラー」だった。
+- `calculate_cancellation_fee(uuid)`: reservations に無い列 `is_private_booking`（この列は schedule_events 側）を読み、作られた 20260404100000 から一度も動いていない（42703）。中身も現行の規定と違う（通常の既定が 24 時間前 50%・開演 100%、貸切も参加者合計で計算、予約時に固定した規定ではなく今の店舗設定を読む）。どこからも呼んでいない。キャンセル料の正は予約時の固定規定（`reservations.cancellation_policy_*`）と `src/lib/cancellationPolicy.ts` の `calculateCancellation`（請求は `cancellationBilling.ts`、お客様の取消可否は DB の `assert_customer_cancellation_policy`）。直さずに消した。
+- `admin_recalculate_reservation_prices(uuid)`: 20260201210000 で、既にあった `(uuid, text[] DEFAULT NULL)` 版と並べて作られ、引数 1 つで呼ぶと版を決められず（42725）呼べなかった。サーバー（`api/_lib/reservations/update.ts`）は 2 つの版を呼ぶ。1 つの版を消し、1 引数の呼び出しも組織確認つきの 2 引数版に届くようにした。`scripts/staging_security_test.sql` D.2 はこれまで「版を決められない」エラーで PASS になっていた（見かけの合格）。今後は FORBIDDEN_ORG で拒否されて PASS。
+- DB: migration 20261012140000（同名 rollback は消す前と同じ中身・権限で作り直す。手元で 削除→戻す→削除 の往復と md5・権限の一致を確認）。staging 適用済み。`smoke_test_rpcs.sql` の 3 は「古い版を作り直していない」確認に変更。`expected-function-overrides.json` の値 `null` を「migration で消した関数」と読むよう `scripts/check-db-baseline.sh` を変更。
+- 確認: `test:rpcs` 全件、`verify`、取消規定まわりの単体テスト 6 ファイル 47 件、`db:status:staging`、`db:drift:staging`（#1089 の取り込み後に staging.json を取り直して差なし）。
+- 予約確認画面の表示（`cancellationSummary.ts`・`useBookingCancellationTerms`）と計算の一致: 表示の規定は `get_public_cancellation_policy_for_context`、予約時の固定は `set_reservation_cancellation_policy_snapshot` で、どちらも `resolve_operating_setting` を同じ順（組織→店舗→作品→公演）で解く。料率の段の判定（開演までの時間 ≤ hours_before）と「無料で取消できる期限」（受付期限と料金が始まる時刻の遅くない方）は `calculateCancellation`・`evaluateCustomerSelfCancel`・DB の `assert_customer_cancellation_policy` と同じ。
+- **本番で必要なこと**: migration 20261012140000 を本番へ（本番の 2 関数は staging と同じ中身。どこからも呼ばれていない）。本番適用の日に `supabase/structure/prod.json` から 2 関数を外し、`expected-function-overrides.json` の null 2 件を外す。
+
+## 2026-10-12 / 公開前検証の指摘（fix/release-audit-findings、staging 向け PR・未取り込み）
+
+- 出典: 独立検証の報告（`release-audit-report.md` の「現コードの問題と根拠」）。受付連動（公開トップの貸切入口）は別担当（fix/private-entry-availability）なので触っていない。
+- P1 取消規定を確認できないまま予約できた: `useBookingCancellationTerms` が `status: 'loading' | 'ready' | 'error' | 'fallback'` を返す。確定できるかは `cancellationTermsGate`（同ファイル）だけで決め、`ready` になるまで「予約を確定する」を押せない（「キャンセル規定を読み込んでいます…」）。取得失敗・既定値（`isFallback`。店舗の規定が未設定の場合も含む）は赤い案内「店舗のキャンセル規定を取得できませんでした。再読み込みしてください」と再読み込みボタンを出し、既定値（48 時間）で案内しない。48 時間以内の同意（#1063）は `ready` の値で判定。E2E の予約確認の試験台（`e2e/fixtures/functional-qa-mocks.tsx`）は店舗の規定を返すようにし、`terms-error` の場合を追加。
+- P2 通常予約の詳細が割引前の金額だった: マイページの予約詳細はサーバー確定金額 `final_price` を合計に出し、内訳（単価×人数・割引・合計）を `src/pages/MyPage/utils/reservationPriceBreakdown.ts` で作る（割引＝割引前−合計なので必ず一致）。予約の読み取りに `discount_amount` を追加。予約完了画面（`useBookingSubmit` の `final_price`）とマイページ一覧（`final_price`）は元から同じ計算元。人数変更の「いまの合計」も `final_price` に統一。
+- P2 ゲストの「この端末から退出」後に情報が残った: ゲスト由来の state（名前・メール・電話・回答・PIN 入力・PIN の誤り表示・発行した PIN・新規参加の印）を `src/pages/PrivateGroupInvite/guestDeviceState.ts` の `useGuestDeviceState` にまとめ、退出・グループから抜ける・本人確認の期限切れで `reset`。端末の保存は `clearGuestDeviceStorage` で参加情報（名前・メール）・本人確認の印（トークン）・このグループの「同じメンバーで次の貸切」の記憶を消す。退出前の memberId を含む取得結果（react-query）も消す。「参加した印」（名前もメールも含まない）は点検 57 どおり残す（次に開くと「PIN で入る」）。
+- schema 同期（DB の変更なし）: `stores.sql` に `public_name`（列・公開列の権限・コメント）と `kit_fixed`、ビュー `stores_public.sql` を新設（README に登録）。staging の構造（`supabase/structure/staging.json`）と列を照合し、ほかに未同期だった列も同期: `global_settings`（20260523030000 の 11 列・20260526000000 の `kit_transfer_offsets`）、`organization_scenarios`（20260523000000/010000 の 4 列）、`private_groups.scenario_master_id`（20260411000000）、`reservations`（`confirmed_at`・`cancelled_by`・`arrived_late`）、`scenario_masters.is_shared`、`private_group_message_photos.byte_size`（20261012110000）。`customers.sql` から 20260519000000 で削除済みの 4 列（notes・visit_count・total_spent・last_visit）を外した。ビュー 3 本は列の照合で差なし。
+- 確認: `verify`・`test:unit`（299 ファイル/2,129 件）・`check:design-tokens`・`check:org-scope`・`check:jst-date`・`check:cancellation-rpcs`・`check:migration-rollbacks`・予約確認の試験台 E2E（20 件）。375px（作業メモの `shots/relfix_*.png`: 予約確認の読込中・取得失敗、割引後の予約詳細、退出後の再参加欄（新規・PIN））。画面は実コンポーネント＋架空データ。
+- **残り（別作業）**: 人数変更のサーバー処理（RPC `update_reservation_participants`）は `final_price = 単価×新人数` に直すため、割引のある予約で人数を変えると割引が合計から外れる（`discount_amount` は残る）。画面の人数変更には「いまの予約の割引（−¥1,000）は、変更後の合計に含めていません」と出して実際の動きと合わせた。直すには DB の変更が必要。規定を読めない店舗は予約確認で確定できなくなる。staging を読み取りで確認した結果（2026-10-12）、クインズワルツ（queens-waltz）の有効な店舗はすべて読めたが、札幌（queenswaltz-sapporo）は予約サイトの公開状態が `approved` でなく取消規定（reservation_settings）も無いため読めず、札幌の公演は確定できない。本番反映前に、本番で札幌の予約サイトを公開しているか・取消規定が設定済みかの確認が必要（本番は見ていない）。
+
+## 2026-10-12 / クーポンの「使える店舗」から店舗数を外す（fix/coupon-store-count、staging 向け PR・未取り込み）
+
+- #1070 の「使える店舗: クインズワルツ（東京・埼玉 7 店舗）」がトップの「6 店舗」と食い違った（点検 33 の再発。トップはレンタルスペースを数えない）。数は出さず「使える店舗: クインズワルツの全店舗（東京・埼玉）」にし、押すと店舗名の一覧（お客様向けの名前、馬場(レ)を含む。臨時会場・休止中は除く）が開く（`src/pages/MyPage/components/CouponUsableStores.tsx`）。
+- API は `usable_stores_label` に加えて `usable_store_names` を返す（`src/lib/couponUsableStores.ts` の `couponUsableStores`）。使える店舗を絞ったクーポンは今のまま店舗名を並べ、押せない。
+- 決まり: お客様向けの画面で店舗数を出すときは `countPublicStores`（トップと同じ数え方）だけを使う。別の数え方の数は出さない。
+
+## 2026-10-12 / クーポンを使える店舗の案内（fix/faq-coupon-scope、staging 向け PR・未取り込み）
+
+- 社長要望: 「本店のクーポンは札幌店では使えない」ことが分かるように。お客様向けの文に「運営」の語は使わない（社長指示）。
+- FAQ: 共通（コードの既定 `COMMON_FAQ_DATA` と貼り替え文 A15）に「クーポンはどの店舗で使えますか？」、クインズワルツ個別（B8）に「クインズワルツのクーポンは札幌店で使えますか？」。`docs/ops/FAQ_貼り替え文_2026-10.md` の SQL 1（15 件）・SQL 2（8 件）も更新。前回の手順にあった番号の誤り（A12 → A13）も直した。
+- マイページのクーポン: 各カードに「使える店舗: クインズワルツ（東京・埼玉 7 店舗）」。`/api/coupons?type=all` が `usable_stores_label` を付ける（`api/_lib/coupons/usableStores.ts`、文の組み立ては `src/lib/couponUsableStores.ts`）。店舗数は臨時会場・休止中を除き、レンタルスペースは含める（社長指定の 7 店舗。予約サイトのトップの「6 店舗」とは数え方が違う）。対象店舗を絞ったクーポンは店舗名（お客様向けの名前）を並べる。読めないときは表示しない。
+- 予約確認画面: 候補（`/api/coupons?type=available&event_id=`）は公演の組織のクーポンだけに絞っている（`handleAvailable` の `organization_id` 条件）ため、別の組織のクーポンは元から出ない。変更なし、テストを追加（`api/coupons.test.ts`）。
+- **残り**: staging への SQL（調整役）、本番の貼り替え（社長の承認後）。
+
+## 2026-10-12 / FAQ の社長決定の反映（fix/faq-decisions、staging 向け PR・未取り込み）
+
+- 社長決定: 開催判断の時刻はキャンセルポリシーが正（公演開始の 4 時間前）。「車で行けますか？」は共通 FAQ から外してクインズワルツ個別 FAQ へ（回答「駐車場はありません。公共交通機関でお越しください。」）。
+- `docs/ops/FAQ_貼り替え文_2026-10.md`（#1065 で追加した文書を更新）: 共通 14 件（A）と個別 7 件（B）の完成文、本番の手順、staging 用 SQL を「共通」「個別」の 2 ブロックに。個別は「開催判断」を直し、誤字「問い合わせにてに」も直した。
+- コードの既定 FAQ（`FAQPage.tsx` の `COMMON_FAQ_DATA`）: 「車で行けますか？」を外し、「オープン公演の開催・中止はいつ決まりますか？」（キャンセルポリシーの時刻、多くは 4 時間前）を追加。
+- **残り**: staging への SQL（調整役）、本番の貼り替え（社長の承認後）。
+
+## 2026-10-12 / 貸切・グループ・ゲストの仕上げと写真容量の見える化（fix/group-guest-polish、staging 向け PR・未取り込み）
+
+- 点検 `脱落ポイント点検_2026-10-11.md` の 50・51・52・53・54・55・56・57・58・35・42・43・44・46・28。49 は #1026、配役・申込は #1035/#1042/#1044 で済み。44 は #1028 で解消済み（希望店舗は「日程と場所」の 1 か所、料金は「料金」欄）を手元で確認、変更なし。
+- 50・42: 申込済み・確定後は日程タブの自分の列を押せる見た目にせず「店舗へ申込済みのため、日程の回答は締め切りました」。主催者の空欄は申し込んだ候補日を ○ とみなす（`buildAnswerTable` の `organizerRequested`。直接申込の主催者が「未回答」に見えていた）。メンバータブ・マイページのメンバー管理の「未回答」は申込後は出さない（「申込済み」）。マイページの進み具合（招待・候補日・回答を済み扱い）は元のまま。
+- 51: 参加前の招待ページに「このグループのいま」（募集中／店舗の返事待ち／確定・候補日・1 人あたりの料金。`invitePreviewModel.ts`）。確定日時・会場は参加前の読み取り（preview）では返さない決まり（#659）なので「参加後に確認できます」。上の「開催日時・日程調整の状況はグループ参加後に…」は参加前には出さない。
+- 52〜54・56: ゲストの参加欄を `GuestJoinPanel.tsx` に。はじめては「名前だけで参加できます」→「すでに参加した方は PIN で入る」→ 会員のログイン・新規登録（小さく 1 か所。上の大きい新規登録カードは削除）。再訪（この端末で参加した印 `private_group_guest_joined_<招待コード>`・PIN メールのリンク `?sheet=pin`）は「PIN で入る」を大きく、新規参加は畳む。PIN 画面には「参加する」を出さず、例は「例: 1234」を薄く。見出しと入力欄を `htmlFor` で結んだ。名前欄に「ほかのメンバーに表示されます（ニックネームでも可）」。同じメールで参加しようとしたら PIN 画面へ（メール欄を入れておく）。
+- 55: チャットの入力欄の上に「メッセージを長押しすると、返信・リアクション・コピーができます（パソコンは右クリック）」。× で閉じると端末に記録して出さない。
+- 57: ゲストの ⋮ に「通知はメールで届きます（日程の確定などはすぐ、未読は毎朝 9 時）」と「この端末から退出（グループには残ります）」。退出後は招待ページの再訪の形（PIN で入る）。
+- 58: 会員が参加したら本人のベルに「次にやること」（候補日に回答／候補日を待つ／店舗の返事待ち／日時を確認）。DB: migration 20261012100000（同名 rollback。`customer_notice_on_group_message` の member_joined の分岐だけ変更）。参加完了画面に「次は、日程に回答しましょう」などと主ボタン（日程に回答する → 日程タブ）。状態の箱は元から「日程に回答する」。
+- 28: 参加完了画面の PIN を一番上に、「PIN はメールでもお送りしました（メール）」。絵文字を削除。
+- 35: 申込シートの確認段・作品ページからの貸切申込の確認・申込完了・確定後の概要（申込内容の箱）に「マイページから取り消せるのは公演の30日前までです。それより後の取消は店舗へご連絡ください（7日前からはキャンセル料がかかります）」（`src/lib/privateCancelNotice.ts`。既定の受付期限・料金の段から作る）。期限は変えていない。
+- 43: 作品ページからの貸切申込の完了画面を `PrivateBookingRequest/components/PrivateBookingRequestSuccess.tsx` に分け、店舗の返事の目安（通常 2〜3 日）・メンバー招待（リンク・コピー・LINE）・取消の案内。概要の参加メンバーに、1 人だけのとき招待の一言。
+- 46: 端末が通知を止めているとき（許可が拒否）はトーストではなく案内カード（iPhone／Android／パソコンを切り替えて手順。既定はいまの端末。`pushBlockedHelp.ts`）。
+- 写真容量（社長決定）: 管理画面の貸切グループ一覧の上に「チャット写真の容量」（総容量・今月の増加量・枚数・50GB の目安の棒）。サイト全体が 50GB を超えたら赤い注意。DB: migration 20261012110000（同名 rollback）で `private_group_message_photos.byte_size`（元画像＋小さい版、追加時にトリガーで storage.objects から）・既存分の埋め・集計 `private_group_photo_storage_usage()`（スタッフ・管理者だけ）。
+- DB は 2 本とも staging 適用済み・本番未適用。`staging.json`・`expected-function-overrides.json`（既存の権限の記録は残し本文の md5 を更新、新しい 2 関数を追加）・`expected-table-overrides.json`（写真の表）。手元で baseline 再現 OK。Edge Function `send-guest-pin`（メールのリンクに `?sheet=pin`）は staging に配備済み。**本番反映は DB 先行**（画面が新しい集計関数を読むため）。
+- 確認: 手元（vite 5182 ＋ ローカル Supabase）で 375px（作業メモの `shots/g10_*.png`: 招待ページ はじめて・店舗の返事待ち・再訪・PIN、参加完了、参加後の日程タブ、ゲストの ⋮、チャットの案内、貸切申込の確認と完了、管理画面の容量）。ベルは手元 DB で参加を試し、文面を確認。
+- **残り**: 申込済みグループの参加前の「候補日」は申し込んだ候補日だけに絞れていない（preview は申込の中身を返さないため、グループの候補日をそのまま出す）。店舗ごとに取消期限を変えている場合でも案内文は既定（30 日・7 日）のまま。
+
+## 2026-10-12 / 公開ページの文言と案内（fix/public-pages-text、staging 向け PR・未取り込み）
+
+- 点検 `脱落ポイント点検_2026-10-11.md` の 21・22・31・32・6（残り）。DB 変更なし。
+- 21 キャンセルポリシー: 組織のページは、規定の中身が同じ店舗をまとめて 1 回だけ出し「対象店舗（N店舗）」に店舗名を並べる（`src/lib/cancellationPolicyGroups.ts`。比べないのは店舗の id・名前・最終更新日だけ。最終更新日はまとめた中で一番新しい日）。店舗名はお客様向けの名前（`stores_public.public_name` → 組織名を外した名前、臨時会場は「特設会場」）。staging の queens-waltz は 12 件 → 2 件。全体の `/cancel-policy` は組織ごとのページへのリンク一覧。
+- 22 使い方ガイド: 今の画面に合わせて全面的に書き直し（1,459 行 → 252 行）。ログイン不要の画面は staging につないだ手元の 375px の実画面（`public/guide-images/*.webp`、`/guide` と重ならないよう別名）。マイページの貸切カードとグループページの上部は、ログインが要るため実際の部品（`PrivateBookingCard`・`GroupStatusBox`・`GroupTabBar`）に見本の値を入れて出す（`src/pages/static/guide/GuideDemos.tsx`、押しても動かない）。画面を変えたら画像を撮り直す。
+- 31 予約完了メール: 店舗が文面を設定していないときの既定文面に「キャンセルについて（無料で取り消せる期限の日時）」「当日のお支払い（税込・店舗で現金またはカード。店舗が支払い案内を設定していればそれ＋税込）」「マイページへのリンク」を追加。期限は実際の取消判定と同じ設定（`resolve_operating_setting` で公演 → 作品 → 店舗 → 組織）から `supabase/functions/_shared/booking-confirmation-guide.ts` で計算（画面の `freeSelfCancelHours` と同じ考え方、テストで一致を確認）。店舗の独自文面でも `{cancel_deadline}`・`{payment_note}`・`{mypage_url}` を書けば差し込まれる（管理画面の既定テンプレも同じ 3 つを使う形に）。Edge Function の配備は `npm run functions:deploy:staging`（send-booking-confirmation）。
+- 32 利用規約: 案だけ `docs/legal/利用規約_改訂案_2026-10.md`（ゲスト・PIN、チャットと写真、事前配役アンケート、通知、主催者の引き継ぎ、キャンセルと人数変更。法務に確かめてほしい 8 点つき）。画面（`TermsPage.tsx`）は変えていない。
+- 6（残り）FAQ: 本番・staging の「設定 › FAQ」（queens-waltz の `common_faq_items`）に貼る完成文と staging 用 SQL を `docs/ops/FAQ_貼り替え文_2026-10.md` に。誤字 2 か所・貸切 14 日前・変更は人数とキャンセル・期限後は問い合わせフォーム・「事前配役アンケートとは」を追加。ついでに、個別 FAQ の「開催判断は前日 23:30〜24:00 頃」がキャンセルポリシーの「公演開始の 4 時間前」と食い違うことを記載（要判断）。
+- 確認: 手元（vite 5181 → staging）で 375px。`shots/public_cancel_policy_*.png`・`shots/public_guide_*.png`（作業ツリーのみ、コミットしない）。
+- **残り**: 予約完了メールの実送信の確認（staging 配備後）。利用規約は社長・法務の確認後に画面へ差し替え。FAQ の本番貼り替えは社長の承認後。
+
+## 2026-10-12 / 予約の確認・詳細・取消の情報と店舗への連絡手段（fix/booking-cancel-info、staging 向け PR・未取り込み）
+
+- 点検 `脱落ポイント点検_2026-10-11.md` の 34・2・20・39・41・5・18・14・13・36・38・37・30・40・29。社長決定: 人数を減らせる期限はキャンセルポリシーの「24 時間前」、店舗の電話番号は出さず問い合わせフォーム、料金注記は「税込。当日、店舗で現金またはカードでお支払いください。」（`src/lib/priceNote.ts`）。
+- 予約確認画面: キャンセル規定の要点（`src/lib/cancellationSummary.ts`、店舗の規定は `fetchPublicCancellationTerms`＝RPC 1 本。読めないときは既定値）。無料の期限を切った公演は赤い注意と同意チェック、チェックするまで「予約を確定する」は押せない。
+- 予約詳細: 「無料で取消できる期限: 10/27(火) 19:00 まで」、取消できないときは「店舗に問い合わせる」（貸切と同じ `PrivateGroupInquiryDialog` を `kind="booking"` で。予約番号・作品・日時・会場入り）。合計金額。取消確認は公演・日時・人数・予約番号・キャンセル料、スマホでは「やめる」が上・赤が下（`ConfirmDialog` の危ない操作も同じ並び・スマホ 44px）。店舗のアクセス欄（フッター）と参加団体一覧にも「問い合わせる」。
+- 人数を減らせる判定: 取消期限（48h）→ 予約時に固定した変更期限（`reservation_change_deadline_hours_snapshot`、無ければ 24h）。DB のトリガーは元から変更期限で止めているので DB 変更なし。FAQ の既定文も合わせた（日付は変えられない旨も）。
+- 待ち時間（36）: 予約は空席・締切・組織・料金・休日・顧客の確認を並列にし、保存できたらメールを待たず完了画面（メール欄は「送っています…」→結果）。取消・人数変更は保存できた時点で画面を進め、メール・キャンセル待ち通知は裏で同じ順に送る（`resolveWhenSaved`）。送信中にタブを閉じようとするとブラウザの確認（`src/lib/pendingNotifications.ts`）。予約詳細の読み込みも並列化。同じ待ち時間を与えた模擬計測（読み 0.3 秒・保存 2 秒・メール 2.5 秒）で、予約 6.9→3.2 秒、取消 7.0→2.0 秒、人数を減らす 8.5→2.6 秒（実環境はログイン操作ができず未計測）。
+- スマホ: 作品ページは公演を選ぶと「予約確認へ進む」を画面下に固定（合計金額付き）。マイページのタブに文字、右下のボタンに「公演を探す」、予約カードをリンク扱い、ヘッダーの「ログイン」に文字、作品一覧のハートに読み上げ名。
+- 確認: 手元の模擬画面で 375px（作業メモの `shots/booking_*.png`）。DB 変更なし。
+- **残り**: 実環境（staging）でのログイン後の通し確認と秒数の実測。注意事項を「要点 3 つ＋すべて見る」に畳む案（18 の後半）は未着手。
+
+## 2026-10-12 / 新規登録・ログインの戻り先と、選んだ公演の引き継ぎ（fix/signup-login-return、staging 向け PR・未取り込み）
+
+- 点検 2026-10-11 の 1・3・12・48・24・9・10・11・25・26。社長決定: プロフィールの必須項目（お名前・電話・都道府県・生年月日・パスワード・同意）は減らさない。
+- 戻り先の決まりを `src/lib/authReturn.ts` に集約。戻り先は URL（`/login?redirect=`・確認メールのリンクの `/complete-profile?next=`）に載せる。タブ内の `returnUrl` は Google ログイン用だけ。ログイン画面を戻り先なしで開くと古い `returnUrl` を消す（クーポン受け取りだけは `state.keepReturnUrl` で残す）。
+- 1: 新規登録の `emailRedirectTo`（再送も）に `?next=` を付けた。別タブでリンクを開いても、登録後は選んでいた公演（作品・公演・人数）や招待ページに戻る。クーポン画面を挟む場合は、使い方より上に「元の画面に戻って続ける」。Google で新規登録はプロフィール登録画面へ直接戻し `next` へ。
+- 3: 作品ページ上部の「貸切リクエストを作成」は未ログインなら押した時点でログインへ（戻り先付き）。`/group/create` の「ログインが必要です」に「新規登録」「作品に戻る」。
+- 12・48: 作品ページで選んだ公演・人数は `?event=&count=` に書き戻す（ブラウザの戻るで消えない。`count` 変更で画面上へ飛ばないよう ScrollToTop の除外に追加）。予約確認画面は `?step=confirm`（再読み込み・戻るで消えない。「戻る」ボタンは履歴を戻る）。
+- 24: 元のカレンダーで公演を押すと `?event=` 付きで作品ページを開く（リストと同じ）。
+- 9: AppRoot のプロフィール必須ガードを、見るだけのページ（トップ・作品ページ・カタログ・店舗一覧・案内ページ。`src/lib/profileGate.ts`）では止めない。予約確認（`step=confirm`）・貸切申込・グループ作成・グループ参加（ログイン中の新規参加）で登録を求め、登録後はその画面に戻る（`useRequireCompleteProfile`）。
+- 10: 例の文字に「例:」を付けて薄く。必須の残り数を上と送信ボタンに表示。同意は登録完了画面の 1 回だけ（新規登録画面の「同意したものとみなされます」を削除）。お知らせメールの既定は変更なし。
+- 11: リンクが期限切れ・使用済み（URL の `error_code=otp_expired` など）は「リンクの期限が切れました」＋再送ボタン。「同じブラウザで開く」の案内は削除。
+- 25: 新規登録に「この後の流れ」を 1 行。ログイン・新規登録画面に予約中の作品名・日時・人数（同じタブ内の説明。戻り先が一致するときだけ）と「元の画面に戻ります」。ヘッダーの「ログイン」「新規登録」も今の画面を戻り先にする。
+- 26: 登録完了画面の文言（2 秒・行き先）は #1026 のまま。クーポン画面のボタンを行き先に合わせた。
+- 確認: 手元（vite 5181 ＋ ローカル Supabase。Mailpit に届いた確認メールのリンクを verify に通し、メールに載った戻り先で開いた）で 375px。公演と人数を選ぶ → 新規登録 → 別タブでリンク → プロフィール登録 → クーポン → 元の公演（人数 3 のまま）。ログインの戻り先・確認画面の再読み込み・カレンダーからの選択も確認（作業メモの `shots/signup_*.png`）。E2E `e2e/auth-return.spec.ts` を追加。DB 変更なし。
+- 注意: 手元の Supabase は戻り先 5173 しか許さないため、5181 で動かした今回はリンク先の画面を手で開いた。staging・本番は `/**` で許可済み（supabase/config.toml・管理画面の Redirect URLs）。
+## 2026-10-12 / 残席の表記を「予約済み/定員」にそろえる（fix/seat-format-unify、staging 向け PR・未取り込み）
+
+- 社長決定: お客様向けの残席はカレンダーの「2/8」＋「残少」（残席 1〜3）・「満席」に統一。`src/lib/seatLabel.ts` を追加し、トップの一覧カード・残りわずか・全体トップ（`seatState`）、リスト、作品ページの公演一覧・申込パネル、予約確認、全国版の作品ページ、マイページの遊びたいリストを置き換え。キャンセル待ち・エラー文は据え置き。単体試験を更新（`seatLabel.test.ts` 追加）、機能 QA の E2E は手元で通過。
+- 確認: staging 接続の手元で 375px（作業メモの `shots/seatfmt_*.png`）。DB 変更なし。
+
+## 2026-10-12 / カレンダー・リストを元の本番の見た目に戻す（fix/calendar-list-original-look、staging 向け PR・未取り込み）
+
+- 社長決定: カレンダーもリストも元のほうがよい。#1074（空き枠チップの店舗一覧廃止・行を詰める）は中止して閉じた。#1053/#1056/#1059/#1061 で変えた内部の見た目を取り消し、7c312a77c の `CalendarView.tsx`・`ListView.tsx` に戻した。
+- 変えたのは: 店舗名（`storeShortDisplayName`: public_name → 略称。臨時会場はその日の会場名か「特設会場」）、上の操作列のチップ（`BookingFilters`）、カレンダーの過去日の文言なし（#1057）、作品画像の比率（`KeyVisualThumb`）。元の `text-[10px]`・`text-gray-*` は同じ値のクラス `ts-10`・`ts-8`・`fg-gray-*`（index.css）に置き換え（デザインガード対策、見た目は同じ）。
+- リストの公演を押すと元どおり作品ページ（公演は選ばない）。空き枠の「貸切申込」は元どおり（その日・時間帯・店舗を選んだ状態で `private-booking-select`）。
+- 提案（未実施）: リストとカレンダーの残席表記を「残 N」にそろえるか、元の「2/8」のままか（今は元のまま「2/8」「残6」が混在＝元の本番と同じ）。
+- 確認: staging 接続の手元で 375px・1280px（作業メモの `shots/orig_calendar_*.png`・`orig_list_*.png`）。DB 変更なし。
+
+## 2026-10-12 / リストの空き枠に「貸切で申し込む」（fix/list-empty-slot-private、staging 向け PR・未取り込み）
+
+- 社長要望: リストで空き枠に貸切申込ができると分かるように。各時間帯の行末に紫のチップ「○○店 空き ・ 貸切で申し込む ›」、3 店舗以上は「空き N 店舗」にまとめて押すと店舗の一覧、全店舗が空きの時間帯も行を出す。押すと `private-booking-select?date=&store=&slot=&time=`。
+- 判断: 空きは「公演・貸切・社内の予定が無い」「今日以降かつ受付締切の日数より先」「前の時間帯の終わりから 1 時間後が枠の終わりより前」（元のリストの貸切申込ボタンと同じ目安）。#1023 の DB の空き判定は作品（所要時間）が要るため、作品を選んだ先の画面で行う。臨時会場・オフィスは出さない。
+- 確認: staging 接続の手元で 375px・1280px（作業メモの `shots/listempty_*.png`。受付締切 14 日のため 11 月で確認）。DB 変更なし。
+
+## 2026-10-12 / リストの朝・昼・夜を行に（fix/list-slot-rows、staging 向け PR・未取り込み）
+
+- 社長指示（見本 `ListRows.dc.html`）: リストを「日付の見出し（固定）→ 朝／昼／夜の行 → 店舗名付きの公演カードを縦に」へ。貸切は行末の灰色チップにまとめ、何も無い時間帯は出さない。会場の列は廃止。満席は薄く「満席・キャンセル待ち」。押すと作品ページを公演選択済みで開く（手元で「選択中」を確認）。PC はカード 2 列。操作（年月・店舗・満席を非表示・体験済みを非表示）はそのまま。`ListView.tsx` を作り直し（元のデータの組み立て `useListViewData` はそのまま）。
+- 元のリストにあった空き枠の「貸切申込」ボタンは無くなった（見本に無いため。カレンダーには残る）。
+- 確認: staging 接続の手元で 375px・1280px（作業メモの `shots/listrows_*.png`）。横はみ出しなし。DB 変更なし。
+
+## 2026-10-12 / 元のカレンダー・リストの手直し（fix/calendar-list-polish、staging 向け PR・未取り込み）
+
+- 「体験済みを非表示」（ログイン中だけ）をカレンダー・リストの操作列に戻した（チップ。体験済みの作品は `usePlayedScenarios`）。
+- カレンダーの今日より前の日: 「店舗を選択して貸切申込」を出さず薄い地色だけ、過去だけの週は低く（PC も同じ）。今日以降で公演の無い日は小さく 1 行「貸切申込」→ `/{組織}/private-booking-select?date=`。
+- 確認: staging 接続の手元で 375px・1280px（作業メモの `shots/polish_*.png`）。ログイン中の「体験済みを非表示」は画面では未確認（型・試験のみ）。DB 変更なし。
+
+## 2026-10-12 / カレンダー・リストを元の実装に戻す（fix/restore-original-calendar-list、staging 向け PR・未取り込み）
+
+- 社長決定: カレンダーとリストは元のほうがよい（画面への収まりも）。#1051・#1053 の刷新版は廃止し、#1046 より前の `CalendarView`・`ListView`・`useCalendarData`・`useListViewData`・`bookingViewPersistence` を履歴（7c312a77c）から戻した。「作品名 2 行」の PR #1055 は閉じた。
+- 置き場所: 「空いている公演を探す」のチップを「今週末／今日／明日／来週／カレンダー／リスト」に（切り替えタブと「日付を選ぶ」は廃止）。絞り込み行はカードのときだけ。カレンダー・リストは元の操作（年月・店舗・満席を非表示。チップの見た目に作り直した `BookingFilters`）。旧 URL はそれぞれのチップで開く（E2E 更新）。
+- 見た目だけ新しいトップに合わせた（角丸・枠線・チップ・残席の色・「貸切」・店舗名の字・画像の比率）。寸法・列数は元のまま。店舗名は `storeDisplayName`（リストの店舗列は省略せず折り返し）。`text-gray-`・`text-[` は使わず `ts-micro`（10px）。
+- 削除: `StoreCalendarView`・`StoreListView`・`TimetableDayTable`・`publicTimetable`・`DatePickerPopover`。
+- 確認: staging 接続の手元で 375px・1280px（作業メモの `shots/restore_*.png`）。DB 変更なし。
+
+## 2026-10-11 / 店舗トップの見方「一覧／カレンダー／リスト」（feat/top-search-views、staging 向け PR・未取り込み）
+
+- 社長の方向修正: 元のカレンダーとリストは無くさず刷新して残す。見本 `TopViews.dc.html`。「空いている公演を探す」の絞り込みの下に 3 つの見方の切り替え（`?view=calendar|list`）。絞り込みは共通。#1051 の「点だけ」のマス目は置き換え。
+- カレンダー: マスは日付・作品の小さな画像 2 枚・「+N 空き／満席」だけ。日を押すと下にその日の時間割。リスト: 店舗 × 朝昼夜、日付の見出しは固定、貸切の枠は「貸切」、公演なしの店舗は畳む、7 日ずつ「次の 7 日 ›」。部品 `components/top/StoreCalendarView.tsx`・`StoreListView.tsx`・`TimetableDayTable.tsx`、組み立て `src/lib/publicTimetable.ts`。旧 `/{組織}/calendar`・`/list` は各見方へ（E2E に追加）。
+- 判断: カレンダー・リストでは「空席あり」で満席を隠さない（見本どおり満席を灰色で見せる）。375px の時間割は作品名が 2〜3 文字で省略される（PC は全文）。
+- 確認: staging 接続の手元で 375px・1280px（作業メモの `shots/views_*.png`）。横はみ出しなし。DB 変更なし。
+
+## 2026-10-11 / トップのカレンダー表示を戻し、キービジュアルの比率を崩さない（fix/top-calendar-and-kv、staging 向け PR・未取り込み）
+
+- 社長指摘: カレンダー表示は無くさない。店舗トップ「空いている公演を探す」に「一覧／カレンダー」（`?view=calendar`、旧 `/{組織}/calendar` もここへ）。月のマス目は日付と公演数の点だけ（空きあり＝緑、満席のみ＝灰、選んだ日＝赤枠）、日を押すとその日の公演を一覧と同じカードで下に出す。月送り・今日。絞り込みも効く。部品 `components/top/StoreCalendarView.tsx`、日ごとのまとめ `calendarDaySummaries`（単体試験あり）。全体トップは一覧のみ。
+- キービジュアル: 横長の画像が 3:4 の枠で大きく切り抜かれていた（WORLD END・裂き子さん・野槌など、元の比率 1.5〜1.8）。`KeyVisualThumb` で読み込み時の比率を見て、横長は全体を収めて余白は薄い地色、縦長は中央で切り抜き。枠は公演カード・残りわずか（横長の枠→3:4）・作品から探すとも 3:4。作品の画像に位置・拡大率の設定は無い（キャラクター画像だけ）。
+- 確認: staging 接続の手元で 375px（作業メモの `shots/fix_top_cal_*.png`: calendar・day_selected・kv_before_*／kv_after_*）。DB 変更なし。
+
+## 2026-10-11 / トップ刷新の続き: 作品の検索・遊びたい／体験済み、DB とメールの店舗名、問い合わせの種別（fix/top-followups、staging 向け PR・未取り込み）
+
+- 作品から探す（店舗トップ・全体トップ）: 見出しの下に「作品名・作者で検索」（欄内で絞り込み、カタログへは `?q=`。`/{組織}/catalog` も `?q=` を読むようにした）。ログイン中だけ各カードの右上に「遊びたい」「体験済み」（`useScenarioMarks`。体験済みは従来の登録ダイアログ）。
+- DB: migration 20261011220000（同名 rollback）。`public.customer_store_name(店舗, 日付, 予備)` を追加（画面の storeDisplayName と同じ決め方。公開してよい名前だけを返す）し、お客様に届く 11 関数の店舗名を置き換え（一覧は方針書「店舗名」）。各関数は staging の現物から店舗名の部分だけ変更。staging 適用済み・本番未適用。`staging.json`・`expected-function-overrides.json`（既存の権限の記録は残し、本文の md5 だけ更新）。手元で baseline 再現 OK。
+- Edge Function（staging 配備済み）: `_shared/customer-store-name.ts` を追加し前日メール・旧経路の貸切確定メールで使用。`send-cancellation-confirmation` は店舗 ID から `customer_store_name` を引く。`send-contact-inquiry` の日本語の種別名も配備。配備: send-contact-inquiry, send-cancellation-confirmation, auto-send-reminder-emails, schedule-reminder-emails, notify-gm-private-booking-confirmed, send-private-booking-confirmation, reconcile-private-delivery, provision-private-booking-discord。
+- **本番反映は DB → Edge Function → 画面の順**（Edge Function が `customer_store_name` を呼ぶため）。
+- 確認: staging 接続の手元で 375px（`shots/fu_*_scenario_search.png`）、`/queens-waltz/catalog?q=ウサギ` が 1 件。ログイン中の「遊びたい」「体験済み」は画面では未確認（型・試験のみ）。メールの実送信はしていない（DB 関数を staging で直接呼び、「高田馬場店」「フォレスト①」「特設会場」などになることを確認）。
+
+## 2026-10-11 / トップページ刷新（店舗トップ・MMQ 全体トップ）とお客様向けの店舗名（feat/top-pages-redesign、staging 向け PR・未取り込み）
+
+- 社長承認の見本 `Top.dc.html`・`TopMMQ.dc.html`（追加指示: 全体トップに「残りわずか」「作品から探す」、貸切の位置）。方針書 `docs/product-spec/トップページ刷新_2026-10.md`。点検 2026-10-11 の 7・15・16・19・23・24・33 を対象。
+- 店舗トップ `/{組織}`: 3 タブを廃止し、上の帯 → 空いている公演を探す（日付チップ・月カレンダー・人数・店舗・空席あり・初心者向け、条件は URL）→ 残りわずか → 貸切 → 作品から探す → はじめての方へ。旧 `/calendar`・`/list` は `?when=date` へ。旧部品（CalendarView・ListView・LineupView・BookingFilters・SearchBar・ScenarioCard ほか）は削除。
+- 全体トップ `/`: 横断検索（エリア・日付・人数）→ 公演一覧（組織名＋店舗名）→ 残りわずか → 貸切 → 作品から探す（全国、`/scenario` へ）→ 参加店舗 → はじめての方へ → 店舗の方へ（`/contact?type=partnership`）。公開ビューだけを読む（公演は 1000 件ずつ最大 5 回）。旧の遊びたい・体験済みボタン、ブログ欄は見本に無いため外した。
+- 共通部品 `src/components/public-top/`、決まり `src/lib/publicPerformanceSearch.ts`（日付範囲・残席の言い方・検索・残りわずか・作品ページの URL）、`src/lib/publicStoreName.ts`（店舗名・店舗数・地域）。単体試験あり。
+- 作品ページ: `?event=&count=` の人数を残席までに収め、選んだ公演の位置まで送る（24）。
+- 店舗名（社長決定）: DB に `stores.public_name`（お客様向けの名前、NULL 可）。migration 20261011210000（同名 rollback。`stores_public` の末尾に列を追加、`GRANT SELECT (public_name)` を anon/authenticated に）。staging 適用済み・本番未適用。`staging.json`・`expected-table-overrides.json`・新設 `expected-view-overrides.json`（`check-db-baseline.sh` がビューの差し替えも読むよう変更）。管理画面の店舗編集に「お客様向けの名前」。`/api/stores` の読み書き列に追加。**本番反映は DB 先行**（画面が `public_name` を読むため）。
+- 設定が必要な店舗: クインズワルツ仮設店① → フォレスト①、仮設店② → フォレスト②（staging は統括が SQL で入れる。本番は DB 反映後に管理画面の店舗編集で入力）。
+- 数字の統一（33）: 店舗数は `countPublicStores`（臨時・休止・オフィスを除く）。`/scenario` の件数から休止中の組織の作品を外し、全体トップの「全国 N」と一致（staging で 188）。
+- `/stores`（参加店舗一覧）が未ログインでログイン画面に飛ぶ件（7）: AppRoot の旧管理 URL 判定から公開の `/stores` を除外。フッターの文言「参加団体」→「参加店舗一覧」。
+- 問い合わせ: 種別「MMQ への参加（店舗の方）」（partnership）。Edge Function `send-contact-inquiry` の種別名の表に、画面の種別をすべて追加（未配備。配備までメールの種別は英字のまま）。
+- 未対応: グループページ・マイページ貸切カードで RPC が返す店舗名、DB 関数・Edge Function が組み立てるメールの店舗名は従来の name。/guide の本文は旧 3 タブの説明のまま（別作業）。
+- 確認: staging 接続の手元（vite --mode staging）で 375px・1280px を撮影（作業メモの `shots/top_*.png`、見本 `top_mock_*.png`）。横はみ出しなし（375px で scrollWidth=375）。
+
+## 2026-10-11 / 申込シートの参加人数を「作品の人数」で決める形に（fix/request-sheet-participants、staging 向け PR・未取り込み）
+
+- 社長決定: 申込の人数はお客様が増減するものではない。#1042 の＋−と「登録メンバー N 名＋当日来る M 名」をやめた。
+- 作品の人数が固定（最低＝最大）: 項目を出さず「参加人数 6 名（作品の定員）」の 1 行、その人数で申し込む。人数可変: 最低〜最大のチップ（既定は最大人数＝従来の申込と同じ）、注記「料金は参加人数分です。当日の人数が変わる場合は店舗にご連絡ください」。料金の目安は選んだ人数。申込後の人数の自動変更は作らない。
+- 判定は `requestSheetModel.participantChoice`（作品の人数が読めないときは登録メンバー数で固定）。DB 変更なし。
+- 確認: 手元 DB で 375px（固定「六人の館」・可変「揺れる人数」）。作業メモの `shots/g9_request_participants_*.png`。
+
+## 2026-10-11 / 店舗への申込を 1 つの入口にし、候補日を複数選んで優先順を付けて送る形に（feat/booking-request-sheet、staging 向け PR・未取り込み）
+
+- 社長の指摘: 日程タブの行ごとの「この日で申し込む」→ 次の画面で複数選べる、の二段構えが分かりにくい。見本 `RequestSheet.dc.html`（A 日程タブ・B 申込シート）。詳細は方針書 `docs/product-spec/グループページ刷新_2026-10.md` の末尾「申込の入口を 1 つに」。
+- 入口は「候補日を選んで店舗に申し込む」: 状態の箱の主ボタン（チャットタブの 1 行は「申し込む ›」）、日程タブの表の下（社長の追加指示。その下に「候補日を追加・編集」「未回答の人に知らせる」）、マイページの貸切カード（`?sheet=booking`）。行の申込ボタンは削除。箱・カードの本文に「複数の候補日を送ると、店舗がその中から 1 つ確定します」。
+- 申込シート `groupPage/booking/BookingRequestSheet.tsx`（全画面）: 候補日の複数選択（初期値は全員○の日＋それ以外で○最多の日、選んだ順＝優先順、ドラッグ・上下ボタンで並べ替え、× の日の注記）、希望店舗のチップ（空きは `private_booking_candidate_slot_availability` を店舗ごとに。空きなしは灰色で送らない）、参加人数の＋−（既定は登録メンバー数を作品の人数に収めた数）、店舗への連絡、料金の目安 → 2 段目で電話番号・注意事項とキャンセル規定・同意 → 送信（従来の `submitGroupBookingRequest`）。旧シート `BookingSheet`（GroupChatSheetPanels）は削除。
+- DB（migration 20261011200000、同名 rollback、staging 適用済み・本番未適用）: `create_private_booking_request` の候補の `order` を送られた並び（優先順）に、グループ経路の希望店舗を「完全一致」から「グループの希望店舗の中から 1 店舗以上」に。`expected-function-overrides.json`／`staging.json` 更新。DB の試験 yoyaq_004 に 2 件追加。
+- 参加人数は従来「作品の最大人数」固定で送っていたのを、シートで決めた人数に変更（申込後のメンバー追加は作品の最大人数で止めており、予約の人数では止めていない）。
+- 確認: 手元 DB（qa-customer の local supabase。グループ「試験作品・揺れる人数」に候補日 1 件・回答・希望店舗 2 つ・二号店の既存公演を手元だけに追加、migration も手元に適用）で 375px を撮影（作業メモの `shots/g9_request_*.png`）。送った予約は order 1〜3 が選んだ順、第 1 希望が requested_datetime。確認メールは手元からは送れない（従来どおり）。
+
+## 2026-10-11 / 事前配役アンケートの回答画面を全画面シートの形に（feat/survey-sheet-ui、staging 向け PR・未取り込み）
+
+- 社長承認の見本 `SurveySheet.dc.html`（375×812）に合わせ、回答フォーム `SurveyResponseForm` を全画面シートに作り替えた（読み書き・診断記録は `useSurveyResponse.ts` に分離）。入口は従来の `?tab=survey`（メール・通知のリンク）に加え `?sheet=survey` も同じ画面。マイページの貸切カード（その場で開く）とチャットの予備の枠も同じシート。会員・ゲスト（PIN）共通。
+- 上に固定: 「事前配役アンケート」・作品・開催日時・店舗・回答期限・×、緑の帯「回答は店舗と GM にだけ届きます。配役は当日お伝えします。」。下に固定: 「回答を送る」／回答済みは「回答を変更する」と「送ったあとも期限までは変更できます」。
+- 1. やってみたいキャラクター: 店舗の設問のうち character_selection を先頭に、カード 2 列（画像・名前・性別の注記）。押す順に第 1／第 2 希望（`surveyCompletion.toggleCharacterPick`）、「どのキャラクターでもよい（おまかせ）」。配役方法が survey でない・作品にキャラクターがいない・店舗が character_selection の設問を作っていないときは出さない（必須でも問わない）。
+- 保存形式: その設問 id に第 1 希望のキャラクター id（従来どおり・配役確定時の一括保存と互換）。**第 2 希望は回答の jsonb のキー `character_second_choice`**（列は足さない。RPC `upsert_survey_response_for_member` は受け取った回答をそのまま保存するため DB 変更なし）。開き直すと復元。キャラクターの設問を出さない・第 1 希望が無い・おまかせのときは送らない（`stripHiddenSurveyAnswers`）。おまかせは文字列「おまかせ」。店舗の回答一覧（`SurveyResponsesTab`・`SurveyResponsesView`）は `characterAnswerLabel` で「第 1 希望 A／第 2 希望 B」「おまかせ（どのキャラクターでもよい）」と出す。注意: 配役方法の選び直しで DB が消すのは設問 id のキーだけなので、古い `character_second_choice` が残ることがある（第 1 希望が無ければ画面・一覧とも出さない）。
+- 店舗の設問: 単一・複数選択と 5 段階はチップ、自由記述は枠、必須／任意の印。
+- 期限: 回答期限（survey_deadline_at、無ければ公演日から survey_deadline_days 前）を過ぎたら「回答期限を過ぎました」で送れない（従来は「目安」で公演日まで送れた。社長の見本どおりに変更。DB 側では止めていない）。公演日を過ぎたら受付終了の表示。
+- 送ったあと: シートを閉じ、`group-survey-settings`・`group-casting-status` を読み直す。状態の箱は開催の文に「事前配役アンケートは回答済みです（N/M 名が回答）」と「回答を変更する」（`groupPageModel` の `surveyAnswered`）。マイページは `mypage-private-survey-status` も読み直す。
+- 名称の一括置換（社長決定「事前配役アンケート」）: お客様向けの画面・マイページのカード・チャットの案内、スタッフ向け管理画面（サイドバー・マニュアル・回答一覧・作品の設定）、ベル・メール（DB 関数 `customer_notice_on_group_message`・`customer_notice_on_survey_reminder` の文面を migration 20261011190000〈同名 rollback〉で置換、staging 適用済み・本番未適用、`expected-function-overrides.json`／`staging.json` 更新）、Edge Function のメール（`survey-reminder-email.ts` の件名「【事前配役アンケートのお願い】」・本文、貸切確定の案内文。staging に配備済み）、方針書・お客様向けマニュアル。古い migration・baseline・作業記録の文は変えていない。「アンケート」単独の一般名詞は残した。キャラクター画像の部品は `casting/CharacterImage.tsx` に分けた。
+- 確認: 手元 DB（qa-customer の local supabase）の作品「試験作品・事前の手紙」に試験用の設問（希望キャラクター＝必須、得意・苦手なこと＝任意）を手元だけに追加し、会員（customer2）とゲスト（PIN）で 375px を撮影（作業メモの `shots/g8_survey_*.png`。開いた直後・キャラクター選択後・送信後の箱と概要・開き直し・マイページ、第 2 希望の復元 `g8_survey_member_reopen_second.png`）。送るボタンの下端 775px/812px。
+
+## 2026-10-11 / 配役の確定で作品の人数にそろっていなくても確定できるように（fix/casting-confirm-min-players、staging 向け PR・未取り込み）
+
+- 社長決定: グループに登録していない同行者（当日来る人）がいるのは普通で、作品の人数に満たないと主催者が配役を確定できなかった。条件は「登録メンバー全員に配役が入っている」「重なりが無い」の 2 つだけにし、最低人数に満たないときは確定画面に注意だけ出す（「登録メンバーは 3 人です（作品は 5 人）。登録していない同行者の配役は当日店舗が決めます」。最低〜最大が違う作品は「作品は 4〜5 人」）。
+- 画面だけでなく DB の `private_group_confirm_characters` も「作品の最大人数にそろっていること」を求めていたため、migration 20261011180000（同名 rollback）でその条件だけ外した（staging 適用済み・本番未適用）。DB の試験 `scripts/test-private-group-confirm-characters-db.mjs` に「人数に満たなくても確定できる・取り消すと戻る」を追加。
+
+## 2026-10-11 / チャットの自動お知らせをすべて灰色の 1 行にし、カードを流さない（fix/chat-system-lines-only、staging 向け PR・未取り込み）
+
+- 社長決定: **グループチャットには自動のカードを流さない**。吹き出しは人の発言と写真だけ、自動のお知らせはすべて灰色の小さな 1 行。行動が要るものだけ末尾に小さなリンクを 1 つ（既存の `?tab=`／`?sheet=`）。今後チャットにカードを足さない。詳細は方針書 `docs/product-spec/グループページ刷新_2026-10.md` の末尾「チャットにはカードを流さない」。
+- 対象: 候補日の追加・未回答の人に知らせる・店舗の確定／却下／取消・事前配役アンケート・事前読み込み・店舗からのお知らせ・個別お知らせ（引き継ぎの依頼は宛先本人だけに「› 確認する」）・次の貸切のお誘い・配役。DB の文面・種類は変えていない。
+- 配役の操作カード（決め方・希望・確定）はチャットから外し、`CharacterAssignmentCards.tsx` は削除（操作は #1035 の「いまの状態」の箱と全画面シートへ移った）。チャットは状態の 1 行だけ: 主催者「配役の決め方を選んでください › 選ぶ」（`?sheet=casting-method`）、自分たちで決める・未選択の人「やりたいキャラクターを選んでください › 選ぶ」（`?sheet=casting-pick`）、確定「配役が確定しました › 概要」（`?tab=overview#casting`）。#1035 の「未回答の人に知らせる」の種類（事前配役アンケート・キャラクター）も 1 行にし、名前が挙がった本人に「› 回答する」「› 選ぶ」。
+- 名称は「事前配役アンケート」（社長決定。既存文の一括置換は別作業）。
+- 「日程がそろった」はチャットのお知らせが存在しない（ベル・メール・プッシュのみ）ので対象外。
+- 確認: 手元で 375px の主催者・メンバー・ゲスト（`shots/fix_chatlines_*.png`）。
+
+## 2026-10-11 / 概要タブに「配役」欄・配役の操作を「いまの状態」の箱と全画面シートに（feat/overview-survey-section、staging 向け PR・未取り込み）
+
+- 社長要望と修正: 配役（決め方の選択・自分たちで決める・事前配役アンケート）の操作の入口は「いまの状態」の箱（チャットタブの 1 行、マイページのカードも同じ段階）だけ。概要タブの「配役」欄（`#casting`、日程と場所の次）は状態の確認と主催者の「変更する」の入口。見本 `StatusBox.dc.html` ④-a〜④-d・`Casting.dc.html`。お客様向けの名称は「事前配役アンケート」（新しく書いた文だけ。既存の「公演前アンケート」の置換は別担当）。
+- 段階（`privateBookingModel.decideGroupAction` に追加。マイページとグループ画面で共通）: 確定後・キャラクター（NPC 除く）のいる作品で、配役が未確定のとき ① 主催者「配役の決め方を選ぶ」（事前配役アンケートが使える作品だけ。従来のチャットの条件と同じ）→ ② 自分たちで決める・未選択の人「やりたいキャラクターを選ぶ」→ ③ 選んだ主催者「配役を確定する」→ その後は従来どおり アンケート未回答／開催。色は緑。
+- 全画面シート `?sheet=casting-method|casting-pick|casting-confirm`（`groupPage/casting/CastingScreen.tsx`）。保存は既存の RPC（private_group_set_character_method・member_action の character_preference・private_group_confirm_characters）のまま。③ は重なりを琥珀色で警告、全員分・重なりなし・必要人数そろいまで押せない（DB と同じ規則）。
+- DB（migration 20261011170000 と同名 rollback、staging 適用済み・本番未適用）: `private_group_casting_status(group, member, guest_token)` を追加（参加中の本人だけ。決め方・確定済みか〈チャットの配役カードと同じ判定〉・アンケートの回答済み／対象人数・自分の回答の有無・未回答の名前は主催者だけ。回答の中身は返さない）。`private_group_chat_action` の remind_unanswered に kind（dates／survey／casting）。survey は未回答、casting は未選択の人に絞り、灰色 1 行（date_answer_reminder＋kind）。チャット側は文面の切り替え 1 か所だけ変更（`groupChatMessages.noticeLineText`）。
+- structure: staging.json は staging の実物で更新。今回の 2 関数のほか、web_push_outbox／web_push_subscriptions の auth.users への外部キーが「NOT VALID」に変わっている（毎晩の本番→staging の写し `scripts/mirror-prod-to-staging.sh` が auth 参照の外部キーを NOT VALID で作り直すため。2026-10-10 21:27Z の実行で発生）。これを入れないと Drift check (staging) が落ちる。
+- 未対応: チャットの配役カードは #1034 で灰色 1 行にし部品を削除済み。回答画面の見た目（見本 SurveySheet.dc.html）は別 PR。
+- 確認: 手元 DB で主催者・メンバー（customer2）・ゲスト（手元で作った一時の印）の 3 視点を 375px で撮影（作業メモの `shots/g7_survey_*.png`）。必要人数（5 人）に満たない試験データのため、確定後の表示は手元 DB に確定のお知らせを入れて確認。
+
+## 2026-10-11 / 候補日の追加・編集を 1 枚のスクロールにし、保存ボタンを常に見える位置に（fix/candidate-dates-editor-ux、staging 向け PR・未取り込み）
+
+- 社長の指摘: マイページ貸切タブ → 操作 → 候補日を追加・編集 で、ダイアログのスクロールの中にカレンダー枠のスクロールがあり、「候補日を保存」が画面外で見えない。見本 `CandidateEditor.dc.html`（375×812 全画面）に合わせた。
+- 部品 `PrivateBookingSlotGrid` から枠表の内側スクロール（max-height・fillContainer）を廃止。月の切り替えと案内の帯（押して選ぶ・灰色は押すと理由・○件選択中）は `stickyHeader` 指定時だけ上に貼り付く。日付の列は横スクロール時も固定、各枠は高さ 56px（min-h-14）で揃え、2 行目に時刻／追加済み／選べない理由（1 行）／「○〜○ に調整」を出す。
+- `AddCandidateDates` に `layout`（dialog / embedded）。dialog は開いた直後からカレンダー、末尾に登録済みの候補日（`belowCalendar`）、下に「選択中 N 件」チップ列と「キャンセル／候補日を保存（N 件）」を sticky（safe-area 対応、中身が短くても下端）。キャンセルはダイアログを閉じる。embedded（グループページ日程タブ）は貼り付けず、カレンダーを全部出し保存列はその直下、外枠は省いて幅をカレンダーに回した。
+- `PrivateGroupInPlaceDialog` の dates だけ、スマホ（〜640px）は全画面、PC は sm:max-w-lg・max-h-[90vh]。見出し（題名＋作品名・希望店舗）は固定、本文 1 つだけがスクロール。希望店舗名はグループ画面と同じ問い合わせ（同じ queryKey）。
+- 作品ページの貸切申込フォームも同じ部品なので内側スクロールがなくなった（貼り付けなし）。
+- 見本との差: 最大件数は業務上の上限（グループ 100 件・作品ページ 6 件）をそのまま表示。登録済み候補の操作名は既存部品のまま「削除」（見本は「外す」）。
+- 同じ PR で社長の訂正（グループページ概要タブの料金欄 `overview/PriceSection.tsx`）: 合計は定員ではなく「いまの参加人数 N 名の合計」（会員＋ゲスト＝回答表の memberCount）で出し、最低人数（作品の player_count_min）未満なら「あと ○ 名で成立」を添える。補助文は「税込。当日、店舗で現金またはカードでお支払いください。料金は参加人数分です。参加人数が最低人数（○名）に満たない場合は公演不成立となります。」（候補日で変わる注記は先頭のまま）。「定員分の料金」は削除。確定後もグループ保存の 1 人あたり × いまの参加人数（保存済みの合計 total_price は使わない）。手元で 3 名・最低 5 名の表示を確認（`shots/fix_price_group_375.png`）。
+- 確認: 手元 DB（seed）で 375px のダイアログ（開いた直後・途中・末尾・3 件選択）、PC ダイアログ、グループ日程タブ、作品ページ、見本を撮影（作業メモの `shots/fix_dates_ui_*.png`）。ダイアログ内の縦スクロールは本文 1 つだけ、保存ボタン下端 800px/812px を計測。
+
+## 2026-10-11 / 確定した貸切・予約に「カレンダーに登録」「地図を開く」（feat/calendar-and-map-buttons、staging 向け PR・未取り込み）
+
+- 社長要望: 貸切が確定したら日程をカレンダーに登録するボタンと地図のボタン。一般公演の予約にも付けた。詳細は方針書 `docs/product-spec/グループページ刷新_2026-10.md` の「段階 6」。
+- 置き場所: グループページの「いまの状態」の箱（主ボタンの下、会員・ゲストとも）、概要タブ「日程と場所」（段階 5 の文字リンクをボタンに）、マイページの貸切カード（確定・公演前）、一般公演の予約詳細（日時の下）、予約完了画面（カレンダーだけ）。
+- 部品は 1 つ: 生成は `src/lib/calendarEvent.ts`（単体テストあり、JST → UTC。.ics は CRLF・75 バイト折り返し・文字の逃がし）、画面は `src/components/patterns/schedule/`。概要タブの `mapUrl` はこちらへ統合。
+- 終了時刻は店舗が登録した公演の終了時刻（開演＋所要時間）。読めなければ作品の所要時間、無ければ 3 時間。予約詳細の公演の読み取りに `end_time` を追加（DB 変更なし）。
+- 店舗に地図 URL の列は無いので住所で Google マップ検索（部品は地図 URL を渡せば優先）。
+- 確認: 手元で 375px、確定済みグループ（主催者・PIN のゲスト）、マイページの貸切カード、一般公演の予約詳細、予約完了画面。.ics・Google カレンダー・地図の URL を照合。スクリーンショットは作業メモの `shots/g6_*.png`。iPhone 実機で .ics を開く動きは未確認。
+
+## 2026-10-11 / グループページの概要タブを刷新（作品情報・登場人物・日程と場所・料金・やりとり）（feat/group-page-scenario-info、staging 向け PR・未取り込み）
+
+- 社長要望: グループページで作品の情報・キャラクター・作品ページへの導線が分かるように。あわせて概要タブを 作品について → 登場人物 → 日程と場所 → 参加メンバー → 料金 → 店舗とのやりとり → 注意事項とキャンセル規定 の並びに組み直した（見本 GroupOverview.dc.html）。詳細は方針書 `docs/product-spec/グループページ刷新_2026-10.md` の「段階 5」。
+- 作品の情報とキャラクターは作品ページと同じ公開用の読み取り（/api/scenarios?id&org_id、お客様・ゲスト・未ログインは公開用の列だけ）。キャラクターの正は organization_scenarios.characters。`public.scenario_characters` は staging で 0 行・会員だけ読める・秘密の列を持つ古い表なので使わない。RLS・DB は変更なし。
+- 希望店舗は「日程と場所」の 1 か所だけ（点検 44 番）。BookingSummaryBox に embedded（日時・会場・候補日・希望店舗を省く）を追加。料金は貸切申込の画面と同じ計算（calculatePrivateCandidateFees × 定員）。注意事項は BookingNotice を流用、「店舗に問い合わせる」は既存の問い合わせダイアログ。
+- 作品ページへの導線は組織の slug 付き（/{slug}/scenario/{作品}）に統一（見出しの作品名・概要・思い出タブの「公演の記録」）。招待ページ（参加前）にも「作品について」の短い版（点検 51 番の一部）。
+- 共有にした部品: `src/components/scenario/scenarioFacts.ts`（人数・所要時間・難易度・キャラクター画像の位置。作品ページも使う）、`SensitivityCheck` を作品ページから移動。`privateGroupPageReadApi.findGroupOverviewExtras` は `findOrganizationSlug` に置き換え。
+- 見本との差: 配慮が必要な表現の項目名は出さない（作品ページと同じネタバレ防止）。ギャラリー画像は公開用のビューに列が無いため出さない。難易度は作品ページでは非表示だがここでは出す。
+- 確認: 手元 DB だけに試験データ（キャラクター・あらすじ等）を入れ、375px で申込前・返事待ち・確定後の概要タブ・登場人物・未ログインの招待ページを確認（作業メモの `shots/g5_*.png`）。
+
+## 2026-10-11 / 新しい版はお知らせを出さずに自動で切り替え・チャット入力欄がスマホで切れる（fix/silent-update-and-chat-input、staging 向け PR・未取り込み）
+
+- 社長指示: 「新しいバージョンが利用可能です」のお知らせ（スマホで 1 文字ずつ縦に潰れる、点検 4 番）をやめ、自動で新しい版に切り替える。
+- 前提の確認: 画面用の Service Worker は使っていない（vite-plugin-pwa は依存にあるが vite.config.ts で未使用。main.tsx はプッシュ通知用 `/sw.js` 以外の SW を解除している）。新しい版の検知は従来どおり `initVersionCheck`（index.html のハッシュを 30 秒ごと・タブ復帰時に比較）。そのため skipWaiting は不要で、`registerType` も変えていない。
+- 新設 `src/lib/silentAppUpdate.ts`: 検知したら「切り替え待ち」にし、①次の画面遷移（react-router の pushState を包み、遷移先 URL をそのまま読み込む。`location.state` で値を渡す遷移は除外）②戻る・進む ③タブ復帰時・10 秒ごと（途中の入力が無く、10 秒操作していないとき）に再読み込み。途中の入力とみなすのは、作品ページ（予約確認が同じ URL）・貸切申込／日時選択・プロフィール登録・新規登録・ログイン・パスワード・グループ・クーポン受取・マイページ、値の入った入力欄、開いているダイアログ。`main.tsx` の `showUpdateBanner` は削除。スタッフ用の画面（`ADMIN_PATHS` の管理画面・`scenarios-edit`・シナリオマスタ・開発用ページ。組織なしの `/stores` はお客様向けなので除く）は、タブ復帰・操作なしでは切り替えず、画面遷移のときだけ切り替える（社長判断: スケジュール表を見ながら電話対応している最中に画面が変わると困る）。
+- チャット入力欄（点検 45 番）: 原因は高さの自動調整。スマホではチャット以外のタブを開いている間、入力欄が非表示で高さ 0 と測られ `height: 0px` が入り、チャットを開いた直後は 18px に潰れていた（1 文字打つと直る）。測れないときは高さを指定しない・表示されたら測り直す（ResizeObserver）・最低 38px・枠線分を足す、に変更。ページは既に `100dvh`。入力欄の下に `env(safe-area-inset-bottom)` の余白を追加（いまの viewport 設定では 0）。
+- 確認: 本番ビルド＋preview で、作品ページ（途中のページ）は新しい版を検知しても再読み込みせず、アプリ内リンクで遷移した時点で新しい版になる／トップで検索欄に文字があるうちは待ち、消して 10 秒後に切り替わる／何もしていないトップはタブに戻った時点で切り替わる。375px のチャットで、概要タブから切り替えた直後も入力欄が 38px で全部見える・高さ 480px（キーボード相当）でも 4 行まで伸びて見える。スクリーンショットは作業メモの `shots/fix_update_*.png`・`fix_chatinput_*.png`。実機のキーボード表示は未確認。
+
+## 2026-10-11 / 貸切候補日の空き判定を前後の公演から逆算する方式に（feat/candidate-slot-gap-based、staging 向け PR・未取り込み）
+
+- 社長決定: 枠の名前（午前／午後／夜）ではなく、その店舗のその日の前後の公演・受付停止・営業時間から逆算し、所要時間＋準備時間が入れば受け付ける。逆向き（夜を標準より前に繰り上げる）も同じ規則。
+- 仕様の正本を新設: `docs/product-spec/貸切受付ルール.md`（入力の一覧・判定の手順・理由コード・例の表 R1〜R21・変更の決まり）。例の表はそのまま `supabase/tests/private_booking_rules_examples.sql`（`npm run test:rpcs` に追加）。
+- DB: 内部関数 `private_booking_slot_store_checks` を `private_booking_slot_store_fit` に置き換え（占有区間を int4multirange で作り、隙間ごとに開始時刻の範囲を出す。開始は標準に最も近い 15 分刻み）。`private_booking_pick_start`・`private_booking_minutes_text` を追加。空き状況の関数 2 つに `detail`（「空き 2 時間・必要 5 時間」）と `adjusted`（標準からずらした）列を追加。保存 RPC も同じ関数で、画面が返した開始時刻をそのまま検証し、`conflict` に補足を付けて弾く。
+- 旧方式との違い: 平日の午前が空いていれば選べる／平日の午後が夜にかかっても夜に公演が無ければ選べる／夜は前に公演が無ければ繰り上げ（旧「23:00−所要時間」の特例は一般則に吸収、R6・R18 で同じ結果）／受付停止はその枠の時間帯全体を占有（#1021 の「午後枠を夜にずらすと夜の受付停止を通り抜ける」課題は解消）／貸切募集停止期間を保存でも弾く／理由は店舗ごとに conflict → blocked → closed の順。
+- 画面: `PrivateBookingSlotGrid` は DB の開始〜終了を出し、ずらした時刻に「に調整」を添える。灰色の枠の理由に補足を付ける。
+- 見ないと進めない仕組み: `npm run check:private-booking-rules`（`scripts/check-private-booking-rules-doc.mjs`）。文書冒頭の「判定に関わるファイル」の一覧のどれかを変えて文書を変えていないと失敗。pre-commit と CI の Verify に追加（CI の checkout は fetch-depth: 2）。AGENTS.md に 1 行。判定の SQL・画面の先頭コメントに正本を明記。
+- DB: migration `20261011120000_private_booking_candidate_slot_gap_based`（rollback 同名。手元で rollback → 旧テスト通過 → 再適用 → 新テスト通過を確認）。staging 適用済み、`staging.json`・`expected-function-overrides.json` は staging の実物で更新。本番は未適用。
+- 確認: 手元で ①隙間ぴったり ②隙間不足 ③夜の受付停止に午後がかかる ④夜に公演なしで午後が夜にかかる、を作品ページ（375px）で確認。スクリーンショットは作業メモの `shots/fix_gap_*.png`。
+
+## 2026-10-10 / 候補日カレンダーの空き判定を DB と一本化（fix/candidate-slot-availability、staging 向け PR・未取り込み）
+
+- 事象: 貸切グループ「告別詩」（希望 6 店、作品の上演可能店舗との共通は 高田馬場・仮設①・仮設②）で、候補日の追加画面が 10/30 夜・10/31 夜を選べる枠として出すのに、保存で「選択した候補日時は現在受付できません」と弾かれた。DB の判定は正しく、画面の独自計算（availabilityMap）が上演可能店舗の絞り込み・他公演との重なり（準備時間込み）・受付停止を同じ条件で見ていなかった。
+- 直し方: 店舗ごとの判定を内部関数 private_booking_slot_store_checks に切り出し、保存 RPC private_group_add_candidate_dates と、新しい空き状況の関数の両方から呼ぶ（保存の判定は変えていない。切り出し前後で同じ結論になることを手元の回帰 SQL で確認）。
+  - private_booking_candidate_slot_availability(組織, 作品, 希望店舗[], 開始日, 終了日): 作品ページ（グループ作成前）用。日付 × 午前・午後・夜ごとに available・reason・start_time・end_time。reason は no_store_for_scenario / conflict / blocked / closed / slot_not_allowed / past_deadline / not_recruiting / outside_period。
+  - private_group_candidate_slot_availability(グループ, 開始日, 終了日[, メンバー, ゲスト印]): グループ用。参加者（会員・ゲスト）・主催者・店舗スタッフだけ（authorize_private_group_read）。追加済みは already_added。
+  - 空き表示では店舗の貸切募集停止期間（store_recruitment_pauses）も「受付停止」とする（保存 RPC はこれを見ていない。従来の画面と同じく、表示側だけ厳しめ）。
+- 画面: 候補日の追加（グループ画面・マイページの候補日ダイアログ）と作品ページの貸切申込フォームは、この関数の結果だけで枠を出す。選べない枠は灰色、押すと理由（他の公演と重なります／この作品を上演できる店舗が希望店舗にありません／受付停止中／営業時間外 など）。クライアントの独自計算（availabilityMap、usePrivateBookingSlotData）は削除。作品ページの廃止予定の private_booking_blocked_slots は見なくなった（保存側も見ていない）。
+- 希望店舗の注意: 希望店舗と作品の上演可能店舗に共通が無い／一部の希望店舗で上演できないとき、日程タブの「希望店舗」欄と候補日の追加画面の上に「この作品は ○○・△△ で上演できます…」を出す。
+- 保存で弾かれたときの文面に理由を添える（例「選択した候補日時は現在受付できません（10/28 夜: 他の公演と重なります）。空き状況を更新して選び直してください」）。弾かれたら空き状況を読み直し、選べなくなった枠は選択から外す。
+- DB: migration 20261010170000_private_booking_candidate_slot_availability（rollback 同名、手元で戻すと保存 RPC が元の定義と一致・再適用を確認）。staging 適用済み・本番未適用。structure（staging.json・期待構造）を更新。回帰 SQL supabase/tests/private_candidate_slot_availability.sql。
+- staging で「告別詩」の 10/30・10/31 を確認: 10/30 は昼・夜とも conflict、10/31 夜は conflict で選べない表示になった。
+- 残る課題（判断待ち）: 10/31 は「午後 18:00〜23:00」が選べる判定になる（仮設①②は夜だけ受付停止で、午後枠を夜にずらすと停止を通り抜ける）。保存 RPC も同じく通すため、受付停止を時刻で見るかは別途決める。作品ページから進む申込確認画面（PrivateBookingRequest）は従来の計算で候補を見直しているので、時刻がずれる場合がある。
+
+## 2026-10-10 / 貸切グループページ刷新 段階 4 公演後の思い出・写真のサムネイル（feat/group-page-phase4、staging 向け PR・未取り込み）
+
+- 方針書 docs/product-spec/グループページ刷新_2026-10.md の「段階 4」。見本 GroupAfter.dc.html（③ 公演後・思い出）。
+- 公演後（確定した公演の終了時刻〔無ければ開始時刻〕を過ぎた、または予約が completed）は、緑の「開催しました」の箱（写真を共有する／感想を書く／同じメンバーで次の貸切）と、思い出／メンバー／チャットのタブ（初期は思い出、日程タブは出さない）。
+- 思い出タブ: 写真（このグループのチャットの写真すべて、3 列。拡大・自分の投稿は削除・まとめて保存）、公演の記録（作品・開催・店舗・参加人数・アルバムの登録状況）、公演後アンケート（感想）。
+- 感想: 表 private_group_feedback（5 段階＋自由記述、1 人 1 件で書き直し可）。書くのは参加者本人の RPC private_group_after_action、読むのは店舗だけ（private_group_feedback_staff）。メンバー同士・主催者には見えない（手元で確認）。貸切予約管理のカード（リクエスト・グループ一覧）に「感想 N件（平均）」、押すと一覧。
+- アルバム: 主催者は予約で自動。メンバーは「アルバムに登録する」で手動の体験履歴を作る（自動では書き込まない）。マイページのアルバムの作品に、そのグループの最新の写真（小さい版）を重ねて出し、押すと思い出タブへ。
+- 同じメンバーで次の貸切: もとのグループをこのタブ（sessionStorage）に覚えて店舗の作品一覧へ。新しいグループを作ると、もとのグループのチャットに「次の貸切のお誘い」（参加ボタン付き）を流す。メンバーを招待済みの状態で作るのはやめた（本人の同意なく参加させないため）。
+- サムネイル: 送信時に長辺 400px（JPEG 0.8）も作り {n}_thumb.jpg に保存（thumb_path）。一覧・2 枚以上の格子・アルバムで使う。既存の写真は元画像を縮めて出す。削除で小さい版も消える。
+- 翌日 10 時（JST）に「写真を共有しませんか」をベル＋プッシュで会員に 1 回（private_group_memories_notice、定期実行 private-group-memories-notice 毎日 1:00 UTC、3 日前までを拾う、dedupe で 1 人 1 回）。ゲストには送らない。
+- 気づいて直したもの: 貸切グループ作成画面で、読み込み中に希望店舗の絞り込みが再描画を繰り返していた（Maximum update depth の警告）。
+- DB: migration 20261010160000_private_group_memories（rollback 同名、手元で戻して再適用を確認）。staging 適用済み・本番未適用。structure（staging.json・期待構造）を更新。Edge Function の変更なし（/api/private-group-photos は Vercel）。
+- GM の名前は出していない（お客様に公開してよい GM 名の仕組みが無いため）。店舗の外部アンケート URL（organizations.post_performance_survey_*）は設定があればリンクを出すが、staging では設定している組織が 0。
+
+## 2026-10-10 / 貸切グループページ刷新 段階 3 ウェブプッシュ通知（feat/group-page-phase3、staging 向け PR・未取り込み）
+
+- 方針書 docs/product-spec/グループページ刷新_2026-10.md の「段階 3」。見本 GroupChatMenus.dc.html の「通知の届き方」と ⋮ の「通知 ON／OFF」。
+- 外部サービスなしの Web Push（VAPID）。送信は Edge Function send-web-push（Web Crypto だけで暗号化と署名。_shared/web-push.ts、単体テストあり）。DB のトリガーが送信待ち web_push_outbox に積み、pg_net で関数を呼ぶ。毎分の定期実行 process-web-push は取りこぼし用。
+- 届けるもの: 新しい発言（30 秒以内の連続は「○○さんほか N 件の新着」に 1 通）・自分宛ての返信・写真、日程がそろった（新規: 主催者にベル＋メール、会員のメンバーにベル）・店舗の確定・却下・引き継ぎ依頼（既存のベルを合図に送る。ベル・メールは二重に作らない）。発言はベルに出さない。チャットを見ている人（presence）・既読の人には送らない。
+- ゲストはプッシュ無し。毎朝 9 時 JST に未読があればメール（customer_notice_emails。送るのは customer_notice_email が on の環境だけ）。
+- 許可の導線: 参加した直後・初めて発言した直後に案内カード。「今はしない」で 30 日出さない。iPhone の Safari はホーム画面に追加の手順。⋮ に「通知 ON／OFF」（グループごと、既定 ON）。
+- サービスワーカー public/sw.js（通知だけ。キャッシュしない）と manifest.webmanifest・アイコンを追加。main.tsx の古いサービスワーカー解除は /sw.js だけ残す。
+- 段階 2 の積み残し: 未読の赤丸から灰色の 1 行のお知らせを外した。入力中のチャンネル名を招待コードのハッシュに。受信に参加者の印を要求するのは、ゲストが JWT を持たないため不可（方針書 段階 3 の 5）。
+- DB: migration 20261010130000・20261010130100（補助関数の権限をそろえる）（staging 適用済み・本番未適用）。structure（staging.json・期待構造）を更新。
+- staging: send-web-push を配備。secrets に VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT / WEB_PUSH_CRON_SECRET を入れた（鍵は Keychain の mmq-vapid-staging）。画面の VITE_VAPID_PUBLIC_KEY（Vercel）は未設定。
+- 気づいた点（本件の範囲外）: staging では Supabase secrets の CRON_SECRET と DB の app_config.trigger_secret が別の値。段階 4 の process-customer-notice-emails は CRON_SECRET で確かめるため、そのままでは DB からの呼び出しが 401 になる見込み（本番は未確認）。send-web-push は専用の WEB_PUSH_CRON_SECRET で回避した。
+
+## 2026-10-10 / 貸切グループページ刷新 段階 2 チャット強化と写真（feat/group-page-phase2、#1015 staging 取り込み済み）
+
+- 方針書 docs/product-spec/グループページ刷新_2026-10.md の「段階 2」。見本 GroupChat.dc.html・GroupChatMenus.dc.html（通知の届き方は段階 3）。
+- GroupChat.tsx（992 行）を chat/ に分割し、既読の人数（人数だけ）・返信（引用 30 文字）・リアクション（5 種＋40 種、1 人 1 種類）・写真（10 枚まで、端末で長辺 2,000px・JPEG 0.85 に縮小）・拡大と保存・長押しメニュー・ピン留め（主催者）・削除（自分の発言、写真の実体も消す）・入力中（Realtime broadcast、DB に書かない）を足した。
+- 既読は DB（private_group_read_states）に置き換え、スマホと PC でそろう。段階 1 の localStorage の未読は廃止。
+- 「未回答の人に知らせる」は主催者だけ、灰色の 1 行（system: date_answer_reminder）に直した。
+- ⋮ メニュー: メンバー・招待リンク／写真の一覧／ピン留めの一覧／操作。
+- 写真: 非公開バケット private-group-photos（Storage ポリシー無し）。表示とアップロード先は /api/private-group-photos が参加者本人を RPC で確かめてから署名付き URL（1 時間）で出す。スタッフ・未参加者は 403 を手元で確認。
+- DB: migration 20261010100000・20261010100100（補助関数の権限をそろえる）（staging 適用済み・本番未適用）。structure（staging.json・期待構造）を更新。
+- 既知（本件の範囲外）: ゲストで global_settings の読み取りが 401、会員で scenarioApi.getById が 400 の記録がコンソールに出る（段階 1 以前から）。
+
+## 2026-10-10 / 貸切グループページ刷新 段階 1 骨格と日程の回答表（feat/group-page-phase1、#1013 staging 取り込み済み）
+
+- 方針書 docs/product-spec/グループページ刷新_2026-10.md（段階 1〜4 の正本）。社長承認の見本 GroupDates.dc.html（スマホ）・GroupPC.dc.html（PC）に合わせた。
+- 参加中の人のグループページを「見出し → いまの状態の箱 → タブ（概要／日程／メンバー／チャット）」に作り直した。PC は同じ並びを左に、チャットを右列に。右上のアイコン 3 つ・日程/招待シート・右パネルは廃止。招待リンクを開いただけの人の参加画面は従来どおり。
+- 状態の箱のラベル・色・説明文はマイページの貸切カードと同じ判定（privateBookingModel.ts の decideGroupAction・labelOf・groupDescription・toneOf を共有）。
+- 日程タブの回答表: 自分の列を押すと ○→△→×→○ で即保存（既存の date_responses）。最有力の行を薄紫、主催者は「この日で申し込む」で申込シートをその日を選んだ状態で開く。「未回答の人に知らせる」はチャットに 1 行。
+- チャット: 自動のお知らせ（参加・外れた・候補日追加など）は灰色の 1 行にまとめ、回答が要る候補日追加・アンケート・引き継ぎなどだけカード。未読数は端末ごと（localStorage）。
+- 不具合: 「候補日程が追加されました」のカードで後から候補日を消すと空の白い箱になる → 「（削除済み）」を出し、全部消えたら箱を出さない。
+- DB 変更なし。
+
 ## 2026-10-09 / 通知ベルの数字を「新着」に・操作ボタンのてんてんを縦に（fix/bell-badge-seen、staging 向け PR・未取り込み）
 
 - 課題: ベルの数字＝未読件数で、1 件ずつ押すか「すべて既読」まで消えず「見たのに消えない」。社長承認で「新着」と「未読」を分けた。
@@ -1355,23 +1698,30 @@ mainの既反映履歴/本人切替/予約全体日時順を保持し、staging�
 - 既存の公演/予約トリガーと同じ永続キュー・世代・重複キーを使い、復活時の旧通知無効化を維持する。追加先は配送時も同じ組織の設定と照合し、メンションなしで送る。
 - 回帰：GM+追加先、再実行の重複防止、GMなし、他組織、同一通知先、rollback/reapply、実配送helperの架空通信試験。実予約のキャンセルや試験Discord投稿は行わない。
 
-## QW-20261011-002 / 作品の予約サイト公開状態を見やすくする
+## 2026-10-11 お客様点検の小さな不具合 9 件（fix/audit-quick-wins）
 
-- 作品管理の「予約サイト」列をタイトルのすぐ右へ配置。保存済みの列順でも公開状態をこの位置に表示し、他の列の順序・表示設定は保持する。非公開は橙色で明示し、マスタ承認済みの場合はその状態も併記する。
-- 「MMQ掲載」を「マスタ承認」に変更して、マスタ承認と組織の公開設定を区別。スマートフォンのカードと編集画面上部でも非公開状態と公開方法を案内する。編集ヘッダーに公開・非公開・既存の下書き/近日公開のプルダウンを置き、保存ボタンで選択状態を保存する。保存時の追加ダイアログを外し、掲載申請は既存の「MMQへ申請」から行う。
-- 保存先・権限・公開状態の保存処理は既存を使用し、実データは変更しない。ステージの別作業から分離してmainを基点としたPRで扱う。
-- 検証：型検査・lint・ビルドを含むverify、公開状態を含む保存payload試験4件、差分検査。共有環境で作品を公開する操作は実施しない。本番反映と実画面確認は未完了。
+点検報告書「脱落ポイント点検_2026-10-11」の番号で記録。
+- #13 予約完了画面の合計金額に「¥」。#37 人数変更は「最大N名まで変更できます（いまの予約はM名）」に。
+- #8 プロフィール登録画面のログアウトは signOut を最大1.5秒だけ待ってトップへ移る（`completeProfile/signOutAndGoHome.ts`）。
+- #26 登録完了画面は実際の移動先と秒数を表示（`completeProfile/successRedirect.ts`、2秒・クーポン／トップ／元の画面）。ボタンも同じ移動先へ。
+- #27 招待が無効な時は用意済みの文＋「主催者に新しい招待リンクを」案内。#49 参加完了文をグループの進み具合（`privateGroupProgress`）で出し分け。#59 会員にはマイページ貸切タブの案内、ゲストは従来のブックマーク案内。
+- #47 migration 20261011150000（rollback 同名）で「予約が確定しました」ベル本文に開催日時。staging 適用済み・rollback 付きトランザクションで本文確認。structure（staging.json・期待 body_md5）更新。本番未適用。
+- #6 FAQ の本文は Queens Waltz 組織の `common_faq_items`（DB、設定＞FAQ で編集）が既定文面より優先される。誤字・「前月10日ごろ」・「日付」・「表示がございます」は DB 側の文で、コードには無い。コードの既定文面は実態に合わせて修正し、回答の改行も表示するようにした。画面の文を直すには設定＞FAQ での修正（本番データの変更）が必要。
+# 2026-10-12 / 貸切受付入口の staging 同期
 
-## QW-20261011-003 / 公開状態欄の承認文字を整理
+- main #1073・#1077の休業・営業時間・募集停止・占有判定を、現在のstagingのカレンダー・リストへ復元。店舗名・チップ・画像比率・過去日の見た目と、作品選択後のDB候補判定を維持。
+- 組織IDをClassicViewsの包みから渡し、「すべて」のリストは全表示店を取得。取得失敗は受付を閉じ、クリック時は受付可能店だけを渡す。DB・Edge変更なし。本番公開は別途検証・承認。
+- 検証結果はPRに記載。
 
-- 利用者の追加指示で、一覧の予約サイト列とモバイルカードからマスタ承認済みの併記を削除。公開状態のみ表示し、独立したマスタ承認列と編集画面の説明は保持する。
-- JSXの局所削除。型検査・差分検査で確認し、単独で本番反映後に実画面を確認する。公開設定データは変更しない。
 
-## QW-20261012-001 / 公開スケジュールと貸切受付の連動
+## main 側の記録（2026-10-12 同期時に見出しのみ転記）
+- QW-20261011-002 / 作品の予約サイト公開状態を見やすくする
+- QW-20261011-003 / 公開状態欄の承認文字を整理
+- QW-20261012-001 / 公開スケジュールと貸切受付の連動
 
-- カレンダーとリストの貸切申込を、店舗の営業曜日・営業時間・有効時間帯・特別休業日・独自休日、募集停止に連動する。既存の公開受付RPCと占有公演読取APIを共有し、取得中・取得失敗・未取得月には申込入口を表示しない。30秒ごとと画面再表示時に更新する。
-- 複数店舗では受付可能な店舗だけを申込URLへ渡す。候補の開始時刻も停止店を除いて計算し、無効な朝/夜枠の自動追加をせず、開店・閉店時刻を守る。
-- 既存DBの募集停止・店舗受付停止の申込/承認時拒否は保持。DB・設定値・予約データは変更しない。DBと互換性を要する既存時間帯ヘルパーの既定動作は維持し、公開入口/候補だけ明示的に設定尊重モードを使用する。
-- 検証：全単体1859件、受付ヘルパー7件、公開読取フックの実QueryClient試験3件（募集停止更新・取得失敗・月外・API範囲）、型検査/lint/ビルド。ステージの別案件を取り込まずmain基点の単独リリース。
+## QW-20261011-001 / 参加者手動追加の権限チェック循環
 
-- 本番画面確認で全店舗表示の受付範囲と、設定開始時刻より早い公演の占有分類を補正。全店舗では表示対象店の受付情報を取得し、占有はカレンダーと同じ朝/昼/夜の分類を使う。SSRの全店舗/単店舗試験2件と占有回帰を追加。
+- 本番の参加者INSERTが42P17で失敗。reservationsのINSERT判定→schedule_eventsのSELECT判定→reservationsへの参照が循環する。マスタ引用作品にも発生し、作品マスタの不整合ではない。
+- 手動追加・保存後の保留参加者・デモ追加の共通APIを、認証と対象組織の業務権限を確認するadd_manual_reservationsへ変更。RLSは変更しない。公演の組織・店舗・日時・マスタIDはDBで確定し、顧客の別組織流用を拒否する。従来の管理者手入力の料金・人数の扱いは保持する。
+- 外部通信なしのPostgreSQLで同じ循環を再現、スタッフ/顧客/デモ保存と読み戻し・人数集計・未認証/顧客権限/別組織/不正入力/中止/バッチ失敗の拒否・rollback/再適用を検証。API経路の回帰2件、verify成功。本番の実予約を試験追加しない。
+- main向け #1045 を 2026-10-12 に staging へ載せ直し。migration は 20261012130000_operator_add_participants（rollback 同名）に改名し staging 適用済み。本番は DB 先行で適用してからリリース。DB先行適用と本番反映の実施状況は案件台帳・PRで確認する。

@@ -44,10 +44,13 @@ BEGIN
   SELECT withdrawn_at INTO withdrawn FROM public.private_group_candidate_dates
     WHERE id=NEW.candidate_date_id AND group_id=NEW.group_id FOR SHARE NOWAIT;
   IF withdrawn IS NOT NULL THEN
+    -- 2026-10-13 緊急の手当て: 取り下げ済みへの保存を即座に再送し続ける端末があり DB が混むため、エラーの前に 2 秒待つ
+    PERFORM pg_sleep(2);
     RAISE EXCEPTION '候補日が削除されています。画面を更新してから回答してください' USING ERRCODE='40001';
   END IF;
   RETURN NEW;
 EXCEPTION WHEN lock_not_available THEN
+  PERFORM pg_sleep(2);
   RAISE EXCEPTION '候補日が更新中です。画面を更新してから回答してください' USING ERRCODE='40001';
 END $$;
 REVOKE ALL ON FUNCTION public.guard_withdrawn_private_group_response() FROM PUBLIC,anon,authenticated,service_role;
