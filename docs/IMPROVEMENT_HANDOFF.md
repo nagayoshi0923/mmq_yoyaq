@@ -1,3 +1,12 @@
+## 2026-10-13 / 再送ループ対応の 2 系統の統合: Codex の #1106（main）を staging にそろえる（fix/merge-codex-retry-concurrency、staging 向け PR）
+
+- 経緯: 同じ高負荷の件に 2 系統が並走した。(a) Claude: 失敗経路の `pg_sleep(2)`（20261013120000、社長承認）＋ #1103（20261013130000 古い日程回答を飛ばして成功、API 層 `writeFailureLimiter` と画面側 `repeatFailureBackoff` の回数制限）。main には #1104 で反映。(b) Codex: #1106（main に squash 済み 470b00011）。20261013130001（advisory lock で同じ利用者・公演の並列保存を即時拒否、`pg_sleep` 除去）、20261013130002（スタッフ保存の古い expected は例外ではなく 40001＋最新内容を返し、旧画面の例外再送を止める）、画面側の再送抑制の書き換え。Codex は 130001・130002 を staging/本番 DB に先行適用済み。
+- 途中で本番 4 関数に 2 秒待ちを重ね直したが（11:15 UTC ごろ）、その後の 130002 適用（11:25 UTC ごろ）で再び外れた。社長判断で **2 秒待ちは戻さない**（本番の失敗の巻き戻しが毎秒 0 件で落ち着き、130002 で解決したため）。
+- 統合: Codex のコミット 470b00011 を staging にそのまま取り込んだ（衝突は `supabase/structure/prod.json` のみ。live の本番から読み取りで作り直した値と一致）。staging DB には適用済みなので db:push はしていない。`db:status:staging` 746 件・未適用なし、`db:drift:staging`・`db:drift:prod` とも差分なし。
+- 画面側の再送抑制は **Codex 版の `src/lib/repeatFailureBackoff.ts` を残し、呼び出し側（`apiClient` の writeWithBackoff、`privateGroupGuestSession`）は #1103 のまま**にした。同じファイルを Codex が書き換えたので、モジュールは 1 つ。理由: 「同じ要求が 3 回続けて失敗したら 10 秒空ける」は満たしたうえで、#1103 版の「待ってから古い内容を送る」をやめて即時に断る（古い回答を後から送らない）、同じ操作の同時送信を 1 件に絞る、localStorage と Web Locks で別タブ・再読み込み後も数を引き継ぐ（保存内容・認証情報は残さない）点が上回るため。API 層 `writeFailureLimiter` も Codex 版（処理中の枠を確保し finally で解放）を採用。main と staging でこれらのファイルは同一。
+- 検証: 関連 vitest（repeatFailureBackoff・writeFailureLimiter・reservations の特性テスト・privateGroup 系）、全 vitest 2203 件、`npm run verify`、`npm run test:rpcs`、`check:migration-rollbacks`、架空 DB の `scripts/test-staff-participation-seats-db.mjs`・`scripts/test-private-group-access-db.mjs`（取り下げ済み候補を含む日程回答は飛ばして成功）、`scripts/test-retry-concurrency-db.py`（docker の network none の PostgreSQL 17 で 2 接続の競合。python 標準ライブラリだけで動くので残した）。
+- main 向けの追加 PR は作らない（#1106 で取り込み済み）。
+
 ## 2026-10-13 / 再送ループの恒久対応: 古い日程回答は飛ばして成功、失敗が続く送り元を待たせる（fix/stale-writes-skip-and-rate-limit、staging 向け PR）
 
 - 社長決定で、上の止血（20261013120000）の恒久対応のうち 2 と 4 を行った。
@@ -1736,3 +1745,17 @@ mainの既反映履歴/本人切替/予約全体日時順を保持し、staging�
 - 手動追加・保存後の保留参加者・デモ追加の共通APIを、認証と対象組織の業務権限を確認するadd_manual_reservationsへ変更。RLSは変更しない。公演の組織・店舗・日時・マスタIDはDBで確定し、顧客の別組織流用を拒否する。従来の管理者手入力の料金・人数の扱いは保持する。
 - 外部通信なしのPostgreSQLで同じ循環を再現、スタッフ/顧客/デモ保存と読み戻し・人数集計・未認証/顧客権限/別組織/不正入力/中止/バッチ失敗の拒否・rollback/再適用を検証。API経路の回帰2件、verify成功。本番の実予約を試験追加しない。
 - main向け #1045 を 2026-10-12 に staging へ載せ直し。migration は 20261012130000_operator_add_participants（rollback 同名）に改名し staging 適用済み。本番は DB 先行で適用してからリリース。DB先行適用と本番反映の実施状況は案件台帳・PRで確認する。
+
+### 2026-10-13 高負荷対策の競合と接続占有の追加修正
+
+- #1104 反映後のmainを基点に、待機して古い要求を後送する再送制御を即時拒否へ変更。同じ操作の同時送信は1件、失敗制限はlocalStorageとWeb Locksでタブ間・リロード後も共有。本文・認証情報は保存しない。Web Locks非対応/保存不可時は同一タブ制限へ縮退する。
+- スタッフ保存APIはRPC開始前に枠を確保、例外を含むfinallyで解放。DBは同じユーザー/公演の並列保存をpg_try_advisory_xact_lockで即時拒否し、Vercel別インスタンス間の競合も拒否。失敗回数のAPIカウンタ自体はインスタンス内の補助策。
+- 本番/stagingの現行4関数の定義hash一致を読取確認し、`20261013130001_release_retry_concurrency_no_sleep.sql`でpg_sleep(2)を除去。無効候補のスキップ、認可、予約・料金処理を保持。テーブル/RLS/実顧客データは変更しない。rollbackは適用直前定義4件の復元、予約・回答を保持する。
+- 架空PGlite貸切/スタッフ保存回帰、network-none PostgreSQL17の2接続競合・成功・古いexpected拒否・anon拒否・rollback/reapply、外部通信を拒否する実Chromium2タブ/リロード/新旧回答試験を実施。全単体1874件・verify通過。main更新後に必要なゲートを再確認して限定PRを反映する。
+- 事前読取計測: 10:57:56〜11:00:19 UTCのrollback増加77（約0.54/秒）。今回の計測で700/秒の継続は未確認。CPUとユーザー体感は別途計測し、rollback頻度だけで完全回復を断定しない。
+- DB先行適用完了: staging/prodへ20261013130001の1本だけを既存npm手順で適用。staging既適用745件/prod726件・未適用なし。4関数のsleepなし/既存ACL保持/本文hash一致をread確認。実DBsnapshot更新は4関数と取得metadataだけ（他の構造変更なし）。本番負荷試験・顧客保存・外部連絡は行っていない。
+- 追加実測で11:13〜11:15 UTCにスタッフRPCの40001が約85〜100/秒となり、本番4関数へ別経路でsleepが再導入された。差分はsleep/commentのみ（追加済みadvisory lockは維持）。旧直接RPC利用者がAPI/新画面の制限を通らず、古いexpectedを即再送することをログの例外行で特定。
+- 130002の互換修正: スタッフ参加/担当の古いexpectedは保存前にsuccess:false・code:40001・最新snapshotを返す。SQL例外を繰り返す旧クライアントを止め、現行APIは409へ変換し未保存を伝える。認可/入力/予約/料金の拒否は維持。4関数の現行止血版と130001版を事前hash照合し、未確認の別変更は拒否。rollbackは今回の適用直前の止血版4関数。
+- 互換修正を含む全単体1875件・verify・架空DBのデータ不変/競合/成功/権限/rollback回帰通過。130002のみをstaging→prodに限定適用して追加計測する。
+- 130002をstaging/prodに限定適用し、本番727件/未適用なし、4関数sleepなし・ACL保持を再read確認。スタッフRPC本文hashは560ca354cb5989fe0bae21630753cc7dでstage/prod一致。11:25 UTC: 接続23、対象sleep待機0、lock待機0。CPU画面は再ログインが必要だったため認証変更せず、CPU値は未確認。
+- 最終回帰は1876単体・verify。汎用APIは既存どおり本文の異なる独立保存を別キーとし、日程回答は明示的な操作単位のキーで新旧/複数タブを保護する。
