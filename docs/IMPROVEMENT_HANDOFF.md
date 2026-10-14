@@ -1,3 +1,11 @@
+## 2026-10-15 / 全体トップの貸切の入口: 店舗を選んだら貸切できる作品の一覧へ（fix/platform-private-entry-to-scenarios、staging 向け PR）
+
+- 社長指摘: MMQ 全体トップ「友だちと貸切で遊ぶ」→「参加店舗から選ぶ」→ 店舗を選ぶと、組織のトップページに行っていた。
+- 対応: 「参加店舗から選ぶ」は、ページ内の通常の「参加店舗」へ送るのをやめ、貸切の欄のすぐ下に「貸切する店舗を選ぶ」一覧（`OrganizationDirectory` の `mode="private"`、id `private-organizations`、URL `/?pick=private`）を開いてそこへ送る。組織カードの行き先は `/{org}/private-booking-select?from=mmq`（`src/pages/PlatformTop/utils/organizationCardPath.ts`）。「今月 N 公演に空きあり」は貸切と関係ないので貸切用の一覧では出さない。「閉じる」で一覧と URL の印を消す。通常の「参加店舗」は組織トップのまま。
+- 貸切できる作品の一覧（`PrivateBookingScenarioSelect`）は `from=mmq` のときだけ「別の店舗を選ぶ」（`/?pick=private`）を出す。リンクで来たときは一覧まで送り、ブラウザの「戻る」では送らない（元の位置に戻す）。
+- 貸切の流れのページの「1. 貸切を始める」に、MMQ トップからは店舗を選ぶ→作品を選ぶ、の一言を足した。
+- 確認: `src/pages/PlatformTop/index.test.tsx`（3 件）、`PrivateBookingScenarioSelect.test.tsx`（2 件追加）、`npm run verify`、手元（staging 接続）で 375px と PC 幅: `/` →「参加店舗から選ぶ」→ クインズワルツ → 貸切できる作品 → 作品ページの貸切リクエストのタブ、「別の店舗を選ぶ」で戻ると一覧が開いた状態。375px で横はみ出しなし。
+
 ## 2026-10-14 / 貸切できる作品の入口を作品カードの一覧にする（fix/private-booking-entry-page、staging 向け PR）
 
 - 社長指摘: トップ「友だちと貸切で遊ぶ」の「貸切できる作品を見る」で開く `/{org}/private-booking-select` は、日付・時間帯を選んだ人向けのページだったため、日付なしで開くと「選択された日時」が空、作品はプルダウンだけ、確認ボタンも押せなかった。
