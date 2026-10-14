@@ -77,6 +77,11 @@ export function parsePath(pathname: string): { page: string, scenarioId: string 
     return { page: 'guide-private', scenarioId: null, organizationSlug: null }
   }
 
+  // /private-booking/select-organization - 貸切を始める（店舗を選ぶ → 作品を選ぶ。MMQ 全体トップの「参加店舗から選ぶ」から）
+  if (segments.length === 2 && segments[0] === 'private-booking' && segments[1] === 'select-organization') {
+    return { page: 'private-booking-start', scenarioId: null, organizationSlug: null }
+  }
+
   // 特殊ページのチェック（組織スラッグなし）
   const specialPages = ['login', 'signup', 'reset-password', 'set-password', 'complete-profile', 'coupon-present', 'register', 'start', 'about',
     'accept-invitation', 'author-dashboard', 'author-login', 'mypage', 'my-page', 'scenario',

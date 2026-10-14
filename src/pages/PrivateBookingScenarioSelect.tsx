@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -15,8 +15,8 @@ import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
-import { privateGuidePath } from '@/pages/static/guide/privateGuidePath'
 import { PrivateScenarioGrid, type PrivateScenario } from '@/components/private-booking/PrivateScenarioGrid'
+import { PrivateBookingStart } from './PrivateBookingStart'
 
 interface Scenario {
   id: string
@@ -57,7 +57,21 @@ function isScenarioBookingOpen(scenario: Scenario): boolean {
   return true
 }
 
+/**
+ * /{org}/private-booking-select
+ * - 日付・時間帯なし（店舗トップの「貸切できる作品を見る」など）: 貸切を始めるページ（PrivateBookingStart）を組織を選んだ状態で開く
+ * - 日付・時間帯あり（カレンダー・リストの貸切申込チップから）: この下の、日時を決めてから作品を選ぶ流れ
+ */
 export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookingScenarioSelectProps) {
+  const { search } = useLocation()
+  const params = new URLSearchParams(search)
+  const hasDateTime = Boolean(params.get('date')) && Boolean(params.get('slot'))
+  if (!hasDateTime) return <PrivateBookingStart organizationSlug={organizationSlug} />
+  return <PrivateBookingDateScenarioSelect organizationSlug={organizationSlug} />
+}
+
+/** 日時を選んだあとに作品・人数・希望店舗を選んで、貸切リクエストの確認へ進む */
+function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingScenarioSelectProps) {
   const navigate = useNavigate()
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('')
@@ -74,8 +88,6 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   const preselectedStoreParam = urlParams.get('store') || ''
   const preselectedSlot = urlParams.get('slot') || ''
   const preselectedTime = urlParams.get('time') || ''
-  // MMQ 全体トップの「貸切する店舗を選ぶ」から来たとき（from=mmq）は、店舗を選び直せるように戻り先を出す
-  const fromPlatformTop = urlParams.get('from') === 'mmq'
   
   // URLの店舗パラメータ（カンマ区切り対応）
   const preselectedStoreIds = useMemo(() => 
@@ -89,11 +101,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     evening: '夜'
   }
 
-  // 日付・時間帯があるのはカレンダー・リストの貸切申込チップから来たとき。無ければ作品から始める入口（作品ページの貸切タブへ）
-  const hasDateTime = preselectedDate.length > 0 && preselectedSlot.length > 0
-  const dateTimeLabel = hasDateTime
-    ? `${formatJstDateJa(preselectedDate, true) || preselectedDate} ${slotLabels[preselectedSlot] || preselectedSlot}`
-    : ''
+  const dateTimeLabel = `${formatJstDateJa(preselectedDate, true) || preselectedDate} ${slotLabels[preselectedSlot] || preselectedSlot}`
   const basePath = organizationSlug ? `/${organizationSlug}` : ''
 
   const gridScenarios = useMemo<PrivateScenario[]>(
@@ -250,44 +258,25 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
 
         <Card>
           <CardHeader>
-            <CardTitle>{hasDateTime ? `${dateTimeLabel} の貸切: 作品を選ぶ` : '貸切できる作品'}</CardTitle>
+            <CardTitle>{`${dateTimeLabel} の貸切: 作品を選ぶ`}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {hasDateTime ? (
-              <div className="bg-muted/50 p-4 rounded-lg space-y-1" data-testid="selected-datetime">
-                <h3 className="text-sm">選んだ日時</h3>
-                <p className="text-xs text-muted-foreground">{dateTimeLabel}</p>
-                <p className="text-xs text-muted-foreground">作品を選ぶと、下に人数・料金・希望店舗が出ます。</p>
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground space-y-1">
-                <p>作品を押すと、作品ページの「貸切リクエスト」が開きます。そこで「まずはメンバーを招待して貸切グループを作成」からグループを作り、メンバーと候補日を決めて店舗に申し込みます。</p>
-                <div className="flex flex-wrap gap-x-4 gap-y-1">
-                  {fromPlatformTop && (
-                    <Link to="/?pick=private" className="text-xs text-purple-700 underline" data-testid="choose-another-store">別の店舗を選ぶ</Link>
-                  )}
-                  <Link to={privateGuidePath(organizationSlug)} className="text-xs text-purple-700 underline">貸切の流れを見る</Link>
-                </div>
-              </div>
-            )}
+            <div className="bg-muted/50 p-4 rounded-lg space-y-1" data-testid="selected-datetime">
+              <h3 className="text-sm">選んだ日時</h3>
+              <p className="text-xs text-muted-foreground">{dateTimeLabel}</p>
+              <p className="text-xs text-muted-foreground">作品を選ぶと、下に人数・料金・希望店舗が出ます。</p>
+            </div>
 
             <PrivateScenarioGrid
               scenarios={gridScenarios}
               loading={loading}
               pathFor={scenarioPagePath}
-              selectedId={hasDateTime ? selectedScenarioId : undefined}
-              onOpen={(s) => {
-                if (hasDateTime) {
-                  handleSelectScenario(s.id)
-                  return
-                }
-                saveScrollPositionForCurrentUrl()
-                navigate(scenarioPagePath(s))
-              }}
+              selectedId={selectedScenarioId}
+              onOpen={(s) => handleSelectScenario(s.id)}
             />
 
-            {/* 選択されたシナリオの詳細（日時ありのときだけ） */}
-            {hasDateTime && selectedScenarioId && (() => {
+            {/* 選択されたシナリオの詳細 */}
+            {selectedScenarioId && (() => {
               const scenario = scenarios.find(s => s.id === selectedScenarioId)
               if (!scenario) return null
               
@@ -531,8 +520,6 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
               )
             })()}
 
-            {hasDateTime && (
-            <>
             {/* 注意事項（DBから取得） */}
             <BookingNotice
               reservationDeadlineHours={0}
@@ -549,8 +536,6 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
             >
               貸切リクエスト確認へ
             </Button>
-            </>
-            )}
           </CardContent>
         </Card>
       </div>

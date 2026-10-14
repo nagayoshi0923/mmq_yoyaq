@@ -22,6 +22,7 @@ const BROWSE_ONLY_PAGES = new Set([
   'guide',
   'guide-private',
   'private-booking-select',
+  'private-booking-start',
   'terms',
   'privacy',
   'security',

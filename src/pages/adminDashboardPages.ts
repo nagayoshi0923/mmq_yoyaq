@@ -55,6 +55,7 @@ export const ComponentGallery = lazyWithRetry(() => import('./dev/ComponentGalle
 export const ProjectGuide = lazyWithRetry(() => import('./dev/ProjectGuide').then(m => ({ default: m.ProjectGuide })))
 export const LearnFromThisSystem = lazyWithRetry(() => import('./dev/LearnFromThisSystem').then(m => ({ default: m.LearnFromThisSystem })))
 export const NotFoundPage = lazyWithRetry(() => import('./NotFoundPage').then(m => ({ default: m.NotFoundPage })))
+export const PrivateBookingStart = lazyWithRetry(() => import('./PrivateBookingStart').then(m => ({ default: m.PrivateBookingStart })))
 export const PrivateGroupCreate = lazyWithRetry(() => import('./PrivateGroupCreate').then(m => ({ default: m.PrivateGroupCreate })))
 export const PrivateGroupInvite = lazyWithRetry(() => import('./PrivateGroupInvite').then(m => ({ default: m.PrivateGroupInvite })))
 export const PrivateGroupManage = lazyWithRetry(() => import('./PrivateGroupManage').then(m => ({ default: m.PrivateGroupManage })))

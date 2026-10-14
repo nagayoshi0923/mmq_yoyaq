@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ navigate: vi.fn(), scenarios: vi.fn(), stores: vi.fn() }))
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mocks.navigate,
+  useLocation: () => ({ search: window.location.search }),
   Link: ({ to, children, ...rest }: any) => <a href={to} {...rest}>{children}</a>,
 }))
 vi.mock('@/components/layout/Header', () => ({ Header: () => null }))
@@ -12,6 +13,7 @@ vi.mock('./ScenarioDetailPage/components/BookingNotice', () => ({ BookingNotice:
 vi.mock('@/hooks/useScrollRestoration', () => ({ saveScrollPositionForCurrentUrl: vi.fn() }))
 vi.mock('@/contexts/RouteScrollRestorationContext', () => ({ useReportRouteScrollRestoration: vi.fn() }))
 vi.mock('@/lib/api', () => ({ scenarioApi: { getPublic: mocks.scenarios, getAll: mocks.scenarios }, storeApi: { getAllPublicForCustomer: mocks.stores, getAll: mocks.stores } }))
+vi.mock('./PrivateBookingStart', () => ({ PrivateBookingStart: ({ organizationSlug }: { organizationSlug?: string }) => <div data-testid="private-start" data-org={organizationSlug} /> }))
 vi.mock('@/lib/organization', () => ({ resolveOrganizationFromPathSegment: vi.fn(async () => ({ id: 'org' })) }))
 import { PrivateBookingScenarioSelect } from './PrivateBookingScenarioSelect'
 
@@ -37,31 +39,15 @@ beforeEach(() => {
 })
 afterEach(async () => { await act(async () => root.unmount()); host.remove() })
 
-describe('日付・時間帯なし（トップの「貸切できる作品を見る」から）', () => {
-  it('作品カードの一覧を出し、プルダウン・空の日時欄・確認ボタンは出さない', async () => {
+describe('日付・時間帯なし（店舗トップの「貸切できる作品を見る」から）', () => {
+  it('貸切を始めるページを、その組織を選んだ状態で開く', async () => {
     await render('')
-    expect(host.textContent).toContain('貸切できる作品')
-    expect(cards().map((c) => c.getAttribute('aria-label'))).toEqual(['ファクター', '二人の夜'])
-    expect(host.textContent).toContain('貸切できます')
-    expect(host.textContent).toContain('1 人あたり ¥4,500')
-    expect(host.textContent).toContain('6-8人')
-    expect(host.querySelector('[role="combobox"]')).toBeNull()
-    expect(host.textContent).not.toContain('選択された日時')
-    expect(host.querySelector('[data-testid="selected-datetime"]')).toBeNull()
+    expect(host.querySelector('[data-testid="private-start"]')?.getAttribute('data-org')).toBe('queens-waltz')
     expect(proceedButton()).toBeUndefined()
   })
-  it('カードを押すと作品ページの貸切リクエストのタブへ（slug が無ければ ID）', async () => {
-    await render('')
-    await act(async () => cards()[0].click())
-    expect(mocks.navigate).toHaveBeenCalledWith('/queens-waltz/scenario/factor?tab=private')
-    await act(async () => cards()[1].click())
-    expect(mocks.navigate).toHaveBeenLastCalledWith('/queens-waltz/scenario/sc2?tab=private')
-  })
-  it('人数のチップで絞れる', async () => {
-    await render('')
-    const chip = [...host.querySelectorAll('button')].find((b) => b.textContent === '2人')!
-    await act(async () => chip.click())
-    expect(cards().map((c) => c.getAttribute('aria-label'))).toEqual(['二人の夜'])
+  it('日付だけ（時間帯なし）でも同じ', async () => {
+    await render('?date=2026-10-20')
+    expect(host.querySelector('[data-testid="private-start"]')).not.toBeNull()
   })
 })
 
@@ -78,16 +64,5 @@ describe('日付・時間帯あり（カレンダー・リストの貸切申込�
     expect(proceedButton()?.disabled).toBe(false)
     await act(async () => proceedButton()!.click())
     expect(mocks.navigate).toHaveBeenCalledWith(`/queens-waltz/private-booking-request?scenario=sc1&date=2026-10-20&store=${storeId}&slot=evening&participants=8&time=19%3A00`)
-  })
-})
-
-describe('MMQ 全体トップの「貸切する店舗を選ぶ」から（from=mmq）', () => {
-  it('「別の店舗を選ぶ」で全体トップの貸切用の店舗一覧へ戻れる', async () => {
-    await render('?from=mmq')
-    expect(host.querySelector('[data-testid="choose-another-store"]')?.getAttribute('href')).toBe('/?pick=private')
-  })
-  it('店舗トップから来たときは出さない', async () => {
-    await render('')
-    expect(host.querySelector('[data-testid="choose-another-store"]')).toBeNull()
   })
 })

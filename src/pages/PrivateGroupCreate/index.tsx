@@ -25,6 +25,7 @@ import { toast } from 'sonner'
 import { announceNextGroup } from '@/lib/privateGroupChat'
 import { clearNextGroupSource, loadNextGroupSource } from '@/lib/nextPrivateGroup'
 import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
+import { parseStoreIdsParam } from '@/pages/PrivateBookingStart/paths'
 
 export function PrivateGroupCreate() {
   const navigate = useNavigate()
@@ -68,7 +69,8 @@ export function PrivateGroupCreate() {
   const scenario = scenarioStoreData?.scenario ?? null
   const stores = scenarioStoreData?.stores ?? []
 
-  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
+  // 作品ページの貸切タブで選んでいた希望店舗（?stores=ID,ID）を初期値にする。対象外の店舗は読み込み後に外す
+  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>(() => parseStoreIdsParam(searchParams.get('stores')))
   const [groupName, setGroupName] = useState('')
   const [notes, setNotes] = useState('')
 
@@ -97,12 +99,14 @@ export function PrivateGroupCreate() {
   }, [stores, scenarioStoreAllowlist])
 
   useEffect(() => {
+    // 読み込み前（店舗が空）に外すと URL の希望店舗まで消えるので、読み込み後だけ
+    if (!scenarioStoreData) return
     // 何も外れないときは同じ配列を返す（読み込み中は stores が毎回新しい [] になり、再描画が止まらなくなるため）
     setSelectedStoreIds((prev) => {
       const next = prev.filter((id) => eligibleStores.some((s) => s.id === id))
       return next.length === prev.length ? prev : next
     })
-  }, [eligibleStores])
+  }, [eligibleStores, scenarioStoreData])
 
   /** 貸切グループの定員はシナリオ最大人数に固定（主催が別数値を選ばない） */
   const scenarioParticipantMax = useMemo(() => {

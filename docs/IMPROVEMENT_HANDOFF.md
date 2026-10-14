@@ -1,3 +1,13 @@
+## 2026-10-15 / 貸切を始めるページ: 店舗を選ぶ → 作品を選ぶを 1 ページで（fix/private-org-picker-page、staging 向け PR）
+
+- 社長指摘: #1122 の「参加店舗から選ぶ」でトップの貸切の欄の下に枠が開くのはおかしい。押したら画面遷移して。追加指示: 新しいページで希望店舗と作品まで選べるように。
+- 対応: 新ページ `/private-booking/select-organization`（`src/pages/PrivateBookingStart/`、見出し「貸切を始める」）。上で組織カードを押すと選択状態になり、複数店舗なら「希望店舗」のチップ（どれでも可／各店舗。複数可。臨時会場・オフィスは除き、お客様向けの店舗名）。下にその組織の貸切できる作品（`PrivateScenarioGrid`、検索・人数のチップ）。希望店舗を選ぶと、その店舗で上演できる作品（`available_stores`）だけに絞る。選んだ組織と店舗は URL（`?org=&stores=`）に残し、作品ページから戻ると同じ状態。
+- 作品を押すと `/{org}/scenario/{slug}?tab=private&stores=ID,ID`。作品ページは `stores` を貸切タブの希望店舗に 1 回だけ反映し、「まずはメンバーを招待して貸切グループを作成」で `/group/create?...&stores=` に渡す。グループ作成は `stores` を希望店舗の初期値にする（作品の対象外の店舗は読み込み後に外す。読み込み前は外さない）。
+- `/{org}/private-booking-select` は日付・時間帯なしなら同じページを組織を選んだ状態で開く（「別の店舗を選ぶ」は新ページへ）。カレンダーからの `?date=&slot=` の流れは従来どおり。組織が 1 つだけなら選んだ状態で開く。
+- MMQ 全体トップ: 「参加店舗から選ぶ」は新ページへのリンク。`?pick=private` の枠、`OrganizationDirectory` の `mode="private"`、`organizationCardPath`、作品一覧の `from=mmq` は削除。組織カードの材料は `buildPlatformOrganizations` / `fetchPlatformOrganizations`（公演は読まない）に分けた。
+- 経路: `adminDashboardRouting`（`private-booking-start`）、`profileGate`（見るだけのページ）、`AppRoot`（`private-booking` を全体の先頭の区切りに）、`STATIC_PUBLIC_META['private-booking-start']`、sitemap。
+- 確認: `PrivateBookingStart/index.test.tsx`（9 件）、`PlatformTop/index.test.tsx`、`PrivateBookingScenarioSelect.test.tsx`、`PrivateGroupCreate/index.test.tsx`（初期値 2 件）、`adminDashboardRouting.test.ts`、`npm run verify`。手元（staging 接続）で 375px と PC 幅: `/` →「参加店舗から選ぶ」→ 新ページ → クインズワルツ → 大塚店 → 作品 → 作品ページの貸切タブで希望店舗が大塚店 → グループ作成（未ログインなのでログイン画面の戻り先に `stores` が付くところまで）。ブラウザの戻るで組織・店舗が選ばれた状態、「別の店舗を選ぶ」で一覧に戻る。375px で横はみ出しなし。
+
 ## 2026-10-15 / 全体トップの貸切の入口: 店舗を選んだら貸切できる作品の一覧へ（fix/platform-private-entry-to-scenarios、staging 向け PR）
 
 - 社長指摘: MMQ 全体トップ「友だちと貸切で遊ぶ」→「参加店舗から選ぶ」→ 店舗を選ぶと、組織のトップページに行っていた。

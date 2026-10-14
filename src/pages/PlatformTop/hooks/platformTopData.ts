@@ -21,9 +21,16 @@ export interface PlatformOrganization {
   name: string
   logo_url: string | null
   store_names: string[]
+  /** 公開中の店舗（臨時会場・オフィスを除く。name はお客様向けの名前）。貸切を始めるページの「希望店舗」に使う */
+  stores: PlatformOrganizationStore[]
   store_count: number
   prefectures: string[]
   scenario_count: number
+}
+
+export interface PlatformOrganizationStore {
+  id: string
+  name: string
 }
 
 /** 全国の公開作品（作品マスタ単位。複数の組織で公開していても 1 件） */
@@ -119,6 +126,19 @@ export async function fetchPlatformTopData(today: string): Promise<PlatformTopDa
     if (p) performances.push(p)
   }
 
+  const { organizations, prefectures } = buildPlatformOrganizations(orgs, stores, scenarioIdsByOrg)
+  return { organizations, scenarios: [...scenarioById.values()], performances, prefectures }
+}
+
+type OrganizationRow = { id: string; slug: string; name: string; logo_url?: string | null }
+type StoreRow = Parameters<typeof isPublicRegularStore>[0] & Parameters<typeof storePrefecture>[0] & Parameters<typeof storeDisplayName>[0] & { id: string; organization_id?: string | null }
+
+/** 組織カードの材料（公開中の店舗が 1 つ以上ある組織だけ）と、店舗がある都道府県（店舗数の多い順） */
+export function buildPlatformOrganizations(
+  orgs: readonly OrganizationRow[],
+  stores: readonly StoreRow[],
+  scenarioIdsByOrg: ReadonlyMap<string, ReadonlySet<string>>,
+): { organizations: PlatformOrganization[]; prefectures: string[] } {
   const prefectureCount = new Map<string, number>()
   const organizations: PlatformOrganization[] = []
   for (const org of orgs) {
@@ -130,17 +150,49 @@ export async function fetchPlatformTopData(today: string): Promise<PlatformTopDa
       if (p && !prefectures.includes(p)) prefectures.push(p)
       if (p) prefectureCount.set(p, (prefectureCount.get(p) ?? 0) + 1)
     })
+    const named = regular.map((s) => ({ id: s.id, name: storeDisplayName(s, { organizationName: org.name }) }))
     organizations.push({
       id: org.id,
       slug: org.slug,
       name: org.name,
       logo_url: org.logo_url ?? null,
-      store_names: regular.map((s) => storeDisplayName(s, { organizationName: org.name })),
+      store_names: named.map((s) => s.name),
+      stores: named,
       store_count: regular.length,
       prefectures,
       scenario_count: scenarioIdsByOrg.get(org.id)?.size ?? 0,
     })
   }
   const prefectures = [...prefectureCount.entries()].sort((a, b) => b[1] - a[1]).map(([p]) => p)
-  return { organizations, scenarios: [...scenarioById.values()], performances, prefectures }
+  return { organizations, prefectures }
+}
+
+/**
+ * 貸切を始めるページ用: 組織カードの材料だけ（公演は読まない）。
+ * 作品数は全体トップと同じ数え方（公開キーがあればそれに含まれる作品）。
+ */
+export async function fetchPlatformOrganizations(): Promise<{ organizations: PlatformOrganization[]; prefectures: string[] }> {
+  const [orgResult, storeResult, scenarioResult, keyResult] = await Promise.all([
+    platformPageReadApi.listActiveOrganizations(),
+    publicBookingListReadApi.listPublicStores(null),
+    publicBookingListReadApi.listAvailableScenarios(null),
+    platformPageReadApi.getPublicAvailableScenarioKeys(),
+  ])
+  if (orgResult.error) throw orgResult.error
+  if (storeResult.error) logger.error('貸切を始める: 店舗の取得に失敗', storeResult.error)
+  if (scenarioResult.error) logger.error('貸切を始める: 作品の取得に失敗', scenarioResult.error)
+  const orgs = orgResult.data ?? []
+  const orgIds = new Set(orgs.map((o) => o.id))
+  const keys = keyResult.data ?? []
+  const keySet = new Set(keys.map((k: { organization_id: string; scenario_master_id: string }) => `${k.organization_id}_${k.scenario_master_id}`))
+  const filterByKeys = !keyResult.error && keys.length > 0
+  const scenarioIdsByOrg = new Map<string, Set<string>>()
+  for (const s of scenarioResult.data ?? []) {
+    if (!s.organization_id || !orgIds.has(s.organization_id)) continue
+    if (filterByKeys && s.scenario_master_id && !keySet.has(`${s.organization_id}_${s.scenario_master_id}`)) continue
+    if (!scenarioIdsByOrg.has(s.organization_id)) scenarioIdsByOrg.set(s.organization_id, new Set())
+    scenarioIdsByOrg.get(s.organization_id)!.add(s.id)
+  }
+  const stores = (storeResult.data ?? []).filter((s) => s.organization_id && orgIds.has(s.organization_id))
+  return buildPlatformOrganizations(orgs, stores, scenarioIdsByOrg)
 }

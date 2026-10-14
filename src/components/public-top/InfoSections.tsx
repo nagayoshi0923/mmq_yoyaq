@@ -24,14 +24,14 @@ interface PrivateBookingSectionProps {
   scenariosPath?: string
   /** 貸切の流れのページ（店舗トップは組織付き /{org}/guide/private） */
   guidePath?: string
-  /** MMQ 全体トップ: 貸切は店舗ごとなので「参加店舗から選ぶ」（参加店舗の欄へ）を出す */
-  onChooseStore?: () => void
+  /** MMQ 全体トップ: 貸切は店舗ごとなので「参加店舗から選ぶ」（貸切を始めるページへ）を出す */
+  chooseStorePath?: string
   primaryColor: string
 }
 
 /** 友だちと貸切で遊ぶ（貸切できる作品と貸切の流れのページへ） */
-export function PrivateBookingSection({ text, scenariosPath, guidePath = '/guide/private', onChooseStore, primaryColor }: PrivateBookingSectionProps) {
-  const hasPrimary = !!scenariosPath || !!onChooseStore
+export function PrivateBookingSection({ text, scenariosPath, guidePath = '/guide/private', chooseStorePath, primaryColor }: PrivateBookingSectionProps) {
+  const hasPrimary = !!scenariosPath || !!chooseStorePath
   return (
     <TopSection id="private-booking" title="友だちと貸切で遊ぶ" tone="accent">
       <p className="text-sm">{text}</p>
@@ -41,10 +41,10 @@ export function PrivateBookingSection({ text, scenariosPath, guidePath = '/guide
             貸切できる作品を見る
           </Link>
         )}
-        {onChooseStore && (
-          <button type="button" onClick={onChooseStore} className="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-bold text-white hover:opacity-90" style={{ backgroundColor: primaryColor }}>
+        {chooseStorePath && (
+          <Link to={chooseStorePath} className="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-bold text-white hover:opacity-90" style={{ backgroundColor: primaryColor }}>
             参加店舗から選ぶ
-          </button>
+          </Link>
         )}
         <Link
           to={guidePath}

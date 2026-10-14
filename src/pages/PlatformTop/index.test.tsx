@@ -22,7 +22,7 @@ const data: PlatformTopData = {
   scenarios: [],
   prefectures: ['東京都'],
   organizations: [
-    { id: 'o1', slug: 'queens-waltz', name: 'クインズワルツ', logo_url: null, store_names: ['大塚店'], store_count: 1, prefectures: ['東京都'], scenario_count: 12 },
+    { id: 'o1', slug: 'queens-waltz', name: 'クインズワルツ', logo_url: null, store_names: ['大塚店'], stores: [{ id: 's1', name: '大塚店' }], store_count: 1, prefectures: ['東京都'], scenario_count: 12 },
   ],
 } as unknown as PlatformTopData
 
@@ -57,30 +57,21 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.clearAllMocks() })
 
 describe('友だちと貸切で遊ぶ →「参加店舗から選ぶ」', () => {
-  it('はじめは貸切用の一覧を出さず、通常の参加店舗は組織トップへ', async () => {
+  it('トップの中に枠は開かず、貸切を始めるページへ遷移する。通常の参加店舗は組織トップのまま', async () => {
     await render()
+    const link = [...host.querySelectorAll('#private-booking a')].find((a) => a.textContent === '参加店舗から選ぶ')
+    expect(link?.getAttribute('href')).toBe('/private-booking/select-organization')
+    expect(button('参加店舗から選ぶ')).toBeUndefined()
     expect(section('private-organizations')).toBeNull()
     expect(cardHrefs('organizations')).toEqual(['/queens-waltz'])
     expect(section('organizations')?.textContent).toContain('今月の空きはありません')
+    await act(async () => (link as HTMLAnchorElement).click())
+    expect(where()).toBe('/private-booking/select-organization')
   })
 
-  it('押すと「貸切する店舗を選ぶ」が開き、店舗のカードは貸切できる作品の一覧へ', async () => {
-    await render()
-    await act(async () => button('参加店舗から選ぶ')!.click())
-    const picker = section('private-organizations')
-    expect(picker?.querySelector('h2')?.textContent).toBe('貸切する店舗を選ぶ')
-    expect(cardHrefs('private-organizations')).toEqual(['/queens-waltz/private-booking-select?from=mmq'])
-    expect(where()).toBe('/?pick=private')
-    await vi.waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled())
-    // 通常の参加店舗の一覧は組織トップのまま
-    expect(cardHrefs('organizations')).toEqual(['/queens-waltz'])
-  })
-
-  it('作品一覧の「別の店舗を選ぶ」（/?pick=private）から来ると開いた状態。閉じると URL からも消える', async () => {
+  it('前の作りの /?pick=private で来ても、トップに貸切用の枠は出さない', async () => {
     await render('/?pick=private')
-    expect(cardHrefs('private-organizations')).toEqual(['/queens-waltz/private-booking-select?from=mmq'])
-    await act(async () => button('閉じる')!.click())
     expect(section('private-organizations')).toBeNull()
-    expect(where()).toBe('/')
+    expect(host.textContent).not.toContain('貸切する店舗を選ぶ')
   })
 })
