@@ -147,6 +147,7 @@ const BOOKING_SHELL_GLOBAL_FIRST_SEGMENT = new Set([
   'org',
   'group',
   'partner-report',
+  'private-booking',
 ])
 
 /**

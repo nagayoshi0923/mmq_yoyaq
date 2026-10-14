@@ -8,6 +8,7 @@ const STATIC_PATHS = [
   '/',
   '/guide',
   '/guide/private',
+  '/private-booking/select-organization',
   '/faq',
   '/stores',
   '/scenario',

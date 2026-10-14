@@ -40,6 +40,7 @@ import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptanc
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { scenarioPageDescription, scenarioPageTitle } from '@/lib/seo'
 import { loginUrlWithIntent } from '@/lib/authReturn'
+import { parseStoreIdsParam } from '@/pages/PrivateBookingStart/paths'
 
 interface ScenarioDetailPageProps {
   scenarioId: string
@@ -215,6 +216,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     }
   }, [scheduleStores, scheduleStoreFilter.length, events])
 
+  /** ?stores= の希望店舗を反映済みか（作品と店舗の組で 1 回だけ） */
+  const appliedPreferredStoresRef = useRef('')
   useEffect(() => {
     // URLパラメータを処理
     const urlParams = new URLSearchParams(window.location.search)
@@ -248,6 +251,16 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         })
       } else {
         setPrivateBookingUrlPending(null)
+        // 貸切を始めるページで選んだ希望店舗（?stores=ID,ID）。作品ごとに 1 回だけ反映する（あとはお客様の選択を優先）
+        const preferred = parseStoreIdsParam(urlParams.get('stores'))
+        const appliedKey = `${scenarioId}:${preferred.join(',')}`
+        if (preferred.length > 0 && stores.length > 0 && appliedPreferredStoresRef.current !== appliedKey) {
+          const valid = preferred.filter((id) => availableStores.some((s) => s.id === id))
+          if (valid.length > 0) {
+            appliedPreferredStoresRef.current = appliedKey
+            setSelectedStoreIds(valid)
+          }
+        }
       }
     } else {
       setPrivateBookingUrlPending(null)
@@ -271,7 +284,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       }
       }
     }
-  }, [scenarioId, stores, events, setSelectedStoreIds, setSelectedTimeSlots, setSelectedEventId, acceptsPrivateBooking])
+  }, [scenarioId, stores, events, setSelectedStoreIds, setSelectedTimeSlots, setSelectedEventId, acceptsPrivateBooking, availableStores])
 
   // URL の slot=morning|afternoon|evening を、カレンダーと同じ getTimeSlotsForDate の実時刻に変換して反映
   useEffect(() => {
@@ -636,6 +649,10 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                         if (scenarioIdToUse) params.set('scenarioId', scenarioIdToUse)
                         if (organizationSlug) params.set('org', organizationSlug)
                         params.set('mode', 'no-dates')
+                        // 貸切を始めるページから来たとき（?stores=）は、いま選んでいる希望店舗をグループ作成の初期値にする
+                        if (new URLSearchParams(window.location.search).has('stores') && selectedStoreIds.length > 0) {
+                          params.set('stores', selectedStoreIds.join(','))
+                        }
                         const groupCreateUrl = `/group/create?${params.toString()}`
                         
                         if (!user) {
