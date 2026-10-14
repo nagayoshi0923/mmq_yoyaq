@@ -7,9 +7,11 @@
  * 結果は全部並べる）。2026-10-14 社長指摘: 検索フォームは帯から外し、探すは独立した枠（チップ）に。
  * 他組織の公演も同じ一覧に混ぜる（社長決定）。公開情報だけを使う。
  * 方針: docs/product-spec/トップページ刷新_2026-10.md
+ * 2026-10-15 社長指摘: 「友だちと貸切で遊ぶ」→「参加店舗から選ぶ」は、貸切の欄のすぐ下に「貸切する店舗を選ぶ」一覧を開き（?pick=private）、
+ * 店舗を選ぶとその組織の「貸切できる作品」（/{org}/private-booking-select）へ直接進む。通常の「参加店舗」は組織トップのまま。
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate, useNavigationType, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
@@ -139,6 +141,32 @@ export function PlatformTop() {
 
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
+  // 貸切用の店舗一覧（?pick=private）。作品一覧の「別の店舗を選ぶ」からもこの URL で戻ってくる
+  const [pageParams, setPageParams] = useSearchParams()
+  const privatePickOpen = pageParams.get('pick') === 'private'
+  const navigationType = useNavigationType()
+  // 押したとき・リンクで来たときは一覧まで送る（ブラウザの「戻る」は元の位置に戻すので送らない）
+  const pendingPrivateScroll = useRef(privatePickOpen && navigationType !== 'POP')
+  const setPrivatePick = useCallback((open: boolean) => {
+    setPageParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (open) next.set('pick', 'private'); else next.delete('pick')
+      return next
+    }, { replace: true })
+  }, [setPageParams])
+  const openPrivatePick = () => {
+    pendingPrivateScroll.current = true
+    if (privatePickOpen) scrollTo('private-organizations')
+    else setPrivatePick(true)
+  }
+  const privateListReady = privatePickOpen && organizations.length > 0
+  useEffect(() => {
+    if (!privateListReady || !pendingPrivateScroll.current) return
+    pendingPrivateScroll.current = false
+    const id = window.requestAnimationFrame(() => scrollTo('private-organizations'))
+    return () => window.cancelAnimationFrame(id)
+  }, [privateListReady])
+
   return (
     <div className="booking-shell min-h-screen bg-muted/40">
       <JsonLd data={buildWebsiteJsonLd()} />
@@ -159,10 +187,23 @@ export function PlatformTop() {
         <NearlyFullStrip performances={nearlyFull} source={cardSource} marks={marks} aside="全店舗・日付順" onOpen={openCard} />
 
         <PrivateBookingSection
-          text="4〜8 人集まれば、好きな作品を好きな日に。候補日を出して、メンバーの都合を聞いて、店舗に申し込むまでサイトで完結します。貸切は店舗ごとなので、参加店舗を選び、その店舗の「貸切できる作品を見る」から作品を選びます。"
-          onChooseStore={() => scrollTo('organizations')}
+          text="4〜8 人集まれば、好きな作品を好きな日に。候補日を出して、メンバーの都合を聞いて、店舗に申し込むまでサイトで完結します。貸切は店舗ごとなので、まず店舗を選び、その店舗で貸切できる作品から選びます。"
+          onChooseStore={openPrivatePick}
           primaryColor={primaryColor}
         />
+
+        {privatePickOpen && (organizations.length > 0 || !isLoading) && (
+          <OrganizationDirectory
+            mode="private"
+            organizations={organizations}
+            prefectures={prefectures}
+            area={search.area}
+            monthOpenings={monthOpenings}
+            primaryColor={primaryColor}
+            onAreaChange={(area) => updateSearch({ area })}
+            onClose={() => setPrivatePick(false)}
+          />
+        )}
 
         <PlatformSearchSection
           performances={performances}

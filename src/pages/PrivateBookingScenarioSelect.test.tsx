@@ -80,3 +80,14 @@ describe('日付・時間帯あり（カレンダー・リストの貸切申込�
     expect(mocks.navigate).toHaveBeenCalledWith(`/queens-waltz/private-booking-request?scenario=sc1&date=2026-10-20&store=${storeId}&slot=evening&participants=8&time=19%3A00`)
   })
 })
+
+describe('MMQ 全体トップの「貸切する店舗を選ぶ」から（from=mmq）', () => {
+  it('「別の店舗を選ぶ」で全体トップの貸切用の店舗一覧へ戻れる', async () => {
+    await render('?from=mmq')
+    expect(host.querySelector('[data-testid="choose-another-store"]')?.getAttribute('href')).toBe('/?pick=private')
+  })
+  it('店舗トップから来たときは出さない', async () => {
+    await render('')
+    expect(host.querySelector('[data-testid="choose-another-store"]')).toBeNull()
+  })
+})

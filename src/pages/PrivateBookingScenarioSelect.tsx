@@ -74,6 +74,8 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   const preselectedStoreParam = urlParams.get('store') || ''
   const preselectedSlot = urlParams.get('slot') || ''
   const preselectedTime = urlParams.get('time') || ''
+  // MMQ 全体トップの「貸切する店舗を選ぶ」から来たとき（from=mmq）は、店舗を選び直せるように戻り先を出す
+  const fromPlatformTop = urlParams.get('from') === 'mmq'
   
   // URLの店舗パラメータ（カンマ区切り対応）
   const preselectedStoreIds = useMemo(() => 
@@ -260,7 +262,12 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
             ) : (
               <div className="text-sm text-muted-foreground space-y-1">
                 <p>作品を押すと、作品ページの「貸切リクエスト」が開きます。そこで「まずはメンバーを招待して貸切グループを作成」からグループを作り、メンバーと候補日を決めて店舗に申し込みます。</p>
-                <Link to={privateGuidePath(organizationSlug)} className="text-xs text-purple-700 underline">貸切の流れを見る</Link>
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {fromPlatformTop && (
+                    <Link to="/?pick=private" className="text-xs text-purple-700 underline" data-testid="choose-another-store">別の店舗を選ぶ</Link>
+                  )}
+                  <Link to={privateGuidePath(organizationSlug)} className="text-xs text-purple-700 underline">貸切の流れを見る</Link>
+                </div>
               </div>
             )}
 
