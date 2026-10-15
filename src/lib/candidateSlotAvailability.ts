@@ -17,6 +17,7 @@ export type CandidateSlotReason =
   | 'not_recruiting'
   | 'outside_period'
   | 'already_added'
+  | 'start_fixed'
 
 export interface CandidateSlotAvailabilityRow {
   date: string
@@ -54,6 +55,7 @@ export const CANDIDATE_SLOT_REASON_TEXT: Record<CandidateSlotReason, string> = {
   not_recruiting: 'この作品は現在貸切を募集していません',
   outside_period: '作品の公演期間外です',
   already_added: '追加済みの候補です',
+  start_fixed: 'この作品の開始時刻では前後の公演と重なります',
 }
 
 export function candidateSlotReasonText(reason: string | null | undefined): string {
@@ -76,7 +78,10 @@ export function buildCandidateSlotAvailability(rows: CandidateSlotAvailabilityRo
     }
     ;(slotsByDate[date] ??= []).push(slot)
     if (!row.available || !slot.startTime) {
-      unavailableReasons[`${date}-${label}`] = candidateSlotReasonText(row.reason) + (row.detail ? `（${row.detail}）` : '')
+      // start_fixed（作品の開始時刻が決まっていて入らない。2026-10-15 社長決定）は detail が理由の全文
+      unavailableReasons[`${date}-${label}`] = row.reason === 'start_fixed' && row.detail
+        ? row.detail
+        : candidateSlotReasonText(row.reason) + (row.detail ? `（${row.detail}）` : '')
     }
   }
   return { slotsByDate, unavailableReasons }

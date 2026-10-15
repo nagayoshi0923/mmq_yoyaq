@@ -47,3 +47,13 @@ describe('逆算方式の補足', () => {
     expect(availableSlotsForDate(a, '2026-12-07')).toEqual([{ key: 'evening', label: '夜', startTime: '17:30', endTime: '21:00', adjusted: true }])
   })
 })
+
+describe('作品の開始時刻は絶対（2026-10-15 社長決定）', () => {
+  it('start_fixed は detail を理由の全文として出す', () => {
+    const a = buildCandidateSlotAvailability([
+      { date: '2026-12-26', time_slot: 'afternoon', available: false, reason: 'start_fixed', start_time: null, end_time: null, detail: 'この作品の開始時刻 14:30 では前後の公演と重なります', adjusted: false },
+    ])
+    expect(a.unavailableReasons['2026-12-26-午後']).toBe('この作品の開始時刻 14:30 では前後の公演と重なります')
+    expect(availableSlotsForDate(a, '2026-12-26')).toEqual([])
+  })
+})

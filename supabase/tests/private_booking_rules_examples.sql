@@ -157,6 +157,28 @@ BEGIN
 
  -- R21 受付締切より前の日 → past_deadline
  PERFORM pg_temp.check_row('R21',current_date,one,'afternoon',false,NULL,NULL,'past_deadline',NULL,false);
+ UPDATE organization_scenarios SET private_booking_time_slots='{}' WHERE organization_id=c.org AND scenario_master_id=c.sm;
+
+ -- R22〜R24 作品の開始時刻は絶対（2026-10-15 社長決定）: 土日祝の午後 14:30・所要 4 時間 30 分
+ UPDATE organization_scenarios SET private_booking_slot_start_times='{"weekend":{"afternoon":"14:30"}}'::jsonb
+  WHERE organization_id=c.org AND scenario_master_id=c.sm;
+ -- R22 夜 18:30 に公演あり → 14:30 では重なる。近い時刻にずらさず選べない
+ w:=pg_temp.day_of(6,4); PERFORM pg_temp.dur(270); PERFORM pg_temp.ev(c.st2,w,'18:30','23:00');
+ PERFORM pg_temp.check_row('R22',w,one,'afternoon',false,NULL,NULL,'start_fixed','この作品の開始時刻 14:30 では前後の公演と重なります',false);
+ -- R23 夜に公演なし → 14:30〜19:00（夜の標準 19:00 にかかっても選べる）
+ w:=pg_temp.day_of(6,5); PERFORM pg_temp.dur(270);
+ PERFORM pg_temp.check_row('R23',w,one,'afternoon',true,'14:30','19:00',NULL,NULL,false);
+ -- R24 保存で 14:30 以外（旧来の 14:00 など）を送ると弾く
+ UPDATE private_groups SET status='gathering',reservation_id=NULL,preferred_store_ids=one WHERE id=c.grp;
+ msg:=NULL;
+ BEGIN
+  PERFORM private_group_add_candidate_dates(c.grp,gen_random_uuid(),c.sm,one,
+   jsonb_build_array(jsonb_build_object('date',w,'time_slot','afternoon','start_time','14:00','end_time','18:30')));
+ EXCEPTION WHEN OTHERS THEN msg:=SQLERRM;
+ END;
+ ASSERT msg LIKE '%この作品の開始時刻は 14:30 です%', format('R24: 14:00 の保存が弾かれない（%s）', msg);
+ INSERT INTO _rule_rows VALUES('R24',w,'afternoon',false,'14:00',NULL,'fixed_start',msg,false);
+ UPDATE organization_scenarios SET private_booking_slot_start_times=NULL WHERE organization_id=c.org AND scenario_master_id=c.sm;
 END $$;
 SELECT no,date,slot,ok,start_time,end_time,reason,detail,adjusted FROM _rule_rows ORDER BY substring(no FROM 2)::integer, date, array_position(ARRAY['morning','afternoon','evening'],slot);
 ROLLBACK;
