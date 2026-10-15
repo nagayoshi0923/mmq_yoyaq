@@ -1,3 +1,10 @@
+## 2026-10-15 / 作品の貸切開始時刻は絶対・本番へ #1021 #1023 を単独反映（hotfix/candidate-slot-rule-to-main、main 向け PR #1125 と staging 向け PR）
+
+- 事象: 本番の貸切候補日が古い規則（午後は夜の枠の開始までに終わる）のままで、「祝福のアルカディプス」（土日祝の午後 14:30・所要 270 分・夜 18:30）の申込が 14:00（平日 13:00）に繰り上がっていた。
+- main へ #1021・#1023 だけを cherry-pick。main の申込の確認画面（PrivateBookingRequest）とカレンダーから開く申込ページ（PrivateBookingRequestPage）が旧来の画面計算で候補時刻を見直していたため、DB の private_booking_candidate_slot_availability に置き換えた（送信前の再検証で 14:30 が 14:00 に戻らないように）。
+- 社長決定（2026-10-15）: 作品に貸切開始時刻がある枠はその時刻を絶対とし、入らなければずらさず選べない（理由 start_fixed）。private_booking_slot_store_fit に fixed 列、保存 RPC はその時刻以外を「この作品の開始時刻は HH:MM です」で弾く。migration 20261015100000_scenario_slot_start_is_absolute（rollback 同名）。例 R22〜R24。
+- 確認: 手元の使い捨て DB（基準＋migration）で構造の再現・回帰 SQL（R1〜R24）・rollback→旧テスト通過→再適用を確認。staging・本番 DB への適用は発注者が行う。
+
 ## 2026-10-13 / 再送ループの恒久対応: 古い日程回答は飛ばして成功、失敗が続く送り元を待たせる（fix/stale-writes-skip-and-rate-limit、staging 向け PR）
 
 - 社長決定で、上の止血（20261013120000）の恒久対応のうち 2 と 4 を行った。
