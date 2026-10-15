@@ -50,7 +50,7 @@ export function useCandidateSlotAvailability(target: CandidateSlotAvailabilityTa
         logger.error('Failed to load candidate slot availability', err)
         setAvailability(EMPTY)
         setLoadedKey(requestKey)
-        setError('空き状況を読み込めませんでした。時間をおいて開き直してください。')
+        setError('空き状況を読み込めませんでした。通信を確認して再読み込みしてください。')
       })
     return () => {
       cancelled = true

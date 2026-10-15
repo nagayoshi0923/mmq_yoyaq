@@ -11,6 +11,7 @@ import { privateBookingRequestReadApi } from '@/lib/api/privateBookingRequestRea
 import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import { computePrivateBookingSlots } from '@/lib/computePrivateBookingSlots'
 import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
+import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import {
   resolvePrivateBookingUrlPrefillSlot,
@@ -192,12 +193,8 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     const scenarioStoreIds: string[] = Array.isArray(scenario.available_stores)
       ? scenario.available_stores.filter((id: unknown) => typeof id === 'string')
       : []
-    const eligible = stores.filter(
-      (s) =>
-        s.ownership_type !== 'office' &&
-        s.status === 'active' &&
-        (scenarioStoreIds.length === 0 || scenarioStoreIds.includes(s.id))
-    )
+    // 受付できる店舗は DB の判定と同じ（作品の上演店舗の指定が無ければ臨時会場を除く）
+    const eligible = stores.filter((s) => s.status === 'active' && isStorePlayableForScenario(s, scenarioStoreIds))
     const storeIdsForSlots =
       urlStoreIds.length > 0
         ? urlStoreIds.filter((id) => eligible.some((s) => s.id === id))

@@ -12,3 +12,22 @@ export function privateScenarioTabPath(orgSlug: string, scenario: { id: string; 
 export function parseStoreIdsParam(value: string | null | undefined): string[] {
   return [...new Set((value ?? '').split(',').map((s) => s.trim()).filter(Boolean))]
 }
+
+/**
+ * 作品ページから貸切グループ作成ページへのリンク。希望店舗（作品ページの貸切タブでいま選んでいる店舗。
+ * 貸切を始めるページから ?stores= で来たときはその店舗）を stores で渡し、どの入口のボタンからでも同じ店舗で開く。
+ */
+export function privateGroupCreatePath(options: {
+  scenarioMasterId?: string | null
+  organizationSlug?: string | null
+  storeIds?: readonly string[]
+  noDates?: boolean
+}): string {
+  const params = new URLSearchParams()
+  if (options.scenarioMasterId) params.set('scenarioId', options.scenarioMasterId)
+  if (options.organizationSlug) params.set('org', options.organizationSlug)
+  if (options.noDates) params.set('mode', 'no-dates')
+  const storeIds = [...new Set(options.storeIds ?? [])]
+  if (storeIds.length > 0) params.set('stores', storeIds.join(','))
+  return `/group/create?${params.toString().replace(/%2C/g, ',')}`
+}

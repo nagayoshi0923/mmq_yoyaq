@@ -1,3 +1,13 @@
+## 2026-10-15 / Codex staging 点検（56d943a46 以降）の 5 件（fix/codex-staging-review-5、手元コミットのみ・push なし）
+
+- 1 グループ作成時の空き確認: `create_private_group_atomic` は作品の時間帯しか見ず、画面で選んだ後に公演・受付停止・設定が変わっても保存できた。候補追加と共通の内部関数 `private_booking_assert_candidate`（締切・募集期間・時間帯・店舗ごとの空き・所要時間）を候補ごとに通す。候補追加 `private_group_add_candidate_dates` も同じ関数に置き換え。
+- 2 特別営業日: `private_booking_slot_store_fit` は開始時刻だけ特別営業日を土日祝の扱いにし、所要時間・作品の時間帯・作品名の特例は日付だけで決めていた。store_fit が作品の行（jsonb）を受け取り、店舗ごとに土日祝の扱いをまとめて決める（minutes 列・why=slot_not_allowed を追加）。正本 I5。
+- 3 臨時会場: 作品の上演店舗の指定が空のとき、申込ページ（`PrivateBookingRequestPage`・`PrivateBookingRequest`）は臨時会場を希望店舗に残し、DB は対象外。逆に作品ページは指定に含まれる臨時会場を出していなかった。`isStorePlayableForScenario`（`src/lib/scenarioStoreHint.ts`）に一本化。
+- 4 店舗の引き継ぎ: 作品ページの 3 つのボタン（ヒーロー・貸切タブ本文・料金パネル）を `privateGroupCreatePath`（`src/pages/PrivateBookingStart/paths.ts`）にそろえ、貸切タブで選んでいる希望店舗を常に `stores` で渡す（これまでは本文のボタンだけ、しかも `?stores=` で来たときだけ）。
+- 5 空き状況の取得エラー: 作品ページの貸切タブで、読めなかったときは枠を出さず赤い案内＋「空き状況を再読み込み」。グループの候補追加にも再読み込みボタン。
+- migration `20261015110000_private_booking_create_validate_special_open_day`（rollback 同名）。例 R25〜R27。expected-function-overrides は手元で適用した md5(prosrc)。
+- 確認: 手元 DB で migration 適用→回帰 SQL（R1〜R27）・空き状況テスト・smoke 通過、rollback→旧版で R25 が落ちることを確認→再適用。vitest 全件、`npm run verify`。staging・本番への適用と実画面の確認は未実施。
+
 ## 2026-10-15 / 作品の貸切開始時刻は絶対・本番へ #1021 #1023 を単独反映（hotfix/candidate-slot-rule-to-main、main 向け PR #1125 と staging 向け PR）
 
 - 事象: 本番の貸切候補日が古い規則（午後は夜の枠の開始までに終わる）のままで、「祝福のアルカディプス」（土日祝の午後 14:30・所要 270 分・夜 18:30）の申込が 14:00（平日 13:00）に繰り上がっていた。

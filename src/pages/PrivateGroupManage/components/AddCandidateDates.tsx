@@ -320,7 +320,12 @@ export function AddCandidateDates({
   const notes = (holidaysError || availabilityError || storeHint) && (
     <div className={`space-y-1 py-1.5 ${inset}`}>
       {holidaysError && <p role="alert" className="text-sm text-destructive">{holidaysError}</p>}
-      {availabilityError && <p role="alert" className="text-xs text-destructive">{availabilityError}</p>}
+      {availabilityError && (
+        <div className="flex flex-wrap items-center gap-2">
+          <p role="alert" className="text-xs text-destructive">{availabilityError}</p>
+          <Button type="button" variant="outline" size="sm" onClick={reloadAvailability} disabled={loading}>空き状況を再読み込み</Button>
+        </div>
+      )}
       <ScenarioStoreHint hint={storeHint} compact />
     </div>
   )

@@ -15,7 +15,7 @@ vi.mock('@/contexts/RouteScrollRestorationContext', () => ({ useReportRouteScrol
 vi.mock('@/hooks/useScrollRestoration', () => ({ saveScrollPositionForCurrentUrl: vi.fn() }))
 import { PrivateBookingStart } from './index'
 import { scenariosForStores } from './scenariosForStores'
-import { parseStoreIdsParam, privateScenarioTabPath } from './paths'
+import { parseStoreIdsParam, privateGroupCreatePath, privateScenarioTabPath } from './paths'
 
 const qw: PlatformOrganization = {
   id: 'o1', slug: 'queens-waltz', name: 'クインズワルツ', logo_url: null,
@@ -150,5 +150,17 @@ describe('部品', () => {
     const rows = [{ id: 'a', available_stores: [] }, { id: 'b', available_stores: ['s2'] }, { id: 'c', available_stores: null }]
     expect(scenariosForStores(rows, []).map((r) => r.id)).toEqual(['a', 'b', 'c'])
     expect(scenariosForStores(rows, ['s1']).map((r) => r.id)).toEqual(['a', 'c'])
+  })
+})
+
+describe('privateGroupCreatePath', () => {
+  it('作品ページのどの入口のボタンでも、選んでいる希望店舗を stores で引き継ぐ', () => {
+    expect(privateGroupCreatePath({ scenarioMasterId: 'm1', organizationSlug: 'queens-waltz', storeIds: ['s1', 's2', 's1'], noDates: true }))
+      .toBe('/group/create?scenarioId=m1&org=queens-waltz&mode=no-dates&stores=s1,s2')
+    expect(privateGroupCreatePath({ scenarioMasterId: 'm1', organizationSlug: 'queens-waltz', storeIds: ['s1'] }))
+      .toBe('/group/create?scenarioId=m1&org=queens-waltz&stores=s1')
+  })
+  it('店舗を選んでいなければ stores を付けない', () => {
+    expect(privateGroupCreatePath({ scenarioMasterId: 'm1', storeIds: [] })).toBe('/group/create?scenarioId=m1')
   })
 })

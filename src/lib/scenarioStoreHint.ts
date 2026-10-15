@@ -9,11 +9,27 @@ export interface StoreForHint {
   short_name?: string | null
   ownership_type?: string | null
   is_temporary?: boolean | null
+  /** 無ければ稼働中とみなす（稼働中だけを読む一覧のため） */
+  status?: string | null
 }
 
-export function playableStoresForScenario(stores: StoreForHint[], scenarioAvailableStores: string[] | null | undefined): StoreForHint[] {
+/**
+ * 貸切を受け付ける店舗か。DB の判定（private_booking_slot_store_fit / private_booking_candidate_slot_availability）と同じ条件:
+ * 稼働中・オフィス以外で、作品に上演店舗の指定（available_stores）があればその店舗（臨時会場でも可）、
+ * 指定が無ければ臨時会場（is_temporary）以外。画面の店舗の表示・選択はこの判定にそろえる。
+ */
+export function isStorePlayableForScenario(
+  store: Pick<StoreForHint, 'id' | 'ownership_type' | 'is_temporary' | 'status'>,
+  scenarioAvailableStores: readonly string[] | null | undefined,
+): boolean {
   const limit = scenarioAvailableStores ?? []
-  return stores.filter(s => s.ownership_type !== 'office' && (limit.length > 0 ? limit.includes(s.id) : !s.is_temporary))
+  if (store.ownership_type === 'office') return false
+  if (store.status != null && store.status !== 'active') return false
+  return limit.length > 0 ? limit.includes(store.id) : !store.is_temporary
+}
+
+export function playableStoresForScenario<T extends StoreForHint>(stores: T[], scenarioAvailableStores: string[] | null | undefined): T[] {
+  return stores.filter(s => isStorePlayableForScenario(s, scenarioAvailableStores))
 }
 
 /** 共通がない、または希望店舗の一部で上演できないときだけ文面を返す */
