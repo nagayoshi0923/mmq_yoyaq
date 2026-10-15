@@ -5,8 +5,20 @@ import { showToast } from '@/utils/toast'
 import { usePrivateBookingStorePreference, useStoreFilterPreference } from '@/hooks/useUserPreference'
 import { useCandidateSlotAvailability } from '@/hooks/useCandidateSlotAvailability'
 import { availableSlotsForDate } from '@/lib/candidateSlotAvailability'
+import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
 import type { TimeSlot } from '../utils/types'
 import { useEffect } from 'react'
+
+/**
+ * この作品の貸切を受け付ける店舗（DB の判定と同じ。上演店舗の指定があればその店舗、無ければ臨時会場以外）。
+ * slug が未設定の場合、別組織のシナリオが返ることがある。その場合 available_stores は参照組織のものなので無視する（全店舗対応扱い）
+ */
+function playableStores(stores: any[], scenario: any, organizationId: string | undefined): any[] {
+  const rawAvailableStores = scenario?.available_stores || scenario?.available_stores_ids
+  const isCrossOrg = organizationId && scenario?.organization_id && scenario.organization_id !== organizationId
+  const scenarioAvailableStores: string[] = !isCrossOrg && Array.isArray(rawAvailableStores) ? rawAvailableStores : []
+  return stores.filter(s => s.status === 'active' && isStorePlayableForScenario(s, scenarioAvailableStores))
+}
 
 interface UsePrivateBookingProps {
   events: any[]
@@ -43,27 +55,11 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     if (stores.length > 0 && !hasInitialized) {
       setHasInitialized(true)
 
-      const rawAvailableStores = scenario?.available_stores || scenario?.available_stores_ids
-      // slug が未設定の場合、別組織のシナリオが返ることがある。
-      // その場合 available_stores は参照組織のものなので無視する（全店舗対応扱い）
-      const isCrossOrg = organizationId && scenario?.organization_id && scenario.organization_id !== organizationId
-      const scenarioAvailableStores = isCrossOrg ? [] : rawAvailableStores
-      const hasScenarioStoreLimit = Array.isArray(scenarioAvailableStores) && scenarioAvailableStores.length > 0
-
-      const validStores = stores.filter(s =>
-        s.ownership_type !== 'office' &&
-        s.status === 'active' &&
-        !s.is_temporary &&
-        (hasScenarioStoreLimit
-          ? scenarioAvailableStores.includes(s.id)
-          : true)
-      )
-
-      const allValidIds = validStores.map(s => s.id)
+      const allValidIds = playableStores(stores, scenario, organizationId).map(s => s.id)
       setSelectedStoreIdsInternal(allValidIds)
       setSavedStoreIds(allValidIds)
     }
-  }, [stores, savedStoreIds, storeFilterIds, hasInitialized, setSavedStoreIds, scenario])
+  }, [stores, savedStoreIds, storeFilterIds, hasInitialized, setSavedStoreIds, scenario, organizationId])
 
   const scenarioMasterId = scenario?.scenario_master_id || scenario?.scenario_id || scenario?.id || scenarioId
 
@@ -102,6 +98,8 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     availability: slotAvailability,
     loading: isLoadingEvents,
     ready: canRevalidate,
+    error: availabilityError,
+    reload: reloadAvailability,
   } = useCandidateSlotAvailability(availabilityTarget, monthDates)
 
   const getTimeSlotsForDate = useCallback((date: string): TimeSlot[] => (
@@ -159,21 +157,7 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     }
   }, [selectedTimeSlots])
 
-  const availableStores = useMemo(() => {
-    const rawAvailableStores = scenario?.available_stores || scenario?.available_stores_ids
-    const isCrossOrg = organizationId && scenario?.organization_id && scenario.organization_id !== organizationId
-    const scenarioAvailableStores = isCrossOrg ? [] : rawAvailableStores
-    const hasScenarioStoreLimit = Array.isArray(scenarioAvailableStores) && scenarioAvailableStores.length > 0
-
-    return stores.filter(s =>
-      s.ownership_type !== 'office' &&
-      s.status === 'active' &&
-      !s.is_temporary &&
-      (hasScenarioStoreLimit
-        ? scenarioAvailableStores.includes(s.id)
-        : true)
-    )
-  }, [scenario, stores, organizationId])
+  const availableStores = useMemo(() => playableStores(stores, scenario, organizationId), [scenario, stores, organizationId])
 
   const isNextMonthDisabled = useMemo(() => {
     const today = new Date()
@@ -193,6 +177,9 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     isNextMonthDisabled,
     isLoadingEvents,
     isAvailabilityReady: canRevalidate,
+    /** 空き状況を読めなかった（通信失敗など）。「空きなし」と区別して出し、再読み込みできるようにする */
+    availabilityError,
+    reloadAvailability,
     slotAvailability,
     monthDates,
     showMonthOf,

@@ -29,6 +29,7 @@ import { usePrivateBookingDeadlineDays } from '@/hooks/usePrivateBookingDeadline
 import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import { computePrivateBookingSlots } from '@/lib/computePrivateBookingSlots'
+import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
 import { privateBookingSlotReadApi } from '@/lib/api/scheduleHookReadApi'
 import { privateBookingRequestReadApi } from '@/lib/api/privateBookingRequestReadApi'
 import { toast } from 'sonner'
@@ -146,23 +147,17 @@ export function PrivateBookingRequest({
     )
   }, [stores])
 
-  // シナリオ対応店舗IDセット（null = 全店舗対応）
-  const scenarioAvailableSet = useMemo(() => {
-    if (scenarioAvailableStores && scenarioAvailableStores.length > 0) {
-      return new Set(scenarioAvailableStores)
-    }
-    return null
-  }, [scenarioAvailableStores])
+  // この作品の貸切を受け付ける店舗（DB の判定と同じ。上演店舗の指定が無ければ臨時会場を除く）
+  const playableStores = useMemo(
+    () => displayStores.filter((s) => isStorePlayableForScenario(s, scenarioAvailableStores)),
+    [displayStores, scenarioAvailableStores]
+  )
 
   // 希望店舗（前ページで選択済み、変更不可）
   const selectedStoreIds = useMemo(() => {
-    const filtered = initialStoreIds.filter(id => {
-      const isValid = displayStores.some((s) => s.id === id)
-      const isAvailable = scenarioAvailableSet === null || scenarioAvailableSet.has(id)
-      return isValid && isAvailable
-    })
+    const filtered = initialStoreIds.filter(id => playableStores.some((s) => s.id === id))
     return filtered.length > 0 ? filtered : []
-  }, [initialStoreIds, displayStores, scenarioAvailableSet])
+  }, [initialStoreIds, playableStores])
 
   // 貸切予約の受付締切（公演日の何日前まで申込可能か）。設定 > 予約設定の値
   const deadlineDays = usePrivateBookingDeadlineDays({ organizationSlug, scenarioId })
@@ -178,13 +173,9 @@ export function PrivateBookingRequest({
 
   /** 候補追加・プルダウン用（HP貸切カレンダー・グループ候補追加と同じ営業時間マージ） */
   const storeIdsForSlotResolution = useMemo(() => {
-    const eligible = displayStores.filter(
-      (s: { id: string }) =>
-        scenarioAvailableSet === null || scenarioAvailableSet.has(s.id)
-    )
     if (selectedStoreIds.length > 0) return selectedStoreIds
-    return eligible.map((s: { id: string }) => s.id)
-  }, [displayStores, scenarioAvailableSet, selectedStoreIds])
+    return playableStores.map((s: { id: string }) => s.id)
+  }, [playableStores, selectedStoreIds])
 
   const storeIdsKey = storeIdsForSlotResolution.join(',')
 

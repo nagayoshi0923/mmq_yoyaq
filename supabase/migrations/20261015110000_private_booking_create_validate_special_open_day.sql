@@ -1,0 +1,409 @@
+-- 2026-10-15 Codex staging 点検（56d943a46 以降）への対応。
+-- 1) 貸切グループを作るとき（create_private_group_atomic）の候補日時を、候補追加（private_group_add_candidate_dates）と
+--    同じ判定で保存時に確かめる。これまでは作品の時間帯しか見ておらず、画面で選んだあとに公演・受付停止・設定が変わっても
+--    保存できた。共通の検査は新しい内部関数 private_booking_assert_candidate（候補追加もこれを使う）。
+-- 2) 店舗の特別営業日（business_hours_settings.special_open_days）は、開始時刻だけ土日祝の扱いで、所要時間・作品の貸切時間枠・
+--    作品名の特例（戦塵のレガストリア／BeatSpecter の夜 19:30）は平日の扱いになっていた。正本 I5（特別営業日は日曜の設定と
+--    土日祝の作品設定を使う）に合わせ、店舗ごとの判定 private_booking_slot_store_fit の中で土日祝の扱いをまとめて決める。
+--    store_fit は作品の行（jsonb）を受け取り、店舗ごとの所要時間（minutes 列）と作品の時間帯の判定（why=slot_not_allowed）を返す。
+-- 正本: supabase/rpcs/private_booking_candidate_slot_availability.sql / private_booking_assert_candidate.sql /
+--       private_group_add_candidate_dates.sql / create_private_group_atomic.sql
+-- 仕様の正本: docs/product-spec/貸切受付ルール.md
+-- 巻き戻し: supabase/rollbacks/20261015110000_private_booking_create_validate_special_open_day.sql
+
+DROP FUNCTION IF EXISTS public.private_booking_slot_store_fit(uuid,uuid,text,text[],jsonb,uuid[],date,boolean,integer,text,integer);
+
+CREATE OR REPLACE FUNCTION public.private_booking_slot_store_fit(
+ p_org uuid, p_scenario_id uuid, p_scenario jsonb, p_store_ids uuid[], p_date date, p_holiday boolean, p_slot text, p_start_min integer
+) RETURNS TABLE(store_id uuid, start_min integer, standard_min integer, fits boolean, why text, gap_minutes integer, fixed boolean, minutes integer)
+LANGUAGE plpgsql STABLE SET search_path TO 'public', 'pg_temp'
+AS $function$
+ -- p_scenario: 作品の行（organization_scenarios_with_master を to_jsonb したもの）。title / available_stores /
+ --   private_booking_slot_start_times / duration / weekend_duration / private_booking_time_slots(_weekend) を読む。
+ -- p_holiday: 組織として土日祝か（土日・祝日・独自休日）。店舗の特別営業日（special_open_days）は店舗ごとにここで足す。
+ --   土日祝の扱いになった店舗は、所要時間・作品の貸切時間枠・作品の開始時刻・作品名の特例をすべて土日祝の値で判定する（I5）。
+ -- p_start_min を渡すとその開始時刻で判定する（保存時）。NULL なら店舗ごとに開始時刻を選ぶ（表示時）。
+ -- fixed: 作品にこの枠の貸切開始時刻がある（2026-10-15 社長決定: その時刻を絶対とし、ずらさない）。
+ --   表示時は標準開始（＝作品の開始時刻）だけを試し、保存時は標準開始以外を why=fixed_start で弾く。
+ -- fits: すべての占有を除いて入る。why（入らないとき）: slot_not_allowed=作品の貸切時間枠に無い /
+ --   closed=営業時間だけで入らない / conflict=受付停止を無視しても公演と重なって入らない /
+ --   blocked=それ以外（受付停止・募集停止のために入らない）。
+ -- gap_minutes: すべての占有を除いた隙間のうち、この枠の時間帯にかかる隙間の最大長（理由の補足用）。
+ -- minutes: この店舗で使う所要時間（土日祝の扱いなら土日祝の所要時間）。
+ -- 1つの店舗で全条件が成立すること。他店の条件を混ぜない。
+DECLARE
+ st record; eff jsonb; slots jsonb; band record; day_open integer; lb integer; prep integer; special boolean;
+ free_hours int4multirange; free_unblocked int4multirange; free_events int4multirange; free_all int4multirange;
+ occ int4multirange; cand int4range; hours_ok boolean; unblocked_ok boolean; events_ok boolean;
+ weekend boolean; lo integer; hi_excl integer; allowed text[]; slot_times jsonb; title text; available text[];
+ weekday_minutes integer; weekend_minutes integer;
+BEGIN
+ title:=coalesce(p_scenario->>'title','');
+ slot_times:=p_scenario->'private_booking_slot_start_times';
+ available:=CASE WHEN jsonb_typeof(p_scenario->'available_stores')='array'
+  THEN ARRAY(SELECT jsonb_array_elements_text(p_scenario->'available_stores')) ELSE '{}'::text[] END;
+ weekday_minutes:=nullif(p_scenario->>'duration','')::integer;
+ weekend_minutes:=nullif(p_scenario->>'weekend_duration','')::integer;
+ FOR st IN SELECT s.id, to_jsonb(h) AS hours FROM public.stores s
+  LEFT JOIN public.business_hours_settings h ON h.store_id=s.id AND h.organization_id=p_org
+  WHERE s.id=ANY(p_store_ids) AND s.organization_id=p_org AND s.status='active'
+   AND s.ownership_type IS DISTINCT FROM 'office'
+   AND CASE WHEN coalesce(cardinality(available),0)>0 THEN s.id::text=ANY(available) ELSE NOT coalesce(s.is_temporary,false) END
+  ORDER BY s.id
+ LOOP
+  store_id:=st.id; start_min:=NULL; standard_min:=NULL; fits:=false; why:='closed'; gap_minutes:=NULL; fixed:=false;
+  hours_ok:=false; unblocked_ok:=false; events_ok:=false;
+  -- 店舗の特別営業日は土日祝の扱い（I5: 日曜の営業設定と土日祝の作品設定を使う。#698）
+  weekend:=p_holiday OR EXISTS(SELECT 1 FROM jsonb_array_elements(coalesce(nullif(st.hours->'special_open_days','null'::jsonb),'[]'::jsonb)) d WHERE d->>'date'=p_date::text);
+  minutes:=CASE WHEN weekend AND coalesce(weekend_minutes,0)>0 THEN weekend_minutes ELSE weekday_minutes END;
+  -- 作品の貸切時間枠（平日／土日祝で別。空なら制限なし。I10）
+  allowed:=CASE WHEN jsonb_typeof(p_scenario->(CASE WHEN weekend THEN 'private_booking_time_slots_weekend' ELSE 'private_booking_time_slots' END))='array'
+   THEN ARRAY(SELECT jsonb_array_elements_text(p_scenario->(CASE WHEN weekend THEN 'private_booking_time_slots_weekend' ELSE 'private_booking_time_slots' END))) END;
+  IF coalesce(cardinality(allowed),0)>0 AND NOT EXISTS(SELECT 1 FROM unnest(allowed) value WHERE value=ANY(CASE p_slot
+    WHEN 'morning' THEN ARRAY['午前','朝公演','朝'] WHEN 'afternoon' THEN ARRAY['午後','昼公演','昼'] ELSE ARRAY['夜','夜公演'] END)) THEN
+   why:='slot_not_allowed'; RETURN NEXT; CONTINUE;
+  END IF;
+  IF coalesce(minutes,0)<=0 THEN RETURN NEXT; CONTINUE; END IF;
+  special:=p_slot='evening' AND weekend AND (title LIKE '%戦塵のレガストリア%' OR title LIKE '%BeatSpecter%');
+  -- 作品ごとの開始時刻を店舗の開始時刻へ上書きする
+  eff:=public.apply_scenario_slot_start_times(st.hours,slot_times,weekend);
+  -- 作品にこの枠の開始時刻があるか（apply_scenario_slot_start_times と同じ読み方）
+  fixed:=jsonb_typeof(slot_times)='object'
+   AND left(btrim(coalesce(slot_times->(CASE WHEN weekend THEN 'weekend' ELSE 'weekday' END)->>p_slot,'')),5) ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$';
+  SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]'::jsonb) INTO slots FROM public.private_booking_store_day_slots(p_date,eff,weekend,cardinality(p_store_ids)=1) x;
+  SELECT (x->>'start_minutes')::integer AS start_minutes,(x->>'end_minutes')::integer AS end_minutes,(x->>'closing_minutes')::integer AS closing_minutes
+   INTO band FROM jsonb_array_elements(slots) x WHERE x->>'slot_key'=p_slot;
+  IF NOT FOUND THEN RETURN NEXT; CONTINUE; END IF;
+  prep:=public.resolve_preparation_minutes(p_org,st.id,p_scenario_id,NULL);
+  -- 標準開始。戦塵のレガストリア／BeatSpecter の土日祝の夜は 19:30（それより前には始めない。
+  -- ただし 19:30 開始で 23:00 を超えるときは従来どおり 23:00 終わりまで繰り上げてよい）。
+  standard_min:=greatest(band.start_minutes,CASE WHEN special THEN 1170 ELSE 0 END);
+  -- 開始の下限: 公演が枠の時間帯にかかること（特例はさらに 19:30 または 23:00−所要時間）
+  lb:=greatest(band.start_minutes-minutes+1,CASE WHEN special THEN least(standard_min,1380-minutes) ELSE 0 END);
+  SELECT min((x->>'start_minutes')::integer) INTO day_open FROM jsonb_array_elements(slots) x;
+  free_hours:=CASE WHEN day_open<band.closing_minutes THEN int4multirange(int4range(day_open,band.closing_minutes)) ELSE '{}'::int4multirange END;
+  -- 受付停止はその枠の時間帯全体。貸切募集停止期間は全日。
+  IF EXISTS(SELECT 1 FROM public.store_recruitment_pauses pz WHERE pz.organization_id=p_org AND pz.store_id=st.id AND pz.pause_type='private'
+   AND p_date BETWEEN coalesce(pz.starts_on,p_date) AND coalesce(pz.ends_on,p_date)) THEN
+   free_unblocked:='{}'::int4multirange;
+  ELSE
+   SELECT range_agg(int4range((x->>'start_minutes')::integer,(x->>'end_minutes')::integer)) INTO occ
+   FROM public.schedule_blocked_slots b JOIN jsonb_array_elements(slots) x ON x->>'slot_key'=b.time_slot
+   WHERE b.organization_id=p_org AND b.store_id=st.id::text AND b.date=p_date;
+   free_unblocked:=free_hours-coalesce(occ,'{}'::int4multirange);
+  END IF;
+  -- 公演は前に公演側の準備時間、後ろにこの作品の準備時間を足す。日をまたぐ公演も当日 0 時からの分で扱う。
+  SELECT range_agg(int4range(r.s-public.resolve_preparation_minutes(p_org,NULL,NULL,r.id),r.e+prep)) INTO occ
+  FROM (SELECT e.id,(e.date-p_date)*1440+extract(hour FROM e.start_time)::integer*60+extract(minute FROM e.start_time)::integer AS s,
+    (e.date-p_date)*1440+CASE WHEN e.end_time<e.start_time THEN 1440 ELSE 0 END+extract(hour FROM e.end_time)::integer*60+extract(minute FROM e.end_time)::integer AS e
+   FROM public.schedule_events e WHERE e.organization_id=p_org AND e.store_id=st.id AND e.is_cancelled=false
+    AND e.date BETWEEN p_date-2 AND p_date+2) r
+  WHERE r.e>=r.s;
+  free_events:=free_hours-coalesce(occ,'{}'::int4multirange);
+  free_all:=free_unblocked-coalesce(occ,'{}'::int4multirange);
+  SELECT max(upper(g)-lower(g)) INTO gap_minutes FROM unnest(free_all) g WHERE lower(g)<band.end_minutes AND upper(g)>band.start_minutes;
+  -- 開始時刻を探す範囲。作品の開始時刻があれば標準開始の 1 点だけ（ずらさない）
+  lo:=CASE WHEN fixed THEN standard_min ELSE lb END;
+  hi_excl:=CASE WHEN fixed THEN standard_min+1 ELSE band.end_minutes END;
+  IF p_start_min IS NOT NULL THEN
+   IF p_start_min>=lo AND p_start_min<hi_excl THEN
+    cand:=int4range(p_start_min,p_start_min+minutes);
+    hours_ok:=free_hours@>cand; unblocked_ok:=free_unblocked@>cand; events_ok:=free_events@>cand; fits:=free_all@>cand;
+   END IF;
+   IF fits THEN start_min:=p_start_min; END IF;
+  ELSE
+   hours_ok:=public.private_booking_pick_start(free_hours,minutes,lo,hi_excl,standard_min) IS NOT NULL;
+   unblocked_ok:=public.private_booking_pick_start(free_unblocked,minutes,lo,hi_excl,standard_min) IS NOT NULL;
+   events_ok:=public.private_booking_pick_start(free_events,minutes,lo,hi_excl,standard_min) IS NOT NULL;
+   start_min:=public.private_booking_pick_start(free_all,minutes,lo,hi_excl,standard_min);
+   fits:=start_min IS NOT NULL;
+  END IF;
+  why:=CASE WHEN fits THEN NULL WHEN fixed AND p_start_min IS NOT NULL AND p_start_min<>standard_min THEN 'fixed_start'
+   WHEN NOT hours_ok THEN 'closed' WHEN unblocked_ok AND NOT events_ok THEN 'conflict' ELSE 'blocked' END;
+  RETURN NEXT;
+ END LOOP;
+END $function$;
+REVOKE ALL ON FUNCTION public.private_booking_slot_store_fit(uuid,uuid,jsonb,uuid[],date,boolean,text,integer) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.private_booking_slot_store_fit(uuid,uuid,jsonb,uuid[],date,boolean,text,integer) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.private_booking_candidate_slot_availability(
+ p_organization_id uuid, p_scenario_id uuid, p_store_ids uuid[], p_from date, p_to date
+) RETURNS TABLE(date date, time_slot text, available boolean, reason text, start_time text, end_time text, detail text, adjusted boolean)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+ sc record; scj jsonb; v_stores uuid[]; custom_holidays jsonb; d date; slot text; holiday boolean;
+ day_reason text; has_store boolean; best_start integer; best_std integer; best_minutes integer; why text; max_gap integer; gap_need integer; fixed_start integer;
+BEGIN
+ IF p_organization_id IS NULL OR p_scenario_id IS NULL OR p_from IS NULL OR p_to IS NULL OR p_from>p_to OR p_to-p_from>62
+  OR coalesce(cardinality(p_store_ids),0)>50 OR array_position(p_store_ids,NULL) IS NOT NULL THEN
+  RAISE EXCEPTION '空き状況の条件を確認してください' USING ERRCODE='22023';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.organizations o WHERE o.id=p_organization_id AND o.is_active) THEN
+  RAISE EXCEPTION '空き状況を確認できません' USING ERRCODE='42501';
+ END IF;
+ SELECT coalesce(array_agg(DISTINCT id ORDER BY id),'{}'::uuid[]) INTO v_stores FROM unnest(coalesce(p_store_ids,'{}'::uuid[])) id;
+ SELECT s.* INTO sc FROM public.organization_scenarios_with_master s WHERE s.organization_id=p_organization_id
+  AND (s.scenario_master_id=p_scenario_id OR s.id=p_scenario_id)
+  ORDER BY (s.id=p_scenario_id) DESC LIMIT 1;
+ IF NOT FOUND OR coalesce(sc.duration,0)<=0 THEN RAISE EXCEPTION '作品の所要時間を確認できません' USING ERRCODE='22023'; END IF;
+ scj:=to_jsonb(sc);
+ SELECT coalesce(os.custom_holidays,'[]'::jsonb) INTO custom_holidays FROM public.organization_settings os WHERE os.organization_id=p_organization_id;
+ custom_holidays:=coalesce(custom_holidays,'[]'::jsonb);
+ SELECT EXISTS(SELECT 1 FROM public.stores s WHERE s.id=ANY(v_stores) AND s.organization_id=p_organization_id AND s.status='active'
+  AND s.ownership_type IS DISTINCT FROM 'office'
+  AND CASE WHEN coalesce(cardinality(sc.available_stores),0)>0 THEN s.id::text=ANY(sc.available_stores) ELSE NOT coalesce(s.is_temporary,false) END) INTO has_store;
+ FOR d IN SELECT generate_series(p_from,p_to,interval '1 day')::date LOOP
+  day_reason:=NULL;
+  BEGIN
+   PERFORM public.assert_private_booking_candidate_date(p_organization_id,p_scenario_id,d);
+  EXCEPTION WHEN SQLSTATE 'P0045' THEN day_reason:='past_deadline';
+   WHEN SQLSTATE 'P0044' THEN day_reason:='not_recruiting';
+   WHEN SQLSTATE 'P0054' THEN day_reason:='outside_period';
+  END;
+  -- 以下は保存（private_booking_assert_candidate）と同じ判定。土日祝の扱い（特別営業日を含む）は店舗ごとに store_fit が決める。
+  holiday:=extract(dow FROM d) IN (0,6) OR public.is_booking_calendar_holiday(d) OR coalesce(custom_holidays ? d::text,false);
+  FOREACH slot IN ARRAY ARRAY['morning','afternoon','evening'] LOOP
+   date:=d; time_slot:=slot; available:=false; reason:=NULL; start_time:=NULL; end_time:=NULL; detail:=NULL; adjusted:=false;
+   IF day_reason IS NOT NULL THEN reason:=day_reason;
+   ELSIF NOT has_store THEN reason:='no_store_for_scenario';
+   ELSE
+    -- 標準開始で入る店舗があればその時刻（複数なら早いほう）、無ければ最も早く始められる店舗の時刻。終了はその店舗の所要時間で決める
+    SELECT (array_agg(c.start_min ORDER BY (c.start_min=c.standard_min) DESC, c.start_min, c.store_id) FILTER (WHERE c.fits))[1],
+     (array_agg(c.standard_min ORDER BY (c.start_min=c.standard_min) DESC, c.start_min, c.store_id) FILTER (WHERE c.fits))[1],
+     (array_agg(c.minutes ORDER BY (c.start_min=c.standard_min) DESC, c.start_min, c.store_id) FILTER (WHERE c.fits))[1],
+     -- 理由は店舗ごとの理由のうち conflict → blocked → closed → slot_not_allowed の順に採る
+     -- （作品の貸切時間枠は特別営業日の店舗だけ土日祝の設定になるため、店舗ごとの理由として扱う）
+     CASE WHEN bool_or(c.why='conflict') THEN 'conflict' WHEN bool_or(c.why='blocked') THEN 'blocked'
+      WHEN bool_or(c.why='closed') THEN 'closed' WHEN bool_or(c.why='slot_not_allowed') THEN 'slot_not_allowed' ELSE 'closed' END,
+     max(c.gap_minutes) FILTER (WHERE c.why='conflict'),
+     min(c.minutes) FILTER (WHERE c.why='conflict'),
+     -- 作品の開始時刻が決まっていて公演と重なった店舗の開始時刻（2026-10-15 社長決定）
+     min(c.standard_min) FILTER (WHERE c.why='conflict' AND c.fixed)
+     INTO best_start, best_std, best_minutes, why, max_gap, gap_need, fixed_start
+    FROM public.private_booking_slot_store_fit(p_organization_id,p_scenario_id,scj,v_stores,d,holiday,slot,NULL) c;
+    IF best_start IS NOT NULL THEN
+     available:=true; adjusted:=best_start<>best_std;
+     start_time:=to_char(make_time(best_start/60,best_start%60,0),'HH24:MI');
+     end_time:=to_char(make_time((best_start+best_minutes)/60,(best_start+best_minutes)%60,0),'HH24:MI');
+    ELSE
+     reason:=why;
+     IF reason='conflict' AND fixed_start IS NOT NULL THEN
+      reason:='start_fixed';
+      detail:='この作品の開始時刻 '||to_char(make_time(fixed_start/60,fixed_start%60,0),'HH24:MI')||' では前後の公演と重なります';
+     ELSIF reason='conflict' AND max_gap>0 AND max_gap<gap_need THEN
+      detail:='空き '||public.private_booking_minutes_text(max_gap)||'・必要 '||public.private_booking_minutes_text(gap_need);
+     END IF;
+    END IF;
+   END IF;
+   RETURN NEXT;
+  END LOOP;
+ END LOOP;
+END $function$;
+REVOKE ALL ON FUNCTION public.private_booking_candidate_slot_availability(uuid,uuid,uuid[],date,date) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.private_booking_candidate_slot_availability(uuid,uuid,uuid[],date,date) TO anon,authenticated,service_role;
+
+-- 候補日時 1 件を保存してよいかの判定（保存時の共通の検査）。入らなければ理由付きで例外を投げる。
+-- 呼び出し元: private_group_add_candidate_dates（候補の追加）／create_private_group_atomic（グループ作成時の候補）。
+-- 画面の空き表示（private_booking_candidate_slot_availability）と同じ店舗ごとの判定 private_booking_slot_store_fit を使う。
+-- p_slot は morning / afternoon / evening。p_start / p_end は HH:MM（形式は呼び出し元で確認済み）。
+CREATE OR REPLACE FUNCTION public.private_booking_assert_candidate(
+ p_org uuid, p_scenario_id uuid, p_store_ids uuid[], p_date date, p_slot text, p_start text, p_end text
+) RETURNS void
+LANGUAGE plpgsql STABLE SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+ sc record; v_stores uuid[]; custom_holidays jsonb; holiday boolean; slot_label text; start_min integer; end_min integer;
+ valid boolean; start_ok boolean; all_not_allowed boolean; why text; max_gap integer; gap_need integer; fixed_start integer; has_store boolean;
+BEGIN
+ IF p_slot IS NULL OR p_slot NOT IN ('morning','afternoon','evening') THEN
+  RAISE EXCEPTION '候補日時の形式が正しくありません' USING ERRCODE='22023';
+ END IF;
+ SELECT coalesce(array_agg(DISTINCT id ORDER BY id),'{}'::uuid[]) INTO v_stores FROM unnest(coalesce(p_store_ids,'{}'::uuid[])) id WHERE id IS NOT NULL;
+ IF cardinality(v_stores)=0 THEN RAISE EXCEPTION '希望店舗を選択してください' USING ERRCODE='22023'; END IF;
+ SELECT s.* INTO sc FROM public.organization_scenarios_with_master s WHERE s.organization_id=p_org
+  AND (s.scenario_master_id=p_scenario_id OR s.id=p_scenario_id)
+  ORDER BY (s.id=p_scenario_id) DESC LIMIT 1;
+ IF NOT FOUND OR coalesce(sc.duration,0)<=0 THEN RAISE EXCEPTION '作品の所要時間を確認できません' USING ERRCODE='22023'; END IF;
+ PERFORM public.assert_private_booking_candidate_date(p_org,p_scenario_id,p_date);
+ SELECT coalesce(os.custom_holidays,'[]'::jsonb) INTO custom_holidays FROM public.organization_settings os WHERE os.organization_id=p_org;
+ holiday:=extract(dow FROM p_date) IN (0,6) OR public.is_booking_calendar_holiday(p_date) OR coalesce(custom_holidays ? p_date::text,false);
+ slot_label:=CASE p_slot WHEN 'morning' THEN '午前' WHEN 'afternoon' THEN '午後' ELSE '夜' END;
+ start_min:=extract(hour FROM p_start::time)::integer*60+extract(minute FROM p_start::time)::integer;
+ end_min:=extract(hour FROM p_end::time)::integer*60+extract(minute FROM p_end::time)::integer;
+ -- 1つの店舗で、画面が返した開始時刻が前後の公演・受付停止・営業時間の隙間に収まり、終了がその店舗の所要時間と合うこと。
+ -- 他店の条件を混ぜない。土日祝の扱い（店舗の特別営業日を含む）は店舗ごとに store_fit が決める。
+ SELECT coalesce(bool_or(c.fits AND c.start_min+c.minutes=end_min AND c.start_min+c.minutes<=1380),false),
+  coalesce(bool_or(c.fits),false),
+  coalesce(bool_and(c.why='slot_not_allowed'),false),
+  CASE WHEN bool_or(c.why='fixed_start') THEN 'fixed_start' WHEN bool_or(c.why='conflict') THEN 'conflict' WHEN bool_or(c.why='blocked') THEN 'blocked' ELSE 'closed' END,
+  max(c.gap_minutes) FILTER (WHERE c.why='conflict'),
+  min(c.minutes) FILTER (WHERE c.why='conflict'),
+  -- 作品の開始時刻が決まっている枠（2026-10-15 社長決定: ずらさない）
+  min(c.standard_min) FILTER (WHERE c.fixed)
+  INTO valid, start_ok, all_not_allowed, why, max_gap, gap_need, fixed_start
+ FROM public.private_booking_slot_store_fit(p_org,p_scenario_id,to_jsonb(sc),v_stores,p_date,holiday,p_slot,start_min) c;
+ IF valid THEN RETURN; END IF;
+ IF start_ok THEN
+  -- 開始は入るが終了が所要時間と合わない（画面を開いた後に所要時間が変わった）
+  RAISE EXCEPTION '公演時間が更新されているか、営業時間内に収まりません。候補日を選び直してください' USING ERRCODE='40001';
+ END IF;
+ IF all_not_allowed THEN RAISE EXCEPTION 'この作品では選択できない時間帯です' USING ERRCODE='22023'; END IF;
+ SELECT EXISTS(SELECT 1 FROM public.stores s WHERE s.id=ANY(v_stores) AND s.organization_id=p_org AND s.status='active'
+  AND s.ownership_type IS DISTINCT FROM 'office'
+  AND CASE WHEN coalesce(cardinality(sc.available_stores),0)>0 THEN s.id::text=ANY(sc.available_stores) ELSE NOT coalesce(s.is_temporary,false) END) INTO has_store;
+ RAISE EXCEPTION '選択した候補日時は現在受付できません（%/% %: %）。空き状況を更新して選び直してください',
+  extract(month FROM p_date),extract(day FROM p_date),slot_label,
+  CASE WHEN NOT has_store THEN 'この作品を上演できる店舗が希望店舗にありません'
+   WHEN why='fixed_start' THEN 'この作品の開始時刻は '||to_char(make_time(fixed_start/60,fixed_start%60,0),'HH24:MI')||' です'
+   WHEN why='conflict' AND fixed_start IS NOT NULL THEN 'この作品の開始時刻 '||to_char(make_time(fixed_start/60,fixed_start%60,0),'HH24:MI')||' では前後の公演と重なります'
+   WHEN why='conflict' THEN '他の公演と重なります'||CASE WHEN max_gap>0 AND max_gap<gap_need THEN '（空き '||public.private_booking_minutes_text(max_gap)||'・必要 '||public.private_booking_minutes_text(gap_need)||'）' ELSE '' END
+   WHEN why='blocked' THEN '受付停止中です' ELSE '営業時間外です' END
+  USING ERRCODE='22023';
+END $function$;
+REVOKE ALL ON FUNCTION public.private_booking_assert_candidate(uuid,uuid,uuid[],date,text,text,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.private_booking_assert_candidate(uuid,uuid,uuid[],date,text,text,text) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.private_group_add_candidate_dates(p_group_id uuid, p_request_id uuid, p_expected_scenario_id uuid, p_expected_store_ids uuid[], p_candidates jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+ g public.private_groups%ROWTYPE; receipt public.private_group_candidate_add_requests%ROWTYPE;
+ current_stores uuid[]; expected_stores uuid[]; payload jsonb; item jsonb; ids uuid[]:='{}'; candidate_id uuid;
+ candidate_date date; slot text; slot_label text; next_order integer; res_status text;
+ author_member uuid; notice_dates jsonb:='[]';
+BEGIN
+ IF auth.uid() IS NULL THEN RAISE EXCEPTION 'ログインしてください' USING ERRCODE='42501'; END IF;
+ -- 他の予約処理が予約→グループ順にロックする場合は待ち合わせず再読込を促す。
+ SELECT * INTO g FROM public.private_groups WHERE id=p_group_id FOR UPDATE NOWAIT;
+ IF NOT FOUND OR public.private_group_actor_role(p_group_id) IS NULL THEN
+  RAISE EXCEPTION '候補日を追加する権限がありません' USING ERRCODE='42501';
+ END IF;
+ IF p_request_id IS NULL OR p_expected_scenario_id IS NULL OR p_expected_store_ids IS NULL
+  OR array_position(p_expected_store_ids,NULL) IS NOT NULL
+  OR jsonb_typeof(p_candidates) IS DISTINCT FROM 'array' THEN
+  RAISE EXCEPTION '候補日の入力を確認してください' USING ERRCODE='22023';
+ END IF;
+ IF jsonb_array_length(p_candidates) NOT BETWEEN 1 AND 100 THEN RAISE EXCEPTION '候補日は1〜100件選択してください' USING ERRCODE='22023'; END IF;
+ SELECT coalesce(array_agg(DISTINCT id ORDER BY id),'{}'::uuid[]) INTO expected_stores FROM unnest(p_expected_store_ids) id;
+ payload:=jsonb_build_object('scenario_id',p_expected_scenario_id,'store_ids',expected_stores,'candidates',p_candidates);
+ SELECT * INTO receipt FROM public.private_group_candidate_add_requests WHERE request_id=p_request_id;
+ IF FOUND THEN
+  IF receipt.group_id IS DISTINCT FROM g.id OR receipt.actor_id IS DISTINCT FROM auth.uid() OR receipt.payload IS DISTINCT FROM payload THEN
+   RAISE EXCEPTION '同じ送信番号で異なる候補日を保存できません' USING ERRCODE='22023';
+  END IF;
+  RETURN jsonb_build_object('success',true,'candidate_ids',receipt.candidate_ids,'replayed',true);
+ END IF;
+ IF g.status NOT IN ('gathering','date_adjusting') OR g.status IS NULL THEN
+  RAISE EXCEPTION '店舗の返答待ち、確定後、取消後は候補日を追加できません' USING ERRCODE='22023';
+ END IF;
+ IF g.reservation_id IS NOT NULL THEN
+  SELECT status INTO res_status FROM public.reservations WHERE id=g.reservation_id AND organization_id=g.organization_id FOR SHARE NOWAIT;
+  IF res_status IS DISTINCT FROM 'cancelled' THEN RAISE EXCEPTION '予約申請中は候補日を追加できません' USING ERRCODE='22023'; END IF;
+ END IF;
+ SELECT coalesce(array_agg(DISTINCT id ORDER BY id),'{}'::uuid[]) INTO current_stores FROM unnest(g.preferred_store_ids) id;
+ IF coalesce(g.scenario_master_id,g.scenario_id) IS DISTINCT FROM p_expected_scenario_id OR current_stores IS DISTINCT FROM expected_stores THEN
+  RAISE EXCEPTION '作品または希望店舗が変更されています。画面を更新して選び直してください' USING ERRCODE='40001';
+ END IF;
+ IF cardinality(current_stores)=0 THEN RAISE EXCEPTION '希望店舗を選択してください' USING ERRCODE='22023'; END IF;
+ SELECT coalesce(max(order_num),0)+1 INTO next_order FROM public.private_group_candidate_dates WHERE group_id=g.id;
+ FOR item IN SELECT value FROM jsonb_array_elements(p_candidates) LOOP
+  IF jsonb_typeof(item) IS DISTINCT FROM 'object' OR coalesce(item->>'date','') !~ '^\d{4}-\d{2}-\d{2}$'
+   OR coalesce(item->>'start_time','') !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+   OR coalesce(item->>'end_time','') !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+   OR coalesce(item->>'time_slot','') NOT IN ('morning','afternoon','evening') THEN
+   RAISE EXCEPTION '候補日時の形式が正しくありません' USING ERRCODE='22023';
+  END IF;
+  candidate_date:=(item->>'date')::date; slot:=item->>'time_slot';
+  slot_label:=CASE slot WHEN 'morning' THEN '午前' WHEN 'afternoon' THEN '午後' ELSE '夜' END;
+  IF EXISTS(SELECT 1 FROM public.private_group_candidate_dates cd WHERE cd.group_id=g.id AND cd.date=candidate_date
+   AND cd.status IS DISTINCT FROM 'rejected' AND cd.time_slot=ANY(CASE slot WHEN 'morning' THEN ARRAY['morning','午前','朝'] WHEN 'afternoon' THEN ARRAY['afternoon','午後','昼'] ELSE ARRAY['evening','夜','夜間'] END)) THEN
+   RAISE EXCEPTION '同じ日付・時間帯の候補は既に追加されています' USING ERRCODE='23505';
+  END IF;
+  -- 締切・募集期間・作品の時間帯・店舗ごとの空き・所要時間を、画面の空き表示と同じ判定で確かめる（グループ作成時と共通）
+  PERFORM public.private_booking_assert_candidate(g.organization_id,p_expected_scenario_id,current_stores,candidate_date,slot,item->>'start_time',item->>'end_time');
+  INSERT INTO public.private_group_candidate_dates(group_id,date,time_slot,start_time,end_time,order_num)
+   VALUES(g.id,candidate_date,CASE WHEN slot='evening' THEN '夜間' ELSE slot_label END,item->>'start_time',item->>'end_time',next_order) RETURNING id INTO candidate_id;
+  ids:=array_append(ids,candidate_id); next_order:=next_order+1;
+  notice_dates:=notice_dates||jsonb_build_array(jsonb_build_object('date',candidate_date,'time_slot',slot_label));
+ END LOOP;
+ SELECT id INTO author_member FROM public.private_group_members WHERE group_id=g.id AND user_id=auth.uid() AND status='joined' ORDER BY id LIMIT 1;
+ INSERT INTO public.private_group_messages(group_id,member_id,message) VALUES(g.id,author_member,
+  jsonb_build_object('type','system','action','candidate_dates_added','count',cardinality(ids),'dates',notice_dates)::text);
+ INSERT INTO public.private_group_candidate_add_requests(request_id,group_id,actor_id,payload,candidate_ids)
+  VALUES(p_request_id,g.id,auth.uid(),payload,ids);
+ RETURN jsonb_build_object('success',true,'candidate_ids',ids,'replayed',false);
+END $function$;
+
+REVOKE ALL ON FUNCTION public.private_group_add_candidate_dates(uuid,uuid,uuid,uuid[],jsonb) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.private_group_add_candidate_dates(uuid,uuid,uuid,uuid[],jsonb) TO authenticated,service_role;
+
+CREATE OR REPLACE FUNCTION public.create_private_group_atomic(p_organization_id uuid, p_scenario_master_id uuid, p_name text DEFAULT NULL::text, p_preferred_store_ids uuid[] DEFAULT '{}'::uuid[], p_candidate_dates jsonb DEFAULT '[]'::jsonb, p_notes text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'extensions'
+AS $function$
+DECLARE
+ v_user uuid:=auth.uid(); v_group public.private_groups; v_member uuid;
+ v_name text; v_settings public.global_settings; v_date jsonb; v_order bigint;
+ v_seen text[]:='{}'; v_slot text; v_key text;
+BEGIN
+ IF v_user IS NULL THEN RAISE EXCEPTION 'ログインが必要です' USING ERRCODE='42501'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM organizations WHERE id=p_organization_id AND is_active IS TRUE) THEN
+  RAISE EXCEPTION '組織情報が取得できません' USING ERRCODE='22023';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM organization_scenarios_with_master
+   WHERE organization_id=p_organization_id AND scenario_master_id=p_scenario_master_id
+   AND player_count_min>=1 AND player_count_max>=player_count_min AND accepts_private_booking IS TRUE) THEN
+  RAISE EXCEPTION 'この作品は現在貸切を受け付けていません' USING ERRCODE='22023';
+ END IF;
+ IF EXISTS(SELECT 1 FROM unnest(coalesce(p_preferred_store_ids,'{}')) s(id)
+   WHERE NOT EXISTS(SELECT 1 FROM stores WHERE stores.id=s.id AND organization_id=p_organization_id AND status='active')) THEN
+  RAISE EXCEPTION '選択した店舗はこの組織で利用できません' USING ERRCODE='22023';
+ END IF;
+ IF p_candidate_dates IS NULL OR jsonb_typeof(p_candidate_dates)<>'array' THEN
+  RAISE EXCEPTION '候補日時の形式が不正です' USING ERRCODE='22023';
+ END IF;
+ IF jsonb_array_length(p_candidate_dates)>100 OR length(coalesce(p_name,''))>200 OR length(coalesce(p_notes,''))>10000 THEN
+  RAISE EXCEPTION '入力が長すぎます' USING ERRCODE='22023';
+ END IF;
+ -- 候補日時は保存前に、候補追加（private_group_add_candidate_dates）と同じ判定で最新の空き状況を確かめる。
+ -- 画面で選んだあとに公演・受付停止・作品の設定が変わっていれば理由付きで弾く（Codex staging 点検 2026-10-15）。
+ FOR v_date IN SELECT value FROM jsonb_array_elements(p_candidate_dates) LOOP
+  IF jsonb_typeof(v_date)<>'object' OR coalesce(v_date->>'time_slot','') NOT IN ('午前','午後','夜間')
+    OR coalesce(v_date->>'date','') !~ '^\d{4}-\d{2}-\d{2}$'
+    OR coalesce(v_date->>'start_time','') !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+    OR coalesce(v_date->>'end_time','') !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' THEN
+   RAISE EXCEPTION '候補日時の形式が不正です' USING ERRCODE='22023';
+  END IF;
+  v_slot:=CASE v_date->>'time_slot' WHEN '午前' THEN 'morning' WHEN '午後' THEN 'afternoon' ELSE 'evening' END;
+  v_key:=(v_date->>'date')||'/'||v_slot;
+  IF v_key=ANY(v_seen) THEN RAISE EXCEPTION '同じ日付・時間帯の候補は既に追加されています' USING ERRCODE='23505'; END IF;
+  v_seen:=v_seen||v_key;
+  PERFORM public.private_booking_assert_candidate(p_organization_id,p_scenario_master_id,coalesce(p_preferred_store_ids,'{}'),
+   (v_date->>'date')::date,v_slot,v_date->>'start_time',v_date->>'end_time');
+ END LOOP;
+ SELECT coalesce(nullif(nickname,''),nullif(name,'')) INTO v_name FROM customers WHERE user_id=v_user ORDER BY id LIMIT 1;
+ SELECT * INTO v_settings FROM global_settings WHERE organization_id=p_organization_id LIMIT 1;
+ INSERT INTO private_groups(organization_id,scenario_master_id,organizer_id,name,invite_code,status,preferred_store_ids,notes)
+ VALUES(p_organization_id,p_scenario_master_id,v_user,nullif(trim(p_name),''),encode(extensions.gen_random_bytes(16),'hex'),'gathering',coalesce(p_preferred_store_ids,'{}'),p_notes)
+ RETURNING * INTO v_group;
+ INSERT INTO private_group_members(group_id,user_id,guest_name,is_organizer,status,joined_at)
+ VALUES(v_group.id,v_user,coalesce(v_name,'主催者'),true,'joined',clock_timestamp()) RETURNING id INTO v_member;
+ FOR v_date,v_order IN SELECT value,ordinality FROM jsonb_array_elements(p_candidate_dates) WITH ORDINALITY LOOP
+  INSERT INTO private_group_candidate_dates(group_id,date,time_slot,start_time,end_time,order_num)
+  VALUES(v_group.id,(v_date->>'date')::date,v_date->>'time_slot',v_date->>'start_time',v_date->>'end_time',coalesce((v_date->>'order_num')::integer,v_order::integer));
+ END LOOP;
+ INSERT INTO private_group_messages(group_id,member_id,message) VALUES(v_group.id,v_member,jsonb_build_object(
+  'type','system','action','group_created','organizerName',coalesce(v_name,'主催者'),
+  'title',coalesce(nullif(v_settings.system_msg_group_created_title,''),'貸切リクエストグループを作成しました'),
+  'body',coalesce(nullif(v_settings.system_msg_group_created_body,''),'招待リンクを共有して、参加メンバーを招待してください。'),
+  'note',coalesce(nullif(v_settings.system_msg_group_created_note,''),'※ 全員を招待していなくても日程確定は可能ですが、当日は参加人数全員でお越しください。'))::text);
+ RETURN to_jsonb(v_group);
+END $function$;
+REVOKE ALL ON FUNCTION public.create_private_group_atomic(uuid,uuid,text,uuid[],jsonb,text) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.create_private_group_atomic(uuid,uuid,text,uuid[],jsonb,text) TO authenticated,service_role;

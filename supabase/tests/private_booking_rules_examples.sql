@@ -41,7 +41,7 @@ CREATE FUNCTION pg_temp.dur(p_minutes integer) RETURNS void LANGUAGE sql AS $$
  WHERE organization_id=(SELECT org FROM _ctx) AND scenario_master_id=(SELECT sm FROM _ctx) $$;
 
 DO $$
-DECLARE c _ctx; one uuid[]; two uuid[]; hours jsonb:='{}'; dname text; msg text; w date;
+DECLARE c _ctx; one uuid[]; two uuid[]; hours jsonb:='{}'; dname text; msg text; w date; created uuid;
 BEGIN
  SELECT * INTO c FROM _ctx; one:=ARRAY[c.st2]; two:=ARRAY[c.st1,c.st2];
  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub','00000000-0000-4000-b000-000000000011','role','authenticated')::text,true);
@@ -179,6 +179,60 @@ BEGIN
  ASSERT msg LIKE '%この作品の開始時刻は 14:30 です%', format('R24: 14:00 の保存が弾かれない（%s）', msg);
  INSERT INTO _rule_rows VALUES('R24',w,'afternoon',false,'14:00',NULL,'fixed_start',msg,false);
  UPDATE organization_scenarios SET private_booking_slot_start_times=NULL WHERE organization_id=c.org AND scenario_master_id=c.sm;
+
+ -- R25〜R26 店舗の特別営業日（I5: 日曜の営業設定と土日祝の作品設定を使う。2026-10-15 Codex staging 点検）
+ -- 平日（月曜）を二号店の特別営業日にする。作品は平日 3 時間・土日祝 4 時間、時間枠は平日 午前・午後／土日祝 午後・夜。
+ w:=pg_temp.day_of(1,16); PERFORM pg_temp.dur(180);
+ UPDATE organization_scenarios SET weekend_duration=240,private_booking_time_slots=ARRAY['午前','午後'],private_booking_time_slots_weekend=ARRAY['午後','夜']
+  WHERE organization_id=c.org AND scenario_master_id=c.sm;
+ UPDATE business_hours_settings SET special_open_days=jsonb_build_array(jsonb_build_object('date',w)) WHERE organization_id=c.org AND store_id=c.st2;
+ -- R25 午前は土日祝の時間枠に無いので選べない／午後は日曜の 14:00 開始・土日祝の 4 時間／夜は土日祝の時間枠で選べる
+ PERFORM pg_temp.check_row('R25',w,one,'morning',false,NULL,NULL,'slot_not_allowed',NULL,false);
+ PERFORM pg_temp.check_row('R25',w,one,'afternoon',true,'14:00','18:00',NULL,NULL,false);
+ PERFORM pg_temp.check_row('R25',w,one,'evening',true,'19:00','23:00',NULL,NULL,false);
+ -- 平日の所要時間（3 時間）で送る古い画面の保存は弾く
+ UPDATE private_groups SET status='gathering',reservation_id=NULL,preferred_store_ids=one WHERE id=c.grp;
+ msg:=NULL;
+ BEGIN
+  PERFORM private_group_add_candidate_dates(c.grp,gen_random_uuid(),c.sm,one,
+   jsonb_build_array(jsonb_build_object('date',w,'time_slot','afternoon','start_time','14:00','end_time','17:00')));
+ EXCEPTION WHEN OTHERS THEN msg:=SQLERRM;
+ END;
+ ASSERT msg LIKE '%公演時間が更新されている%', format('R25: 平日の所要時間での保存が弾かれない（%s）', msg);
+ UPDATE business_hours_settings SET special_open_days=NULL WHERE organization_id=c.org AND store_id=c.st2;
+ -- R26 特別営業日の夜は作品名の特例（19:30）も土日祝の扱い
+ w:=pg_temp.day_of(1,17); PERFORM pg_temp.dur(180);
+ UPDATE organization_scenarios SET override_title='戦塵のレガストリア（試験）' WHERE organization_id=c.org AND scenario_master_id=c.sm;
+ UPDATE business_hours_settings SET special_open_days=jsonb_build_array(jsonb_build_object('date',w)) WHERE organization_id=c.org AND store_id=c.st2;
+ PERFORM pg_temp.check_row('R26',w,one,'evening',true,'19:30','22:30',NULL,NULL,false);
+ UPDATE business_hours_settings SET special_open_days=NULL WHERE organization_id=c.org AND store_id=c.st2;
+
+ -- R27 グループ作成（create_private_group_atomic）でも保存時に最新の空き状況を確かめる（2026-10-15 Codex staging 点検）
+ -- 12:00〜16:30 に公演、所要 3 時間 30 分。画面を開いた後に公演が入った想定で、午後 13:00 開始を送る → 弾く
+ w:=pg_temp.day_of(1,18); PERFORM pg_temp.dur(210); PERFORM pg_temp.ev(c.st2,w,'12:00','16:30');
+ msg:=NULL;
+ BEGIN
+  PERFORM create_private_group_atomic(c.org,c.sm,'規則の例',one,
+   jsonb_build_array(jsonb_build_object('date',w,'time_slot','午後','start_time','13:00','end_time','16:30')),NULL);
+ EXCEPTION WHEN OTHERS THEN msg:=SQLERRM;
+ END;
+ ASSERT msg LIKE '%他の公演と重なります%', format('R27: 重なる候補でグループを作成できた（%s）', msg);
+ INSERT INTO _rule_rows VALUES('R27',w,'afternoon',false,'13:00','16:30','conflict',msg,false);
+ -- 所要時間が合わない（開始は入る）→ 公演時間の更新として弾く
+ msg:=NULL;
+ BEGIN
+  PERFORM create_private_group_atomic(c.org,c.sm,'規則の例',one,
+   jsonb_build_array(jsonb_build_object('date',w,'time_slot','午後','start_time','17:30','end_time','20:30')),NULL);
+ EXCEPTION WHEN OTHERS THEN msg:=SQLERRM;
+ END;
+ ASSERT msg LIKE '%公演時間が更新されている%', format('R27: 所要時間の違う候補でグループを作成できた（%s）', msg);
+ -- 空き状況が返す 17:30〜21:00 なら作成できる
+ created:=(create_private_group_atomic(c.org,c.sm,'規則の例',one,
+   jsonb_build_array(jsonb_build_object('date',w,'time_slot','午後','start_time','17:30','end_time','21:00')),NULL)->>'id')::uuid;
+ ASSERT (SELECT count(*) FROM private_group_candidate_dates cd WHERE cd.group_id=created)=1, 'R27: 空いている候補でグループを作成できない';
+ INSERT INTO _rule_rows VALUES('R27',w,'afternoon',true,'17:30','21:00',NULL,NULL,true);
+ -- 候補なし（日程を決めずに作成）は従来どおり
+ PERFORM create_private_group_atomic(c.org,c.sm,'規則の例','{}'::uuid[],'[]'::jsonb,NULL);
 END $$;
 SELECT no,date,slot,ok,start_time,end_time,reason,detail,adjusted FROM _rule_rows ORDER BY substring(no FROM 2)::integer, date, array_position(ARRAY['morning','afternoon','evening'],slot);
 ROLLBACK;

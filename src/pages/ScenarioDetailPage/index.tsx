@@ -40,7 +40,7 @@ import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptanc
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { scenarioPageDescription, scenarioPageTitle } from '@/lib/seo'
 import { loginUrlWithIntent } from '@/lib/authReturn'
-import { parseStoreIdsParam } from '@/pages/PrivateBookingStart/paths'
+import { parseStoreIdsParam, privateGroupCreatePath } from '@/pages/PrivateBookingStart/paths'
 
 interface ScenarioDetailPageProps {
   scenarioId: string
@@ -153,6 +153,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     isNextMonthDisabled,
     isLoadingEvents,
     isAvailabilityReady,
+    availabilityError,
+    reloadAvailability,
     slotAvailability,
     monthDates: privateDates,
     showMonthOf,
@@ -162,6 +164,12 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     toggleTimeSlot,
     getTimeSlotsForDate
   } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationId, isCustomHoliday, isActive: activeTab === 'private' })
+
+  // 貸切グループ作成へ引き継ぐ希望店舗（どの入口のボタンでも同じ。貸切タブで選んでいる店舗のうち、この作品を受け付ける店舗）
+  const privateStoreIdsForLinks = useMemo(
+    () => selectedStoreIds.filter((id) => availableStores.some((s) => s.id === id)),
+    [selectedStoreIds, availableStores]
+  )
 
   const privateCandidateFees = useMemo(() => scenario ? calculatePrivateCandidateFees(
     scenario.participation_fee, scenario.participation_costs, selectedTimeSlots, isCustomHoliday,
@@ -570,6 +578,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               organizationSlug={organizationSlug}
               stores={stores}
               showPrivateBookingCta={acceptsPrivateBooking}
+              privateBookingStoreIds={privateStoreIdsForLinks}
             />
             
             {/* あらすじ・シナリオ情報 */}
@@ -644,17 +653,14 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       variant="outline"
                       className="w-full gap-2 border-purple-300 text-purple-700 hover:bg-purple-100"
                       onClick={() => {
-                        const params = new URLSearchParams()
-                        const scenarioIdToUse = scenario.scenario_master_id
-                        if (scenarioIdToUse) params.set('scenarioId', scenarioIdToUse)
-                        if (organizationSlug) params.set('org', organizationSlug)
-                        params.set('mode', 'no-dates')
-                        // 貸切を始めるページから来たとき（?stores=）は、いま選んでいる希望店舗をグループ作成の初期値にする
-                        if (new URLSearchParams(window.location.search).has('stores') && selectedStoreIds.length > 0) {
-                          params.set('stores', selectedStoreIds.join(','))
-                        }
-                        const groupCreateUrl = `/group/create?${params.toString()}`
-                        
+                        // いま選んでいる希望店舗をグループ作成の初期値にする（ヒーロー・料金パネルのボタンと同じ。?stores= で来たときもその店舗）
+                        const groupCreateUrl = privateGroupCreatePath({
+                          scenarioMasterId: scenario.scenario_master_id,
+                          organizationSlug,
+                          storeIds: privateStoreIdsForLinks,
+                          noDates: true,
+                        })
+
                         if (!user) {
                           navigate(loginUrlWithIntent('login', groupCreateUrl, `「${scenario.scenario_title}」の貸切グループ作成`))
                           return
@@ -682,6 +688,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     isNextMonthDisabled={isNextMonthDisabled}
                     loading={isLoadingEvents}
                     deadlineDays={privateBookingDeadlineDays}
+                    availabilityError={availabilityError}
+                    onRetryAvailability={reloadAvailability}
                   />
                   
                   {/* 選択された時間枠の表示 */}
@@ -787,6 +795,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                         hasPreReading={scenario.has_pre_reading}
                         scenarioId={scenario.scenario_master_id}
                         organizationSlug={organizationSlug}
+                        preferredStoreIds={privateStoreIdsForLinks}
                       />
                     </div>
                   )

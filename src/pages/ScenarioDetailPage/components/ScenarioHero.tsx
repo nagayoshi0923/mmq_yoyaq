@@ -20,6 +20,7 @@ import { formatDuration, formatPlayerCount } from '../utils/formatters'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { loginUrlWithIntent } from '@/lib/authReturn'
+import { privateGroupCreatePath } from '@/pages/PrivateBookingStart/paths'
 
 // 難易度ラベル
 const DIFFICULTY_LABELS: Record<number, { label: string; color: string }> = {
@@ -42,6 +43,8 @@ interface ScenarioHeroProps {
   organizationSlug?: string
   stores?: Store[]
   showPrivateBookingCta?: boolean
+  /** 貸切タブでいま選んでいる希望店舗。グループ作成ページへ同じ店舗で引き継ぐ */
+  privateBookingStoreIds?: string[]
 }
 
 /**
@@ -53,6 +56,7 @@ export const ScenarioHero = memo(function ScenarioHero({
   organizationSlug,
   stores = [],
   showPrivateBookingCta = true,
+  privateBookingStoreIds = [],
 }: ScenarioHeroProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -98,10 +102,7 @@ export const ScenarioHero = memo(function ScenarioHero({
   }
 
   const handleCreateGroup = () => {
-    const params = new URLSearchParams()
-    params.set('scenarioId', scenario.scenario_master_id)
-    if (organizationSlug) params.set('org', organizationSlug)
-    const groupCreateUrl = `/group/create?${params.toString()}`
+    const groupCreateUrl = privateGroupCreatePath({ scenarioMasterId: scenario.scenario_master_id, organizationSlug, storeIds: privateBookingStoreIds })
     // 未ログインなら押した時点でログインへ（戻り先付き。行き止まりの画面に送らない。点検 3）
     if (!user) {
       navigate(loginUrlWithIntent('login', groupCreateUrl, `「${scenario.scenario_title}」の貸切リクエスト`))
