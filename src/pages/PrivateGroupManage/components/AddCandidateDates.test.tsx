@@ -9,11 +9,11 @@ vi.mock('@/utils/logger', () => ({ logger: { error: vi.fn() } }))
 vi.mock('@/utils/toast', () => ({ showToast: { error: mocks.toast } }))
 vi.mock('@/hooks/useCustomHolidays', () => ({ useCustomHolidays: (options: unknown) => { mocks.holiday(options); return mocks.holidayState } }))
 vi.mock('@/hooks/usePrivateBookingDeadlineDays', () => ({ DEFAULT_PRIVATE_BOOKING_DEADLINE_DAYS: 0, usePrivateBookingDeadlineState: () => ({ days: 0, loading: false }) }))
-vi.mock('@/hooks/usePrivateBookingSlotData', () => {
- const slot = { key: 'afternoon', label: '午後', startTime: '13:00', endTime: '16:00' }
- const stable = { loading: false, scenarioTiming: { duration: 180, weekend_duration: null }, blockedSlots: [], computeSlotsByDate: (dates: string[]) => Object.fromEntries(dates.map(date => [date,[slot]])), isCandidateBlockedOnAllStores: () => false }
- return { usePrivateBookingSlotData: () => stable }
+vi.mock('@/hooks/useCandidateSlotAvailability', () => {
+ const stable = { availability: { slotsByDate: {}, unavailableReasons: {} }, loading: false, ready: true, error: null, reload: () => {} }
+ return { useCandidateSlotAvailability: () => stable }
 })
+vi.mock('@/hooks/useScenarioStoreHint', () => ({ useScenarioStoreHint: () => null }))
 vi.mock('@/components/private-booking/PrivateBookingSlotGrid', () => ({ PrivateBookingSlotGrid: (props: { availableDates: string[]; onSlotToggle: (date: string, slot: unknown) => void }) => <button onClick={() => props.onSlotToggle(props.availableDates[0], { key: 'afternoon', label: '午後', startTime: '13:00', endTime: '16:00' })}>テスト候補</button> }))
 let root: Root
 let container: HTMLDivElement

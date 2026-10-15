@@ -1,4 +1,3 @@
-import { parseScenarioSlotStartTimes } from '@/lib/privateBookingSlotStartTimes'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PrivateBookingRequest } from './PrivateBookingRequest/index'
@@ -6,10 +5,11 @@ import { scenarioApi, storeApi } from '@/lib/api'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { logger } from '@/utils/logger'
-import { privateBookingSlotReadApi } from '@/lib/api/scheduleHookReadApi'
-import { privateBookingRequestReadApi } from '@/lib/api/privateBookingRequestReadApi'
-import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
-import { computePrivateBookingSlots } from '@/lib/computePrivateBookingSlots'
+import {
+  availableSlotsForDate,
+  buildCandidateSlotAvailability,
+  fetchCandidateSlotAvailability,
+} from '@/lib/candidateSlotAvailability'
 import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import {
@@ -30,7 +30,7 @@ interface PrivateBookingRequestPageProps {
 export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRequestPageProps) {
   const navigate = useNavigate()
   const { organization } = useOrganization()
-  const { isCustomHoliday, isLoading: customHolidaysLoading } = useCustomHolidays({ organizationSlug })
+  const { isLoading: customHolidaysLoading } = useCustomHolidays({ organizationSlug })
   /** 同一URLでの二重適用防止（クエリが変われば再適用） */
   const urlSlotPrefillAppliedForKeyRef = useRef<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -211,49 +211,22 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
 
     let cancelled = false
     ;(async () => {
-      const { data, error } = await privateBookingSlotReadApi.listBusinessHours(storeIdsForSlots)
-      if (cancelled) return
-      if (error) {
-        logger.error('貸切リクエストページ: 営業時間取得エラー', error)
-        if (!cancelled) applyUrlPrefillSlot([])
-        return
+      // 候補の時刻は DB の空き判定（private_booking_candidate_slot_availability）から取る。
+      // 作品ページ・確認画面の送信前の再検証と同じ判定（仕様の正本: docs/product-spec/貸切受付ルール.md）。
+      let slots: ReturnType<typeof availableSlotsForDate> = []
+      const organizationIdForSlots = scenario.organization_id as string | undefined
+      if (organizationIdForSlots) {
+        try {
+          const rows = await fetchCandidateSlotAvailability(
+            { kind: 'scenario', organizationId: organizationIdForSlots, scenarioId: scenario.id, storeIds: storeIdsForSlots },
+            date,
+            date,
+          )
+          slots = availableSlotsForDate(buildCandidateSlotAvailability(rows), date)
+        } catch (error) {
+          logger.error('貸切リクエストページ: 空き状況取得エラー', error)
+        }
       }
-      const map = new Map<string, BusinessHoursSettingRow>()
-      for (const row of data || []) {
-        map.set(row.store_id as string, row as BusinessHoursSettingRow)
-      }
-
-      // 既存公演を無視すると埋まっている枠が空きに見えるため、貸切確認ページ（PrivateBookingRequest）と
-      // 同じソース・カラム・フィルタで対象日・対象店舗の公演を取得して空き判定に渡す。
-      const { data: eventsData, error: eventsError } = await privateBookingRequestReadApi.listPublicEventsOnDate(storeIdsForSlots, date)
-      if (cancelled) return
-      if (eventsError) {
-        logger.error('貸切リクエストページ: イベント取得エラー', eventsError)
-      }
-      const storeEvents = eventsData || []
-
-      const scenarioDur =
-        typeof scenario.duration === 'number' && scenario.duration > 0 ? scenario.duration : 180
-      const weekendDur =
-        typeof scenario.weekend_duration === 'number' && scenario.weekend_duration > 0
-          ? scenario.weekend_duration
-          : null
-      const slots = computePrivateBookingSlots({
-        date,
-        storeIds: storeIdsForSlots,
-        businessHoursByStore: map,
-        scenarioTiming: { duration: scenarioDur, weekend_duration: weekendDur },
-        allStoreEvents: storeEvents,
-        isCustomHoliday,
-        privateBookingTimeSlots: Array.isArray(scenario.private_booking_time_slots)
-          ? scenario.private_booking_time_slots
-          : undefined,
-        privateBookingTimeSlotsWeekend: Array.isArray(scenario.private_booking_time_slots_weekend)
-          ? scenario.private_booking_time_slots_weekend
-          : null,
-        scenarioTitle: scenario.title,
-        scenarioSlotStartTimes: parseScenarioSlotStartTimes(scenario.private_booking_slot_start_times),
-      })
       if (cancelled) return
       applyUrlPrefillSlot(slots)
     })()
@@ -269,7 +242,6 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     slotParam,
     timeParam,
     storeId,
-    isCustomHoliday,
     customHolidaysLoading,
     urlSlotPrefillKey,
     applyUrlPrefillSlot,

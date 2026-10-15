@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-13T11:25:03.529Z",
+  "captured_at": "2026-10-15T02:27:15.631Z",
   "table_count": 156,
   "function_count": 432,
-  "digest": "d1aa5e4da20c0a60c5313c1d850cfe87e44a9b4e5e3c6eda816016ec2b73422f"
+  "digest": "0c3110f2052184a5e9081d280130d09b51881552658011a3ae927298e9c46cbb"
  },
  "tables": {
   "staff": {
@@ -29294,7 +29294,7 @@
     "service_role=X/postgres"
    ],
    "returns": "TABLE(date date, time_slot text, available boolean, reason text, start_time text, end_time text, detail text, adjusted boolean)",
-   "body_md5": "1b930e5271666b7a2f8e31109654a9d9",
+   "body_md5": "da5d93ad10249c8779011827d7e63f42",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -29459,7 +29459,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "1c42f59cbf5856b479f765512b6ad65d",
+   "body_md5": "d280f4c867d41e407413ac53bedc4c16",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -29647,8 +29647,8 @@
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
-   "returns": "TABLE(store_id uuid, start_min integer, standard_min integer, fits boolean, why text, gap_minutes integer)",
-   "body_md5": "64fd9df42ccb1d30bfa77346731b272f",
+   "returns": "TABLE(store_id uuid, start_min integer, standard_min integer, fits boolean, why text, gap_minutes integer, fixed boolean)",
+   "body_md5": "59d1c52d212e80f7eac677069387a8f4",
    "language": "plpgsql",
    "security_definer": false
   },

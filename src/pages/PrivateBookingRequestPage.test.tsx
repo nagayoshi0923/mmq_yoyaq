@@ -2,13 +2,12 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-const mocks = vi.hoisted(() => ({ scenario: vi.fn(), stores: vi.fn(), compute: vi.fn(), from: vi.fn(), holiday: () => false }))
+const mocks = vi.hoisted(() => ({ scenario: vi.fn(), stores: vi.fn(), rpc: vi.fn(), from: vi.fn(), holiday: () => false }))
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }))
 vi.mock('@/hooks/useOrganization', () => ({ useOrganization: () => ({ organization: { id: 'org', slug: 'test' } }) }))
 vi.mock('@/hooks/useCustomHolidays', () => ({ useCustomHolidays: () => ({ isCustomHoliday: mocks.holiday, isLoading: false }) }))
 vi.mock('@/lib/api', () => ({ scenarioApi: { getById: mocks.scenario }, storeApi: { getAllPublic: mocks.stores } }))
-vi.mock('@/lib/supabase', () => ({ supabase: { from: mocks.from } }))
-vi.mock('@/lib/computePrivateBookingSlots', () => ({ computePrivateBookingSlots: mocks.compute }))
+vi.mock('@/lib/supabase', () => ({ supabase: { from: mocks.from, rpc: mocks.rpc } }))
 vi.mock('@/lib/organization', () => ({ resolveOrganizationFromPathSegment: vi.fn() }))
 vi.mock('./PrivateBookingRequest/index', () => ({ PrivateBookingRequest: (props: any) => <output>{JSON.stringify(props.selectedTimeSlots)}</output> }))
 import { PrivateBookingRequestPage } from './PrivateBookingRequestPage'
@@ -21,7 +20,7 @@ beforeEach(() => {
   window.history.replaceState({}, '', `/test/private-booking-request?scenario=${scenarioId}&store=${storeId}&date=2026-10-19&slot=evening&time=19:30`)
   mocks.scenario.mockResolvedValue({ id: scenarioId, organization_id: 'org', title: 'Fixture', duration: 180, accepts_private_booking: true })
   mocks.stores.mockResolvedValue([{ id: storeId, organization_id: 'org', status: 'active', ownership_type: 'owned' }])
-  mocks.compute.mockReturnValue([])
+  mocks.rpc.mockResolvedValue({ data: [], error: null })
   mocks.from.mockImplementation(() => {
     const query: any = { select: () => query, in: () => query, eq: () => query, then: (resolve: any) => Promise.resolve({ data: [], error: null }).then(resolve) }
     return query
@@ -36,8 +35,8 @@ it('非同期読込後、計算結果が空でもカレンダーの日時を候�
   await act(async () => resolve([{ id: storeId, status: 'active' }]))
   expect(JSON.parse(host.querySelector('output')!.textContent!)).toEqual([{ date: '2026-10-19', slot: { label: '夜', startTime: '19:30', endTime: '19:30' } }])
 })
-it('計算可能な枠は営業時間に合わせた候補を渡す', async () => {
-  mocks.compute.mockReturnValue([{ key: 'evening', label: '夜', startTime: '18:30', endTime: '21:30' }])
+it('DB の空き判定で選べる枠はその時刻で候補を渡す', async () => {
+  mocks.rpc.mockResolvedValue({ data: [{ date: '2026-10-19', time_slot: 'evening', available: true, reason: null, start_time: '18:30', end_time: '21:30' }], error: null })
   await render()
   expect(JSON.parse(host.querySelector('output')!.textContent!)[0].slot.startTime).toBe('18:30')
 })

@@ -1,4 +1,6 @@
-import { memo, type ReactNode } from 'react'
+// 貸切の候補日時の枠表（DB の空き判定の結果をそのまま出す）。
+// 仕様の正本: docs/product-spec/貸切受付ルール.md。変更時は同じ PR で更新。
+import { memo, useState, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
 import type { PrivateBookingSlot } from '@/lib/computePrivateBookingSlots'
@@ -15,7 +17,8 @@ export interface PrivateBookingSlotGridProps {
   selectedSlots: Array<{ date: string; slot: PrivateBookingSlot }>
   onSlotToggle: (date: string, slot: PrivateBookingSlot) => void
   maxSelections: number
-  availabilityMap: Record<string, boolean>
+  /** `${date}-${label}` → 選べない理由（DB の判定結果）。載っていない枠は選べる。灰色の枠を押すと理由を出す */
+  unavailableReasons: Record<string, string>
   /** 保存済み候補は受付停止と区別して表示する。 */
   existingSlotKeys?: ReadonlySet<string>
   isCustomHoliday?: (date: string) => boolean
@@ -41,7 +44,7 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
   selectedSlots,
   onSlotToggle,
   maxSelections,
-  availabilityMap,
+  unavailableReasons,
   existingSlotKeys,
   isCustomHoliday,
   colorScheme = 'red',
@@ -53,6 +56,7 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
   fillContainer = false,
   compact = false,
 }: PrivateBookingSlotGridProps) {
+  const [notice, setNotice] = useState<string | null>(null)
   const selectedCount = selectedSlots.length
   const remainingSelections = maxSelections - selectedCount
 
@@ -128,6 +132,12 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
           <span className="text-orange-600 font-medium">選択上限に達しました（{maxSelections}件）</span>
         )}
       </div>
+
+      {notice && (
+        <p role="status" aria-live="polite" className={`shrink-0 ${smallText} text-center font-medium text-amber-700 ${compact ? 'py-px' : 'mb-2'}`}>
+          {notice}
+        </p>
+      )}
 
       {/* Grid */}
       <div
@@ -228,33 +238,52 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
   function renderSlotCell(slot: PrivateBookingSlot, date: string, tooSoon: boolean) {
     const key = `${date}-${slot.label}`
     const isExisting = existingSlotKeys?.has(key) ?? false
-    const isAvailable = !isExisting && !tooSoon && (availabilityMap[key] ?? true)
+    const reason = unavailableReasons[key]
+    const isAvailable = !isExisting && !tooSoon && !reason && !!slot.startTime
     const isSelected = isSlotSelected(date, slot)
     const canSelect = isAvailable && (isSelected || selectedCount < maxSelections)
+    // 選べない枠は灰色のまま押せる（理由を出すだけ）
+    const explain = !isExisting && !isAvailable ? (reason ?? (tooSoon ? '受付締切を過ぎています' : '選択できません')) : null
+    // 前後の公演から逆算して標準からずらした時刻は「に調整」と添える
+    const adjusted = !isExisting && isAvailable && slot.adjusted === true
+    const timeText = isExisting ? '追加済み' : slot.startTime ? `${slot.startTime}〜${slot.endTime}` : '—'
+    const adjustedNote = adjusted ? <span className={`block ${isSelected ? '' : 'text-amber-700'}`}>に調整</span> : null
+    const handleClick = () => {
+      if (explain) {
+        setNotice(`${date.slice(5).replace('-', '/')} ${slot.label}: ${explain}`)
+        return
+      }
+      if (canSelect) {
+        setNotice(null)
+        onSlotToggle(date, slot)
+      }
+    }
+    const stateClass = isExisting
+      ? 'cursor-not-allowed border-purple-200 bg-purple-50'
+      : !isAvailable
+      ? 'cursor-help border-gray-100 bg-gray-100 text-muted-foreground opacity-60'
+      : isSelected
+      ? selectedBg
+      : canSelect
+      ? hoverBg
+      : 'cursor-not-allowed border-gray-100 bg-gray-50 opacity-50'
+    const ariaLabel = `${date} ${slot.label}${isExisting ? ' 追加済み' : explain ? ` 選択不可（${explain}）` : adjusted ? ` ${timeText} に調整` : ''}`
 
     if (compact) {
       return (
         <button
           key={slot.label}
           type="button"
-          className={`flex-1 rounded border px-1 py-1.5 text-center leading-tight transition-colors sm:px-1 sm:py-2 ${
-            isExisting
-              ? 'cursor-not-allowed border-purple-200 bg-purple-50'
-              : !isAvailable
-              ? 'cursor-not-allowed border-gray-100 bg-gray-100 opacity-50'
-              : isSelected
-              ? selectedBg
-              : canSelect
-              ? hoverBg
-              : 'cursor-not-allowed border-gray-100 bg-gray-50 opacity-50'
-          }`}
-          aria-label={`${date} ${slot.label}${isExisting ? " 追加済み" : !isAvailable ? " 選択不可" : ""}`}
-          disabled={!canSelect}
-          onClick={() => canSelect && onSlotToggle(date, slot)}
+          className={`flex-1 rounded border px-1 py-1.5 text-center leading-tight transition-colors sm:px-1 sm:py-2 ${stateClass}`}
+          aria-label={ariaLabel}
+          aria-disabled={!canSelect}
+          disabled={isExisting || (!explain && !canSelect)}
+          onClick={handleClick}
         >
           <div className="text-[11px] font-medium sm:text-xs">{slot.label}</div>
           <div className={`mt-0.5 text-[8px] leading-snug sm:text-[9px] ${isSelected ? selectedTimeColor : 'text-muted-foreground'}`}>
-            {isExisting ? "追加済み" : `${slot.startTime}〜${slot.endTime}`}
+            {timeText}
+            {adjustedNote}
           </div>
         </button>
       )
@@ -263,24 +292,17 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
     return (
       <button
         key={slot.label}
-        className={`flex-1 py-1 px-1 border text-center transition-colors ${
-          isExisting
-            ? 'border-purple-200 bg-purple-50 cursor-not-allowed'
-            : !isAvailable
-            ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
-            : isSelected
-            ? selectedBg
-            : canSelect
-            ? hoverBg
-            : 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
-        }`}
-        aria-label={`${date} ${slot.label}${isExisting ? " 追加済み" : !isAvailable ? " 選択不可" : ""}`}
-        disabled={!canSelect}
-        onClick={() => canSelect && onSlotToggle(date, slot)}
+        type="button"
+        className={`flex-1 py-1 px-1 border text-center transition-colors ${stateClass}`}
+        aria-label={ariaLabel}
+        aria-disabled={!canSelect}
+        disabled={isExisting || (!explain && !canSelect)}
+        onClick={handleClick}
       >
         <div className="text-xs font-medium">{slot.label}</div>
         <div className={`text-[10px] ${isSelected ? selectedTimeColor : 'opacity-70'}`}>
-          {isExisting ? "追加済み" : `${slot.startTime}〜${slot.endTime}`}
+          {timeText}
+          {adjustedNote}
         </div>
       </button>
     )
