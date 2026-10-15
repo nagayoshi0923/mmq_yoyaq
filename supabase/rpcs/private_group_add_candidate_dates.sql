@@ -13,7 +13,7 @@ DECLARE
  current_stores uuid[]; expected_stores uuid[]; payload jsonb; item jsonb; ids uuid[]:='{}'; candidate_id uuid;
  candidate_date date; v_start_at timestamp; v_end_at timestamp; slot text; slot_label text;
  minutes integer; start_min integer; end_min integer; next_order integer; res_status text;
- holiday boolean; custom_holidays jsonb; valid_store boolean; why text; max_gap integer; has_store boolean; author_member uuid; notice_dates jsonb:='[]';
+ holiday boolean; custom_holidays jsonb; valid_store boolean; why text; max_gap integer; fixed_start integer; has_store boolean; author_member uuid; notice_dates jsonb:='[]';
 BEGIN
  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'ログインしてください' USING ERRCODE='42501'; END IF;
  -- 他の予約処理が予約→グループ順にロックする場合は待ち合わせず再読込を促す。
@@ -83,9 +83,11 @@ BEGIN
   -- 1つの店舗で、画面が返した開始時刻が前後の公演・受付停止・営業時間の隙間に収まること。他店の条件を混ぜない。
   -- 判定は画面の空き表示（private_booking_candidate_slot_availability）と同じ関数を使う。
   SELECT coalesce(bool_or(c.fits),false),
-   CASE WHEN bool_or(c.why='conflict') THEN 'conflict' WHEN bool_or(c.why='blocked') THEN 'blocked' ELSE 'closed' END,
-   max(c.gap_minutes) FILTER (WHERE c.why='conflict')
-   INTO valid_store, why, max_gap
+   CASE WHEN bool_or(c.why='fixed_start') THEN 'fixed_start' WHEN bool_or(c.why='conflict') THEN 'conflict' WHEN bool_or(c.why='blocked') THEN 'blocked' ELSE 'closed' END,
+   max(c.gap_minutes) FILTER (WHERE c.why='conflict'),
+   -- 作品の開始時刻が決まっている枠（2026-10-15 社長決定: ずらさない）
+   min(c.standard_min) FILTER (WHERE c.fixed)
+   INTO valid_store, why, max_gap, fixed_start
   FROM public.private_booking_slot_store_fit(g.organization_id,p_expected_scenario_id,sc.title,sc.available_stores,sc.private_booking_slot_start_times,
    current_stores,candidate_date,holiday,minutes,slot,start_min) c;
   IF NOT valid_store THEN
@@ -94,7 +96,10 @@ BEGIN
     AND CASE WHEN coalesce(cardinality(sc.available_stores),0)>0 THEN s.id::text=ANY(sc.available_stores) ELSE NOT coalesce(s.is_temporary,false) END) INTO has_store;
    RAISE EXCEPTION '選択した候補日時は現在受付できません（%/% %: %）。空き状況を更新して選び直してください',
     extract(month FROM candidate_date),extract(day FROM candidate_date),slot_label,
-    CASE WHEN NOT has_store THEN 'この作品を上演できる店舗が希望店舗にありません' WHEN why='conflict' THEN '他の公演と重なります'||CASE WHEN max_gap>0 AND max_gap<minutes THEN '（空き '||public.private_booking_minutes_text(max_gap)||'・必要 '||public.private_booking_minutes_text(minutes)||'）' ELSE '' END
+    CASE WHEN NOT has_store THEN 'この作品を上演できる店舗が希望店舗にありません'
+     WHEN why='fixed_start' THEN 'この作品の開始時刻は '||to_char(make_time(fixed_start/60,fixed_start%60,0),'HH24:MI')||' です'
+     WHEN why='conflict' AND fixed_start IS NOT NULL THEN 'この作品の開始時刻 '||to_char(make_time(fixed_start/60,fixed_start%60,0),'HH24:MI')||' では前後の公演と重なります'
+     WHEN why='conflict' THEN '他の公演と重なります'||CASE WHEN max_gap>0 AND max_gap<minutes THEN '（空き '||public.private_booking_minutes_text(max_gap)||'・必要 '||public.private_booking_minutes_text(minutes)||'）' ELSE '' END
      WHEN why='blocked' THEN '受付停止中です' ELSE '営業時間外です' END
     USING ERRCODE='22023';
   END IF;

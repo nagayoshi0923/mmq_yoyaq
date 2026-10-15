@@ -8,12 +8,16 @@
 --    枠に属する条件は「公演が枠の時間帯（標準開始〜枠の終わり）と重なり、枠の終わりより前に始まる」こと。終了は閉店（最大 23:00）まで。
 --    開始時刻は標準開始（作品・店舗の設定後）が入ればそれ、入らなければ標準に最も近い時刻（15 分刻み）。
 --    例: 夜 19:00 標準・所要 5 時間・閉店 23:00 で前に公演が無ければ 18:00 に繰り上げる（旧「1380−所要時間」の特例と同じ結果）。
+--    ただし作品にその枠の貸切開始時刻（organization_scenarios.private_booking_slot_start_times）があれば、その時刻を絶対とし、
+--    入らなければずらさずに選べないとする（2026-10-15 社長決定。fixed=true）。
 -- 2) private_booking_candidate_slot_availability: 作品ページ（グループ作成前）用。組織・作品・希望店舗・期間で返す。
 -- 3) private_group_candidate_slot_availability: グループ用。参加者（会員・ゲスト）とスタッフだけ呼べる。2) を内部で使う。
 -- reason: no_store_for_scenario（この作品を上演できる希望店舗がない）/ conflict（他の公演と重なる）/ blocked（受付停止）/
 --         closed（営業時間外）/ slot_not_allowed（この作品で選べない時間帯）/ past_deadline（受付締切後）/
---         not_recruiting（募集期間外）/ outside_period（公演期間外）/ already_added（追加済み、グループ用のみ）
--- detail: conflict で隙間はあるが所要時間が入らないとき「空き 2 時間・必要 5 時間」。adjusted: 標準開始からずらした時刻。
+--         not_recruiting（募集期間外）/ outside_period（公演期間外）/ already_added（追加済み、グループ用のみ）/
+--         start_fixed（作品の開始時刻が決まっていて、その時刻では前後の公演と重なる）
+-- detail: conflict で隙間はあるが所要時間が入らないとき「空き 2 時間・必要 5 時間」。
+--         start_fixed のとき「この作品の開始時刻 14:30 では前後の公演と重なります」。adjusted: 標準開始からずらした時刻。
 
 -- 分を「2 時間」「1 時間 30 分」「45 分」にする
 CREATE OR REPLACE FUNCTION public.private_booking_minutes_text(p_minutes integer)
@@ -44,10 +48,12 @@ GRANT EXECUTE ON FUNCTION public.private_booking_pick_start(int4multirange,integ
 CREATE OR REPLACE FUNCTION public.private_booking_slot_store_fit(
  p_org uuid, p_scenario_id uuid, p_title text, p_available_stores text[], p_slot_start_times jsonb,
  p_store_ids uuid[], p_date date, p_holiday boolean, p_minutes integer, p_slot text, p_start_min integer
-) RETURNS TABLE(store_id uuid, start_min integer, standard_min integer, fits boolean, why text, gap_minutes integer)
+) RETURNS TABLE(store_id uuid, start_min integer, standard_min integer, fits boolean, why text, gap_minutes integer, fixed boolean)
 LANGUAGE plpgsql STABLE SET search_path TO 'public', 'pg_temp'
 AS $function$
  -- p_start_min を渡すとその開始時刻で判定する（保存時）。NULL なら店舗ごとに開始時刻を選ぶ（表示時）。
+ -- fixed: 作品にこの枠の貸切開始時刻がある（2026-10-15 社長決定: その時刻を絶対とし、ずらさない）。
+ --   表示時は標準開始（＝作品の開始時刻）だけを試し、保存時は標準開始以外を why=fixed_start で弾く。
  -- fits: すべての占有を除いて入る。why（入らないとき）: closed=営業時間だけで入らない /
  --   conflict=受付停止を無視しても公演と重なって入らない / blocked=それ以外（受付停止・募集停止のために入らない）。
  -- gap_minutes: すべての占有を除いた隙間のうち、この枠の時間帯にかかる隙間の最大長（理由の補足用）。
@@ -56,6 +62,7 @@ DECLARE
  st record; eff jsonb; slots jsonb; band record; day_open integer; lb integer; prep integer; special boolean;
  free_hours int4multirange; free_unblocked int4multirange; free_events int4multirange; free_all int4multirange;
  occ int4multirange; cand int4range; hours_ok boolean; unblocked_ok boolean; events_ok boolean;
+ weekend boolean; lo integer; hi_excl integer;
 BEGIN
  special:=p_slot='evening' AND p_holiday AND (p_title LIKE '%戦塵のレガストリア%' OR p_title LIKE '%BeatSpecter%');
  FOR st IN SELECT s.id, to_jsonb(h) AS hours FROM public.stores s
@@ -65,11 +72,14 @@ BEGIN
    AND CASE WHEN coalesce(cardinality(p_available_stores),0)>0 THEN s.id::text=ANY(p_available_stores) ELSE NOT coalesce(s.is_temporary,false) END
   ORDER BY s.id
  LOOP
-  store_id:=st.id; start_min:=NULL; standard_min:=NULL; fits:=false; why:='closed'; gap_minutes:=NULL;
+  store_id:=st.id; start_min:=NULL; standard_min:=NULL; fits:=false; why:='closed'; gap_minutes:=NULL; fixed:=false;
   hours_ok:=false; unblocked_ok:=false; events_ok:=false;
   -- 作品ごとの開始時刻を店舗の開始時刻へ上書きする（店舗の特別営業日は土日祝の値、#698）
-  eff:=public.apply_scenario_slot_start_times(st.hours,p_slot_start_times,
-   p_holiday OR EXISTS(SELECT 1 FROM jsonb_array_elements(coalesce(nullif(st.hours->'special_open_days','null'::jsonb),'[]'::jsonb)) d WHERE d->>'date'=p_date::text));
+  weekend:=p_holiday OR EXISTS(SELECT 1 FROM jsonb_array_elements(coalesce(nullif(st.hours->'special_open_days','null'::jsonb),'[]'::jsonb)) d WHERE d->>'date'=p_date::text);
+  eff:=public.apply_scenario_slot_start_times(st.hours,p_slot_start_times,weekend);
+  -- 作品にこの枠の開始時刻があるか（apply_scenario_slot_start_times と同じ読み方）
+  fixed:=jsonb_typeof(p_slot_start_times)='object'
+   AND left(btrim(coalesce(p_slot_start_times->(CASE WHEN weekend THEN 'weekend' ELSE 'weekday' END)->>p_slot,'')),5) ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$';
   SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]'::jsonb) INTO slots FROM public.private_booking_store_day_slots(p_date,eff,p_holiday,cardinality(p_store_ids)=1) x;
   SELECT (x->>'start_minutes')::integer AS start_minutes,(x->>'end_minutes')::integer AS end_minutes,(x->>'closing_minutes')::integer AS closing_minutes
    INTO band FROM jsonb_array_elements(slots) x WHERE x->>'slot_key'=p_slot;
@@ -102,20 +112,24 @@ BEGIN
   free_events:=free_hours-coalesce(occ,'{}'::int4multirange);
   free_all:=free_unblocked-coalesce(occ,'{}'::int4multirange);
   SELECT max(upper(g)-lower(g)) INTO gap_minutes FROM unnest(free_all) g WHERE lower(g)<band.end_minutes AND upper(g)>band.start_minutes;
+  -- 開始時刻を探す範囲。作品の開始時刻があれば標準開始の 1 点だけ（ずらさない）
+  lo:=CASE WHEN fixed THEN standard_min ELSE lb END;
+  hi_excl:=CASE WHEN fixed THEN standard_min+1 ELSE band.end_minutes END;
   IF p_start_min IS NOT NULL THEN
-   IF p_start_min>=lb AND p_start_min<band.end_minutes THEN
+   IF p_start_min>=lo AND p_start_min<hi_excl THEN
     cand:=int4range(p_start_min,p_start_min+p_minutes);
     hours_ok:=free_hours@>cand; unblocked_ok:=free_unblocked@>cand; events_ok:=free_events@>cand; fits:=free_all@>cand;
    END IF;
    IF fits THEN start_min:=p_start_min; END IF;
   ELSE
-   hours_ok:=public.private_booking_pick_start(free_hours,p_minutes,lb,band.end_minutes,standard_min) IS NOT NULL;
-   unblocked_ok:=public.private_booking_pick_start(free_unblocked,p_minutes,lb,band.end_minutes,standard_min) IS NOT NULL;
-   events_ok:=public.private_booking_pick_start(free_events,p_minutes,lb,band.end_minutes,standard_min) IS NOT NULL;
-   start_min:=public.private_booking_pick_start(free_all,p_minutes,lb,band.end_minutes,standard_min);
+   hours_ok:=public.private_booking_pick_start(free_hours,p_minutes,lo,hi_excl,standard_min) IS NOT NULL;
+   unblocked_ok:=public.private_booking_pick_start(free_unblocked,p_minutes,lo,hi_excl,standard_min) IS NOT NULL;
+   events_ok:=public.private_booking_pick_start(free_events,p_minutes,lo,hi_excl,standard_min) IS NOT NULL;
+   start_min:=public.private_booking_pick_start(free_all,p_minutes,lo,hi_excl,standard_min);
    fits:=start_min IS NOT NULL;
   END IF;
-  why:=CASE WHEN fits THEN NULL WHEN NOT hours_ok THEN 'closed' WHEN unblocked_ok AND NOT events_ok THEN 'conflict' ELSE 'blocked' END;
+  why:=CASE WHEN fits THEN NULL WHEN fixed AND p_start_min IS NOT NULL AND p_start_min<>standard_min THEN 'fixed_start'
+   WHEN NOT hours_ok THEN 'closed' WHEN unblocked_ok AND NOT events_ok THEN 'conflict' ELSE 'blocked' END;
   RETURN NEXT;
  END LOOP;
 END $function$;
@@ -135,7 +149,7 @@ AS $function$
 DECLARE
  sc record; v_stores uuid[]; custom_holidays jsonb; d date; slot text; holiday boolean; minutes integer;
  day_reason text; has_store boolean; best_std integer; best_any integer; best integer; why text;
- max_gap integer; allowed text[];
+ max_gap integer; allowed text[]; fixed_start integer;
 BEGIN
  IF p_organization_id IS NULL OR p_scenario_id IS NULL OR p_from IS NULL OR p_to IS NULL OR p_from>p_to OR p_to-p_from>62
   OR coalesce(cardinality(p_store_ids),0)>50 OR array_position(p_store_ids,NULL) IS NOT NULL THEN
@@ -178,8 +192,10 @@ BEGIN
     SELECT min(c.start_min) FILTER (WHERE c.fits AND c.start_min=c.standard_min), min(c.start_min) FILTER (WHERE c.fits),
      -- 理由は店舗ごとの理由のうち conflict → blocked → closed の順に採る
      CASE WHEN bool_or(c.why='conflict') THEN 'conflict' WHEN bool_or(c.why='blocked') THEN 'blocked' ELSE 'closed' END,
-     max(c.gap_minutes) FILTER (WHERE c.why='conflict')
-     INTO best_std, best_any, why, max_gap
+     max(c.gap_minutes) FILTER (WHERE c.why='conflict'),
+     -- 作品の開始時刻が決まっていて公演と重なった店舗の開始時刻（2026-10-15 社長決定）
+     min(c.standard_min) FILTER (WHERE c.why='conflict' AND c.fixed)
+     INTO best_std, best_any, why, max_gap, fixed_start
     FROM public.private_booking_slot_store_fit(p_organization_id,p_scenario_id,sc.title,sc.available_stores,sc.private_booking_slot_start_times,
      v_stores,d,holiday,minutes,slot,NULL) c;
     best:=coalesce(best_std,best_any);
@@ -188,7 +204,10 @@ BEGIN
      start_time:=to_char(make_time(best/60,best%60,0),'HH24:MI'); end_time:=to_char(make_time((best+minutes)/60,(best+minutes)%60,0),'HH24:MI');
     ELSE
      reason:=why;
-     IF reason='conflict' AND max_gap>0 AND max_gap<minutes THEN
+     IF reason='conflict' AND fixed_start IS NOT NULL THEN
+      reason:='start_fixed';
+      detail:='この作品の開始時刻 '||to_char(make_time(fixed_start/60,fixed_start%60,0),'HH24:MI')||' では前後の公演と重なります';
+     ELSIF reason='conflict' AND max_gap>0 AND max_gap<minutes THEN
       detail:='空き '||public.private_booking_minutes_text(max_gap)||'・必要 '||public.private_booking_minutes_text(minutes);
      END IF;
     END IF;
