@@ -3,7 +3,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-const mocks = vi.hoisted(() => ({ days: 90, rpc: vi.fn(), from: vi.fn(), submit: vi.fn(), create: vi.fn(), compute: vi.fn(), holiday: () => false }))
+const mocks = vi.hoisted(() => ({ days: 90, rpc: vi.fn(), from: vi.fn(), submit: vi.fn(), create: vi.fn(), blocked: vi.fn(), holiday: () => false }))
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }))
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'user', email: 'fixture@example.invalid' } }) }))
 vi.mock('@/components/layout/Header', () => ({ Header: () => null }))
@@ -16,7 +16,6 @@ vi.mock('./hooks/usePrivateBookingSubmit', () => ({ usePrivateBookingSubmit: () 
 vi.mock('../BookingConfirmation/hooks/useCustomerData', () => ({ useCustomerData: () => ({ customerName: 'Fixture', customerEmail: 'fixture@example.invalid', customerPhone: '00000000000', customerNickname: '', setCustomerName: vi.fn(), setCustomerEmail: vi.fn(), setCustomerPhone: vi.fn(), setCustomerNickname: vi.fn() }) }))
 vi.mock('@/lib/organization', () => ({ resolveOrgIdFromPageContext: async () => 'org' }))
 vi.mock('@/lib/supabase', () => ({ supabase: { from: mocks.from, rpc: mocks.rpc } }))
-vi.mock('@/lib/computePrivateBookingSlots', () => ({ computePrivateBookingSlots: mocks.compute }))
 import { PrivateBookingRequest } from './index'
 let root: Root, host: HTMLDivElement, client: QueryClient
 const date = new Date(Date.now() + 30 * 86400000).toISOString().slice(0,10)
@@ -25,8 +24,11 @@ async function render() { await act(async () => root.render(<QueryClientProvider
 async function flush() { await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)) }) }
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); vi.clearAllMocks(); mocks.days = 90
-  mocks.compute.mockReturnValue([{ key: 'evening', label: '夜', startTime: '19:00', endTime: '22:00' }])
-  mocks.rpc.mockImplementation(async (_name, params) => ({ data: params.p_start_date <= date ? [{ date, store_id: 'store', time_slot: 'evening' }] : [], error: null }))
+  mocks.blocked.mockImplementation(async (params: any) => ({ data: params.p_start_date <= date ? [{ date, store_id: 'store', time_slot: 'evening' }] : [], error: null }))
+  // 候補日時の空き判定は DB（夜は 19:00 開始）、受付停止の表示は従来の RPC
+  mocks.rpc.mockImplementation(async (name: string, params: any) => name === 'private_booking_candidate_slot_availability'
+    ? { data: [{ date: params.p_from, time_slot: 'evening', available: true, reason: null, start_time: '19:00', end_time: '22:00' }], error: null }
+    : mocks.blocked(params))
   mocks.from.mockImplementation(() => {
     const query: any = { select: () => query, in: () => query, eq: () => query, filter: () => query, gte: () => query, lte: () => query, then: (resolve: any) => Promise.resolve({ data: [], error: null }).then(resolve) }; return query
   })
@@ -35,14 +37,14 @@ beforeEach(() => {
 })
 afterEach(async () => { await act(async () => root.unmount()); client.clear(); host.remove() })
 it('締切読み込みが90日→14日へ変わると停止枠を取り直し、送信ボタンを無効化する', async () => {
-  await render(); expect(mocks.rpc).toHaveBeenCalledTimes(1)
+  await render(); expect(mocks.blocked).toHaveBeenCalledTimes(1)
   mocks.days = 14; await render()
-  expect(mocks.rpc).toHaveBeenCalledTimes(2)
+  expect(mocks.blocked).toHaveBeenCalledTimes(2)
   const button = [...host.querySelectorAll('button')].find(button => button.textContent?.includes('受付停止中の候補を再選択'))
   expect(button?.disabled).toBe(true)
 })
 it('最新時刻が違う場合は画面へ反映して再確認を促し、グループも予約も作らない', async () => {
-  mocks.days = 14; mocks.rpc.mockResolvedValue({ data: [], error: null })
+  mocks.days = 14; mocks.blocked.mockResolvedValue({ data: [], error: null })
   await render()
   const button = [...host.querySelectorAll('button')].find(button => button.textContent?.includes('貸切リクエストを送信'))!
   await act(async () => button.click()); await flush()

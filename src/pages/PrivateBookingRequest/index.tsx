@@ -1,4 +1,3 @@
-import { parseScenarioSlotStartTimes } from '@/lib/privateBookingSlotStartTimes'
 import { reconcilePrivateBookingCandidates } from '@/lib/reconcilePrivateBookingCandidates'
 import { calculatePrivateCandidateFees } from '../ScenarioDetailPage/utils/pricingUtils'
 import { useState, useMemo, useCallback, useEffect } from 'react'
@@ -27,11 +26,15 @@ import { privateCancelNoticeText } from '@/lib/privateCancelNotice'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { usePrivateBookingDeadlineDays } from '@/hooks/usePrivateBookingDeadlineDays'
 import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
-import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
-import { computePrivateBookingSlots } from '@/lib/computePrivateBookingSlots'
 import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
 import { privateBookingSlotReadApi } from '@/lib/api/scheduleHookReadApi'
-import { privateBookingRequestReadApi } from '@/lib/api/privateBookingRequestReadApi'
+import { useCandidateSlotAvailability } from '@/hooks/useCandidateSlotAvailability'
+import {
+  availableSlotsForDate,
+  buildCandidateSlotAvailability,
+  fetchCandidateSlotAvailability,
+  type CandidateSlotAvailabilityTarget,
+} from '@/lib/candidateSlotAvailability'
 import { toast } from 'sonner'
 import type { PrivateBookingRequestProps, TimeSlot } from './types'
 import {
@@ -66,9 +69,6 @@ export function PrivateBookingRequest({
   selectedStoreIds: initialStoreIds,
   stores,
   scenarioAvailableStores,
-  privateBookingTimeSlots,
-  privateBookingTimeSlotsWeekend,
-  scenarioSlotStartTimes: scenarioSlotStartTimesRaw,
   organizationSlug,
   groupId,
   onBack,
@@ -79,12 +79,6 @@ export function PrivateBookingRequest({
   const { createGroup, loading: groupLoading } = usePrivateGroup()
   
   const { isCustomHoliday } = useCustomHolidays({ organizationSlug })
-
-  // 作品ごとの貸切開始時刻（元の値が変わったときだけ読み直す）
-  const scenarioSlotStartTimes = useMemo(
-    () => parseScenarioSlotStartTimes(scenarioSlotStartTimesRaw),
-    [scenarioSlotStartTimesRaw]
-  )
 
   const scenarioTiming = useMemo(
     () => ({
@@ -179,32 +173,18 @@ export function PrivateBookingRequest({
 
   const storeIdsKey = storeIdsForSlotResolution.join(',')
 
-  const { data: businessHoursData, refetch: refetchBusinessHours } = useQuery({
-    queryKey: ['private-booking-request', 'business-hours', storeIdsKey],
-    enabled: storeIdsForSlotResolution.length > 0,
-    queryFn: async () => {
-      const { data, error } = await privateBookingSlotReadApi.listBusinessHours(storeIdsForSlotResolution)
-      if (error) { logger.error('貸切確認: 営業時間取得エラー', error); throw error }
-      const map = new Map<string, BusinessHoursSettingRow>()
-      for (const row of data || []) map.set(row.store_id as string, row as BusinessHoursSettingRow)
-      return map
-    },
+  // 候補日時の空き判定は DB（private_booking_candidate_slot_availability）だけで行う。
+  // 作品ページの申込フォーム・グループの候補日追加と同じ判定（仕様の正本: docs/product-spec/貸切受付ルール.md）。
+  const { data: slotOrganizationId = null } = useQuery({
+    queryKey: ['private-booking-request', 'organization-id', organizationSlug],
+    queryFn: async () => (await resolveOrgIdFromPageContext()) ?? null,
   })
-  const businessHoursByStore = businessHoursData ?? new Map<string, BusinessHoursSettingRow>()
-
-  const { data: storeEvents = [], refetch: refetchStoreEvents } = useQuery({
-    queryKey: ['private-booking-request', 'store-events', storeIdsKey],
-    enabled: storeIdsForSlotResolution.length > 0,
-    queryFn: async () => {
-      const organizationId = await resolveOrgIdFromPageContext()
-      if (!organizationId) return []
-      const today = new Date()
-      const windowEnd = new Date(today.getTime() + 180 * 24 * 60 * 60 * 1000)
-      const { data, error } = await privateBookingRequestReadApi.listAvailabilityEventsForSlots(organizationId, storeIdsForSlotResolution, toJstYmd(new Date(today.getTime() - 2 * 86400000)), toJstYmd(new Date(windowEnd.getTime() + 2 * 86400000)))
-      if (error) { logger.error('貸切確認: イベント取得エラー', error); throw error }
-      return data || []
-    },
-  })
+  const availabilityTarget = useMemo<CandidateSlotAvailabilityTarget | null>(
+    () => slotOrganizationId && scenarioId && storeIdsKey
+      ? { kind: 'scenario', organizationId: slotOrganizationId, scenarioId, storeIds: storeIdsKey.split(',') }
+      : null,
+    [slotOrganizationId, scenarioId, storeIdsKey]
+  )
 
   const {
     data: blockedSlotRows = [],
@@ -241,34 +221,20 @@ export function PrivateBookingRequest({
   )
 
   const pickerDate = newDate || dateRange.minDate
-  const candidateSlotsForPicker = useMemo(() => {
-    if (storeIdsForSlotResolution.length === 0) return []
-    return computePrivateBookingSlots({
-      date: pickerDate,
-      storeIds: storeIdsForSlotResolution,
-      businessHoursByStore,
-      blockedSlots: blockedSlotRows,
-      scenarioTiming,
-      allStoreEvents: storeEvents,
-      isCustomHoliday,
-      privateBookingTimeSlots,
-      privateBookingTimeSlotsWeekend,
-      scenarioTitle,
-      scenarioSlotStartTimes,
-    })
-  }, [
-    pickerDate,
-    storeIdsForSlotResolution,
-    businessHoursByStore,
-    blockedSlotRows,
-    scenarioTiming,
-    storeEvents,
-    isCustomHoliday,
-    privateBookingTimeSlots,
-    privateBookingTimeSlotsWeekend,
-    scenarioTitle,
-    scenarioSlotStartTimes,
-  ])
+  const pickerDates = useMemo(() => (pickerDate ? [pickerDate] : []), [pickerDate])
+  const { availability: pickerAvailability } = useCandidateSlotAvailability(availabilityTarget, pickerDates)
+  const candidateSlotsForPicker = useMemo(
+    () => availableSlotsForDate(pickerAvailability, pickerDate).map((slot) => ({ ...slot, endTime: enrichSlotEnd(pickerDate, slot).endTime })),
+    [pickerAvailability, pickerDate, enrichSlotEnd]
+  )
+
+  /** 送信前の再検証用: 候補の日付ごとに DB の最新の空き状況を読む（1 回の問い合わせは 62 日までなので日付ごと） */
+  const loadLatestAvailableSlots = useCallback(async (dates: string[]) => {
+    if (!availabilityTarget) throw new Error('空き状況を確認できません。時間をおいて開き直してください。')
+    const unique = [...new Set(dates)]
+    const rows = (await Promise.all(unique.map((d) => fetchCandidateSlotAvailability(availabilityTarget, d, d)))).flat()
+    return buildCandidateSlotAvailability(rows)
+  }, [availabilityTarget])
 
   const handleAddTimeSlot = () => {
     if (!newDate || !newSlotLabel) return
@@ -276,20 +242,9 @@ export function PrivateBookingRequest({
       toast.error(`候補日は本日より${deadlineDays}日後以降のみ選べます`)
       return
     }
-    const daySlots = computePrivateBookingSlots({
-      date: newDate,
-      storeIds: storeIdsForSlotResolution,
-      businessHoursByStore,
-      blockedSlots: blockedSlotRows,
-      scenarioTiming,
-      allStoreEvents: storeEvents,
-      isCustomHoliday,
-      privateBookingTimeSlots,
-      privateBookingTimeSlotsWeekend,
-      scenarioTitle,
-      scenarioSlotStartTimes,
-    })
-    const picked = daySlots.find((s) => s.label === newSlotLabel)
+    const picked = newDate === pickerDate
+      ? candidateSlotsForPicker.find((s) => s.label === newSlotLabel)
+      : undefined
     if (!picked) {
       toast.error('この日・店舗の組み合わせでは、その時間帯を追加できません')
       return
@@ -384,38 +339,14 @@ export function PrivateBookingRequest({
     }
 
     try {
-      // グループや顧客データを変更する前に、募集停止と公演競合を最新化して全候補を再検証する。
-      const [latestBlockedResult, latestEventsResult, latestHoursResult] = await Promise.all([
+      // グループや顧客データを変更する前に、DB の最新の空き状況で全候補を再検証する（表示・保存と同じ判定）。
+      const [latestAvailability] = await Promise.all([
+        loadLatestAvailableSlots(editableTimeSlots.map((candidate) => candidate.date)),
         refetchBlockedSlotRows(),
-        refetchStoreEvents(),
-        refetchBusinessHours(),
       ])
-      if (latestBlockedResult.error) throw latestBlockedResult.error
-      if (latestEventsResult.error) throw latestEventsResult.error
-      if (latestHoursResult.error) throw latestHoursResult.error
-      const latestBlockedRows =
-        (latestBlockedResult.data || []) as PrivateBookingBlockedSlotRow[]
-      const latestEvents = latestEventsResult.data || []
-      const reconciled = reconcilePrivateBookingCandidates(editableTimeSlots, (candidate) => {
-        const blockedState = getBlockedState(
-          candidate.date,
-          candidate.slot.label,
-          latestBlockedRows
-        )
-        if (blockedState.allStoresBlocked) return []
-        return computePrivateBookingSlots({
-          date: candidate.date,
-          storeIds: blockedState.availableStoreIds,
-          businessHoursByStore: latestHoursResult.data ?? new Map<string, BusinessHoursSettingRow>(),
-          scenarioTiming,
-          allStoreEvents: latestEvents,
-          isCustomHoliday,
-          privateBookingTimeSlots,
-          privateBookingTimeSlotsWeekend,
-          scenarioTitle,
-          scenarioSlotStartTimes,
-        })
-      })
+      const reconciled = reconcilePrivateBookingCandidates(editableTimeSlots, (candidate) =>
+        availableSlotsForDate(latestAvailability, candidate.date).map((slot) => ({ ...slot, endTime: enrichSlotEnd(candidate.date, slot).endTime }))
+      )
       if (reconciled.invalid.length > 0) {
         const details = reconciled.invalid
           .map((candidate) => `${candidate.date} ${candidate.slot.label}`)
