@@ -1,5 +1,7 @@
 -- 候補日保存時に用いる営業枠。画面の getPerStoreSlotsForDate と同じ設定解釈。
 -- 祝日判定は呼出側が組織の独自休日と日本の祝日を合わせて渡す。
+-- 店舗の曜日設定の available_slots に無い枠は返さない（2026-10-20: 札幌店の平日朝。以前は朝・夜を常に足していた）。
+-- 営業設定が無い店舗（合成）と available_slots が空の日は 3 枠とも有効。営業中の範囲は「有効な枠のうち最初の枠の開始〜閉店」。
 CREATE OR REPLACE FUNCTION public.private_booking_store_day_slots(
  p_date date, p_hours jsonb, p_is_holiday boolean, p_allow_missing boolean
 ) RETURNS TABLE(slot_key text,start_minutes integer,end_minutes integer,closing_minutes integer)
@@ -49,8 +51,6 @@ BEGIN
  IF jsonb_typeof(raw_day->'slot_start_times')='object' THEN starts:=starts||(raw_day->'slot_start_times'); END IF;
  slots:=raw_day->'available_slots';
  IF slots IS NULL OR slots='null'::jsonb OR slots='[]'::jsonb THEN slots:='["morning","afternoon","evening"]'::jsonb; END IF;
- -- 既存画面は朝・夜を常に候補帯へ補う。休業日は上で除外済み。
- slots:=slots||'["morning","evening"]'::jsonb;
  opening_time:=CASE WHEN raw_day ? 'open_time' THEN raw_day->>'open_time' ELSE CASE WHEN base_weekend THEN '09:00' ELSE '10:00' END END;
  closing_time:=CASE WHEN raw_day ? 'close_time' THEN raw_day->>'close_time' ELSE '23:00' END;
  close_minutes:=CASE WHEN position(':' IN closing_time)>0 THEN least(1380,extract(hour FROM closing_time::time)::integer*60+extract(minute FROM closing_time::time)::integer) ELSE 1380 END;
