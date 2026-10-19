@@ -821,5 +821,15 @@
     "body_md5": "59d1c52d212e80f7eac677069387a8f4",
     "language": "plpgsql",
     "security_definer": false
+  },
+  "private_booking_store_day_slots(p_date date, p_hours jsonb, p_is_holiday boolean, p_allow_missing boolean)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "TABLE(slot_key text, start_minutes integer, end_minutes integer, closing_minutes integer)",
+    "body_md5": "c0bec3c1cd17722fe446b23745ce89b8",
+    "language": "plpgsql",
+    "security_definer": false
   }
 }

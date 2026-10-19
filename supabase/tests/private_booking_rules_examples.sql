@@ -179,6 +179,31 @@ BEGIN
  ASSERT msg LIKE '%この作品の開始時刻は 14:30 です%', format('R24: 14:00 の保存が弾かれない（%s）', msg);
  INSERT INTO _rule_rows VALUES('R24',w,'afternoon',false,'14:00',NULL,'fixed_start',msg,false);
  UPDATE organization_scenarios SET private_booking_slot_start_times=NULL WHERE organization_id=c.org AND scenario_master_id=c.sm;
+
+ -- R28〜R30 店舗の曜日設定で無効にした枠は候補にしない（2026-10-20 札幌店の平日朝。以前は朝・夜を常に足していた）
+ -- 二号店を札幌店と同じ平日 open_time=13:00・available_slots=["afternoon","evening"]（朝の開始 10:00 は残ったまま）にする。
+ UPDATE business_hours_settings SET opening_hours=(SELECT jsonb_object_agg(k,CASE WHEN k IN ('saturday','sunday') THEN v
+   ELSE v||jsonb_build_object('open_time','13:00','available_slots','["afternoon","evening"]'::jsonb) END) FROM jsonb_each(opening_hours) e(k,v))
+  WHERE organization_id=c.org AND store_id=c.st2;
+ -- R28 平日の朝は選べない（closed）。朝 10:00 の保存も弾く
+ w:=pg_temp.day_of(1,19); PERFORM pg_temp.dur(210);
+ PERFORM pg_temp.check_row('R28',w,one,'morning',false,NULL,NULL,'closed',NULL,false);
+ UPDATE private_groups SET status='gathering',reservation_id=NULL,preferred_store_ids=one WHERE id=c.grp;
+ msg:=NULL;
+ BEGIN
+  PERFORM private_group_add_candidate_dates(c.grp,gen_random_uuid(),c.sm,one,
+   jsonb_build_array(jsonb_build_object('date',w,'time_slot','morning','start_time','10:00','end_time','13:30')));
+ EXCEPTION WHEN OTHERS THEN msg:=SQLERRM;
+ END;
+ ASSERT msg LIKE '%営業時間外です%', format('R28: 無効な平日朝を保存できた（%s）', msg);
+ -- R29 平日の昼 13:00・夜 19:00 は従来どおり選べる
+ PERFORM pg_temp.check_row('R29',w,one,'afternoon',true,'13:00','16:30',NULL,NULL,false);
+ PERFORM pg_temp.check_row('R29',w,one,'evening',true,'19:00','22:30',NULL,NULL,false);
+ -- R30 朝を有効にしている店舗（クインズワルツの店舗と同じく平日 open_time=13:00 でも朝の開始 10:00）の平日朝は従来どおり
+ UPDATE business_hours_settings SET opening_hours=(SELECT jsonb_object_agg(k,CASE WHEN k IN ('saturday','sunday') THEN v
+   ELSE v||jsonb_build_object('available_slots','["afternoon","evening","morning"]'::jsonb) END) FROM jsonb_each(opening_hours) e(k,v))
+  WHERE organization_id=c.org AND store_id=c.st2;
+ PERFORM pg_temp.check_row('R30',w,one,'morning',true,'10:00','13:30',NULL,NULL,false);
 END $$;
 SELECT no,date,slot,ok,start_time,end_time,reason,detail,adjusted FROM _rule_rows ORDER BY substring(no FROM 2)::integer, date, array_position(ARRAY['morning','afternoon','evening'],slot);
 ROLLBACK;
