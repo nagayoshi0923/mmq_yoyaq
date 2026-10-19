@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-19T23:02:00.048Z",
+  "captured_at": "2026-10-19T23:27:00.707Z",
   "table_count": 156,
-  "function_count": 433,
-  "digest": "f49c4beaa088c178e1391907b474c1ccb0df86767da74bc2c077f8551d6b3976"
+  "function_count": 434,
+  "digest": "434bb9c92248639086ff3ad7d265a0ac53fd17d5f5fbd3855998d2c40a377268"
  },
  "tables": {
   "staff": {
@@ -20402,7 +20402,7 @@
      "name": "guard_withdrawn_private_group_response"
     },
     {
-     "def": "CREATE CONSTRAINT TRIGGER private_group_on_date_response AFTER INSERT OR UPDATE OF response ON public.private_group_date_responses DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN ((new.response = 'ok'::text)) EXECUTE FUNCTION private_group_on_date_response()",
+     "def": "CREATE CONSTRAINT TRIGGER private_group_on_date_response AFTER INSERT OR UPDATE OF response ON public.private_group_date_responses DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION private_group_on_date_response()",
      "name": "private_group_on_date_response"
     },
     {
@@ -25925,7 +25925,7 @@
     "service_role=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "0262565e10e449e9788ab81b40dcd3e2",
+   "body_md5": "a2b2b86d21fb8b38cafc758c4ddb92ba",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27195,7 +27195,7 @@
     "service_role=X/postgres"
    ],
    "returns": "boolean",
-   "body_md5": "fe48a5bc4adbafae2c7784368c41cd35",
+   "body_md5": "fe190658afa23f25785c9d454b411ec7",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28785,6 +28785,18 @@
    "returns": "TABLE(id uuid, organization_id uuid, user_id uuid, name text, nickname character varying, email text, email_verified boolean, phone text, address text, line_id text, avatar_url text, birth_date date, prefecture text, preferences text[], notification_settings jsonb, created_at timestamp with time zone, updated_at timestamp with time zone, reservation_count bigint, total_paid bigint, reservation_amount bigint, last_visit timestamp with time zone, visit_count bigint, total_coupons bigint, used_coupons bigint, remaining_coupons bigint, total_count bigint)",
    "body_md5": "4bfbd7ef81530fa114499cc01d711659",
    "language": "sql",
+   "security_definer": true
+  },
+  "private_booking_scenario_date_reasons(p_organization_id uuid, p_date date, p_scenario_ids uuid[])": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "TABLE(scenario_id uuid, reason text)",
+   "body_md5": "05b78724b47e36b0c0a0adde26e907ca",
+   "language": "plpgsql",
    "security_definer": true
   },
   "finish_waitlist_notice(p_notice uuid, p_waitlist uuid, p_lease uuid, p_sent boolean, p_error text)": {
