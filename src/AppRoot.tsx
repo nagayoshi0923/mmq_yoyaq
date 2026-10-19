@@ -1,5 +1,5 @@
-import React, { Suspense, useLayoutEffect } from 'react'
-import { BrowserRouter, Navigate, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
+import React, { Suspense } from 'react'
+import { BrowserRouter, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { QueryClient } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
@@ -7,6 +7,7 @@ import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval'
 import { PERSISTED_QUERY_CACHE_KEY } from '@/lib/persistedQueryCache'
 import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import { ScrollToTop } from '@/components/routing/ScrollToTop'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
 import { RouteScrollRestorationProvider } from '@/contexts/RouteScrollRestorationContext'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -203,58 +204,6 @@ function shouldShowBookingShellWhileAuthPending(pathname: string): boolean {
 /** Lazy 読み込み中でもフルスピナーにしない（予約シェル向け） */
 function BookingShellLazyFallback() {
   return <div className="min-h-screen" style={{ backgroundColor: 'var(--background, #fafafa)' }} aria-busy="true" />
-}
-
-// ページ遷移時にスクロール位置をトップに戻す
-// - POP（戻る/進む）: 何もしない（各ページの sessionStorage 復元に任せる）
-// - 初回マウント（リロード・新規タブの直リンク）: トップへ飛ばさない
-//   → さもないと navType が POP 以外になり、scrollTo(0,0) が sessionStorage 復元より後に効いて潰す
-// - それ以外の同一タブ内のパス変更（PUSH/REPLACE）: トップへ
-//
-// ⚠️ ダイアログ状態用の query param（event=xxx 等）はナビゲーションと見なさない。
-//    setSearchParams で ?event=xxx を付けるとここで scroll=0 が走り、スケジュール
-//    画面で公演ダイアログを開いた瞬間に最上部に飛ぶ問題があったため。
-// event・count は作品ページで選んだ公演と人数（選ぶたびに URL を書き換えるため、上へ戻さない）
-const DIALOG_QUERY_PARAMS = ['event', 'count']
-
-function stripDialogParams(search: string): string {
-  if (!search) return ''
-  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
-  for (const key of DIALOG_QUERY_PARAMS) {
-    params.delete(key)
-  }
-  const result = params.toString()
-  return result ? `?${result}` : ''
-}
-
-function ScrollToTop() {
-  const { pathname, search } = useLocation()
-  const navType = useNavigationType()
-  const prevKeyRef = React.useRef<string | null>(null)
-
-  useLayoutEffect(() => {
-    // pathname + search で同一ページ判定（tab切替もここで検出）
-    // ただしダイアログ系の query param は除外して比較する
-    const currentKey = `${pathname}${stripDialogParams(search)}`
-    if (navType === 'POP') {
-      prevKeyRef.current = currentKey
-      return
-    }
-    const prev = prevKeyRef.current
-    if (prev !== null && prev !== currentKey) {
-      const container = document.querySelector('[data-scroll-container]') as HTMLElement | null
-      if (container) {
-        container.scrollTop = 0
-      } else {
-        window.scrollTo(0, 0)
-      }
-      // PUSH遷移では新ページの保存済みスクロール位置を削除して復元を抑制
-      sessionStorage.removeItem(`route:${pathname}${search}ScrollY`)
-    }
-    prevKeyRef.current = currentKey
-  }, [pathname, search, navType])
-
-  return null
 }
 
 function FullPageSpinner() {

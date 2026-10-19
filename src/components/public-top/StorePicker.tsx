@@ -34,7 +34,8 @@ export function StorePicker({ options, value, onChange, primaryColor }: { option
           <ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 rounded-lg p-2">
+      {/* hideWhenDetached: ボタンが画面外へ出たら一覧も隠す（スマホで上部に浮いて残らないように。2026-10-20 点検） */}
+      <PopoverContent align="start" hideWhenDetached className="w-64 rounded-lg p-2">
         <button type="button" onClick={() => onChange([])} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted">
           <Checkbox checked={selected.length === 0} tabIndex={-1} aria-hidden />
           すべての店舗
