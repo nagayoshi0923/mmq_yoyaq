@@ -38,6 +38,7 @@ import { parseGroupTab, type GroupTab } from './groupPage/groupPageModel'
 import { markPromptPending } from '@/lib/webPushSupport'
 import { useRequireCompleteProfile } from '@/hooks/useRequireCompleteProfile'
 import { clearGuestDeviceStorage, guestSessionStorageKey, useGuestDeviceState, type GuestResponseValue } from './guestDeviceState'
+import { groupInviteShareText } from '@/lib/shareTexts'
 
 interface Coupon {
   id: string
@@ -556,7 +557,7 @@ export function PrivateGroupInvite() {
   // LINEで共有
   const handleShareLine = () => {
     const scenarioTitle = group.scenario_masters?.title || 'シナリオ'
-    const text = `貸切マーダーミステリーに参加しませんか？\n\n🎭 ${scenarioTitle}\n\n以下のリンクから参加・日程回答をお願いします👇`
+    const text = groupInviteShareText(scenarioTitle)
     const url = getInviteUrl()
     window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank')
   }

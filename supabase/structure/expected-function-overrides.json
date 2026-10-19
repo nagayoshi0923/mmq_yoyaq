@@ -846,7 +846,7 @@
       "service_role=X/postgres"
     ],
     "returns": "trigger",
-    "body_md5": "0262565e10e449e9788ab81b40dcd3e2",
+    "body_md5": "a2b2b86d21fb8b38cafc758c4ddb92ba",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -887,7 +887,7 @@
       "service_role=X/postgres"
     ],
     "returns": "boolean",
-    "body_md5": "fe48a5bc4adbafae2c7784368c41cd35",
+    "body_md5": "fe190658afa23f25785c9d454b411ec7",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -1282,5 +1282,17 @@
     "body_md5": "c0bec3c1cd17722fe446b23745ce89b8",
     "language": "plpgsql",
     "security_definer": false
+  },
+  "private_booking_scenario_date_reasons(p_organization_id uuid, p_date date, p_scenario_ids uuid[])": {
+    "acl": [
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "TABLE(scenario_id uuid, reason text)",
+    "body_md5": "05b78724b47e36b0c0a0adde26e907ca",
+    "language": "plpgsql",
+    "security_definer": true
   }
 }

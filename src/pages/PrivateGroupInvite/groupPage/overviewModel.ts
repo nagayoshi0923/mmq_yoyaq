@@ -152,6 +152,11 @@ export function priceSummary(input: PriceInput): PriceSummary | null {
   return { perPersonMin: min, perPersonMax: max, people, totalMin: min * people, totalMax: max * people }
 }
 
+/** 「¥5,000 × 8 名 = ¥40,000」（申込シートと同じ書き方） */
+export function priceFormula(price: PriceSummary): string {
+  return `${yenRange(price.perPersonMin, price.perPersonMax)} × ${price.people} 名 = ${yenRange(price.totalMin, price.totalMax)}`
+}
+
 /** 「¥4,500」「¥4,500〜¥5,000」 */
 export function yenRange(min: number, max: number): string {
   return min === max ? `¥${min.toLocaleString()}` : `¥${min.toLocaleString()}〜¥${max.toLocaleString()}`

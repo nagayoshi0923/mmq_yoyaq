@@ -26,6 +26,7 @@ import { announceNextGroup } from '@/lib/privateGroupChat'
 import { clearNextGroupSource, loadNextGroupSource } from '@/lib/nextPrivateGroup'
 import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
 import { parseStoreIdsParam } from '@/pages/PrivateBookingStart/paths'
+import { groupInviteShareText } from '@/lib/shareTexts'
 
 export function PrivateGroupCreate() {
   const navigate = useNavigate()
@@ -220,7 +221,7 @@ export function PrivateGroupCreate() {
   }
 
   const handleShareLine = () => {
-    const text = `貸切マーダーミステリーに参加しませんか？\n\n🎭 ${scenario?.title}\n👥 最大${scenarioParticipantMax ?? ''}名まで\n\n以下のリンクから参加・日程回答をお願いします👇`
+    const text = groupInviteShareText(scenario?.title ?? '', scenarioParticipantMax)
     const url = getInviteUrl()
     window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank')
   }

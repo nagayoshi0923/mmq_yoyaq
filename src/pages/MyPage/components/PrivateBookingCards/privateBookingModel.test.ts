@@ -86,6 +86,20 @@ describe('1 貸切 = 1 カード', () => {
     expect(countActivePrivateBookings(view)).toBe(3)
   })
 
+  it('確定後の進み具合は「確定 — 事前配役アンケート — 当日」（お客様向けの表記を統一）', () => {
+    const progress = decideGroupAction(group({ status: 'confirmed', schedule: { date: '2099-01-01', start_time: '14:00', store_name: null } }), { todayYmd: TODAY, surveyPending: true }).progress
+    expect(progress.steps).toEqual(['確定', '事前配役アンケート', '当日'])
+  })
+
+  it('申込中の件数は、グループの候補日の数ではなく店舗へ送った候補日の数（2026-10-20 staging 点検）', () => {
+    const view = buildPrivateBookingView({
+      groups: [group({ id: 'requested', status: 'booking_requested', reservation_id: 'r-req', candidate_dates_count: 5 })],
+      reservations: [reservation({ id: 'r-req', status: 'pending', reservation_source: 'web_private', candidate_datetimes: { candidates: [{}, {}, {}] } } as Partial<Reservation>)],
+      scheduleEvents: {}, scenarioImages: {}, surveyPending: {}, todayYmd: TODAY,
+    })
+    expect(view.bySection.waiting_store[0].description).toBe('候補日 3 件で申込中。店舗が日程を確定すると連絡が届きます')
+  })
+
   it('グループの無い旧い貸切予約は予約だけで 1 枚（予約詳細へ）', () => {
     const view = buildPrivateBookingView({
       groups: [],

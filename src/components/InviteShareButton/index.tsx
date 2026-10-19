@@ -1,3 +1,4 @@
+import { eventInviteShareText } from '@/lib/shareTexts'
 import { useState } from 'react'
 import { logger } from '@/utils/logger'
 import { useNavigate } from 'react-router-dom'
@@ -45,9 +46,7 @@ export function InviteShareButton({
     ? `${baseUrl}/${organizationSlug}/scenario/${scenarioSlug || scenarioId}`
     : `${baseUrl}/scenario/${scenarioSlug || scenarioId}`
 
-  const shareText = eventDate && eventTime && storeName
-    ? `一緒にマーダーミステリーやりませんか？\n\n🎭 シナリオ: ${scenarioTitle}\n📅 日時: ${eventDate} ${eventTime}〜\n📍 会場: ${storeName}\n\n詳細・予約はこちら👇`
-    : `一緒にマーダーミステリーやりませんか？\n\n🎭 シナリオ: ${scenarioTitle}\n\n詳細・予約はこちら👇`
+  const shareText = eventInviteShareText({ scenarioTitle, eventDate, eventTime, storeName })
 
   const handleTwitterShare = () => {
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(scenarioUrl)}`

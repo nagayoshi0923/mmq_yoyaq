@@ -16,6 +16,7 @@ import { usePrivateBookingDeadlineState, DEFAULT_PRIVATE_BOOKING_DEADLINE_DAYS }
 import { PrivateBookingSlotGrid } from '@/components/private-booking/PrivateBookingSlotGrid'
 import { showToast } from '@/utils/toast'
 import { getJstParts } from '@/utils/jstDate'
+import { privateBookingErrorText } from '@/lib/privateBookingErrors'
 
 function getJstDateStringFromNow(now = new Date()): string {
   const jstOffsetMin = 9 * 60
@@ -243,10 +244,7 @@ export function AddCandidateDates({
       // 弾かれた理由が分かるよう、空き状況を読み直す
       reloadAvailability()
       logger.error('Failed to save candidate dates', err)
-      const msg =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: string }).message)
-          : '候補日の保存に失敗しました'
+      const msg = privateBookingErrorText(err, '候補日の保存に失敗しました')
       const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined
       showToast.error(
         code === 'P0045' ? '受付締切を過ぎた候補日があります。日程を選び直してください。'

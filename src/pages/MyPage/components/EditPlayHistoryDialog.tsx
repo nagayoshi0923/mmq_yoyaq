@@ -1,5 +1,5 @@
 import { useState, type Dispatch, type SetStateAction } from 'react'
-import { Pencil, RotateCcw, Eye, EyeOff, Trash2 } from 'lucide-react'
+import { Pencil, RotateCcw, Eye, EyeOff, Trash2, Drama } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -85,7 +85,7 @@ export function EditPlayHistoryDialog({
                             />
                           ) : (
                             <div className="w-16 h-12 bg-gray-200 rounded flex items-center justify-center">
-                              <span className="text-xl opacity-50">🎭</span>
+                              <Drama className="h-5 w-5 text-muted-foreground opacity-60" aria-hidden="true" />
                             </div>
                           )}
                           <div className="flex-1 min-w-0">

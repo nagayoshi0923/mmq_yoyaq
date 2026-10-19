@@ -1,11 +1,14 @@
 /**
  * 日程タブ: 回答表・表の下の「候補日を選んで店舗に申し込む」（主催者・申込前。箱の主ボタンと同じ申込シート）・
  * 候補日の追加と編集・未回答の人に知らせる・希望店舗。行には申込ボタンを置かない（2026-10-11 社長決定）。
+ * 候補日の追加と編集は、マイページと同じ全画面のダイアログ（CandidateDatesDialog。下に保存を固定）を 1 回で開く
+ * （2026-10-20 staging 点検: ページ内に埋め込んでいたため 2 回押さないと開かず、保存が見えなかった）。
  */
 import { BOOK_ACTION_LABEL } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingModel'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CandidateDateRows } from '@/components/patterns/privateGroup/CandidateDateRows'
+import { CandidateDatesDialog } from '@/components/patterns/privateGroup/CandidateDatesDialog'
 import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
 import { ScenarioStoreHint } from '@/components/private-booking/ScenarioStoreHint'
 import { useScenarioStoreHint } from '@/hooks/useScenarioStoreHint'
@@ -34,16 +37,13 @@ interface GroupDatesTabProps {
   formatDateJaMd: (dateStr: string) => string
   /** 表の下の「候補日を選んで店舗に申し込む」（主催者・申込前・候補日があるとき。箱の主ボタンと同じシート） */
   onBook?: (() => void) | null
+  /** 候補日の画面の 2 行目に出す作品名 */
+  title?: string
 }
 
 export function GroupDatesTab(props: GroupDatesTabProps) {
-  const { group, table, isOrganizer, canMutateSchedule, isMember, onAnswer, editorOpen, onOpenEditor, onCloseEditor, onDatesChanged, onRemind, preferredStoreNames, onEditStore, formatDateJaMd, onBook = null } = props
+  const { group, table, isOrganizer, canMutateSchedule, isMember, onAnswer, editorOpen, onOpenEditor, onCloseEditor, onDatesChanged, onRemind, preferredStoreNames, onEditStore, formatDateJaMd, onBook = null, title = '' } = props
   const [reminding, setReminding] = useState(false)
-  // 「候補日を追加」「候補日を編集」で開いたら、表の下の編集欄まで動かす
-  const editorRef = useRef<HTMLElement>(null)
-  useEffect(() => {
-    if (editorOpen) editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [editorOpen])
   const unanswered = unansweredMembers(table)
   const guestsUnanswered = unanswered.filter(c => c.role === 'guest')
   const history = Boolean(group.confirmed_performance) || !canMutateSchedule
@@ -97,8 +97,8 @@ export function GroupDatesTab(props: GroupDatesTabProps) {
         {!history && (
           <div className={`flex gap-2 ${onBook ? 'mt-2' : 'mt-3 flex-wrap'}`}>
             {isOrganizer && (
-              <Button type="button" variant="outline" size="sm" className={`h-auto py-1.5 px-2.5 text-xs rounded-md bg-background border-zinc-300 ${onBook ? 'flex-1' : ''}`} onClick={editorOpen ? onCloseEditor : onOpenEditor} data-testid="toggle-date-editor">
-                {editorOpen ? '候補日の編集を閉じる' : table.rows.length > 0 ? '候補日を追加・編集' : '候補日を追加'}
+              <Button type="button" variant="outline" size="sm" className={`h-auto py-1.5 px-2.5 text-xs rounded-md bg-background border-zinc-300 ${onBook ? 'flex-1' : ''}`} onClick={onOpenEditor} data-testid="toggle-date-editor">
+                {table.rows.length > 0 ? '候補日を追加・編集' : '候補日を追加'}
               </Button>
             )}
             {isMember && isOrganizer && unanswered.length > 0 && (
@@ -110,8 +110,12 @@ export function GroupDatesTab(props: GroupDatesTabProps) {
         )}
       </section>
 
-      {isOrganizer && canMutateSchedule && editorOpen && (
-        <section ref={editorRef} className="bg-card border border-border rounded-lg p-3 flex flex-col gap-3 scroll-mt-3" aria-label="候補日の追加・編集" data-testid="date-editor">
+      {isOrganizer && canMutateSchedule && (
+        <CandidateDatesDialog
+          open={editorOpen}
+          onClose={onCloseEditor}
+          description={[title, preferredStoreNames.length > 0 ? `希望店舗: ${preferredStoreNames.join('・')}` : ''].filter(Boolean).join(' ・ ')}
+        >
           <AddCandidateDates
             groupId={group.id}
             organizationId={group.organization_id || ''}
@@ -122,23 +126,28 @@ export function GroupDatesTab(props: GroupDatesTabProps) {
               void onDatesChanged()
               onCloseEditor()
             }}
+            layout="dialog"
+            onCancel={onCloseEditor}
+            belowCalendar={table.rows.length > 0 ? (
+              <div className="border-t border-border pt-3" data-testid="date-editor-registered">
+                <h4 className="mb-1.5 text-sm font-bold">
+                  登録済みの候補日
+                  <span className="ml-1 text-xs font-normal text-muted-foreground">{group.candidate_dates?.length || 0} 件</span>
+                </h4>
+                <CandidateDateRows
+                  group={group}
+                  memberCount={table.memberCount}
+                  existingMemberId={null}
+                  responses={{}}
+                  onResponseChange={() => {}}
+                  canWithdraw
+                  onWithdrawn={() => onDatesChanged()}
+                  formatDateJaMd={formatDateJaMd}
+                />
+              </div>
+            ) : null}
           />
-          {table.rows.length > 0 && (
-            <div>
-              <h3 className="mb-1.5 text-xs font-medium">登録済みの候補日（外す）</h3>
-              <CandidateDateRows
-                group={group}
-                memberCount={table.memberCount}
-                existingMemberId={null}
-                responses={{}}
-                onResponseChange={() => {}}
-                canWithdraw
-                onWithdrawn={() => onDatesChanged()}
-                formatDateJaMd={formatDateJaMd}
-              />
-            </div>
-          )}
-        </section>
+        </CandidateDatesDialog>
       )}
 
       <section className="bg-card border border-border rounded-lg p-3" aria-label="希望店舗">
