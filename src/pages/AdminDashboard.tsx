@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/Header'
 import { AdminSidebar } from '@/components/layout/AdminSidebar'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { LoadingScreen } from '@/components/layout/LoadingScreen'
+import { RequireLogin } from '@/components/auth/RequireLogin'
 import { AdminOnlyNotice } from '@/components/layout/AdminOnlyNotice'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -475,9 +476,11 @@ export function AdminDashboard() {
     return (
       <div className="min-h-screen bg-background">
         <Header onPageChange={handlePageChange} />
-        <Suspense fallback={<LoadingScreen message="予約詳細を読み込み中..." />}>
-          <ReservationDetailPage />
-        </Suspense>
+        <RequireLogin loadingMessage="予約詳細を読み込み中...">
+          <Suspense fallback={<LoadingScreen message="予約詳細を読み込み中..." />}>
+            <ReservationDetailPage />
+          </Suspense>
+        </RequireLogin>
       </div>
     )
   }
@@ -519,9 +522,11 @@ export function AdminDashboard() {
         <div className="flex flex-1">
           {shouldShowNavigation && <AdminSidebar />}
           <div className="flex-1">
-            <Suspense fallback={<LoadingScreen message="マイページを読み込み中..." />}>
-              <MyPage />
-            </Suspense>
+            <RequireLogin loadingMessage="マイページを読み込み中...">
+              <Suspense fallback={<LoadingScreen message="マイページを読み込み中..." />}>
+                <MyPage />
+              </Suspense>
+            </RequireLogin>
           </div>
         </div>
       </div>

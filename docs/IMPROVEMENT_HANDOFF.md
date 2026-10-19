@@ -1,3 +1,10 @@
+## 2026-10-20 / 公開前点検の止め 2 件: 絞り込みで先頭へ戻る・ログイン切れのマイページ（fix/release-blockers-a、staging 向け PR）
+
+- 1 絞り込みで先頭へ戻る: 店舗トップ `/queens-waltz` と MMQ 全体トップ `/` の「空いている公演を探す」で、今週／来週／今月・カレンダー／リスト・店舗・空席あり・初心者向けを押すたびにページ先頭へ戻っていた。原因はページ移動時に先頭へ戻す `ScrollToTop`（`src/AppRoot.tsx`）が、URL のクエリが変わるとすべて「別の画面」とみなしていたこと（除外は `event`・`count` だけ）。絞り込み条件のキー（`when`・`date`・`stores`・`avail`・`beginner`・`area`・`view`・`people`）を除外に追加。`?tab=` などの切替はこれまでどおり先頭へ戻す（「クエリだけの変更は戻さない」にするとマイページのタブ等が変わるため不採用）。`ScrollToTop` は `src/components/routing/ScrollToTop.tsx`、判定は `src/lib/scrollNavigation.ts` へ移動。
+- 店舗の選択リスト（`StorePicker`）に `hideWhenDetached`: ボタンが画面外へ出たら一覧も隠し、スマホで上部に浮いて残らないように。
+- 2 ログイン切れのマイページ: `/mypage` は予約シェルとして認証確認前から描画され、`MyPage` が未ログインでもそのまま表示して「ゲスト さん」「予約がありません」になっていた。`RequireLogin`（`src/components/auth/RequireLogin.tsx`）で包み、確認中は「読み込み中」、未ログイン確定（`isInitialized` かつ user なし、URL にトークンが残っていない）なら `/login?redirect=/mypage...` へ。予約詳細 `/mypage/reservation/...` も同じ。
+- 確認: `ScrollToTop.test.tsx`（絞り込みで scrollTo が呼ばれない／パス移動と ?tab= では呼ばれる。修正前の一覧では落ちることを確認）、`RequireLogin.test.tsx`、関連 vitest 1170 件、`npm run verify`。手元（staging 接続、5184）で 375px と PC 幅: `/queens-waltz` の各チップ・店舗選択・満席を非表示、`/` の各チップ・店舗選択でスクロール位置が変わらない。未ログインで `/mypage` を開くと `/login?redirect=%2Fmypage`。
+
 ## 2026-10-15 / Codex staging 点検（56d943a46 以降）の 5 件（fix/codex-staging-review-5、手元コミットのみ・push なし）
 
 - 1 グループ作成時の空き確認: `create_private_group_atomic` は作品の時間帯しか見ず、画面で選んだ後に公演・受付停止・設定が変わっても保存できた。候補追加と共通の内部関数 `private_booking_assert_candidate`（締切・募集期間・時間帯・店舗ごとの空き・所要時間）を候補ごとに通す。候補追加 `private_group_add_candidate_dates` も同じ関数に置き換え。
