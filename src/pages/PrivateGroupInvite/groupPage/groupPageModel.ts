@@ -337,6 +337,8 @@ export interface GroupStatusInput {
   casting?: CastingProgress | null
   /** 事前配役アンケートに自分が回答済み（回答した人数／対象の人数。分からなければ null） */
   surveyAnswered?: { answered: number; total: number } | null
+  /** 店舗へ送った候補日の件数（申込後。分からなければ null） */
+  requestedCandidateCount?: number | null
 }
 
 /** 確定後の状態名に合わせてグループの status を補う（予約の状態でグループ行の更新遅れを補う） */
@@ -361,6 +363,7 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
     handover: input.handover,
     organizer_name: input.organizerName,
     member_count: input.memberCount,
+    requested_candidates_count: input.requestedCandidateCount ?? null,
   }
   const { action } = decideGroupAction(summary, {
     todayYmd: input.todayYmd,

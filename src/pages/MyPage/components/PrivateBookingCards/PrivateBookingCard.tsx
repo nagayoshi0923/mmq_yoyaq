@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Drama } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScheduleActions, absolutePageUrl } from '@/components/patterns/schedule'
 import type { PrivateBookingItem } from './privateBookingModel'
 import { PRIVATE_BOOKING_TONE as TONE } from './privateBookingTone'
 
-/** 進み具合の小さなチップ列（1 招待 — 2 候補日 — … ／ 確定 — アンケート — 当日） */
+/** 進み具合の小さなチップ列（1 招待 — 2 候補日 — … ／ 確定 — 事前配役アンケート — 当日） */
 function ProgressChips({ item }: { item: PrivateBookingItem }) {
   const tone = TONE[item.tone]
   const { steps, current } = item.progress
@@ -43,7 +44,7 @@ function Thumbnail({ url, compact }: { url: string | null; compact: boolean }) {
         </>
       ) : (
         <div className="w-full h-full flex items-center justify-center" aria-hidden="true">
-          <span className="text-xl opacity-40">🎭</span>
+          <Drama className="h-5 w-5 text-muted-foreground opacity-50" />
         </div>
       )}
     </div>

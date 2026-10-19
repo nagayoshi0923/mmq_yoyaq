@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Mail, ChevronRight, Send, Clock, CheckCircle } from 'lucide-react'
+import { Mail, ChevronRight, Send, Clock, CheckCircle, AlertCircle, Check } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
@@ -253,7 +253,7 @@ export function ContactPage() {
                   : 'text-gray-500'
               }`}>
                 {formData.message.length > 0 && formData.message.length < 10 ? (
-                  <>⚠️ あと{10 - formData.message.length}文字必要です</>
+                  <span className="inline-flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />あと{10 - formData.message.length}文字必要です</span>
                 ) : (
                   '10文字以上で入力してください'
                 )}
@@ -265,7 +265,7 @@ export function ContactPage() {
                   ? 'text-red-500'
                   : 'text-gray-500'
               }`}>
-                {formData.message.length >= 10 && '✓ '}
+                {formData.message.length >= 10 && <Check className="mr-0.5 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />}
                 {formData.message.length}文字
               </p>
             </div>

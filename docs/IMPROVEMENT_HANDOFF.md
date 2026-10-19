@@ -1,3 +1,17 @@
+## 2026-10-20 / staging 点検（貸切の流れ）の公開前修正 12 件（fix/release-blockers-b、staging 向け PR）
+
+- A1 日時から選ぶ作品一覧: その日に申し込めない作品も「貸切できます」で出ていた。作品ごとの日付の理由を返す DB 関数 `private_booking_scenario_date_reasons`（保存と同じ `assert_private_booking_candidate_date`）で「この日は申し込めません（作品の公演期間外です）」と出し、押せなくする。選んだ作品は `private_booking_candidate_slot_availability` で確かめ、だめなら理由をボタンの上に出して進めない（`src/pages/privateBookingSelectModel.ts`）。
+- A2 送信失敗の英字コード: `PRIVATE_BOOKING_OUTSIDE_PERFORMANCE_PERIOD` がグループ作成（`usePrivateGroup.createGroup`）からそのまま出ていた。`src/lib/privateBookingErrors.ts` に表を作り（SQLSTATE と英字のコードの両方）、申込確認・グループからの申込・候補日の保存で使う。申込確認ではエラーを送信ボタンの直上に出す。
+- A3 開始時刻の食い違い: 作品を選んだ時点で DB の開始時刻を出し（「この作品の開始時刻 18:30 で申し込みます」）、その時刻で確認画面へ渡す。
+- A4 希望店舗: `isStorePlayableForScenario` で上演できる店舗だけを出す（臨時会場・指定外の「対応不可」を並べない）。
+- B5 日程がそろった通知: 候補日ごとに数えていたため、回答のたびに飛んでいた。全員が全候補日に回答し終え、全員 ○ の日があるときに 1 回だけ。回は「候補日がいちばん最後に追加された時刻」で区切り、重複防止の鍵に入れる（列は足さない）。トリガーの WHEN (response='ok') を外す（最後の回答が × でもそろう）。「夜間」は「夜」。migration `20261020110000_private_group_dates_aligned_once`（rollback 同名）、DB テスト `supabase/tests/private_group_dates_aligned_once.sql`（`test:rpcs` に追加）。
+- C6 グループページ（スマホ）: 見出しの下をまとめて 1 つのスクロールにし、箱が見えなくなったら 1 行のバーだけ上に固定（`GroupMemberPage`）。チャットタブは従来どおり。
+- C7 候補日の追加: マイページと同じ全画面の部品 `CandidateDatesDialog`（`src/components/patterns/privateGroup/`、AddCandidateDates の dialog 版）を 1 回で開く。
+- C8 箱が縮んで表がずれる: 同じタブの間は箱の高さの最大を下限にする（回答後の読み直しで描き直しても覚えておく）。
+- D9 「候補日 N 件で申込中」は送った候補の数（申込の candidate_datetimes）。D10 概要の料金は「¥4,500 × 2 名 = ¥9,000」に、何の人数か（いまの参加人数／申込人数）を添える。D11「事前配役アンケート」に統一。D12 LINE 共有・友達を誘う文の絵文字をやめ（`src/lib/shareTexts.ts`）、マイページの画像なし・クーポン・問い合わせの絵文字をアイコン部品に。
+- 確認: vitest 全件、`npm run verify`、手元 DB で `test:rpcs` の範囲（smoke・空き判定・R1〜R27・新テスト）、rollback→旧版で新テストが落ちることを確認→再適用。手元（staging 接続、375px）で作品一覧→選択→理由・開始時刻 18:30 の表示。グループページ・通知は staging に書き込めないため、ローカル（scripts/local-repro、staging の構造）で 375px と PC 幅: 固定は 1 行のバーだけ・候補日画面が 1 回で全画面・回答 3 件で通知はベル 2 件（主催者・会員）とメール 1 件、回答し直しても増えない・箱が縮んでも表の位置が変わらない。
+- staging への migration 適用は発注者が行う。適用後に `supabase/structure/staging.json` を更新する。
+
 ## 2026-10-20 / 公開前点検の止め 2 件: 絞り込みで先頭へ戻る・ログイン切れのマイページ（fix/release-blockers-a、staging 向け PR）
 
 - 1 絞り込みで先頭へ戻る: 店舗トップ `/queens-waltz` と MMQ 全体トップ `/` の「空いている公演を探す」で、今週／来週／今月・カレンダー／リスト・店舗・空席あり・初心者向けを押すたびにページ先頭へ戻っていた。原因はページ移動時に先頭へ戻す `ScrollToTop`（`src/AppRoot.tsx`）が、URL のクエリが変わるとすべて「別の画面」とみなしていたこと（除外は `event`・`count` だけ）。絞り込み条件のキー（`when`・`date`・`stores`・`avail`・`beginner`・`area`・`view`・`people`）を除外に追加。`?tab=` などの切替はこれまでどおり先頭へ戻す（「クエリだけの変更は戻さない」にするとマイページのタブ等が変わるため不採用）。`ScrollToTop` は `src/components/routing/ScrollToTop.tsx`、判定は `src/lib/scrollNavigation.ts` へ移動。

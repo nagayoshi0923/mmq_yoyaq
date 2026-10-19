@@ -4,7 +4,7 @@ import { updateOwnManualDate } from '@/lib/ownPlayHistory'
 import React, { Suspense, useMemo } from 'react'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import { Button } from '@/components/ui/button'
-import { Calendar, Trophy, Sparkles, Heart, Camera, Settings, Pencil, Ticket, EyeOff, Eye, MoreVertical, Star } from 'lucide-react'
+import { Calendar, Trophy, Sparkles, Heart, Camera, Settings, Pencil, Ticket, EyeOff, Eye, MoreVertical, Star, Drama, UserRound } from 'lucide-react'
 import { AddPlayHistoryDialog } from './components/AddPlayHistoryDialog'
 import { EditPlayHistoryDialog } from './components/EditPlayHistoryDialog'
 import { ConfirmDialog } from '@/components/patterns/modal'
@@ -190,7 +190,7 @@ export function MyPageContent({
             </>
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-              <span className="text-4xl opacity-30">🎭</span>
+              <Drama className="h-10 w-10 text-muted-foreground opacity-40" aria-hidden="true" />
             </div>
           )}
           {/* その公演の貸切グループの写真（最新 1 枚）。押すとグループの思い出へ */}
@@ -501,7 +501,7 @@ export function MyPageContent({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <span className="text-3xl">🎭</span>
+                  <UserRound className="h-8 w-8 text-muted-foreground" aria-label="プロフィール画像なし" />
                 )}
               </button>
               {/* 編集アイコン */}

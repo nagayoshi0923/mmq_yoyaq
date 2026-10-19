@@ -66,7 +66,7 @@ const SECTION_BY_ACTION: Record<NextActionKind, PrivateBookingSection> = {
 }
 
 const PRE_CONFIRM_STEPS = ['招待', '候補日', '回答', '申込', '確定'] as const
-const POST_CONFIRM_STEPS = ['確定', 'アンケート', '当日'] as const
+const POST_CONFIRM_STEPS = ['確定', '事前配役アンケート', '当日'] as const
 
 /** カードの色（改善案: 要対応=紫・確定/アンケート=緑・店舗の返事待ち=琥珀・相手待ち/終了=灰） */
 export type PrivateBookingTone = 'purple' | 'green' | 'amber' | 'gray'
@@ -285,7 +285,10 @@ export function decideGroupAction(
 }
 
 /** 1 行の説明文（マイページのカードとグループ画面の「いまの状態」の箱で共通） */
-export type GroupDescriptionInput = GroupActionInput & Pick<PrivateGroupSummary, 'handover' | 'organizer_name' | 'member_count'>
+export type GroupDescriptionInput = GroupActionInput & Pick<PrivateGroupSummary, 'handover' | 'organizer_name' | 'member_count'> & {
+  /** 店舗へ送った候補日の件数（申込後の「候補日 N 件で申込中」に使う。分からなければグループの有効な候補日の件数） */
+  requested_candidates_count?: number | null
+}
 
 export function groupDescription(group: GroupDescriptionInput, action: NextActionKind, casting: CastingProgress | null = null): string {
   const handover = group.handover
@@ -317,10 +320,13 @@ export function groupDescription(group: GroupDescriptionInput, action: NextActio
       return `候補日 ${c} 件のうち ${group.my_unanswered_count} 件が未回答です。都合を回答してください`
     case 'proceed_booking':
       return `${group.all_members_responded ? `候補日 ${c} 件の回答がそろいました。` : `候補日 ${c} 件・参加 ${group.member_count} 人。`}店舗に送る候補日を選んで申し込みます。複数の候補日を送ると、店舗がその中から 1 つ確定します。`
-    case 'waiting_store':
-      return c > 0
-        ? `候補日 ${c} 件で申込中。店舗が日程を確定すると連絡が届きます`
+    case 'waiting_store': {
+      // 送った候補日の件数（グループに残っている候補日の件数ではない。2026-10-20 staging 点検）
+      const sent = group.requested_candidates_count ?? c
+      return sent > 0
+        ? `候補日 ${sent} 件で申込中。店舗が日程を確定すると連絡が届きます`
         : '申込中。店舗が日程を確定すると連絡が届きます'
+    }
     case 'waiting_organizer':
       return c === 0 ? `${host}が候補日を準備しています` : `回答済みです。${host}が店舗へ申し込むのを待っています`
     case 'upcoming':
@@ -412,7 +418,10 @@ function fromGroup(
     whenWhere: group.status === 'confirmed' && group.schedule
       ? fullDateLabel(group.schedule.date, group.schedule.start_time, group.schedule.store_name)
       : null,
-    description: groupDescription(group, action),
+    description: groupDescription({
+      ...group,
+      requested_candidates_count: options.linked && options.linked.status !== 'cancelled' ? candidateCountOf(options.linked) || null : null,
+    }, action),
     href: base,
     primary: primaryOf(action, base),
     secondary: { label: 'グループを開く', href: base },

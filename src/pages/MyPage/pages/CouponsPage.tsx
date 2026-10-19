@@ -414,9 +414,10 @@ export function CouponsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-3 mb-4">
+                <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-3 mb-4 flex items-start gap-2">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-700" aria-hidden="true" />
                   <p className="text-xs text-yellow-700">
-                    ⚠️ このクーポンを利用できる公演がありません。<br />
+                    このクーポンを利用できる公演がありません。<br />
                     この組織の本日以降の確定予約が対象です。
                   </p>
                 </div>

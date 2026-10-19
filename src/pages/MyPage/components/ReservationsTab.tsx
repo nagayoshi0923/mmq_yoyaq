@@ -1,7 +1,7 @@
 import type React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Calendar, ChevronRight, Sparkles, Users, XCircle } from 'lucide-react'
+import { Calendar, ChevronRight, Drama, Sparkles, Users, XCircle } from 'lucide-react'
 import { formatJstDateJa } from '@/utils/jstDate'
 import type { Reservation } from '@/types'
 import type { MyPageData } from '../hooks/useMyPageDataQuery'
@@ -161,7 +161,7 @@ export function ReservationsTab({
                                 </>
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center">
-                                  <span className="text-xl opacity-40">🎭</span>
+                                  <Drama className="h-5 w-5 text-muted-foreground opacity-50" aria-hidden="true" />
                                 </div>
                               )}
                             </div>
@@ -288,7 +288,7 @@ export function ReservationsTab({
                                   />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center">
-                                    <span className="text-xl opacity-30">🎭</span>
+                                    <Drama className="h-5 w-5 text-muted-foreground opacity-40" aria-hidden="true" />
                                   </div>
                                 )}
                               </div>

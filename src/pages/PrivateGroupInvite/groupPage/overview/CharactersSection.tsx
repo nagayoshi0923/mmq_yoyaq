@@ -23,7 +23,7 @@ export function CharactersSection({ characters }: { characters: PublicCharacter[
           </li>
         ))}
       </ul>
-      <p className="mt-1.5 text-xs text-muted-foreground">配役は当日またはアンケートで決まります。ネタバレになる情報は出していません。</p>
+      <p className="mt-1.5 text-xs text-muted-foreground">配役は当日、または事前配役アンケートで決まります。ネタバレになる情報は出していません。</p>
     </OverviewSection>
   )
 }

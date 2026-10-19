@@ -13,6 +13,7 @@ import type {
   DateResponse,
 } from '@/types'
 import { getErrorMessage } from '@/lib/errorFields'
+import { privateBookingErrorText } from '@/lib/privateBookingErrors'
 
 interface CandidateDateInput {
   date: string
@@ -80,7 +81,8 @@ export function usePrivateGroup() {
       })
       if (groupError) {
         logger.error('Failed to create group', groupError)
-        throw new Error(groupError.message || 'グループの作成に失敗しました')
+        // DB の英字のコード（PRIVATE_BOOKING_OUTSIDE_PERFORMANCE_PERIOD など）のまま出さない。コードは画面の判定用に残す
+        throw Object.assign(new Error(privateBookingErrorText(groupError, 'グループの作成に失敗しました')), { code: groupError.code })
       }
 
       return group as PrivateGroup

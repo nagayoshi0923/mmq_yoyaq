@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Header } from '@/components/layout/Header'
-import { ArrowLeft, MapPin } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Loader2, MapPin } from 'lucide-react'
 import { scenarioApi, storeApi } from '@/lib/api'
 import { formatJstDateJa } from '@/utils/jstDate'
 import { logger } from '@/utils/logger'
@@ -17,6 +17,10 @@ import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptanc
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import { PrivateScenarioGrid, type PrivateScenario } from '@/components/private-booking/PrivateScenarioGrid'
 import { PrivateBookingStart } from './PrivateBookingStart'
+import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
+import { fetchScenarioDateReasons, type CandidateSlotAvailabilityTarget } from '@/lib/candidateSlotAvailability'
+import { useCandidateSlotAvailability } from '@/hooks/useCandidateSlotAvailability'
+import { selectedSlotCheck } from './privateBookingSelectModel'
 
 interface Scenario {
   id: string
@@ -35,6 +39,7 @@ interface Scenario {
   booking_end_date?: string | null
   scenario_kind?: string | null
   accepts_private_booking?: boolean | null
+  organization_id?: string | null
 }
 
 interface PrivateBookingScenarioSelectProps {
@@ -70,7 +75,13 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   return <PrivateBookingDateScenarioSelect organizationSlug={organizationSlug} />
 }
 
-/** 日時を選んだあとに作品・人数・希望店舗を選んで、貸切リクエストの確認へ進む */
+/**
+ * 日時を選んだあとに作品・人数・希望店舗を選んで、貸切リクエストの確認へ進む。
+ * 判定は DB（仕様の正本: docs/product-spec/貸切受付ルール.md）。
+ * - 一覧: その日に日付だけで申し込めない作品（受付締切・募集期間・公演期間）は理由付きで押せない（private_booking_scenario_date_reasons）
+ * - 選んだ作品: 選んだ日時・希望店舗で private_booking_candidate_slot_availability を通し、申し込めなければ理由をボタンの近くに出して進めない。
+ *   申し込めるときは DB が決めた開始時刻を出す（押したチップの時刻と違うことがある）
+ */
 function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingScenarioSelectProps) {
   const navigate = useNavigate()
   const [scenarios, setScenarios] = useState<Scenario[]>([])
@@ -79,6 +90,10 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
   const [selectedParticipantCount, setSelectedParticipantCount] = useState<number | null>(null)
   const [allStores, setAllStores] = useState<any[]>([])
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
+  const [storesLoaded, setStoresLoaded] = useState(false)
+  /** 作品 id → その日に申し込めない理由（日付だけで決まるもの） */
+  const [dateReasons, setDateReasons] = useState<Record<string, string>>({})
 
   const detailRef = useRef<HTMLDivElement>(null)
 
@@ -105,8 +120,16 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
   const basePath = organizationSlug ? `/${organizationSlug}` : ''
 
   const gridScenarios = useMemo<PrivateScenario[]>(
-    () => scenarios.map((s) => ({ ...s, closed: !isScenarioBookingOpen(s) })),
-    [scenarios],
+    () => scenarios.map((s) => {
+      const open = isScenarioBookingOpen(s)
+      const dayReason = dateReasons[s.id]
+      return {
+        ...s,
+        closed: !open || Boolean(dayReason),
+        closedLabel: open && dayReason ? `この日は申し込めません（${dayReason}）` : null,
+      }
+    }),
+    [scenarios, dateReasons],
   )
   const scenarioPagePath = (s: PrivateScenario) => `${basePath}/scenario/${encodeURIComponent(s.slug || s.id)}?tab=private`
 
@@ -117,10 +140,20 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
     )
   }, [allStores])
 
-  // 地域ごとに店舗をグループ化
+
+  const selectedScenario = useMemo(() => scenarios.find(s => s.id === selectedScenarioId) ?? null, [scenarios, selectedScenarioId])
+
+  // 選択中の作品を上演できる店舗だけ（DB と同じ条件。上演店舗の指定が無ければ臨時会場を除く）。上演できない店舗は出さない
+  const playableStores = useMemo(
+    () => (selectedScenario ? displayStores.filter((s) => isStorePlayableForScenario(s, selectedScenario.available_stores)) : []),
+    [displayStores, selectedScenario],
+  )
+  const allAvailableStoreIds = useMemo(() => playableStores.map((s) => s.id), [playableStores])
+
+  // 地域ごとに店舗をグループ化（選択中の作品を上演できる店舗だけ）
   const storesByRegion = useMemo(() => {
     const groups = new Map<string, any[]>()
-    displayStores.forEach((store) => {
+    playableStores.forEach((store) => {
       const region = store.region || extractRegionFromAddress(store.address) || 'その他'
       if (!groups.has(region)) {
         groups.set(region, [])
@@ -128,24 +161,30 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
       groups.get(region)!.push(store)
     })
     return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b))
-  }, [displayStores])
-
-  // 選択中シナリオの対応店舗IDセット（空 = 全店舗対応）
-  const scenarioAvailableStoreIds = useMemo(() => {
-    if (!selectedScenarioId) return null
-    const scenario = scenarios.find(s => s.id === selectedScenarioId)
-    if (scenario?.available_stores && scenario.available_stores.length > 0) {
-      return new Set(scenario.available_stores)
-    }
-    return null // null = 全店舗対応
-  }, [selectedScenarioId, scenarios])
-
-  const allAvailableStoreIds = useMemo(() => {
-    if (!scenarioAvailableStoreIds) return displayStores.map((s) => s.id)
-    return displayStores.filter((s) => scenarioAvailableStoreIds.has(s.id)).map((s) => s.id)
-  }, [displayStores, scenarioAvailableStoreIds])
+  }, [playableStores])
 
   const allAvailableSelected = allAvailableStoreIds.length > 0 && allAvailableStoreIds.every(id => selectedStoreIds.includes(id))
+
+  // 選んだ作品が、選んだ日時・希望店舗（未選択なら上演できる全店舗）で申し込めるか（DB の判定。申込確認画面・保存と同じ）
+  const orgIdForCheck = organizationId ?? selectedScenario?.organization_id ?? null
+  const checkStoreKey = (selectedStoreIds.length > 0 ? selectedStoreIds : allAvailableStoreIds).join(',')
+  const checkTarget = useMemo<CandidateSlotAvailabilityTarget | null>(() => (
+    selectedScenario && orgIdForCheck && storesLoaded && /^\d{4}-\d{2}-\d{2}$/.test(preselectedDate)
+      ? { kind: 'scenario', organizationId: orgIdForCheck, scenarioId: selectedScenario.id, storeIds: checkStoreKey ? checkStoreKey.split(',') : [] }
+      : null
+  ), [selectedScenario, orgIdForCheck, storesLoaded, preselectedDate, checkStoreKey])
+  const checkDates = useMemo(() => [preselectedDate], [preselectedDate])
+  const slotAvailability = useCandidateSlotAvailability(checkTarget, checkDates)
+  const slotCheck = selectedSlotCheck({
+    active: checkTarget !== null,
+    loading: slotAvailability.loading,
+    ready: slotAvailability.ready,
+    error: slotAvailability.error,
+    availability: slotAvailability.availability,
+    date: preselectedDate,
+    slotKey: preselectedSlot,
+    pickedTime: preselectedTime,
+  })
 
   useReportRouteScrollRestoration('private-booking-scenario-select', { isLoading: loading })
 
@@ -170,8 +209,19 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
           rows = data.filter((s) => s.status === 'available') as Scenario[]
         }
 
+        const accepting = rows.filter((s) => isScenarioAcceptingPrivateBooking(s))
         if (!cancelled) {
-          setScenarios(rows.filter((s) => isScenarioAcceptingPrivateBooking(s)))
+          setScenarios(accepting)
+          setOrganizationId(orgId ?? null)
+        }
+        // その日に日付だけで申し込めない作品（公演期間外など）。読めなくても一覧は出す（選んだ作品は下で確かめる）
+        if (orgId && /^\d{4}-\d{2}-\d{2}$/.test(preselectedDate)) {
+          try {
+            const reasons = await fetchScenarioDateReasons(orgId, preselectedDate, accepting.map((s) => s.id))
+            if (!cancelled) setDateReasons(reasons)
+          } catch (error) {
+            logger.warn('作品ごとの受付状況を読み込めませんでした', error)
+          }
         }
       } catch (error) {
         logger.error('シナリオの読み込みエラー:', error)
@@ -189,6 +239,7 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
         const data = org?.id ? await storeApi.getAllPublicForCustomer(org.id) : await storeApi.getAll()
         if (cancelled) return
         setAllStores(data)
+        setStoresLoaded(true)
 
         if (preselectedStoreIds.length > 0) {
           const validIds = preselectedStoreIds.filter(id =>
@@ -200,6 +251,7 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
         }
       } catch (error) {
         logger.error('店舗の読み込みエラー:', error)
+        if (!cancelled) setStoresLoaded(true)
       }
     }
 
@@ -208,6 +260,8 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
     return () => {
       cancelled = true
     }
+    // preselectedDate は URL から読む（同じページでは変わらない）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationSlug, preselectedStoreIds])
 
   const handleSelectScenario = (id: string) => {
@@ -215,28 +269,28 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
     setSelectedParticipantCount(null)
     // シナリオ変更時、店舗選択をリセット（URL の店舗のうち、その作品に対応する店舗だけ残す）
     const newScenario = scenarios.find(s => s.id === id)
-    const validStoreIds = allStores
-      .filter((s) => s.ownership_type !== 'office' && s.status === 'active')
+    const playableIds = allStores
+      .filter((s) => s.status === 'active' && isStorePlayableForScenario(s, newScenario?.available_stores))
       .map((s) => s.id)
-    const restored = preselectedStoreIds.filter(storeId => validStoreIds.includes(storeId))
-    const hasLimit = newScenario?.available_stores && newScenario.available_stores.length > 0
-    setSelectedStoreIds(hasLimit ? restored.filter(storeId => newScenario!.available_stores!.includes(storeId)) : restored)
+    setSelectedStoreIds(preselectedStoreIds.filter(storeId => playableIds.includes(storeId)))
     // スマホでは一覧が長いので、選んだ作品の確認欄まで送る
     requestAnimationFrame(() => detailRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }))
   }
 
   const handleProceed = () => {
     if (!selectedScenarioId) {
-      showToast.warning('シナリオを選択してください')
+      showToast.warning('作品を選択してください')
       return
     }
+    if (slotCheck.kind !== 'available') return
     // 店舗は任意（後から選択可能）
     
     // 貸切リクエスト確認ページへ遷移（組織slugがあれば予約サイト形式）
     // 複数店舗はカンマ区切りで渡す
     const storeParam = selectedStoreIds.join(',')
     saveScrollPositionForCurrentUrl()
-    const timeQuery = preselectedTime ? `&time=${encodeURIComponent(preselectedTime)}` : ''
+    // 開始時刻は DB が決めた時刻（押したチップの時刻と違うことがある）
+    const timeQuery = `&time=${encodeURIComponent(slotCheck.startTime)}`
     navigate(
       `${basePath}/private-booking-request?scenario=${selectedScenarioId}&date=${preselectedDate}&store=${storeParam}&slot=${preselectedSlot}&participants=${selectedParticipantCount ?? scenarios.find(s => s.id === selectedScenarioId)?.player_count_max ?? ""}${timeQuery}`
     )
@@ -413,7 +467,7 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
                   <div className="border rounded-lg p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-medium">希望店舗を選択（任意）</h3>
-                      {displayStores.length > 0 && (
+                      {playableStores.length > 0 && (
                         <button
                           type="button"
                           className="text-xs text-purple-600 hover:text-purple-800 hover:underline"
@@ -434,10 +488,7 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
                     </p>
                     <div className="space-y-4">
                       {storesByRegion.map(([region, regionStores]) => {
-                        const availableInRegion = regionStores.filter((s) => 
-                          scenarioAvailableStoreIds === null || scenarioAvailableStoreIds.has(s.id)
-                        )
-                        const availableRegionIds = availableInRegion.map((s) => s.id)
+                        const availableRegionIds = regionStores.map((s) => s.id)
                         const allRegionSelected = availableRegionIds.length > 0 && availableRegionIds.every(id => selectedStoreIds.includes(id))
 
                         return (
@@ -463,43 +514,32 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
                             <div className="space-y-2">
                               {regionStores.map((store) => {
                                 const isSelected = selectedStoreIds.includes(store.id)
-                                const isUnavailable = scenarioAvailableStoreIds !== null && !scenarioAvailableStoreIds.has(store.id)
-                                
                                 return (
                                   <label
                                     key={store.id}
-                                    className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
-                                      isUnavailable
-                                        ? 'border-gray-200 bg-gray-100 opacity-60 cursor-not-allowed'
-                                        : isSelected
-                                          ? 'border-purple-300 bg-purple-50 cursor-pointer'
-                                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
+                                    className={`flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                                      isSelected ? 'border-purple-300 bg-purple-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                                     }`}
                                   >
                                     <input
                                       type="checkbox"
                                       checked={isSelected}
-                                      disabled={isUnavailable}
                                       onChange={() => {
-                                        if (isUnavailable) return
                                         setSelectedStoreIds(prev =>
                                           isSelected
                                             ? prev.filter(id => id !== store.id)
                                             : [...prev, store.id]
                                         )
                                       }}
-                                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 disabled:opacity-50"
+                                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                                     />
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2">
-                                        <MapPin className={`w-3.5 h-3.5 flex-shrink-0 ${isUnavailable ? 'text-gray-400' : 'text-muted-foreground'}`} />
-                                        <span className={`text-sm font-medium ${isUnavailable ? 'text-gray-400' : ''}`}>{store.name}</span>
-                                        {isUnavailable && (
-                                          <span className="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded">対応不可</span>
-                                        )}
+                                        <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground" />
+                                        <span className="text-sm font-medium">{store.name}</span>
                                       </div>
                                       {store.address && (
-                                        <p className={`text-xs mt-0.5 ml-5.5 ${isUnavailable ? 'text-gray-400' : 'text-muted-foreground'}`}>{store.address}</p>
+                                        <p className="text-xs mt-0.5 ml-5.5 text-muted-foreground">{store.address}</p>
                                       )}
                                     </div>
                                   </label>
@@ -528,11 +568,38 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
               storeId={selectedStoreIds.length === 1 ? selectedStoreIds[0] : null}
             />
 
+            {/* 選んだ作品が選んだ日時に申し込めるか（ボタンのすぐ上） */}
+            {slotCheck.kind === 'checking' && (
+              <p className="flex items-center gap-2 text-xs text-muted-foreground" data-testid="private-select-slot-check" data-kind="checking">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />この日時に申し込めるか確認しています…
+              </p>
+            )}
+            {slotCheck.kind === 'available' && (
+              <p
+                className={`rounded-md border px-3 py-2 text-sm ${slotCheck.changed ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-purple-200 bg-purple-50 text-purple-900'}`}
+                data-testid="private-select-slot-check"
+                data-kind="available"
+              >
+                {slotCheck.message}
+              </p>
+            )}
+            {(slotCheck.kind === 'unavailable' || slotCheck.kind === 'error') && (
+              <div role="alert" className="flex items-start gap-2 rounded-md border-2 border-red-200 bg-red-50 p-3 text-sm text-red-800" data-testid="private-select-slot-check" data-kind={slotCheck.kind}>
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="space-y-2">
+                  <p>{slotCheck.message}</p>
+                  {slotCheck.kind === 'error' && (
+                    <Button type="button" variant="outline" size="sm" onClick={slotAvailability.reload}>もう一度確認する</Button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* 確認ボタン */}
             <Button
               className="w-full bg-purple-600 hover:bg-purple-700 text-white"
               onClick={handleProceed}
-              disabled={!selectedScenarioId || selectedStoreIds.length === 0 || loading}
+              disabled={!selectedScenarioId || selectedStoreIds.length === 0 || loading || slotCheck.kind !== 'available'}
             >
               貸切リクエスト確認へ
             </Button>

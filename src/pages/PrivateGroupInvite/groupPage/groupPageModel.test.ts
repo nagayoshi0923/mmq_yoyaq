@@ -99,6 +99,10 @@ describe('いまの状態の箱（マイページのカードと同じラベル�
     expect(v.primary).toBeNull()
     expect(v.secondary[0].kind).toBe('view_booking')
   })
+  it('店舗の返事待ち: 本文の件数は店舗へ送った候補日の数', () => {
+    const v = buildGroupStatus(base({ status: 'booking_requested', phase: 'requested', requestedAt: '2026-10-09T03:00:00Z', canMutateSchedule: false, requestedCandidateCount: 1 }))
+    expect(v.body).toContain('候補日 1 件で申込中')
+  })
   it('確定・アンケート未回答', () => {
     const v = buildGroupStatus(base({ status: 'confirmed', phase: 'confirmed', confirmed: { date: '2026-11-07', start_time: '14:00:00', store_name: '高田馬場店' }, surveyPending: true, canMutateSchedule: false }))
     expect(v.chip).toBe('事前配役アンケートに回答する')

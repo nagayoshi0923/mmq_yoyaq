@@ -52,3 +52,16 @@ it('最新時刻が違う場合は画面へ反映して再確認を促し、グ�
   expect(host.textContent).toContain('19:00')
   expect(mocks.create).not.toHaveBeenCalled(); expect(mocks.submit).not.toHaveBeenCalled()
 })
+it('送信の失敗（DB の英字のコード）は日本語にして、送信ボタンのすぐ上に出す', async () => {
+  mocks.days = 14; mocks.blocked.mockResolvedValue({ data: [], error: null })
+  props.selectedTimeSlots = [{ date, slot: { label: '夜', startTime: '19:00', endTime: '22:00' } }]
+  mocks.create.mockRejectedValue(Object.assign(new Error('PRIVATE_BOOKING_OUTSIDE_PERFORMANCE_PERIOD'), { code: 'P0054' }))
+  await render()
+  const button = [...host.querySelectorAll('button')].find(button => button.textContent?.includes('貸切リクエストを送信'))!
+  await act(async () => button.click()); await flush()
+  const alert = host.querySelector('[data-testid="private-request-error"]')!
+  expect(alert.textContent).toContain('この作品の公演期間外の候補日があります')
+  expect(host.textContent).not.toContain('PRIVATE_BOOKING_OUTSIDE_PERFORMANCE_PERIOD')
+  // ボタンの直前（同じ囲みの中で、ボタンの 1 つ前）
+  expect(alert.nextElementSibling?.textContent).toContain('貸切リクエストを送信')
+})

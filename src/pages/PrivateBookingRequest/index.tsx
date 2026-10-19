@@ -44,7 +44,7 @@ import {
 import { resolveOrgIdFromPageContext } from '@/lib/organization'
 import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
 import { toJstYmd } from '@/utils/jstDate'
-import { getErrorMessage } from '@/lib/errorFields'
+import { privateBookingErrorText } from '@/lib/privateBookingErrors'
 import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
 
 const MAX_TIME_SLOTS = 6
@@ -393,7 +393,7 @@ export function PrivateBookingRequest({
       
       // 成功後はボタンで遷移させるため自動リダイレクトは行わない
     } catch (error) {
-      setError(getErrorMessage(error) || '処理中にエラーが発生しました')
+      setError(privateBookingErrorText(error, '処理中にエラーが発生しました。もう一度お試しください。'))
     }
   }
 
@@ -433,15 +433,6 @@ export function PrivateBookingRequest({
 
       <div className="container mx-auto max-w-5xl px-2 md:px-4 py-6">
         <h1 className="text-xl font-bold mb-6">貸切リクエスト確認</h1>
-
-        {error && (
-          <Card className="mb-6 border-2 border-red-200 bg-red-50">
-            <CardContent className="p-4 flex items-center gap-2 text-red-800 text-sm">
-              <AlertCircle className="w-5 h-5" />
-              <span>{error}</span>
-            </CardContent>
-          </Card>
-        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* 左側：リクエスト内容 */}
@@ -776,6 +767,14 @@ export function PrivateBookingRequest({
                 </Button>
               </div>
             ) : (
+            <div className="space-y-2">
+            {/* 送信の失敗・入力の不足は、押したボタンのすぐ上に出す（2026-10-20 staging 点検: 画面の一番上では見えなかった） */}
+            {error && (
+              <div role="alert" className="flex items-start gap-2 rounded-md border-2 border-red-200 bg-red-50 p-3 text-sm text-red-800" data-testid="private-request-error">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
             <Button
               onClick={onSubmit}
               disabled={isSubmitting || groupLoading || hasFullyBlockedCandidate}
@@ -788,6 +787,7 @@ export function PrivateBookingRequest({
                 </>
               ) : hasFullyBlockedCandidate ? '受付停止中の候補を再選択してください' : '貸切リクエストを送信'}
             </Button>
+            </div>
             )}
           </div>
         </div>

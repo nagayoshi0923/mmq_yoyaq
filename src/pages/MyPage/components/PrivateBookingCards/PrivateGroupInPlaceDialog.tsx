@@ -14,6 +14,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { CandidateDateRows } from '@/components/patterns/privateGroup/CandidateDateRows'
+import { CANDIDATE_DATES_DIALOG_BODY_CLASS, CANDIDATE_DATES_DIALOG_CLASS, CANDIDATE_DATES_DIALOG_HEADER_CLASS } from '@/components/patterns/privateGroup/CandidateDatesDialog'
 import { PreferredStoreChecklist } from '@/components/patterns/privateGroup/PreferredStoreChecklist'
 import { canMutateScheduleBeforeStoreReply } from '@/components/patterns/privateGroup/privateGroupScheduleRules'
 import { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInviteCode'
@@ -43,15 +44,7 @@ const DESCRIPTIONS: Record<PrivateGroupInPlaceMode, string> = {
   survey: '事前配役アンケートに回答してください。',
 }
 
-/**
- * 候補日ダイアログ: スマホ（〜640px）は全画面（上に閉じる、下に保存列）、PC は中央で幅 lg・高さ 90vh。
- * スクロールは本文の 1 つだけ（カレンダーの枠の中ではスクロールさせない）。
- */
-const DATES_DIALOG_CLASS =
-  'flex flex-col gap-0 overflow-hidden p-0 sm:p-0 md:p-0 sm:max-w-lg sm:max-h-[90vh] ' +
-  'max-sm:inset-0 max-sm:left-0 max-sm:top-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none ' +
-  'max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0'
-
+/** 候補日ダイアログの見た目はグループ画面と共通（CandidateDatesDialog） */
 const LOCKED_TEXT = '店舗の返答待ちのため、候補日の追加・希望店舗の変更はできません。'
 
 /** "11月30日(月)" 形式（グループ画面の候補日一覧と同じ） */
@@ -142,17 +135,17 @@ export function PrivateGroupInPlaceDialog({ mode, onClose, inviteCode, title, my
   return (
     <Dialog open={open} onOpenChange={next => { if (!next) onClose() }}>
       <DialogContent
-        className={isDates ? DATES_DIALOG_CLASS : 'sm:max-w-lg max-h-[85vh] sm:max-h-[85vh] overflow-y-auto'}
+        className={isDates ? CANDIDATE_DATES_DIALOG_CLASS : 'sm:max-w-lg max-h-[85vh] sm:max-h-[85vh] overflow-y-auto'}
         data-testid="private-group-inplace-dialog"
         data-mode={mode ?? ''}
       >
-        <DialogHeader className={isDates ? 'shrink-0 space-y-0.5 border-b px-3.5 py-3 pr-12 text-left' : 'text-left pr-6'}>
+        <DialogHeader className={isDates ? CANDIDATE_DATES_DIALOG_HEADER_CLASS : 'text-left pr-6'}>
           <DialogTitle className={isDates ? 'text-base font-bold' : undefined}>{mode ? TITLES[mode] : ''}</DialogTitle>
           <DialogDescription className={isDates ? 'truncate text-xs' : undefined}>
             {isDates ? [title, storeLabel].filter(Boolean).join(' ・ ') : `${title}${mode ? `　${DESCRIPTIONS[mode]}` : ''}`}
           </DialogDescription>
         </DialogHeader>
-        <div className={isDates ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain' : 'contents'} data-testid="inplace-dialog-body">
+        <div className={isDates ? CANDIDATE_DATES_DIALOG_BODY_CLASS : 'contents'} data-testid="inplace-dialog-body">
         {!group ? (
           <div className="py-10 text-center text-sm text-muted-foreground">
             <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" aria-hidden="true" />

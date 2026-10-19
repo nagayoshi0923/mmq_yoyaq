@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Heart, Users, Clock, Sparkles, ChevronRight, CalendarDays } from 'lucide-react'
+import { Heart, Users, Clock, Sparkles, ChevronRight, CalendarDays, Drama } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useLikedScenariosQuery, useRemoveLikeMutation, useWishlistNextEventsQuery, type WishlistNextEvent } from '../hooks/useLikedScenariosQuery'
@@ -159,7 +159,7 @@ export function WantToPlayPage() {
                   />
                 </>
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">🎭</div>
+                <div className="w-full h-full flex items-center justify-center"><Drama className="h-7 w-7 text-muted-foreground opacity-40" aria-hidden="true" /></div>
               )}
             </div>
 

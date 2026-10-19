@@ -1902,7 +1902,7 @@
     "name": "guard_withdrawn_private_group_response"
    },
    {
-    "def": "CREATE CONSTRAINT TRIGGER private_group_on_date_response AFTER INSERT OR UPDATE OF response ON public.private_group_date_responses DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN ((new.response = 'ok'::text)) EXECUTE FUNCTION private_group_on_date_response()",
+    "def": "CREATE CONSTRAINT TRIGGER private_group_on_date_response AFTER INSERT OR UPDATE OF response ON public.private_group_date_responses DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION private_group_on_date_response()",
     "name": "private_group_on_date_response"
    },
    {
