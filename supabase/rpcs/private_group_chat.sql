@@ -1,4 +1,4 @@
--- グループページ刷新 段階 2 のチャット RPC（migration 20261010100000_private_group_chat_phase2.sql と同じ）
+-- グループページ刷新 段階 2 のチャット RPC（migration 20261010100000_private_group_chat_phase2.sql 以降の最新。最終更新 20261020160000_private_group_photo_limit.sql）
 -- 参加者の表示名（会員はニックネーム→氏名、ゲストは入力した名前）
 CREATE OR REPLACE FUNCTION public.private_group_member_display_name(p_member_id uuid)
 RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
@@ -16,7 +16,72 @@ RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
 $$;
 REVOKE ALL ON FUNCTION public.private_group_message_is_system(text) FROM PUBLIC, anon, authenticated;
 
--- 段階 4（migration 20261010160000_private_group_memories.sql）でサムネイル（{n}_thumb.jpg）を扱うように変更
+-- 段階 4（migration 20261010160000）でサムネイル、20261011170000 で remind_unanswered の kind、
+-- 20261020160000_private_group_photo_limit でグループ全体の写真の上限（photo_quota と上限の確かめ）を足した
+-- グループの写真の上限・使った枚数・残り。上限は設定 private_group_photo_limit（MMQ の既定 10、組織で上書き可）。
+-- 削除した発言の写真は数えない（削除時に記録ごと消える。念のため削除済みの発言も除く）
+CREATE OR REPLACE FUNCTION public.private_group_photo_quota(p_group_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_org uuid;
+  v_raw jsonb;
+  v_limit integer := 10;
+  v_used integer;
+BEGIN
+  SELECT organization_id INTO v_org FROM public.private_groups WHERE id = p_group_id;
+  IF v_org IS NULL THEN RAISE EXCEPTION 'グループが見つかりません' USING ERRCODE = '22023'; END IF;
+  v_raw := public.resolve_operating_setting(v_org, 'private_group_photo_limit', '10'::jsonb)->'value';
+  IF jsonb_typeof(v_raw) = 'number' AND (v_raw #>> '{}')::numeric BETWEEN 1 AND 1000 AND (v_raw #>> '{}')::numeric % 1 = 0 THEN
+    v_limit := (v_raw #>> '{}')::integer;
+  END IF;
+  SELECT count(*) INTO v_used
+    FROM public.private_group_message_photos p JOIN public.private_group_messages m ON m.id = p.message_id
+   WHERE p.group_id = p_group_id AND m.deleted_at IS NULL;
+  RETURN jsonb_build_object('limit', v_limit, 'used', v_used, 'remaining', greatest(v_limit - v_used, 0));
+END $function$;
+REVOKE ALL ON FUNCTION public.private_group_photo_quota(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.private_group_photo_quota(uuid) TO service_role;
+
+-- 今回 p_adding 枚足すと上限を超えるなら断る（理由 photo_limit は HINT に入れる。API が見分けて 409 で返す）
+CREATE OR REPLACE FUNCTION public.private_group_photo_check_limit(p_group_id uuid, p_adding integer)
+ RETURNS void
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_quota jsonb := public.private_group_photo_quota(p_group_id);
+BEGIN
+  IF (v_quota->>'used')::integer + p_adding > (v_quota->>'limit')::integer THEN
+    RAISE EXCEPTION 'このグループの写真は % 枚までです。残り % 枚です', v_quota->>'limit', v_quota->>'remaining'
+      USING ERRCODE = '22023', HINT = 'photo_limit';
+  END IF;
+END $function$;
+REVOKE ALL ON FUNCTION public.private_group_photo_check_limit(uuid, integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.private_group_photo_check_limit(uuid, integer) TO service_role;
+
+-- 写真の記録を足すときの最後の守り（RPC 以外の経路で足されても上限を超えない）。1 枚ずつ確かめる
+CREATE OR REPLACE FUNCTION public.private_group_message_photo_enforce_limit()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('private_group_photos:' || NEW.group_id::text, 0));
+  PERFORM public.private_group_photo_check_limit(NEW.group_id, 1);
+  RETURN NEW;
+END $function$;
+REVOKE ALL ON FUNCTION public.private_group_message_photo_enforce_limit() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS private_group_message_photo_enforce_limit ON public.private_group_message_photos;
+CREATE TRIGGER private_group_message_photo_enforce_limit BEFORE INSERT ON public.private_group_message_photos
+  FOR EACH ROW EXECUTE FUNCTION public.private_group_message_photo_enforce_limit();
+
 CREATE OR REPLACE FUNCTION public.private_group_chat_action(p_group_id uuid, p_member_id uuid, p_action text, p_payload jsonb DEFAULT '{}'::jsonb, p_guest_token text DEFAULT NULL::text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -113,6 +178,8 @@ BEGIN
   WHEN 'photo_prepare' THEN
     v_count := nullif(p_payload->>'count', '')::integer;
     IF v_count IS NULL OR v_count NOT BETWEEN 1 AND 10 THEN RAISE EXCEPTION '写真は1回10枚までです' USING ERRCODE = '22023'; END IF;
+    -- グループ全体の写真の上限（2026-10-20 社長決定。既定 10 枚、組織で上書き可）。送る時にもう一度確かめる
+    PERFORM public.private_group_photo_check_limit(p_group_id, v_count);
     v_id := gen_random_uuid();
     SELECT array_agg(format('%s/%s/%s/%s.jpg', v_group.organization_id, p_group_id, v_id, n)) INTO v_paths FROM generate_series(1, v_count) n;
     -- 一覧・格子・アルバム用の小さい版（長辺 400px）の場所（段階 4）。上げなかった写真は元画像を縮めて出す
@@ -128,6 +195,9 @@ BEGIN
     END IF;
     IF public.private_group_message_is_system(v_text) THEN RAISE EXCEPTION 'システム通知として送信できません' USING ERRCODE = '42501'; END IF;
     IF EXISTS (SELECT 1 FROM public.private_group_messages WHERE id = v_id) THEN RAISE EXCEPTION 'この写真は送信済みです' USING ERRCODE = '23505'; END IF;
+    -- グループ全体の写真の上限。同時に送られても超えないよう、グループごとに順番に確かめる（取引の終わりまで）
+    PERFORM pg_advisory_xact_lock(hashtextextended('private_group_photos:' || p_group_id::text, 0));
+    PERFORM public.private_group_photo_check_limit(p_group_id, v_count);
     INSERT INTO public.private_group_messages(id, group_id, member_id, message, reply_to_message_id)
     VALUES (v_id, p_group_id, p_member_id, v_text, v_reply);
     FOR i IN 1..v_count LOOP
@@ -146,6 +216,10 @@ BEGIN
           AND o.name = format('%s/%s/%s/%s_thumb.jpg', v_group.organization_id, p_group_id, v_id, i)));
     END LOOP;
     RETURN jsonb_build_object('id', v_id);
+
+  WHEN 'photo_quota' THEN
+    -- 写真の上限・使った枚数・残り（画面の「あと N 枚」）
+    RETURN public.private_group_photo_quota(p_group_id);
 
   WHEN 'photo_paths' THEN
     -- 写真の場所（署名付き URL の発行元 API だけが使う）。指定が無ければこのグループの新しい順に 500 枚まで
@@ -166,16 +240,32 @@ BEGIN
     IF jsonb_typeof(p_payload->'member_ids') <> 'array' OR jsonb_array_length(p_payload->'member_ids') NOT BETWEEN 1 AND 50 THEN
       RAISE EXCEPTION '知らせる相手が正しくありません' USING ERRCODE = '22023';
     END IF;
+    -- kind: 'dates'（日程の回答・既定）／'survey'（事前配役アンケート。未回答の人だけ）／'casting'（やりたいキャラクター。未選択の人だけ）
+    v_text := coalesce(nullif(p_payload->>'kind', ''), 'dates');
+    IF v_text NOT IN ('dates', 'survey', 'casting') THEN RAISE EXCEPTION '知らせる内容が正しくありません' USING ERRCODE = '22023'; END IF;
     SELECT array_agg(m.id ORDER BY m.joined_at, m.id), array_agg(public.private_group_member_display_name(m.id) ORDER BY m.joined_at, m.id)
       INTO v_ids, v_names
       FROM public.private_group_members m
      WHERE m.group_id = p_group_id AND m.status = 'joined' AND m.id <> p_member_id
-       AND m.id::text IN (SELECT jsonb_array_elements_text(p_payload->'member_ids'));
+       AND m.id::text IN (SELECT jsonb_array_elements_text(p_payload->'member_ids'))
+       AND (v_text = 'dates'
+         OR (v_text = 'survey' AND NOT EXISTS (
+           SELECT 1 FROM public.private_group_survey_responses s WHERE s.group_id = p_group_id AND s.member_id = m.id))
+         OR (v_text = 'casting' AND v_group.character_assignment_method = 'self'
+           AND NOT coalesce(v_group.character_assignments, '{}'::jsonb) ? m.id::text));
     IF v_ids IS NULL THEN RAISE EXCEPTION '知らせる相手が見つかりません' USING ERRCODE = '22023'; END IF;
     INSERT INTO public.private_group_messages(group_id, member_id, message)
-    VALUES (p_group_id, p_member_id, jsonb_build_object('type', 'system', 'action', 'date_answer_reminder',
-      'memberIds', to_jsonb(v_ids), 'names', to_jsonb(v_names),
-      'message', array_to_string(ARRAY(SELECT n || 'さん' FROM unnest(v_names) n), '、') || ' 日程の回答をお願いします')::text)
+    VALUES (p_group_id, p_member_id, CASE WHEN v_text IN ('survey', 'casting') THEN
+      -- 表示は日程の回答依頼と同じ灰色の 1 行（kind で文面を切り替える）
+      jsonb_build_object('type', 'system', 'action', 'date_answer_reminder', 'kind', v_text,
+        'memberIds', to_jsonb(v_ids), 'names', to_jsonb(v_names),
+        'message', array_to_string(ARRAY(SELECT n || 'さん' FROM unnest(v_names) n), '、')
+          || CASE WHEN v_text = 'survey' THEN ' 事前配役アンケートの回答をお願いします' ELSE ' やりたいキャラクターを選んでください' END)::text
+    ELSE
+      jsonb_build_object('type', 'system', 'action', 'date_answer_reminder',
+        'memberIds', to_jsonb(v_ids), 'names', to_jsonb(v_names),
+        'message', array_to_string(ARRAY(SELECT n || 'さん' FROM unnest(v_names) n), '、') || ' 日程の回答をお願いします')::text
+    END)
     RETURNING id INTO v_id;
     RETURN jsonb_build_object('id', v_id);
 
@@ -183,6 +273,7 @@ BEGIN
     RAISE EXCEPTION '未対応の操作です' USING ERRCODE = '22023';
   END CASE;
 END $function$;
+
 REVOKE ALL ON FUNCTION public.private_group_chat_action(uuid, uuid, text, jsonb, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.private_group_chat_action(uuid, uuid, text, jsonb, text) TO anon, authenticated, service_role;
 

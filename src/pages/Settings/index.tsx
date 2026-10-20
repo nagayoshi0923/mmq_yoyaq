@@ -1,5 +1,5 @@
 import { OperatingScalarSettings } from '@/components/settings/OperatingScalarSettings'
-import { OPERATION_SETTING_KEYS, SURVEY_SETTING_KEYS } from '@/components/settings/operatingSettingFields'
+import { OPERATION_SETTING_KEYS, PRIVATE_GROUP_PHOTO_SETTING_KEYS, SURVEY_SETTING_KEYS } from '@/components/settings/operatingSettingFields'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { Settings as SettingsIcon } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -81,6 +81,8 @@ export function Settings() {
         return <BusinessHoursSettings storeId={storeId} />
       case 'performance-schedule':
         return <PerformanceScheduleSettings storeId={storeId} scope="store" />
+      case 'private-group-photos':
+        return <OperatingScalarSettings scope="organization" keys={PRIVATE_GROUP_PHOTO_SETTING_KEYS} title="貸切グループの写真" />
       case 'operations-common':
         return <OperatingScalarSettings scope="organization" keys={[...OPERATION_SETTING_KEYS,...SURVEY_SETTING_KEYS]} title="開催判断・準備・クーポン・事前配役アンケート" />
       case 'store-operations':

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PrivateGroupMessage } from '@/types'
-import { applyMyReaction, fitWithin, groupReactions, isUserMessage, photoLayout, pinnedMessages, quoteText, readCountFor, typingText } from './chatModel'
+import { applyMyReaction, fitWithin, groupReactions, isUserMessage, photoLayout, photoPickState, pinnedMessages, quoteText, readCountFor, typingText } from './chatModel'
 
 const msg = (over: Partial<PrivateGroupMessage>): PrivateGroupMessage => ({ id: 'm1', group_id: 'g', member_id: 'a', message: 'こんにちは', created_at: '2026-10-10T01:00:00Z', ...over })
 
@@ -54,5 +54,17 @@ describe('チャット 段階 2 の決まり', () => {
     expect(typingText(['るい'])).toBe('るいさんが入力中…')
     expect(typingText(['るい', '二郎'])).toBe('るいさん、二郎さんが入力中…')
     expect(typingText(['a', 'b', 'c'])).toBe('3人が入力中…')
+  })
+})
+
+describe('photoPickState（グループ全体の写真の上限、2026-10-20）', () => {
+  it('1 回 10 枚とグループの残りの小さい方まで選べる', () => {
+    expect(photoPickState({ limit: 10, remaining: 3 }, 0)).toMatchObject({ perSend: 3, left: 3, blocked: false, canPickMore: true })
+    expect(photoPickState({ limit: 10, remaining: 3 }, 3)).toMatchObject({ perSend: 3, left: 0, canPickMore: false })
+    expect(photoPickState({ limit: 30, remaining: 25 }, 0)).toMatchObject({ perSend: 10, left: 25 })
+    expect(photoPickState(null, 0)).toMatchObject({ perSend: 10, left: null, blocked: false })
+  })
+  it('上限に達したら選べない', () => {
+    expect(photoPickState({ limit: 10, remaining: 0 }, 0)).toMatchObject({ blocked: true, canPickMore: false, blockedMessage: 'このグループの写真は 10 枚までです。上限に達したため、これ以上は送れません' })
   })
 })

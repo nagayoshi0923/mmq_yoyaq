@@ -3,6 +3,8 @@ export const OPERATION_SETTING_KEYS = ['judgment_minutes_before', 'preparation_m
 export const SURVEY_SETTING_KEYS = ['survey_enabled', 'survey_deadline_days', 'survey_url']
 /** 貸切を受け付ける範囲（MMQ の既定 180 → 組織 → 作品 → 公演。店舗では指定しない） */
 export const PRIVATE_BOOKING_HORIZON_SETTING_KEYS = ['private_booking_horizon_days']
+/** 貸切グループの写真（組織共通だけ） */
+export const PRIVATE_GROUP_PHOTO_SETTING_KEYS = ['private_group_photo_limit']
 
 export const PAYMENT_SETTING_FIELDS: TextSettingField[] = [
   { key: 'payment_method_label', label: '支払い方法の名称', fallback: '現地決済' },

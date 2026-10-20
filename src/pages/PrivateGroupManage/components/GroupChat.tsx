@@ -34,6 +34,7 @@ import { PinnedBar } from './chat/PinnedBar'
 import { useTypingPresence } from './chat/useTypingPresence'
 import { ChatVisibleContext, MESSAGE_SENT_EVENT, type MessageSentDetail } from './chat/chatVisibility'
 import { useGroupPhotoUrls } from './chat/useGroupPhotoUrls'
+import { useGroupPhotoQuota } from './chat/useGroupPhotoQuota'
 import { resizePhoto } from './chat/photoResize'
 import { groupReactions, pinnedMessages, quoteText, readCountFor, typingText } from './chat/chatModel'
 
@@ -182,6 +183,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
   const chatVisible = useContext(ChatVisibleContext)
   const { typingNames, notifyTyping, notifyStopped } = useTypingPresence(channelKey || groupId, currentMemberId, myName, Boolean(currentMemberId) && chatEnabled, chatVisible)
   const { urlOf } = useGroupPhotoUrls(groupId, currentMemberId, messages)
+  const photoQuota = useGroupPhotoQuota(groupId, currentMemberId, messages)
   const reactionsByMessage = useMemo(() => groupReactions(chatState.state.reactions), [chatState.state.reactions])
   const messageById = useMemo(() => new Map(messages.map(m => [m.id, m])), [messages])
   const pinned = useMemo(() => pinnedMessages(messages), [messages])
@@ -235,6 +237,8 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
     } catch (err) {
       logger.error('Failed to send message', err)
       toast.error(files.length > 0 ? `写真を送信できませんでした${getErrorMessage(err) ? `（${getErrorMessage(err)}）` : ''}` : 'メッセージを送信できませんでした。入力内容を確認して再度お試しください')
+      // 上限で断られたときなどは残りを取り直す（他の人が先に送っていた場合）
+      if (files.length > 0) void photoQuota.refresh()
       return false
     }
   }
@@ -405,6 +409,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
           onCancelReply={() => setReplyTo(null)}
           onSend={handleSend}
           onTyping={notifyTyping}
+          photoQuota={photoQuota.quota}
         />
       </CardContent>
     </Card>

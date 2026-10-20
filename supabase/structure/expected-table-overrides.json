@@ -3682,6 +3682,10 @@
   "policies": [],
   "triggers": [
    {
+    "def": "CREATE TRIGGER private_group_message_photo_enforce_limit BEFORE INSERT ON public.private_group_message_photos FOR EACH ROW EXECUTE FUNCTION private_group_message_photo_enforce_limit()",
+    "name": "private_group_message_photo_enforce_limit"
+   },
+   {
     "def": "CREATE TRIGGER private_group_message_photo_set_size BEFORE INSERT ON public.private_group_message_photos FOR EACH ROW EXECUTE FUNCTION private_group_message_photo_set_size()",
     "name": "private_group_message_photo_set_size"
    }

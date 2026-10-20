@@ -5,7 +5,8 @@
  * この API は、呼び出した人の資格（会員はログインの JWT、ゲストは PIN で発行した印）のまま
  * RPC private_group_chat_action を呼んで「このグループに参加中の本人」であることを DB に確かめさせ、
  * DB が返した場所に対してだけ service_role で次を行う:
- *   - prepare: 署名付きのアップロード先（{organization_id}/{group_id}/{message_id}/{n}.jpg と小さい版 {n}_thumb.jpg）を発行
+ *   - prepare: 署名付きのアップロード先（{organization_id}/{group_id}/{message_id}/{n}.jpg と小さい版 {n}_thumb.jpg）を発行。
+ *              グループ全体の写真の上限（既定 10 枚、組織で変更可。2026-10-20）を超えるなら DB が断り、409・理由 photo_limit で返す
  *   - urls:    期限付き（1 時間）の署名付き URL を発行（小さい版があればその URL も）
  *   - delete:  本人の発言を削除し、写真の実体（小さい版も）を Storage から消す
  *   - covers:  マイページのアルバム用に、ログイン中の会員が参加しているグループごとの最新の 1 枚（段階 4。RPC private_group_album_covers）
@@ -114,6 +115,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_group_id: groupId, p_member_id: memberId, p_action: rpcAction, p_payload: payload, p_guest_token: guestToken,
     })
     if (error) {
+      // グループ全体の写真の上限（DB が HINT に photo_limit を入れて断る。文言は「このグループの写真は 10 枚までです。残り N 枚です」）
+      if (error.hint === 'photo_limit') throw Object.assign(new Error(error.message), { status: 409, reason: 'photo_limit' })
       const status = error.code === '42501' ? 403 : error.code === '22023' ? 400 : 500
       throw Object.assign(new Error(error.message), { status })
     }
@@ -172,7 +175,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(400).json({ error: '未対応の操作です' })
   } catch (err) {
-    const status = (err as { status?: number }).status ?? 500
-    return res.status(status).json({ error: err instanceof Error ? err.message : '処理できませんでした' })
+    const { status = 500, reason } = err as { status?: number; reason?: string }
+    return res.status(status).json({ error: err instanceof Error ? err.message : '処理できませんでした', ...(reason ? { reason } : {}) })
   }
 }

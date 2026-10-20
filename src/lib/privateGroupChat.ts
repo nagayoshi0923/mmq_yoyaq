@@ -9,7 +9,7 @@ import { clearPrivateGroupGuestToken, getPrivateGroupGuestToken } from '@/lib/pr
 
 export const PRIVATE_GROUP_PHOTO_BUCKET = 'private-group-photos'
 
-export type ChatAction = 'message' | 'read' | 'react' | 'pin' | 'remind_unanswered' | 'photo_message'
+export type ChatAction = 'message' | 'read' | 'react' | 'pin' | 'remind_unanswered' | 'photo_message' | 'photo_quota'
 
 export async function privateGroupChatAction<T = unknown>(groupId: string, memberId: string, action: ChatAction, payload: Record<string, unknown> = {}): Promise<T> {
   const { data, error } = await supabase.rpc('private_group_chat_action', {
@@ -62,6 +62,20 @@ export interface GroupPhoto {
   memberId: string | null
   width: number | null
   height: number | null
+}
+
+/** グループ全体の写真の上限・使った枚数・残り（2026-10-20 社長決定。既定 10 枚、組織で変更可。削除した写真は数えない） */
+export interface GroupPhotoQuota {
+  limit: number
+  used: number
+  remaining: number
+}
+
+export async function fetchGroupPhotoQuota(groupId: string, memberId: string): Promise<GroupPhotoQuota> {
+  const q = await privateGroupChatAction<Partial<GroupPhotoQuota>>(groupId, memberId, 'photo_quota')
+  const limit = Number(q?.limit), used = Number(q?.used), remaining = Number(q?.remaining)
+  if (![limit, used, remaining].every(Number.isFinite)) throw new Error('写真の残り枚数を読み込めませんでした')
+  return { limit, used, remaining }
 }
 
 type PhotoApiBody = { action: 'prepare'; count: number } | { action: 'urls'; messageIds?: string[] } | { action: 'delete'; messageId: string }
