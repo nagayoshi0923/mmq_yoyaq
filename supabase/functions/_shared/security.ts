@@ -37,6 +37,18 @@ export function getCronSecret(): string {
   return Deno.env.get('CRON_SECRET') ?? Deno.env.get('EDGE_FUNCTION_CRON_SECRET') ?? ''
 }
 
+/**
+ * Edge 関数から別の Edge 関数を呼ぶときに付ける認証ヘッダー。
+ * supabase-js は sb_secret_ 形式の鍵を送るが、ゲートウェイが Authorization を
+ * 自前の JWT へ差し替える（sb_api_key_compatibility=minted）ため、受け側の
+ * isCronOrServiceRoleCall では鍵の一致を確認できず 401 になる（2026-10-20 監査 R3）。
+ * Cron と同じ共有シークレットを専用ヘッダーで渡す。未設定なら空（呼ばない判断は呼び出し側）。
+ */
+export function internalFunctionHeaders(): Record<string, string> {
+  const secret = getCronSecret().trim()
+  return secret ? { 'x-cron-secret': secret } : {}
+}
+
 export function isCronOrServiceRoleCall(req: Request): boolean {
   // IMPORTANT:
   // Supabase Functions は Authorization ヘッダを JWT として検証するため、

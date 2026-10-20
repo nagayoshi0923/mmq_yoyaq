@@ -1,7 +1,37 @@
 -- 20261010160000 の取り消し: 貸切グループページ刷新 段階 4（公演後の思い出・サムネイル）を外す
--- 注意: 書かれた感想（private_group_feedback）は消える。作られたベル（写真を共有しませんか）と、チャットに流した「次の貸切のお誘い」は残る。
+-- 注意: 書かれた感想（private_group_feedback）とサムネイルの場所（thumb_path）は、先に rollback_backup へ退避してから消す。作られたベル（写真を共有しませんか）と、チャットに流した「次の貸切のお誘い」は残る。
 -- サムネイルの実体（{n}_thumb.jpg）は Storage に残る（バケットは非公開のまま。誰も読めない）。
 BEGIN;
+-- 消す前に退避する（2026-10-20 監査 R5。手順は docs/ops/本番公開の戻し方_2026-10.md）
+-- 退避先: 非公開のスキーマ rollback_backup の <表名>_backup_<JST の日付>。ブラウザの役割（anon / authenticated）からは読めない。
+-- 同じ日の退避が既にあれば上書きせず、ここで止める（このファイル全体が 1 つの取引なので何も消えない）。
+CREATE SCHEMA IF NOT EXISTS rollback_backup;
+REVOKE ALL ON SCHEMA rollback_backup FROM PUBLIC, anon, authenticated;
+DO $backup$
+DECLARE v_suffix text := to_char(now() AT TIME ZONE 'Asia/Tokyo', 'YYYYMMDD'); v_src text; v_dst text; v_rows bigint;
+BEGIN
+  FOREACH v_src IN ARRAY ARRAY['private_group_feedback'] LOOP
+    IF to_regclass('public.' || v_src) IS NULL THEN CONTINUE; END IF;
+    v_dst := v_src || '_backup_' || v_suffix;
+    IF to_regclass(format('rollback_backup.%I', v_dst)) IS NOT NULL THEN
+      RAISE EXCEPTION '退避先 rollback_backup.% が既にあります。中身を確かめて別名へ移してから流し直してください', v_dst;
+    END IF;
+    EXECUTE format('CREATE TABLE rollback_backup.%I AS TABLE public.%I', v_dst, v_src);
+    EXECUTE format('REVOKE ALL ON rollback_backup.%I FROM PUBLIC, anon, authenticated', v_dst);
+    EXECUTE format('SELECT count(*) FROM rollback_backup.%I', v_dst) INTO v_rows;
+    RAISE NOTICE '退避しました: public.% → rollback_backup.% (% 行)', v_src, v_dst, v_rows;
+  END LOOP;
+  -- 写真の小さい版の場所（thumb_path）は、値のある行だけ写す（写真の表そのものは段階 2 の取り消しで退避する）
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'private_group_message_photos' AND column_name = 'thumb_path') THEN
+    v_dst := 'private_group_message_photos_thumb_backup_' || v_suffix;
+    IF to_regclass(format('rollback_backup.%I', v_dst)) IS NOT NULL THEN
+      RAISE EXCEPTION '退避先 rollback_backup.% が既にあります', v_dst;
+    END IF;
+    EXECUTE format('CREATE TABLE rollback_backup.%I AS SELECT message_id, position, thumb_path FROM public.private_group_message_photos WHERE thumb_path IS NOT NULL', v_dst);
+    EXECUTE format('REVOKE ALL ON rollback_backup.%I FROM PUBLIC, anon, authenticated', v_dst);
+    RAISE NOTICE '退避しました: private_group_message_photos.thumb_path → rollback_backup.%', v_dst;
+  END IF;
+END $backup$;
 DO $$
 BEGIN
   IF to_regclass('cron.job') IS NOT NULL THEN

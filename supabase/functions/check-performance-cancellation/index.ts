@@ -12,7 +12,7 @@ import { sendRecruitmentXPosts } from '../_shared/recruitment-x.ts'
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, getServiceRoleKey, isCronOrServiceRoleCall, maskEmail } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, getServiceRoleKey, isCronOrServiceRoleCall, maskEmail, internalFunctionHeaders } from '../_shared/security.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 import { getEmailSettings, getDiscordSettings, sendDiscordNotificationWithRetry, getStoreEmailSettings } from '../_shared/organization-settings.ts'
 
@@ -875,8 +875,26 @@ async function sendRecruitmentNotices(supabase: ReturnType<typeof createClient>)
       if (failureUpdateError) throw failureUpdateError
     }
   }
-  // 初回失敗・復旧通知を、既存Discord送信処理へ直ちに渡す。再試行は既存キューに残る。
-  const { error: discordError } = await supabase.functions.invoke('retry-discord-notifications', { body: { only_recruitment: true } })
-  if (discordError) console.error('追加募集のDiscord通知は再試行待ちです')
+  // 初回失敗・復旧通知を、既存Discord送信処理へ直ちに渡す。
+  // 呼べなかった・失敗した場合も通知はキューに pending のまま残り、5分毎の再送 cron が送る（ここでは止めない）。
+  await kickRecruitmentDiscordRetry(supabase)
   if (failed) throw new Error('追加募集メールに未送信があり、再試行待ちです')
+}
+
+/** 追加募集の Discord 通知を即時送信へ回す。失敗は記録だけして、キューの再送に任せる。 */
+async function kickRecruitmentDiscordRetry(supabase: ReturnType<typeof createClient>): Promise<void> {
+  const headers = internalFunctionHeaders()
+  if (!headers['x-cron-secret']) {
+    console.warn('追加募集のDiscord通知: CRON_SECRET 未設定のため即時送信を省略。キューの再送を待ちます')
+    return
+  }
+  try {
+    const { error } = await supabase.functions.invoke('retry-discord-notifications', { body: { only_recruitment: true }, headers })
+    if (error) {
+      const status = (error as { context?: { status?: number } }).context?.status ?? null
+      console.error('追加募集のDiscord通知は再試行待ちです', { status, reason: error.name })
+    }
+  } catch (invokeError) {
+    console.error('追加募集のDiscord通知は再試行待ちです', { status: null, reason: (invokeError as Error)?.name ?? 'unknown' })
+  }
 }
