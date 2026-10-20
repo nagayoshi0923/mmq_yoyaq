@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-15T02:27:15.631Z",
+  "captured_at": "2026-10-20T09:00:21.900Z",
   "table_count": 156,
-  "function_count": 432,
-  "digest": "0c3110f2052184a5e9081d280130d09b51881552658011a3ae927298e9c46cbb"
+  "function_count": 440,
+  "digest": "1c244760028bc777f8caf7d2c16ea172d7319263f6b6c7ce76bfd11817337427"
  },
  "tables": {
   "staff": {
@@ -3923,6 +3923,24 @@
      "type": "timestamp with time zone",
      "default": "now()",
      "not_null": true
+    },
+    {
+     "name": "redeemed_at",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "redeemed_by_member",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "redeemed_source",
+     "type": "text",
+     "default": null,
+     "not_null": false
     }
    ],
    "indexes": [
@@ -4026,6 +4044,16 @@
      "def": "PRIMARY KEY (id)",
      "name": "coupon_usages_pkey",
      "type": "p"
+    },
+    {
+     "def": "FOREIGN KEY (redeemed_by_member) REFERENCES customers(id) ON DELETE SET NULL",
+     "name": "coupon_usages_redeemed_by_member_fkey",
+     "type": "f"
+    },
+    {
+     "def": "CHECK (((redeemed_source IS NULL) OR (redeemed_source = ANY (ARRAY['customer_present'::text, 'venue_use'::text]))))",
+     "name": "coupon_usages_redeemed_source_check",
+     "type": "c"
     },
     {
      "def": "FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE",
@@ -20402,7 +20430,7 @@
      "name": "guard_withdrawn_private_group_response"
     },
     {
-     "def": "CREATE CONSTRAINT TRIGGER private_group_on_date_response AFTER INSERT OR UPDATE OF response ON public.private_group_date_responses DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN ((new.response = 'ok'::text)) EXECUTE FUNCTION private_group_on_date_response()",
+     "def": "CREATE CONSTRAINT TRIGGER private_group_on_date_response AFTER INSERT OR UPDATE OF response ON public.private_group_date_responses DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION private_group_on_date_response()",
      "name": "private_group_on_date_response"
     },
     {
@@ -20585,6 +20613,10 @@
    ],
    "policies": [],
    "triggers": [
+    {
+     "def": "CREATE TRIGGER private_group_message_photo_enforce_limit BEFORE INSERT ON public.private_group_message_photos FOR EACH ROW EXECUTE FUNCTION private_group_message_photo_enforce_limit()",
+     "name": "private_group_message_photo_enforce_limit"
+    },
     {
      "def": "CREATE TRIGGER private_group_message_photo_set_size BEFORE INSERT ON public.private_group_message_photos FOR EACH ROW EXECUTE FUNCTION private_group_message_photo_set_size()",
      "name": "private_group_message_photo_set_size"
@@ -25925,7 +25957,7 @@
     "service_role=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "0262565e10e449e9788ab81b40dcd3e2",
+   "body_md5": "a2b2b86d21fb8b38cafc758c4ddb92ba",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26786,7 +26818,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "adaa6cfc058edef4d3f212315a61820a",
+   "body_md5": "646b25666f6013a03f21b20df40dc37f",
    "language": "sql",
    "security_definer": false
   },
@@ -26861,7 +26893,7 @@
     "postgres=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "81c3618b663c355612831244fe2a4152",
+   "body_md5": "33cef1b8c42cd5b6cb674eab48b2bd91",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26885,6 +26917,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_photo_quota(p_group_id uuid)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "8ee703f0b8bae6de392553572cbda16d",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "update_scenario_kit_locations_updated_at()": {
    "acl": [
     "=X/postgres",
@@ -26897,6 +26939,15 @@
    "body_md5": "301a884953d37769916294bb60562e05",
    "language": "plpgsql",
    "security_definer": false
+  },
+  "private_group_message_photo_enforce_limit()": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "e002cb2e5e0580a32690f10a29b778ed",
+   "language": "plpgsql",
+   "security_definer": true
   },
   "rollback_orphan_organization(p_org_id uuid)": {
    "acl": [
@@ -27195,7 +27246,7 @@
     "service_role=X/postgres"
    ],
    "returns": "boolean",
-   "body_md5": "fe48a5bc4adbafae2c7784368c41cd35",
+   "body_md5": "fe190658afa23f25785c9d454b411ec7",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27652,7 +27703,7 @@
     "service_role=X/postgres"
    ],
    "returns": "void",
-   "body_md5": "a2933a5af38103a5a00ea40b969d3cdb",
+   "body_md5": "12fe5111bbe614ed10e7deba05c4a6dc",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27731,6 +27782,17 @@
    "returns": "SETOF blog_posts",
    "body_md5": "a3aab6ee79a8c8ee84530fb21a3b1b3b",
    "language": "sql",
+   "security_definer": true
+  },
+  "withdraw_private_request_keep_group(p_reservation_id uuid)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "boolean",
+   "body_md5": "abd0079c694bc3b10022aa619285c90e",
+   "language": "plpgsql",
    "security_definer": true
   },
   "assignment_state(p_org uuid, p_staff uuid, p_scenario uuid)": {
@@ -27996,6 +28058,16 @@
    "language": "sql",
    "security_definer": false
   },
+  "redeem_coupon_usage(p_user uuid, p_usage_id uuid, p_source text)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "1049534c83b9131319b3176dffac34d8",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "private_group_handover_user_name(p_user_id uuid, p_group_id uuid)": {
    "acl": [
     "postgres=X/postgres",
@@ -28039,6 +28111,16 @@
    ],
    "returns": "jsonb",
    "body_md5": "2aad5b7ecbd9057894c080788be5cc4f",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_photo_check_limit(p_group_id uuid, p_adding integer)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "void",
+   "body_md5": "ec414a4be0e18776efcad3e7f9032878",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28435,7 +28517,7 @@
     "service_role=X/postgres"
    ],
    "returns": "void",
-   "body_md5": "d55c6d90a0fc574a894eda7d14292a27",
+   "body_md5": "02498dd102c3d6f8305d76bf24dc1433",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28787,6 +28869,18 @@
    "language": "sql",
    "security_definer": true
   },
+  "private_booking_scenario_date_reasons(p_organization_id uuid, p_date date, p_scenario_ids uuid[])": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "TABLE(scenario_id uuid, reason text)",
+   "body_md5": "b6c0a8785f20123a5212cfb11b8c21ac",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "finish_waitlist_notice(p_notice uuid, p_waitlist uuid, p_lease uuid, p_sent boolean, p_error text)": {
    "acl": [
     "postgres=X/postgres",
@@ -28930,13 +29024,25 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "get_effective_private_booking_horizon_days(p_organization_id uuid, p_scenario_id uuid, p_event_id uuid)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "integer",
+   "body_md5": "b5378ebc934fd610e8739faef214ed8a",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "private_booking_store_day_slots(p_date date, p_hours jsonb, p_is_holiday boolean, p_allow_missing boolean)": {
    "acl": [
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
    "returns": "TABLE(slot_key text, start_minutes integer, end_minutes integer, closing_minutes integer)",
-   "body_md5": "af118b029e62fc01b411fcbc04b0bd22",
+   "body_md5": "c0bec3c1cd17722fe446b23745ce89b8",
    "language": "plpgsql",
    "security_definer": false
   },
@@ -29022,7 +29128,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "b255c5805c401fcefa623f8bcd3d08ce",
+   "body_md5": "c16154625cddad0c4cbd809639204740",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -29294,7 +29400,7 @@
     "service_role=X/postgres"
    ],
    "returns": "TABLE(date date, time_slot text, available boolean, reason text, start_time text, end_time text, detail text, adjusted boolean)",
-   "body_md5": "da5d93ad10249c8779011827d7e63f42",
+   "body_md5": "e753e1fd5cbd9adaaf2e73d35669dda8",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -29314,7 +29420,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "32c58e852f1407bd69c590268b4acd1e",
+   "body_md5": "21c0e5d9af1940b9379f8cff3705e443",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -29377,6 +29483,16 @@
    "body_md5": "6f8d68b2d452357bff6242c20fe77044",
    "language": "plpgsql",
    "security_definer": true
+  },
+  "private_booking_assert_candidate(p_org uuid, p_scenario_id uuid, p_store_ids uuid[], p_date date, p_slot text, p_start text, p_end text)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "void",
+   "body_md5": "e1cdfc7a87c883496e24f81d420c4722",
+   "language": "plpgsql",
+   "security_definer": false
   },
   "private_group_handover_accept(p_request_id uuid, p_customer_id uuid, p_contact_name text, p_contact_phone text, p_displayed_policy jsonb)": {
    "acl": [
@@ -29459,7 +29575,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "d280f4c867d41e407413ac53bedc4c16",
+   "body_md5": "51a7bb06ed19431007775848e234d3ad",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -29505,7 +29621,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "56db9932cc103fb01b3183da781f07b8",
+   "body_md5": "ee6f42bfc6f950f6b77e00f6bd24e90d",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -29541,6 +29657,16 @@
    "body_md5": "1283318ea5cf16558e8f539673d7e3a6",
    "language": "plpgsql",
    "security_definer": true
+  },
+  "private_booking_slot_store_fit(p_org uuid, p_scenario_id uuid, p_scenario jsonb, p_store_ids uuid[], p_date date, p_holiday boolean, p_slot text, p_start_min integer)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "TABLE(store_id uuid, start_min integer, standard_min integer, fits boolean, why text, gap_minutes integer, fixed boolean, minutes integer)",
+   "body_md5": "92d6516a85fc622250bcc462c921f957",
+   "language": "plpgsql",
+   "security_definer": false
   },
   "calculate_booking_participation_fee(p_base_fee integer, p_costs jsonb, p_date date, p_start_time time without time zone, p_custom_holiday boolean, p_pricing_date date)": {
    "acl": [
@@ -29641,16 +29767,6 @@
    "body_md5": "553392a1c7261e9e591be2e0f0263ffe",
    "language": "plpgsql",
    "security_definer": true
-  },
-  "private_booking_slot_store_fit(p_org uuid, p_scenario_id uuid, p_title text, p_available_stores text[], p_slot_start_times jsonb, p_store_ids uuid[], p_date date, p_holiday boolean, p_minutes integer, p_slot text, p_start_min integer)": {
-   "acl": [
-    "postgres=X/postgres",
-    "service_role=X/postgres"
-   ],
-   "returns": "TABLE(store_id uuid, start_min integer, standard_min integer, fits boolean, why text, gap_minutes integer, fixed boolean)",
-   "body_md5": "59d1c52d212e80f7eac677069387a8f4",
-   "language": "plpgsql",
-   "security_definer": false
   },
   "save_scenario_recruitment_settings_v2(p_organization_id uuid, p_master_id uuid, p_actor_id uuid, p_enabled boolean, p_source text, p_mode text, p_value integer, p_deadline_minutes integer, p_expected_updated_at timestamp with time zone)": {
    "acl": [
