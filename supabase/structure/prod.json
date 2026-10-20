@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "prod",
-  "captured_at": "2026-10-15T02:27:06.180Z",
+  "captured_at": "2026-10-20T21:38:38.083Z",
   "table_count": 149,
   "function_count": 405,
-  "digest": "fa945242c1f2c12e34b96a0c8982d83bed853e1b701c4cb6f05b1f5135ca1ebc"
+  "digest": "945a843de05bb8c2adfe2d436d67d1b1c3bc5b0491469af5d472550a89b8d2f7"
  },
  "tables": {
   "staff": {
@@ -27884,7 +27884,7 @@
     "service_role=X/postgres"
    ],
    "returns": "TABLE(slot_key text, start_minutes integer, end_minutes integer, closing_minutes integer)",
-   "body_md5": "af118b029e62fc01b411fcbc04b0bd22",
+   "body_md5": "c0bec3c1cd17722fe446b23745ce89b8",
    "language": "plpgsql",
    "security_definer": false
   },
