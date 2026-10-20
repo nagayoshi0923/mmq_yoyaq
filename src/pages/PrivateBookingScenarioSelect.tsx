@@ -16,6 +16,7 @@ import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
+import { isBeyondPrivateBookingHorizon, privateBookingTooFarText, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
 
 interface Scenario {
   id: string
@@ -64,6 +65,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   const [selectedParticipantCount, setSelectedParticipantCount] = useState<number | null>(null)
   const [allStores, setAllStores] = useState<any[]>([])
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
 
   // シナリオをフィルタリング（タイトル・作者で検索）
   const filteredScenarios = useMemo(() => {
@@ -88,6 +90,11 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     [preselectedStoreParam]
   )
   
+  // 申し込める範囲（今日から N 日先まで。MMQ 既定 180 → 組織 → 作品 → 公演の設定。I21）。
+  // 入口用の日数（組織の値と作品の個別指定のうち最長）より先の日は、どの作品も申し込めない（2026-10-20 本番 #1140）
+  const { days: entryHorizonDays } = usePrivateBookingHorizonDays({ organizationId })
+  const dateTooFar = isBeyondPrivateBookingHorizon(preselectedDate, entryHorizonDays)
+
   const slotLabels: { [key: string]: string } = {
     morning: '午前',
     afternoon: '午後',
@@ -156,6 +163,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
 
         if (!cancelled) {
           setScenarios(rows.filter((s) => isScenarioAcceptingPrivateBooking(s)))
+          setOrganizationId(orgId ?? null)
         }
       } catch (error) {
         logger.error('シナリオの読み込みエラー:', error)
@@ -195,6 +203,10 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   }, [organizationSlug, preselectedStoreIds])
 
   const handleProceed = () => {
+    if (dateTooFar) {
+      showToast.warning(privateBookingTooFarText(entryHorizonDays))
+      return
+    }
     if (!selectedScenarioId) {
       showToast.warning('シナリオを選択してください')
       return
@@ -238,6 +250,11 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
                 <p>日付: {formatJstDateJa(preselectedDate, true) || preselectedDate}</p>
                 <p>時間帯: {slotLabels[preselectedSlot] || preselectedSlot}</p>
               </div>
+              {dateTooFar && (
+                <p role="alert" className="text-sm text-red-600">
+                  この日には貸切を申し込めません。{privateBookingTooFarText(entryHorizonDays)}。
+                </p>
+              )}
             </div>
 
             {/* シナリオ検索・選択 */}
@@ -572,7 +589,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
             <Button
               className="w-full bg-purple-600 hover:bg-purple-700 text-white"
               onClick={handleProceed}
-              disabled={!selectedScenarioId || selectedStoreIds.length === 0 || loading}
+              disabled={!selectedScenarioId || selectedStoreIds.length === 0 || loading || dateTooFar}
             >
               貸切リクエスト確認へ
             </Button>

@@ -14,7 +14,8 @@
 -- 3) private_group_candidate_slot_availability: グループ用。参加者（会員・ゲスト）とスタッフだけ呼べる。2) を内部で使う。
 -- reason: no_store_for_scenario（この作品を上演できる希望店舗がない）/ conflict（他の公演と重なる）/ blocked（受付停止）/
 --         closed（営業時間外）/ slot_not_allowed（この作品で選べない時間帯）/ past_deadline（受付締切後）/
---         not_recruiting（募集期間外）/ outside_period（公演期間外）/ already_added（追加済み、グループ用のみ）/
+--         not_recruiting（募集期間外）/ outside_period（公演期間外）/ too_far（申し込める範囲より先。設定 I21、detail に文面）/
+--         already_added（追加済み、グループ用のみ）/
 --         start_fixed（作品の開始時刻が決まっていて、その時刻では前後の公演と重なる）
 -- detail: conflict で隙間はあるが所要時間が入らないとき「空き 2 時間・必要 5 時間」。
 --         start_fixed のとき「この作品の開始時刻 14:30 では前後の公演と重なります」。adjusted: 標準開始からずらした時刻。
@@ -175,6 +176,7 @@ BEGIN
   EXCEPTION WHEN SQLSTATE 'P0045' THEN day_reason:='past_deadline';
    WHEN SQLSTATE 'P0044' THEN day_reason:='not_recruiting';
    WHEN SQLSTATE 'P0054' THEN day_reason:='outside_period';
+   WHEN SQLSTATE 'P0058' THEN day_reason:='too_far';
   END;
   -- 以下は private_group_add_candidate_dates と同じ判定
   holiday:=extract(dow FROM d) IN (0,6) OR public.is_booking_calendar_holiday(d) OR coalesce(custom_holidays ? d::text,false);
@@ -182,7 +184,7 @@ BEGIN
   allowed:=CASE WHEN holiday THEN sc.private_booking_time_slots_weekend ELSE sc.private_booking_time_slots END;
   FOREACH slot IN ARRAY ARRAY['morning','afternoon','evening'] LOOP
    date:=d; time_slot:=slot; available:=false; reason:=NULL; start_time:=NULL; end_time:=NULL; detail:=NULL; adjusted:=false;
-   IF day_reason IS NOT NULL THEN reason:=day_reason;
+   IF day_reason IS NOT NULL THEN reason:=day_reason; IF day_reason='too_far' THEN detail:='申し込めるのは今日から '||public.get_effective_private_booking_horizon_days(p_organization_id,p_scenario_id,NULL)||' 日先までです'; END IF;
    ELSIF NOT has_store THEN reason:='no_store_for_scenario';
    ELSIF coalesce(cardinality(allowed),0)>0 AND NOT EXISTS(SELECT 1 FROM unnest(allowed) value WHERE value=ANY(CASE slot
      WHEN 'morning' THEN ARRAY['午前','朝公演','朝'] WHEN 'afternoon' THEN ARRAY['午後','昼公演','昼'] ELSE ARRAY['夜','夜公演'] END)) THEN

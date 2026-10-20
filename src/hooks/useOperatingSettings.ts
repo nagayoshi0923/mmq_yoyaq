@@ -5,6 +5,7 @@ import {
   resolveInheritedSetting, resolveSetting, type SettingLayers, type SettingScope, type SettingValue,
 } from '../../supabase/functions/_shared/settings-inheritance'
 import { SETTING_DEFINITIONS } from '../../supabase/functions/_shared/setting-definitions'
+import { PRIVATE_BOOKING_HORIZON_QUERY_KEY } from '@/lib/privateBookingHorizon'
 
 interface SettingsResponse {
   layers: SettingLayers
@@ -59,6 +60,9 @@ export function useOperatingSettings(scope: SettingScope, targetId?: string, ena
         client.invalidateQueries({ queryKey: ['booking-payment-settings'], refetchType: 'all' }),
         client.invalidateQueries({ queryKey: ['preparation-settings'], refetchType: 'all' }),
         client.invalidateQueries({ queryKey: ['group-survey-settings'], refetchType: 'all' }),
+        // 貸切を受け付ける範囲: 公開カレンダー・リストの申込枠と、作品ページ・申込ページの範囲を待たずに読み直す
+        client.invalidateQueries({ queryKey: [PRIVATE_BOOKING_HORIZON_QUERY_KEY], refetchType: 'all' }),
+        client.invalidateQueries({ queryKey: ['public-private-slots'], refetchType: 'all' }),
       ])
       if (current !== generation.current) return false
       if (await load()) { setMessage('設定を保存しました'); return true }
