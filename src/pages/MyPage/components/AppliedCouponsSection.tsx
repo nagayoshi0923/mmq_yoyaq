@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { CheckCircle2, Scissors, Ticket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useJstToday } from '@/hooks/useJstToday'
 import { formatJstDateJa, formatJstDateTime, formatJstMonthDay, formatJstTime, toJstYmd } from '@/utils/jstDate'
 import { showToast } from '@/utils/toast'
 import type { AppliedCouponCard } from '../utils/appliedCoupons'
@@ -20,14 +21,16 @@ interface AppliedCouponsSectionProps {
  * 公演当日（日本時間）か。来店確認・予約後のクーポン使用はこの日だけ押せる。
  * 公演の日付（YYYY-MM-DD、schedule_events.date）を渡す。日時を渡したときは日本時間の日付で比べる。
  * サーバーも公演の日付を正とする同じ判定で断る（20261020190000 / 20261020220000）。
+ * 画面では useJstToday() の「今日」（YYYY-MM-DD）を now に渡し、0 時をまたいでも再描画されるようにする。
  */
-export function isPerformanceDay(performanceDate: string, now: Date = new Date()): boolean {
+export function isPerformanceDay(performanceDate: string, now: Date | string = new Date()): boolean {
   const day = toJstYmd(performanceDate)
-  return !!day && day === toJstYmd(now)
+  return !!day && day === (typeof now === 'string' ? now : toJstYmd(now))
 }
 
 export function AppliedCouponsSection({ cards, onRedeem, redeeming }: AppliedCouponsSectionProps) {
   const [target, setTarget] = useState<AppliedCouponCard | null>(null)
+  const today = useJstToday()
   if (cards.length === 0) return null
 
   const handleConfirm = async () => {
@@ -73,7 +76,7 @@ export function AppliedCouponsSection({ cards, onRedeem, redeeming }: AppliedCou
                   <span className="text-sm font-bold">来店時に確認済み</span>
                   <span className="text-xs ml-auto">{formatJstDateTime(card.redeemedAt)}</span>
                 </div>
-              ) : isPerformanceDay(card.performanceDate) ? (
+              ) : isPerformanceDay(card.performanceDate, today) ? (
                 <div className="mt-3 flex items-center justify-between gap-3">
                   <span className="text-xs text-muted-foreground">来店確認: 未確認</span>
                   <Button

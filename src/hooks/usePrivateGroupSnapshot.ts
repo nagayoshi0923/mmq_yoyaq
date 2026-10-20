@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { readPrivateGroup, type PrivateGroupSnapshot } from '@/lib/privateGroupRead'
+import { isPrivateGroupAccessLost, readPrivateGroup, type PrivateGroupSnapshot } from '@/lib/privateGroupRead'
 
 export function usePrivateGroupSnapshot(groupId: string | null, inviteCode: string | null, memberId: string | null = null, pollMs = 15000) {
   const { user } = useAuth()
   const [snapshot, setSnapshot] = useState<PrivateGroupSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // 一時的な通信失敗で直前の内容を表示し続けている間 true。次に読めたら false に戻る
+  const [reconnecting, setReconnecting] = useState(false)
+  const hasSnapshot = useRef(false)
   const generation = useRef(0)
   const pending = useRef<number | null>(null)
   const resolvedGroupId = useRef<string | null>(null)
@@ -15,21 +18,30 @@ export function usePrivateGroupSnapshot(groupId: string | null, inviteCode: stri
     if (background && pending.current !== null) return null
     const request = ++generation.current
     if (!groupId && !inviteCode) {
-      setSnapshot(null); setError(null); setLoading(false)
+      setSnapshot(null); setError(null); setReconnecting(false); setLoading(false)
+      hasSnapshot.current = false
       return null
     }
     pending.current = request
     if (!background) setLoading(true)
-    setError(null)
     try {
       const next = await readPrivateGroup({ groupId: groupId || resolvedGroupId.current, inviteCode, memberId })
       if (request !== generation.current) return null
       resolvedGroupId.current = next.group.id
+      hasSnapshot.current = true
       setSnapshot(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next)
+      setError(null); setReconnecting(false)
       return next
     } catch (e) {
       if (request !== generation.current) return null
-      setSnapshot(null)
+      // 通信の切断・5xx・時間切れでは、直前の内容を残して次の定期取得で読み直す。
+      // 画面を「見つかりません」に切り替えると、開いている申込シートの入力が消える（Codex 点検 不具合 3）
+      if (hasSnapshot.current && !isPrivateGroupAccessLost(e)) {
+        setReconnecting(true)
+        return null
+      }
+      hasSnapshot.current = false
+      setSnapshot(null); setReconnecting(false)
       setError(e instanceof Error ? e.message : 'グループを取得できませんでした')
       return null
     } finally {
@@ -40,7 +52,8 @@ export function usePrivateGroupSnapshot(groupId: string | null, inviteCode: stri
   const invalidate = useCallback(() => { generation.current++; pending.current = null }, [])
   useEffect(() => { resolvedGroupId.current = null }, [groupId, inviteCode])
   useEffect(() => {
-    setSnapshot(null)
+    setSnapshot(null); setError(null); setReconnecting(false)
+    hasSnapshot.current = false
     void refetch()
     return invalidate
   }, [refetch, invalidate, user?.id])
@@ -57,7 +70,7 @@ export function usePrivateGroupSnapshot(groupId: string | null, inviteCode: stri
     }
   }, [refetch, pollMs])
   return {
-    group: snapshot?.group || null, loading, error, refetch,
+    group: snapshot?.group || null, loading, error, reconnecting, refetch,
     linkedReservationStatus: snapshot?.linked_reservation_status || null,
     confirmedByName: snapshot?.confirmed_by_name || null,
     linkedReservation: snapshot?.linked_reservation || null,
