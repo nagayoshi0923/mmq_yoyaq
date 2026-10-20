@@ -1,3 +1,12 @@
+## 2026-10-20 / 「もぎる（来店確認）」の当日判定を公演の日付にそろえる（fix/coupon-redeem-event-date、staging 向け PR）
+
+- 不具合: #1166 の `redeem_coupon_usage` は `reservations.requested_datetime` の日本時間の日付で当日を判定していた。staging の過去 60 日の予約 1,070 件のうち 31 件は `requested_datetime` が予約を作った時刻（例 260919-8B88: 9/19 12:28、公演 10/11 13:00）で、公演当日に押しても断られる。夕方以降の公演も日本時間で翌日にずれうる。
+- DB: migration `20261020220000_coupon_redeem_use_event_date`（rollback 同名＝ 20261020180000 の本文に戻し補助関数を消す）。補助関数 `coupon_performance_day(schedule_event_id, requested_datetime)`（公演の日付、無ければ requested_datetime の日本時間の日付。service_role のみ）を足し、`redeem_coupon_usage` はそれで判定。`use_customer_coupon`（#1169）は同じ式のまま変えず、同じ予約で同じ判定になることを DB テストで確認。expected-function-overrides: redeem `b3e2236054aa3ff2662a633cef642f3f`、補助関数 `6f310d8517d6461d9f6a1929092bcf24`。
+- API・画面: `type=all` の使用履歴に予約の公演（`performance_date`・`performance_start_time`）を足し、「この予約に適用済み」の当日判定・表示日時・一覧に出す範囲を公演の日付基準に。「この予約に使う」は元から公演の日付（`type=current-reservations` の `date`）。
+- 原因の経路: 31 件はすべて `reservation_source=staff_participation`・`duration=240`・`requested_datetime≒created_at`。公演の詳細画面で GM 役割を「スタッフ参加」にした瞬間に予約を入れる旧ヘルパー `ensureStaffReservation`（`requested_datetime: new Date()`）が作っていた。#640（22dc8ef3a、2026-09-28）で削除され、#641（20260928001200）の `sync_event_staff_participations` が公演の日時（日本時間）で入れるようになったので 9/28 以降は出ていない。同じ書き方が公演の詳細画面の「保存後に追加」の参加者（追加モード）に残っていたので、公演の日付＋開始時刻（+09:00）に直し、`requested_datetime` に保存時刻を入れない検査（`requestedDatetimeSource.test.ts`）を足した。既存 31 件のデータは直していない（判定は公演の日付になったので影響しない）。
+- 確認: `supabase/tests/coupon_redeem_event_date.sql`（test:rpcs に追加。作成時刻入りでも公演当日なら可・公演の前後の日は拒否・公演の無い予約は requested_datetime・予約後の使用と同じ判定・補助関数と use の式が一致。旧関数では失敗）、`npm run test:rpcs`、`npm run test:coupon-redeem-db`、vitest 全件、`npm run verify`。
+- staging への migration 適用は発注者が行う。適用後に md5(prosrc) が期待値と一致することを確かめ、`supabase/structure/staging.json` を更新する。
+
 ## 2026-10-20 / 候補の再取得で申込シート・候補日カレンダーの入力が消える（fix/candidate-refetch-keeps-input、PR #1171）
 
 - Codex の staging 点検（b47cf9377）。グループ画面は読み直しのたびに「読み込み中」に切り替えてシートを作り直していたため、申込シートの送る直前の確認（候補日の時刻が更新されました）で、選んだ候補・優先順・人数・店舗への連絡・電話番号・同意がすべて消えていた。手元 DB・手元画面（customer1、port 5193）で再現し、修正後に入力が残ることを確認。

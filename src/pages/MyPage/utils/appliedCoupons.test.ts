@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { listAppliedCoupons } from './appliedCoupons'
+import { listAppliedCoupons, reservationPerformance } from './appliedCoupons'
 import type { CustomerCoupon } from '@/types'
 
 const now = new Date('2026-10-20T01:00:00Z') // JST 10/20 10:00
@@ -40,5 +40,23 @@ describe('予約に適用済みのクーポン（マイページ）', () => {
   it('来店確認済みは時刻を持って出す（押し直しはさせない）', () => {
     const cards = listAppliedCoupons([coupon([usage('done', '2026-10-20T04:00:00Z', { redeemed_at: '2026-10-20T03:50:00Z' })])], now)
     expect(cards[0].redeemedAt).toBe('2026-10-20T03:50:00Z')
+  })
+  it('公演の日付が正: requested_datetime に予約を作った時刻が入っていても、公演の日付と開始時刻で出す', () => {
+    // 例: 予約 260919-8B88 は requested_datetime 9/19 12:28、公演は 10/11 13:00
+    const cards = listAppliedCoupons([coupon([
+      usage('created', '2026-09-19T03:28:00Z', {}),
+      usage('tomorrow', '2026-10-20T00:30:00Z', {}),
+    ].map((u, i) => ({ ...u, reservations: { ...u.reservations, performance_date: i === 0 ? '2026-10-20' : '2026-10-21', performance_start_time: '13:00:00' } })))], now)
+    expect(cards.map(c => [c.usageId, c.performanceDate, c.startsAt])).toEqual([
+      ['created', '2026-10-20', '2026-10-20T13:00:00+09:00'],
+      ['tomorrow', '2026-10-21', '2026-10-21T13:00:00+09:00'],
+    ])
+  })
+  it('公演の無い予約・公演日を返さない古い API では requested_datetime の日本時間の日付を使う', () => {
+    expect(reservationPerformance({ requested_datetime: '2026-10-20T10:00:00Z' })).toEqual({ date: '2026-10-20', startsAt: '2026-10-20T10:00:00Z' })
+    expect(reservationPerformance({ requested_datetime: '2026-10-20T16:00:00Z', performance_date: null })).toEqual({ date: '2026-10-21', startsAt: '2026-10-20T16:00:00Z' })
+    expect(reservationPerformance({ requested_datetime: '', performance_date: null })).toBeNull()
+    expect(reservationPerformance({ requested_datetime: '2026-10-20T10:00:00Z', performance_date: '2026-10-25', performance_start_time: null }))
+      .toEqual({ date: '2026-10-25', startsAt: '2026-10-25T00:00:00+09:00' })
   })
 })

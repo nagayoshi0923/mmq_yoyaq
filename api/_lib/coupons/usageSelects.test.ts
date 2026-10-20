@@ -28,6 +28,11 @@ describe('使用履歴の select 文字列', () => {
     expect(customerUsageSelect(false)).not.toContain('redeemed')
     expect(customerUsageSelect(false)).toContain('stores ( name, short_name )')
   })
+  it('お客様一覧: 公演当日の判定に使う公演の日付・開始時刻を、外部キー名を付けて読む（20261020220000）', () => {
+    for (const select of [customerUsageSelect(true), customerUsageSelect(false)]) {
+      expect(select).toContain('schedule_events!reservations_schedule_event_id_fkey ( date, start_time )')
+    }
+  })
 })
 
 describe('API・画面のコードに外部キー名なしの埋め込みが残っていない', () => {

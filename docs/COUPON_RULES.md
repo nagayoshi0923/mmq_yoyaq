@@ -48,11 +48,11 @@
 
 予約に付けたクーポンは予約確定の時点で使用済みになり、来店時にお客様がマイページの「この予約に適用済みのクーポン」で「もぎる（来店確認）」を押すと「来店時に確認済み」の印が付く（migration `20261020130000`）。
 
-- 来店確認は **公演当日のみ**。予約の公演日（`reservations.requested_datetime` を日本時間の日付にしたもの）が今日（日本時間）のときだけ印を付ける。予約に適用済みを押す経路（`customer_present`）も、来店時にその場で使う経路（`venue_use`）も同じ。先の日付・前の日付は `P0028`（HINT `not_performance_day`）で「公演当日に押してください」と断る（migration `20261020180000`）。
+- 来店確認は **公演当日のみ**。予約の公演日が今日（日本時間）のときだけ印を付ける。公演日は予約の公演の日付（`schedule_events.date`）が正で、公演の無い予約だけ `reservations.requested_datetime` を日本時間の日付にしたものを使う（補助関数 `coupon_performance_day`、migration `20261020220000`。予約後の「この予約に使う」と同じ判定）。`requested_datetime` には予約を作った時刻が入っている予約があり（staging で 31 件）、それで判定すると当日に押せなかった。予約に適用済みを押す経路（`customer_present`）も、来店時にその場で使う経路（`venue_use`）も同じ。先の日付・前の日付は `P0028`（HINT `not_performance_day`）で「公演当日に押してください」と断る（migration `20261020180000`）。
 - 既に確認済みなら、日付にかかわらず成功で何もしない（二度押し・再送で時刻を書き換えない）。
 - API `POST /api/coupons?action=redeem-usage` は断りを 400 で返し、理由を `code`（`not_performance_day` など）で渡す。`action=use` で先の予約にクーポンを使ったときは、使用は成功のまま印を付けず、`redeemed: false`・`redeem_code` を添える（当日に「この予約に適用済み」から押す）。
-- 画面は当日でなければ「もぎる」を押せない状態にし、「公演当日に押せます（M/D）」を出す。判定は日本時間の日付。
-- 検証: `supabase/tests/coupon_usage_redeem_same_day.sql`（`npm run test:rpcs`）、`npm run test:coupon-redeem-db`、`api/coupons.test.ts`、`AppliedCouponsSection.test.tsx`。
+- 画面は当日でなければ「もぎる」を押せない状態にし、「公演当日に押せます（M/D）」を出す。判定は日本時間の日付で、API（`type=all`）が返す予約の公演の日付（`performance_date`・`performance_start_time`）を正にする。
+- 検証: `supabase/tests/coupon_usage_redeem_same_day.sql`・`supabase/tests/coupon_redeem_event_date.sql`（`npm run test:rpcs`）、`npm run test:coupon-redeem-db`、`api/coupons.test.ts`、`AppliedCouponsSection.test.tsx`。
 
 ## 予約後の「この予約に使う」は公演当日のみ
 

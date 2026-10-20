@@ -2,6 +2,8 @@
  * 予約に適用済みのクーポン（社長決定 B、2026-10-20）。
  * 予約時にクーポンを付けると、その時点で使用（消費）される。来店時にお客様が「もぎる」を押すと
  * 「来店時に確認済み」の印が付く。マイページのクーポンに、当日〜近日の予約に付いたクーポンを出す。
+ * 公演の日付は予約の公演（schedule_events.date）を正とし、公演の無い予約だけ requested_datetime の日本時間の日付を使う
+ * （requested_datetime に予約を作った時刻が入っている予約があるため。サーバーの判定 20261020220000 と同じ）。
  */
 import type { CustomerCoupon } from '@/types'
 import { addJstDays, toJstYmd } from '@/utils/jstDate'
@@ -18,8 +20,25 @@ export interface AppliedCouponCard {
   discountAmount: number
   reservationTitle: string
   storeName: string
+  /** 公演の開始日時（表示・並び順用） */
   startsAt: string
+  /** 公演の日付（YYYY-MM-DD、日本時間）。「もぎる」を押せるのはこの日だけ */
+  performanceDate: string
   redeemedAt: string | null
+}
+
+type UsageReservation = NonNullable<NonNullable<CustomerCoupon['coupon_usages']>[number]['reservations']>
+
+/** 予約の公演日（日本時間）と開始日時。公演の日付が正、公演が無ければ requested_datetime */
+export function reservationPerformance(reservation: Pick<UsageReservation, 'requested_datetime' | 'performance_date' | 'performance_start_time'>): { date: string; startsAt: string } | null {
+  const date = reservation.performance_date
+  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const time = (reservation.performance_start_time ?? '').slice(0, 5)
+    return { date, startsAt: `${date}T${/^\d{2}:\d{2}$/.test(time) ? time : '00:00'}:00+09:00` }
+  }
+  if (!reservation.requested_datetime) return null
+  const fallback = toJstYmd(reservation.requested_datetime)
+  return fallback ? { date: fallback, startsAt: reservation.requested_datetime } : null
 }
 
 type CouponForApplied = Pick<CustomerCoupon, 'id' | 'coupon_usages' | 'coupon_campaigns'>
@@ -31,10 +50,10 @@ export function listAppliedCoupons(coupons: CouponForApplied[], now: Date, daysA
   for (const coupon of coupons) {
     for (const usage of coupon.coupon_usages ?? []) {
       const reservation = usage.reservations
-      if (!reservation?.requested_datetime) continue
+      if (!reservation) continue
       if (reservation.status && !ACTIVE_RESERVATION_STATUSES.has(reservation.status)) continue
-      const day = toJstYmd(reservation.requested_datetime)
-      if (!day || day < today || day > last) continue
+      const performance = reservationPerformance(reservation)
+      if (!performance || performance.date < today || performance.date > last) continue
       cards.push({
         usageId: usage.id,
         couponId: coupon.id,
@@ -42,7 +61,8 @@ export function listAppliedCoupons(coupons: CouponForApplied[], now: Date, daysA
         discountAmount: usage.discount_amount,
         reservationTitle: cleanReservationTitle(reservation.title),
         storeName: reservation.stores?.short_name || reservation.stores?.name || '',
-        startsAt: reservation.requested_datetime,
+        startsAt: performance.startsAt,
+        performanceDate: performance.date,
         redeemedAt: usage.redeemed_at ?? null,
       })
     }

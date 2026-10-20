@@ -16,9 +16,13 @@ interface AppliedCouponsSectionProps {
   redeeming: boolean
 }
 
-/** 来店確認は公演当日（日本時間）だけ押せる。サーバーも同じ判定で断る（20261020180000） */
-export function isPerformanceDay(startsAt: string, now: Date = new Date()): boolean {
-  const day = toJstYmd(startsAt)
+/**
+ * 公演当日（日本時間）か。来店確認・予約後のクーポン使用はこの日だけ押せる。
+ * 公演の日付（YYYY-MM-DD、schedule_events.date）を渡す。日時を渡したときは日本時間の日付で比べる。
+ * サーバーも公演の日付を正とする同じ判定で断る（20261020190000 / 20261020220000）。
+ */
+export function isPerformanceDay(performanceDate: string, now: Date = new Date()): boolean {
+  const day = toJstYmd(performanceDate)
   return !!day && day === toJstYmd(now)
 }
 
@@ -34,7 +38,7 @@ export function AppliedCouponsSection({ cards, onRedeem, redeeming }: AppliedCou
       showToast.success('来店確認をしました。この画面をスタッフにお見せください')
     } else {
       showToast.error(result.code === 'not_performance_day'
-        ? `来店確認は公演当日（${formatJstMonthDay(target.startsAt)}）に押してください`
+        ? `来店確認は公演当日（${formatJstMonthDay(target.performanceDate)}）に押してください`
         : result.error || '来店確認を記録できませんでした')
       if (result.code === 'not_performance_day') setTarget(null)
     }
@@ -69,7 +73,7 @@ export function AppliedCouponsSection({ cards, onRedeem, redeeming }: AppliedCou
                   <span className="text-sm font-bold">来店時に確認済み</span>
                   <span className="text-xs ml-auto">{formatJstDateTime(card.redeemedAt)}</span>
                 </div>
-              ) : isPerformanceDay(card.startsAt) ? (
+              ) : isPerformanceDay(card.performanceDate) ? (
                 <div className="mt-3 flex items-center justify-between gap-3">
                   <span className="text-xs text-muted-foreground">来店確認: 未確認</span>
                   <Button
@@ -82,7 +86,7 @@ export function AppliedCouponsSection({ cards, onRedeem, redeeming }: AppliedCou
                 </div>
               ) : (
                 <div className="mt-3 flex items-center justify-between gap-3" data-testid="applied-coupon-not-today">
-                  <span className="text-xs text-muted-foreground">公演当日に押せます（{formatJstMonthDay(card.startsAt)}）</span>
+                  <span className="text-xs text-muted-foreground">公演当日に押せます（{formatJstMonthDay(card.performanceDate)}）</span>
                   <Button className="min-h-11" variant="outline" disabled aria-disabled="true">
                     <Scissors className="w-4 h-4 mr-1" aria-hidden="true" />
                     もぎる（来店確認）
