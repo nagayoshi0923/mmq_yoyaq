@@ -33,6 +33,13 @@ describe('申込シートの候補日', () => {
     expect(list[1]).toMatchObject({ tally: '○1 △1 ×1', note: '二郎さんが×', hasNg: true, slotKey: 'evening' })
     expect(list[2]).toMatchObject({ tally: '○2 △1', note: '三郎さんが△' })
   })
+  it('時刻は DB の候補日の開始・終了のまま（特別営業日などで所要時間と合わない終了も計算し直さない）', () => {
+    // 午後の作品は通常 13:00〜17:00 だが、DB が特別営業日で 14:00〜18:30 に確定した候補
+    const g = { ...group, candidate_dates: [cand('sp', '2026-11-03', '午後', '14:00:00', '18:30:00', [['ichi', 'ok']])] } as unknown as PrivateGroup
+    const [row] = sheetCandidates(buildAnswerTable(g, 'ichi'), g.candidate_dates!)
+    expect(row).toMatchObject({ startTime: '14:00', endTime: '18:30' })
+    expect(row.label).toContain('14:00〜18:30')
+  })
   it('自分は「あなた」、未回答の人も出す', () => {
     const g = { ...group, candidate_dates: [cand('a', '2026-11-01', '午前', '10:00', '14:00', [['jiro', 'ok']]), cand('b', '2026-11-02', '午前', '10:00', '14:00', [['ichi', 'maybe']])] } as unknown as PrivateGroup
     const rows = sheetCandidates(buildAnswerTable(g, 'ichi'), g.candidate_dates!)

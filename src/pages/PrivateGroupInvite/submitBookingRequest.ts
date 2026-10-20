@@ -3,6 +3,8 @@
  * 判断は ./bookingRequest.ts の関数、通信と画面の表示（トースト）はここで行う。
  * 候補日は選んだ順＝優先順で送る（DB は送られた並びを order 1, 2, … として保存。20261011200000）。
  * 希望店舗はグループの希望店舗のうち申込シートで選んだもの（DB はグループの希望店舗の中から 1 店舗以上を受け付ける）。
+ * 候補日の開始・終了は DB（private_group_candidate_dates）の値をそのまま送る。送る直前にグループを読み直し、
+ * 申込シートに出していた時刻と違えば送らずに知らせる（画面で作品の所要時間から終了を計算し直さない。監査 R1 と同じ流儀）。
  */
 import { addJstDays } from '@/utils/jstDate'
 import { toast } from 'sonner'
@@ -19,7 +21,8 @@ import { fetchScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
 import { formatBlockedCandidateLabel, type PrivateBookingBlockedSlotRow } from '@/lib/privateBookingBlockedSlotAvailability'
 import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
 import { upsertOwnCustomer } from '@/lib/api/customerApi'
-import { bookingRequestErrorMessage, buildCandidateDatetimes, findPastDeadlineCandidates, findUnavailableCandidates, generateReservationNumber, parseDeadlineDays, pastDeadlineMessage, selectBookableCandidates } from './bookingRequest'
+import { readPrivateGroup } from '@/lib/privateGroupRead'
+import { CANDIDATE_TIMES_UPDATED_MESSAGE, bookingRequestErrorMessage, buildCandidateDatetimes, findChangedCandidateTimes, findPastDeadlineCandidates, findUnavailableCandidates, generateReservationNumber, parseDeadlineDays, pastDeadlineMessage, selectBookableCandidates } from './bookingRequest'
 import type { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInviteCode'
 
 type GroupType = NonNullable<ReturnType<typeof usePrivateGroupByInviteCode>['group']>
@@ -39,14 +42,15 @@ export interface SubmitBookingRequestContext {
   /** 参加人数（作品の最低〜最大人数の範囲。DB でも確かめる） */
   participantCount: number
   organizerMember: GroupMember | undefined
-  isCustomHoliday: (date: string) => boolean
   setIsSubmittingBooking: (v: boolean) => void
+  /** 送る直前に読み直した候補日の時刻が、画面に出していた時刻と違ったとき（呼び出し側でグループを読み直す） */
+  onCandidateTimesChanged?: () => void
 }
 
 /** 送れたら true（シートを閉じて読み直すのは呼び出し側） */
 export async function submitGroupBookingRequest({
   group, user, isOrganizer, canMutateScheduleBeforeStoreReply, orderedCandidateIds, bookingPhone, bookingNotes,
-  requestedStores, participantCount, organizerMember, isCustomHoliday, setIsSubmittingBooking,
+  requestedStores, participantCount, organizerMember, setIsSubmittingBooking, onCandidateTimesChanged,
 }: SubmitBookingRequestContext): Promise<boolean> {
   if (!isOrganizer || !group || !user) return false
   if (!canMutateScheduleBeforeStoreReply) {
@@ -88,6 +92,15 @@ export async function submitGroupBookingRequest({
 
     // 受付締切（公演日の何日前まで）を過ぎた候補があると、申込全体が DB で拒否される。送る前に知らせる（#506）
     // 締切日数が読めないときはここでは止めず、DB の確認に任せる（誤って止めない）
+    // 送る直前にグループの候補日を DB から読み直し、申込シートに出していた開始・終了と違えば送らない（監査 R1 と同じ流儀）
+    const latest = await readPrivateGroup({ groupId: group.id })
+    const changed = findChangedCandidateTimes(selectedCandidateDates, latest.group.candidate_dates)
+    if (changed.length > 0) {
+      toast.error(CANDIDATE_TIMES_UPDATED_MESSAGE)
+      onCandidateTimesChanged?.()
+      return false
+    }
+
     const deadlineResult = await privateBookingSlotReadApi.getEffectiveDeadlineDays({ scenarioId: group.scenario_master_id, organizationId: orgId, organizationSlug: null })
     const deadlineDays = parseDeadlineDays(deadlineResult)
     const pastDeadline = findPastDeadlineCandidates(selectedCandidateDates, deadlineDays)
@@ -155,8 +168,8 @@ export async function submitGroupBookingRequest({
     
 
 
-    // 候補日時をJSONB形式で準備（終了は営業枠ではなくシナリオ公演時間）
-    const candidateDatetimes = buildCandidateDatetimes(selectedCandidateDates, requestedStores, scenarioTiming, isCustomHoliday)
+    // 候補日時をJSONB形式で準備（開始・終了は DB の候補日の値のまま）
+    const candidateDatetimes = buildCandidateDatetimes(selectedCandidateDates, requestedStores)
     
     // 参加人数は申込シートの人数（作品の人数が固定ならその人数、可変なら最低〜最大から選んだ人数。既定は最大。DB でも範囲を確かめる）。
     // 申込後のメンバー追加は作品の最大人数まで（予約の人数では止めない）。

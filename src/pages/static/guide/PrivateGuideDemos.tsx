@@ -71,9 +71,9 @@ export function DemoAnswerTable() {
 }
 
 const CANDIDATES: SheetCandidate[] = [
-  { id: 'c2', date: '2026-11-14', slotKey: 'afternoon', label: '11/14(土) 午後 14:00〜18:00', tally: '○3', note: '全員参加できる', ok: 3, maybe: 0, ng: 0, hasNg: false, startTime: '14:00' },
-  { id: 'c3', date: '2026-11-15', slotKey: 'afternoon', label: '11/15(日) 午後 14:00〜18:00', tally: '○2 △1', note: 'はなこさんが△', ok: 2, maybe: 1, ng: 0, hasNg: false, startTime: '14:00' },
-  { id: 'c1', date: '2026-11-13', slotKey: 'evening', label: '11/13(金) 夜 19:00〜23:00', tally: '○1 △1 ×1', note: 'じろうさんが×', ok: 1, maybe: 1, ng: 1, hasNg: true, startTime: '19:00' },
+  { id: 'c2', date: '2026-11-14', slotKey: 'afternoon', label: '11/14(土) 午後 14:00〜18:00', tally: '○3', note: '全員参加できる', ok: 3, maybe: 0, ng: 0, hasNg: false, startTime: '14:00', endTime: '18:00' },
+  { id: 'c3', date: '2026-11-15', slotKey: 'afternoon', label: '11/15(日) 午後 14:00〜18:00', tally: '○2 △1', note: 'はなこさんが△', ok: 2, maybe: 1, ng: 0, hasNg: false, startTime: '14:00', endTime: '18:00' },
+  { id: 'c1', date: '2026-11-13', slotKey: 'evening', label: '11/13(金) 夜 19:00〜23:00', tally: '○1 △1 ×1', note: 'じろうさんが×', ok: 1, maybe: 1, ng: 1, hasNg: true, startTime: '19:00', endTime: '23:00' },
 ]
 
 /** 5. 申込シートの縮小版（候補日の選択と希望店舗） */
