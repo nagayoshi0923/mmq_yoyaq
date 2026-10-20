@@ -30,10 +30,14 @@ test('使用前に実際の割引額・対象外の理由を確認できる',asy
   await page.getByText('25%クーポン',{exact:true}).click()
   await page.getByText('対象外の作品',{exact:true}).click()
   await expect(page.getByRole('alert')).toHaveText('対象シナリオではありません')
-  await expect(page.getByRole('button',{name:'もぎる',exact:true})).toBeDisabled()
+  await expect(page.getByRole('button',{name:'この予約に使う',exact:true})).toBeDisabled()
   await page.getByText('利用対象の作品',{exact:true}).click()
   await expect(page.getByText('今回の割引額：¥1,000')).toBeVisible()
-  await expect(page.getByRole('button',{name:'もぎる',exact:true})).toBeEnabled()
+  await expect(page.getByRole('button',{name:'この予約に使う',exact:true})).toBeEnabled()
+  // 予約後にクーポンを使うのは公演当日だけ。先の公演を選ぶと押せず、使える日を出す
+  await page.getByText('先の公演',{exact:true}).click()
+  await expect(page.getByTestId('coupon-use-not-today')).toHaveText('公演当日に使えます（1/1）')
+  await expect(page.getByRole('button',{name:'この予約に使う',exact:true})).toBeDisabled()
 })
 
 

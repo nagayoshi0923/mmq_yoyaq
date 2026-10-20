@@ -37,7 +37,7 @@ describe('クーポン利用API',()=>{
   it('DBが返す利用不可理由を画面へ返し消費を再試行しない',async()=>{
     mock.rpc.mockResolvedValue({data:null,error:{code:'P0028',message:'対象店舗ではありません'}})
     const r=response();await handler({method:'POST',headers:{},query:{action:'use'},body:{customer_coupon_id:'coupon',reservation_id:'reservation'}} as unknown as VercelRequest,r as unknown as VercelResponse)
-    expect(r.status).toHaveBeenCalledWith(400);expect(r.json).toHaveBeenCalledWith({success:false,error:'対象店舗ではありません'});expect(mock.rpc).toHaveBeenCalledTimes(1)
+    expect(r.status).toHaveBeenCalledWith(400);expect(r.json).toHaveBeenCalledWith({success:false,error:'対象店舗ではありません',code:'P0028'});expect(mock.rpc).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -72,6 +72,15 @@ describe('来店確認（もぎる）は公演当日だけ', () => {
     expect(mock.rpc).toHaveBeenNthCalledWith(2, 'redeem_coupon_usage', { p_user: 'verified-user', p_usage_id: 'usage', p_source: 'venue_use' })
     expect(r.status).toHaveBeenCalledWith(200)
     expect(r.json).toHaveBeenCalledWith({ success: true, usage_id: 'usage', discount_amount: 500, redeemed: false, redeem_code: 'not_performance_day' })
+  })
+  it('予約後に当てる（use）のが公演当日でなければ 400 で理由コードを返し、来店確認は呼ばない（20261020190000）', async () => {
+    mock.rpc.mockResolvedValueOnce({ data: null, error: { code: 'P0028', message: '公演当日にお使いください', hint: 'not_performance_day' } })
+    const r = response()
+    await handler({ method: 'POST', headers: {}, query: { action: 'use' }, body: { customer_coupon_id: 'coupon', reservation_id: 'reservation' } } as unknown as VercelRequest, r as unknown as VercelResponse)
+    expect(mock.rpc).toHaveBeenCalledTimes(1)
+    expect(mock.rpc).toHaveBeenCalledWith('use_customer_coupon', { p_user: 'verified-user', p_coupon: 'coupon', p_reservation: 'reservation' })
+    expect(r.status).toHaveBeenCalledWith(400)
+    expect(r.json).toHaveBeenCalledWith({ success: false, error: '公演当日にお使いください', code: 'not_performance_day' })
   })
   it('その場で使った（use）のが当日なら、そのまま印を付けて成功を返す', async () => {
     mock.rpc
