@@ -10,11 +10,16 @@ CREATE TEMP TABLE _rule_rows(no text, date date, slot text, ok boolean, start_ti
 CREATE TEMP TABLE _ctx(org uuid, sm uuid, st1 uuid, st2 uuid, grp uuid);
 INSERT INTO _ctx VALUES('00000000-0000-4000-a000-000000000001','00000000-0000-4000-a000-000000000202',
  '00000000-0000-4000-a000-000000000101','00000000-0000-4000-a000-000000000102','0160f91a-f84c-43fd-8e46-dda15d1005d7');
--- 締切より後の、祝日でない k 番目の月曜・土曜
-CREATE FUNCTION pg_temp.day_of(p_isodow integer, p_k integer) RETURNS date LANGUAGE sql STABLE AS $$
- SELECT d FROM (SELECT current_date+40+i AS d FROM generate_series(0,400) i) s
+-- 締切（14 日）より後の、祝日でない k 番目の月曜・土曜。申し込める範囲（I21。既定 180 日）を超えたら止める
+CREATE FUNCTION pg_temp.day_of(p_isodow integer, p_k integer) RETURNS date LANGUAGE plpgsql STABLE AS $$
+DECLARE r date;
+BEGIN
+ SELECT d INTO r FROM (SELECT current_date+16+i AS d FROM generate_series(0,400) i) s
  WHERE extract(isodow FROM d)=p_isodow AND NOT public.is_booking_calendar_holiday(d)
- ORDER BY d OFFSET p_k LIMIT 1 $$;
+ ORDER BY d OFFSET p_k LIMIT 1;
+ ASSERT r <= (now() AT TIME ZONE 'Asia/Tokyo')::date+180, format('例の日付 %s が申し込める範囲（180 日）を超えます', r);
+ RETURN r;
+END $$;
 
 -- R の 1 行を準備して判定し、期待と比べ、選べるなら保存 RPC でも通ることを確かめる
 CREATE FUNCTION pg_temp.check_row(p_no text, p_date date, p_stores uuid[], p_slot text, p_ok boolean, p_start text, p_end text, p_reason text, p_detail text, p_adjusted boolean)
@@ -260,6 +265,76 @@ BEGIN
    ELSE v||jsonb_build_object('available_slots','["afternoon","evening","morning"]'::jsonb) END) FROM jsonb_each(opening_hours) e(k,v))
   WHERE organization_id=c.org AND store_id=c.st2;
  PERFORM pg_temp.check_row('R30',w,one,'morning',true,'10:00','13:30',NULL,NULL,false);
+
+ -- R31〜R33 申し込める範囲（I21。設定「貸切を受け付ける範囲」: MMQ の既定 180 日 → 組織 → 作品 → 公演の順に上書き。2026-10-20 本番 #1140）
+ UPDATE organization_scenarios SET private_booking_time_slots='{}',private_booking_time_slots_weekend=NULL,override_title=NULL WHERE organization_id=c.org AND scenario_master_id=c.sm;
+ PERFORM pg_temp.dur(180);
+ -- R31 既定 180 日: 181 日先は選べない（too_far）。180 日先は too_far にならない
+ w:=(now() AT TIME ZONE 'Asia/Tokyo')::date+181;
+ PERFORM pg_temp.check_row('R31',w,one,'afternoon',false,NULL,NULL,'too_far','申し込めるのは今日から 180 日先までです',false);
+ ASSERT NOT EXISTS(SELECT 1 FROM private_booking_candidate_slot_availability(c.org,c.sm,one,w-1,w-1) a WHERE a.reason='too_far'), 'R31: 180 日先が too_far になった';
+ -- 保存（候補の追加・グループ作成・日時付き申込）でも弾く
+ UPDATE private_groups SET status='gathering',reservation_id=NULL,preferred_store_ids=one WHERE id=c.grp;
+ msg:=NULL;
+ BEGIN
+  PERFORM private_group_add_candidate_dates(c.grp,gen_random_uuid(),c.sm,one,
+   jsonb_build_array(jsonb_build_object('date',w,'time_slot','afternoon','start_time','13:00','end_time','16:00')));
+ EXCEPTION WHEN OTHERS THEN msg:=SQLERRM;
+ END;
+ ASSERT msg LIKE '%申し込めるのは今日から 180 日先までです%', format('R31: 181 日先を候補に追加できた（%s）', msg);
+ msg:=NULL;
+ BEGIN
+  PERFORM create_private_group_atomic(c.org,c.sm,'規則の例',one,
+   jsonb_build_array(jsonb_build_object('date',w,'time_slot','午後','start_time','13:00','end_time','16:00')),NULL);
+ EXCEPTION WHEN OTHERS THEN msg:=SQLERRM;
+ END;
+ ASSERT msg LIKE '%申し込めるのは今日から 180 日先までです%', format('R31: 181 日先でグループを作成できた（%s）', msg);
+ msg:=NULL;
+ BEGIN
+  UPDATE reservations SET candidate_datetimes=jsonb_set(candidate_datetimes,'{candidates}',candidate_datetimes->'candidates'||jsonb_build_array(jsonb_build_object('date',w,'order',9,'status','pending','timeSlot','午後','startTime','13:00','endTime','16:00')))
+   WHERE id=(SELECT r.id FROM reservations r WHERE r.organization_id=c.org AND r.reservation_source='web_private' ORDER BY r.id LIMIT 1);
+ EXCEPTION WHEN OTHERS THEN msg:=SQLERRM;
+ END;
+ ASSERT msg LIKE '%申し込めるのは今日から 180 日先までです%', format('R31: 日時付き申込に 181 日先を入れられた（%s）', msg);
+ INSERT INTO _rule_rows VALUES('R31',w,'afternoon',false,'13:00','16:00','too_far',msg,false);
+
+ -- R32 組織の値を 90 日にすると 91 日先は選べず保存も弾く。90 日先は too_far にならない
+ INSERT INTO operating_setting_overrides(organization_id,settings) VALUES(c.org,'{"private_booking_horizon_days":90}')
+  ON CONFLICT (organization_id,store_id,organization_scenario_id,schedule_event_id) DO UPDATE SET settings=operating_setting_overrides.settings||EXCLUDED.settings;
+ w:=(now() AT TIME ZONE 'Asia/Tokyo')::date+91;
+ PERFORM pg_temp.check_row('R32',w,one,'afternoon',false,NULL,NULL,'too_far','申し込めるのは今日から 90 日先までです',false);
+ ASSERT NOT EXISTS(SELECT 1 FROM private_booking_candidate_slot_availability(c.org,c.sm,one,w-1,w-1) a WHERE a.reason='too_far'), 'R32: 90 日先が too_far になった';
+ ASSERT (SELECT reason FROM private_booking_scenario_date_reasons(c.org,w,ARRAY[c.sm]))='too_far', 'R32: 作品一覧の日付理由が too_far にならない';
+ msg:=NULL;
+ BEGIN
+  PERFORM private_group_add_candidate_dates(c.grp,gen_random_uuid(),c.sm,one,
+   jsonb_build_array(jsonb_build_object('date',w,'time_slot','afternoon','start_time','13:00','end_time','16:00')));
+ EXCEPTION WHEN OTHERS THEN msg:=SQLERRM;
+ END;
+ ASSERT msg LIKE '%申し込めるのは今日から 90 日先までです%', format('R32: 91 日先を候補に追加できた（%s）', msg);
+ ASSERT get_effective_private_booking_horizon_days(c.org,NULL,NULL)=90, 'R32: 入口（作品未選択）の日数が 90 にならない';
+ INSERT INTO _rule_rows VALUES('R32',w,'afternoon',false,'13:00','16:00','too_far',msg,false);
+
+ -- R33 組織 90・作品 120 → 作品の 120 が効く（121 日先は弾き、100 日先は選べる）。公演の上書きがあれば公演の値が効く
+ INSERT INTO operating_setting_overrides(organization_id,organization_scenario_id,settings)
+  SELECT c.org,s.id,'{"private_booking_horizon_days":120}'::jsonb FROM organization_scenarios s WHERE s.organization_id=c.org AND s.scenario_master_id=c.sm
+  ON CONFLICT (organization_id,store_id,organization_scenario_id,schedule_event_id) DO UPDATE SET settings=operating_setting_overrides.settings||EXCLUDED.settings;
+ ASSERT get_effective_private_booking_horizon_days(c.org,c.sm,NULL)=120, 'R33: 作品の 120 が効かない';
+ w:=(now() AT TIME ZONE 'Asia/Tokyo')::date+121;
+ PERFORM pg_temp.check_row('R33',w,one,'afternoon',false,NULL,NULL,'too_far','申し込めるのは今日から 120 日先までです',false);
+ w:=(now() AT TIME ZONE 'Asia/Tokyo')::date+100;
+ ASSERT NOT EXISTS(SELECT 1 FROM private_booking_candidate_slot_availability(c.org,c.sm,one,w,w) a WHERE a.reason='too_far'), 'R33: 作品 120 日なのに 100 日先が too_far になった';
+ PERFORM assert_private_booking_candidate_date(c.org,c.sm,w);
+ INSERT INTO _rule_rows VALUES('R33',w,'afternoon',NULL,NULL,NULL,NULL,'作品 120 日: 100 日先は範囲内',false);
+ -- 入口（作品未選択）は、個別指定で受け付ける作品を隠さないよう最長（120）
+ ASSERT get_effective_private_booking_horizon_days(c.org,NULL,NULL)=120, 'R33: 入口の日数が作品の 120 にならない';
+ -- 公演の上書き（30 日）は作品の 120 より優先
+ INSERT INTO schedule_events(organization_id,store_id,date,venue,scenario,start_time,end_time,is_cancelled,scenario_master_id)
+  VALUES(c.org,c.st2,(now() AT TIME ZONE 'Asia/Tokyo')::date+20,'試験','規則の例','10:00','12:00',false,c.sm) RETURNING id INTO created;
+ ASSERT get_effective_private_booking_horizon_days(c.org,NULL,created)=120, 'R33: 公演の上書きが無いのに作品の値にならない';
+ INSERT INTO operating_setting_overrides(organization_id,schedule_event_id,settings) VALUES(c.org,created,'{"private_booking_horizon_days":30}');
+ ASSERT get_effective_private_booking_horizon_days(c.org,NULL,created)=30, 'R33: 公演の上書き 30 が効かない';
+ ASSERT get_effective_private_booking_horizon_days(c.org,c.sm,NULL)=120, 'R33: 公演の上書きが作品の値に混ざった';
 END $$;
 SELECT no,date,slot,ok,start_time,end_time,reason,detail,adjusted FROM _rule_rows ORDER BY substring(no FROM 2)::integer, date, array_position(ARRAY['morning','afternoon','evening'],slot);
 ROLLBACK;

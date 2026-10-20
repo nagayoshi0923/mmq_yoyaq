@@ -45,9 +45,9 @@ import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcType
 import { toJstYmd } from '@/utils/jstDate'
 import { privateBookingErrorText } from '@/lib/privateBookingErrors'
 import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
+import { privateBookingTooFarText, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
 
 const MAX_TIME_SLOTS = 6
-const CANDIDATE_HORIZON_DAYS = 180
 
 /** YYYY-MM-DD の暦日加算（UTC 部品で計算するためローカルTZに依存しない） */
 function addCalendarDaysYmd(ymd: string, days: number): string {
@@ -126,14 +126,21 @@ export function PrivateBookingRequest({
   // 貸切予約の受付締切（公演日の何日前まで申込可能か）。設定 > 予約設定の値
   const deadlineDays = usePrivateBookingDeadlineDays({ organizationSlug, scenarioId })
 
-  // 追加可能な日付の範囲（受付締切日数後から候補取得と同じ 180 日ホライズンまで）
+  const { data: slotOrganizationId = null } = useQuery({
+    queryKey: ['private-booking-request', 'organization-id', organizationSlug],
+    queryFn: async () => (await resolveOrgIdFromPageContext()) ?? null,
+  })
+  // 申し込める範囲（今日から N 日先まで。MMQ 既定 180 → 組織 → 作品の設定。I21）
+  const { days: horizonDays } = usePrivateBookingHorizonDays({ organizationId: slotOrganizationId, scenarioId })
+
+  // 追加可能な日付の範囲（受付締切日数後から、申し込める範囲の最後の日まで）
   const dateRange = useMemo(() => {
     const todayYmd = toJstYmd(new Date())
     const minDate = addCalendarDaysYmd(todayYmd, deadlineDays)
-    const horizonMax = addCalendarDaysYmd(todayYmd, CANDIDATE_HORIZON_DAYS)
+    const horizonMax = addCalendarDaysYmd(todayYmd, horizonDays)
     const maxDate = horizonMax >= minDate ? horizonMax : minDate
     return { minDate, maxDate }
-  }, [deadlineDays])
+  }, [deadlineDays, horizonDays])
 
   /** 候補追加・プルダウン用（HP貸切カレンダー・グループ候補追加と同じ営業時間マージ） */
   const storeIdsForSlotResolution = useMemo(() => {
@@ -145,10 +152,6 @@ export function PrivateBookingRequest({
 
   // 候補日時の空き判定は DB（private_booking_candidate_slot_availability）だけで行う。
   // 作品ページの申込フォーム・グループの候補日追加と同じ判定（仕様の正本: docs/product-spec/貸切受付ルール.md）。
-  const { data: slotOrganizationId = null } = useQuery({
-    queryKey: ['private-booking-request', 'organization-id', organizationSlug],
-    queryFn: async () => (await resolveOrgIdFromPageContext()) ?? null,
-  })
   const availabilityTarget = useMemo<CandidateSlotAvailabilityTarget | null>(
     () => slotOrganizationId && scenarioId && storeIdsKey
       ? { kind: 'scenario', organizationId: slotOrganizationId, scenarioId, storeIds: storeIdsKey.split(',') }
@@ -242,6 +245,10 @@ export function PrivateBookingRequest({
     if (!newDate || !newSlotLabel) return
     if (newDate < dateRange.minDate) {
       toast.error(`候補日は本日より${deadlineDays}日後以降のみ選べます`)
+      return
+    }
+    if (newDate > dateRange.maxDate) {
+      toast.error(privateBookingTooFarText(horizonDays))
       return
     }
     const picked = newDate === pickerDate

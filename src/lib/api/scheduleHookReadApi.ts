@@ -103,4 +103,12 @@ export const privateBookingSlotReadApi = {
       p_organization_slug: options.organizationSlug,
     })
   },
+  /** 貸切を受け付ける範囲（今日から何日先まで。MMQ 既定 → 組織 → 作品 → 公演、RPC。未ログインでも読める） */
+  async getEffectiveHorizonDays(options: { organizationId: string; scenarioId: string | null }) {
+    return supabase.rpc('get_effective_private_booking_horizon_days', {
+      p_organization_id: options.organizationId,
+      p_scenario_id: options.scenarioId,
+      p_event_id: null,
+    })
+  },
 }

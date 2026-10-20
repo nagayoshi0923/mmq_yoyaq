@@ -21,6 +21,7 @@ import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
 import { fetchScenarioDateReasons, type CandidateSlotAvailabilityTarget } from '@/lib/candidateSlotAvailability'
 import { useCandidateSlotAvailability } from '@/hooks/useCandidateSlotAvailability'
 import { selectedSlotCheck } from './privateBookingSelectModel'
+import { isBeyondPrivateBookingHorizon, privateBookingTooFarText, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
 
 interface Scenario {
   id: string
@@ -116,20 +117,25 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
     evening: '夜'
   }
 
+  // 申し込める範囲（今日から N 日先まで。I21）。入口用の日数（組織の値と作品の個別指定のうち最長）より先なら、どの作品も申し込めない。
+  // 作品ごとの範囲は DB の private_booking_scenario_date_reasons（too_far）と、選んだ作品の空き判定で確かめる
+  const { days: entryHorizonDays } = usePrivateBookingHorizonDays({ organizationId })
+  const dateTooFar = isBeyondPrivateBookingHorizon(preselectedDate, entryHorizonDays)
+
   const dateTimeLabel = `${formatJstDateJa(preselectedDate, true) || preselectedDate} ${slotLabels[preselectedSlot] || preselectedSlot}`
   const basePath = organizationSlug ? `/${organizationSlug}` : ''
 
   const gridScenarios = useMemo<PrivateScenario[]>(
     () => scenarios.map((s) => {
       const open = isScenarioBookingOpen(s)
-      const dayReason = dateReasons[s.id]
+      const dayReason = dateTooFar ? privateBookingTooFarText(entryHorizonDays) : dateReasons[s.id]
       return {
         ...s,
         closed: !open || Boolean(dayReason),
         closedLabel: open && dayReason ? `この日は申し込めません（${dayReason}）` : null,
       }
     }),
-    [scenarios, dateReasons],
+    [scenarios, dateReasons, dateTooFar, entryHorizonDays],
   )
   const scenarioPagePath = (s: PrivateScenario) => `${basePath}/scenario/${encodeURIComponent(s.slug || s.id)}?tab=private`
 

@@ -8,6 +8,8 @@ import { availableSlotsForDate } from '@/lib/candidateSlotAvailability'
 import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
 import type { TimeSlot } from '../utils/types'
 import { useEffect } from 'react'
+import { privateBookingHorizonMaxYmd, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
+import { toJstYmd } from '@/utils/jstDate'
 
 /**
  * この作品の貸切を受け付ける店舗（DB の判定と同じ。上演店舗の指定があればその店舗、無ければ臨時会場以外）。
@@ -39,7 +41,6 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
   const [selectedStoreIds, setSelectedStoreIdsInternal] = useState<string[]>(savedStoreIds)
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<Array<{date: string, slot: TimeSlot}>>([])
   const MAX_SELECTIONS = 6
-  const MAX_FUTURE_DAYS = 180
 
   const setSelectedStoreIds = useCallback((storeIds: string[] | ((prev: string[]) => string[])) => {
     setSelectedStoreIdsInternal(prev => {
@@ -62,27 +63,24 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
   }, [stores, savedStoreIds, storeFilterIds, hasInitialized, setSavedStoreIds, scenario, organizationId])
 
   const scenarioMasterId = scenario?.scenario_master_id || scenario?.scenario_id || scenario?.id || scenarioId
+  // 申し込める範囲（今日から N 日先まで。MMQ 既定 180 → 組織 → 作品の設定。I21）。判定の正本は DB
+  const { days: horizonDays } = usePrivateBookingHorizonDays({ organizationId: scenario?.organization_id || organizationId, scenarioId: scenarioMasterId })
+  const horizonMaxYmd = privateBookingHorizonMaxYmd(horizonDays)
 
   const generatePrivateDates = useCallback(() => {
     const dates: string[] = []
     const year = currentMonth.getFullYear()
     const month = currentMonth.getMonth()
     const lastDay = new Date(year, month + 1, 0)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const maxDate = new Date(today)
-    maxDate.setDate(today.getDate() + MAX_FUTURE_DAYS)
+    const todayYmd = toJstYmd(new Date())
 
     for (let day = 1; day <= lastDay.getDate(); day++) {
-      const date = new Date(year, month, day)
-      if (date >= today && date <= maxDate) {
-        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-        dates.push(dateStr)
-      }
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      if (dateStr >= todayYmd && dateStr <= horizonMaxYmd) dates.push(dateStr)
     }
 
     return dates
-  }, [currentMonth])
+  }, [currentMonth, horizonMaxYmd])
 
   // 表示中の月の日付（generatePrivateDates の結果を安定化）
   const monthDates = useMemo(() => generatePrivateDates(), [generatePrivateDates])
@@ -160,13 +158,10 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
   const availableStores = useMemo(() => playableStores(stores, scenario, organizationId), [scenario, stores, organizationId])
 
   const isNextMonthDisabled = useMemo(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const maxDate = new Date(today)
-    maxDate.setDate(today.getDate() + MAX_FUTURE_DAYS)
-    const nextMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
-    return nextMonthStart > maxDate
-  }, [currentMonth])
+    const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+    const nextMonthStart = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-01`
+    return nextMonthStart > horizonMaxYmd
+  }, [currentMonth, horizonMaxYmd])
 
   return {
     currentMonth,

@@ -2,6 +2,12 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+const HORIZON = vi.hoisted(() => ({ days: 180 }))
+vi.mock('@/lib/privateBookingHorizon', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/privateBookingHorizon')>()),
+  usePrivateBookingHorizonDays: () => ({ days: HORIZON.days, loading: false }),
+}))
+
 const mocks = vi.hoisted(() => ({ navigate: vi.fn(), scenarios: vi.fn(), stores: vi.fn(), rpc: vi.fn() }))
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mocks.navigate,
@@ -92,6 +98,21 @@ describe('日付・時間帯あり（カレンダー・リストの貸切申込�
     expect(rpcState.slotArgs.at(-1)).toMatchObject({ p_organization_id: 'org', p_scenario_id: 'sc1', p_store_ids: [storeId], p_from: '2026-10-20', p_to: '2026-10-20' })
     await act(async () => proceedButton()!.click())
     expect(mocks.navigate).toHaveBeenCalledWith(`/queens-waltz/private-booking-request?scenario=sc1&date=2026-10-20&store=${storeId}&slot=evening&participants=8&time=18%3A30`)
+  })
+
+  it('申し込める範囲（今日から 180 日先）より先の日は、どの作品も理由付きで押せない', async () => {
+    await render(`?date=2099-01-06&store=${storeId}&slot=evening&time=19:00`)
+    for (const card of cards()) expect(card.textContent).toContain('この日は申し込めません（申し込めるのは今日から 180 日先までです）')
+    await act(async () => cards()[0].click())
+    expect(cards()[0].getAttribute('aria-pressed')).not.toBe('true')
+    expect(proceedButton()?.disabled).toBe(true)
+  })
+
+  it('作品ごとの範囲（DB の too_far）で申し込めない作品は理由付きで押せない', async () => {
+    rpcState.reasons = [{ scenario_id: 'sc2', reason: 'too_far' }]
+    await render(`?date=2026-10-20&store=${storeId}&slot=evening&time=19:00`)
+    expect(cards()[1].textContent).toContain('この日は申し込めません（申し込める範囲より先の日付です）')
+    expect(cards()[0].textContent).toContain('貸切できます')
   })
 
   it('その日に申し込めない作品（公演期間外など）は理由付きで押せない', async () => {

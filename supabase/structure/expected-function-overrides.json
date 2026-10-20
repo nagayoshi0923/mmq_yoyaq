@@ -36,7 +36,7 @@
       "service_role=X/postgres"
     ],
     "returns": "void",
-    "body_md5": "d55c6d90a0fc574a894eda7d14292a27",
+    "body_md5": "02498dd102c3d6f8305d76bf24dc1433",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -1017,7 +1017,7 @@
       "service_role=X/postgres"
     ],
     "returns": "TABLE(date date, time_slot text, available boolean, reason text, start_time text, end_time text, detail text, adjusted boolean)",
-    "body_md5": "20a070140e159ad0e6b062a7eac30a7b",
+    "body_md5": "e753e1fd5cbd9adaaf2e73d35669dda8",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -1291,7 +1291,39 @@
       "service_role=X/postgres"
     ],
     "returns": "TABLE(scenario_id uuid, reason text)",
-    "body_md5": "05b78724b47e36b0c0a0adde26e907ca",
+    "body_md5": "b6c0a8785f20123a5212cfb11b8c21ac",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "get_operating_setting_default(p_key text)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "9d93872c318347f3f43ccb705838ca95",
+    "language": "sql",
+    "security_definer": false
+  },
+  "get_effective_private_booking_horizon_days(p_organization_id uuid, p_scenario_id uuid, p_event_id uuid)": {
+    "acl": [
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "integer",
+    "body_md5": "b5378ebc934fd610e8739faef214ed8a",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "resolve_operating_setting(p_organization_id uuid, p_key text, p_default jsonb, p_store_id uuid, p_scenario_id uuid, p_event_id uuid)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "25493d0324d8064a8e260d4e579b96ce",
     "language": "plpgsql",
     "security_definer": true
   },
