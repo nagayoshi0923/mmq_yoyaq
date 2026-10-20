@@ -48,6 +48,9 @@ await db.exec(fs.readFileSync('supabase/migrations/20260926122000_preserve_legac
 await db.exec(`INSERT INTO organizations VALUES('${id(1)}'),('${id(9)}'); INSERT INTO customers VALUES('${id(3)}','${id(2)}',NULL),('${id(4)}','${id(5)}',NULL); INSERT INTO stores VALUES('${id(6)}','${id(1)}'); INSERT INTO scenario_masters VALUES('${id(7)}','架空作品',120); INSERT INTO organization_scenarios(id,organization_id,scenario_master_id,participation_fee,duration) VALUES('${id(8)}','${id(1)}','${id(7)}',4000,120); INSERT INTO schedule_events(id,organization_id,store_id,scenario_master_id,organization_scenario_id,category,date,start_time,time_slot) VALUES('${id(10)}','${id(1)}','${id(6)}','${id(7)}','${id(8)}','open','2099-01-01','13:00','昼'); INSERT INTO reservations(id,schedule_event_id,organization_id,customer_id,total_price) VALUES('${id(11)}','${id(10)}','${id(1)}','${id(3)}',4000),('${id(12)}','${id(10)}','${id(1)}','${id(4)}',4000);`)
 // 予約に適用したクーポンの「もぎる（来店確認）」（20261020130000）。消費は予約時のまま、印だけ付ける。
 await db.exec(fs.readFileSync('supabase/migrations/20261020130000_coupon_usage_redeem.sql','utf8'))
+// もぎるは公演当日（日本時間）だけ（20261020180000）。ここでの予約は既定で今日の公演にしておく。
+await db.exec(fs.readFileSync('supabase/migrations/20261020180000_coupon_usage_redeem_same_day.sql','utf8'))
+await db.exec(`ALTER TABLE reservations ALTER COLUMN requested_datetime SET DEFAULT now(); UPDATE reservations SET requested_datetime=now();`)
 await db.exec(`INSERT INTO coupon_campaigns(id,organization_id,name,discount_type,discount_amount,max_uses_per_customer,target_type,trigger_type,same_scenario_once) VALUES('${id(100)}','${id(1)}','架空クーポン','fixed',500,5,'all','manual',false);
 INSERT INTO customer_coupons(id,campaign_id,customer_id,organization_id,uses_remaining) VALUES('${id(101)}','${id(100)}','${id(3)}','${id(1)}',3),('${id(102)}','${id(100)}','${id(4)}','${id(1)}',3);`)
 const usage=(await db.query(`SELECT use_customer_coupon($1,$2,$3) AS r`,[id(2),id(101),id(11)])).rows[0].r.usage_id
@@ -102,6 +105,20 @@ assert.equal((await db.query(`SELECT has_function_privilege('authenticated','red
 assert.equal((await db.query(`SELECT has_function_privilege('anon','redeem_coupon_usage(uuid,uuid,text)','EXECUTE') AS ok`)).rows[0].ok,false)
 assert.equal((await db.query(`SELECT has_function_privilege('service_role','redeem_coupon_usage(uuid,uuid,text)','EXECUTE') AS ok`)).rows[0].ok,true)
 
+// 公演当日でない予約（先の日付・前の日付）は「公演当日に押してください」で断る。印は付かない。
+await db.query(`UPDATE customer_coupons SET uses_remaining=3,status='active' WHERE id=$1`,[id(101)])
+await db.query(`INSERT INTO reservations(id,schedule_event_id,organization_id,customer_id,total_price,requested_datetime) VALUES($1,$2,$3,$4,4000,'2099-01-01 13:00+09'),($5,$2,$3,$4,4000,now()-interval '2 days')`,[id(32),id(10),id(1),id(3),id(33)])
+const future=(await db.query(`SELECT use_customer_coupon($1,$2,$3) AS r`,[id(2),id(101),id(32)])).rows[0].r.usage_id
+const past=(await db.query(`SELECT use_customer_coupon($1,$2,$3) AS r`,[id(2),id(101),id(33)])).rows[0].r.usage_id
+for(const [u,source] of [[future,undefined],[future,'venue_use'],[past,undefined]]){
+ let error;try{await redeem(id(2),u,source)}catch(e){error=e}
+ assert.ok(error,'公演当日でないのに押せた');assert.equal(error.code,'P0028');assert.equal(error.message,'公演当日に押してください');assert.equal(error.hint,'not_performance_day')
+}
+assert.equal((await db.query(`SELECT count(*)::int AS n FROM coupon_usages WHERE id=ANY($1) AND redeemed_at IS NOT NULL`,[[future,past]])).rows[0].n,0)
+
+// 当日だけの確認を巻き戻すと、先の日付でも押せる元の関数に戻る（確かめた印は消す）。
+await db.exec(fs.readFileSync('supabase/rollbacks/20261020180000_coupon_usage_redeem_same_day.sql','utf8'))
+assert.equal((await redeem(id(2),future)).already_redeemed,false)
 // 巻き戻しで列と関数が消え、使用履歴そのものは残る。
 await db.exec(fs.readFileSync('supabase/rollbacks/20261020130000_coupon_usage_redeem.sql','utf8'))
 assert.equal((await db.query(`SELECT count(*)::int AS n FROM information_schema.columns WHERE table_name='coupon_usages' AND column_name LIKE 'redeemed%'`)).rows[0].n,0)

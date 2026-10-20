@@ -49,7 +49,7 @@
     "supabase:migration:list": "npx supabase migration list",
     "supabase:functions:serve": "npx supabase functions serve",
     "dev:local": "npm run supabase:start && npm run dev",
-    "test:rpcs": "psql \"$(npx supabase status --output json | jq -r '.DB_URL')\" -f supabase/tests/smoke_test_rpcs.sql -f supabase/tests/private_candidate_slot_availability.sql -f supabase/tests/private_booking_rules_examples.sql -f supabase/tests/private_group_dates_aligned_once.sql -f supabase/tests/private_group_create_public_scenario.sql -f supabase/tests/private_group_photo_limit.sql -f supabase/tests/coupon_usage_embed_hints.sql",
+    "test:rpcs": "psql \"$(npx supabase status --output json | jq -r '.DB_URL')\" -f supabase/tests/smoke_test_rpcs.sql -f supabase/tests/private_candidate_slot_availability.sql -f supabase/tests/private_booking_rules_examples.sql -f supabase/tests/private_group_dates_aligned_once.sql -f supabase/tests/private_group_create_public_scenario.sql -f supabase/tests/private_group_photo_limit.sql -f supabase/tests/coupon_usage_embed_hints.sql -f supabase/tests/coupon_usage_redeem_same_day.sql",
     "db:mirror:staging": "bash scripts/mirror-prod-to-staging.sh",
     "dev:staging": "test -f .env.staging || (echo '\\n❌ .env.staging が見つかりません\\n  cp .env.staging.example .env.staging\\n  Supabase Dashboard からステージングの Anon Key を取得して設定してください\\n' && exit 1) && vite --mode staging",
     "db:status": "node scripts/db-status.mjs",

@@ -6,14 +6,20 @@
 import { useState } from 'react'
 import { CheckCircle2, Scissors, Ticket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { formatJstDateJa, formatJstDateTime, formatJstTime } from '@/utils/jstDate'
+import { formatJstDateJa, formatJstDateTime, formatJstMonthDay, formatJstTime, toJstYmd } from '@/utils/jstDate'
 import { showToast } from '@/utils/toast'
 import type { AppliedCouponCard } from '../utils/appliedCoupons'
 
 interface AppliedCouponsSectionProps {
   cards: AppliedCouponCard[]
-  onRedeem: (usageId: string) => Promise<{ success: boolean; error?: string }>
+  onRedeem: (usageId: string) => Promise<{ success: boolean; error?: string; code?: string }>
   redeeming: boolean
+}
+
+/** 来店確認は公演当日（日本時間）だけ押せる。サーバーも同じ判定で断る（20261020180000） */
+export function isPerformanceDay(startsAt: string, now: Date = new Date()): boolean {
+  const day = toJstYmd(startsAt)
+  return !!day && day === toJstYmd(now)
 }
 
 export function AppliedCouponsSection({ cards, onRedeem, redeeming }: AppliedCouponsSectionProps) {
@@ -27,7 +33,10 @@ export function AppliedCouponsSection({ cards, onRedeem, redeeming }: AppliedCou
       setTarget(null)
       showToast.success('来店確認をしました。この画面をスタッフにお見せください')
     } else {
-      showToast.error(result.error || '来店確認を記録できませんでした')
+      showToast.error(result.code === 'not_performance_day'
+        ? `来店確認は公演当日（${formatJstMonthDay(target.startsAt)}）に押してください`
+        : result.error || '来店確認を記録できませんでした')
+      if (result.code === 'not_performance_day') setTarget(null)
     }
   }
 
@@ -60,13 +69,21 @@ export function AppliedCouponsSection({ cards, onRedeem, redeeming }: AppliedCou
                   <span className="text-sm font-bold">来店時に確認済み</span>
                   <span className="text-xs ml-auto">{formatJstDateTime(card.redeemedAt)}</span>
                 </div>
-              ) : (
+              ) : isPerformanceDay(card.startsAt) ? (
                 <div className="mt-3 flex items-center justify-between gap-3">
                   <span className="text-xs text-muted-foreground">来店確認: 未確認</span>
                   <Button
                     className="bg-mypage-primary hover:bg-mypage-primary-hover min-h-11"
                     onClick={() => setTarget(card)}
                   >
+                    <Scissors className="w-4 h-4 mr-1" aria-hidden="true" />
+                    もぎる（来店確認）
+                  </Button>
+                </div>
+              ) : (
+                <div className="mt-3 flex items-center justify-between gap-3" data-testid="applied-coupon-not-today">
+                  <span className="text-xs text-muted-foreground">公演当日に押せます（{formatJstMonthDay(card.startsAt)}）</span>
+                  <Button className="min-h-11" variant="outline" disabled aria-disabled="true">
                     <Scissors className="w-4 h-4 mr-1" aria-hidden="true" />
                     もぎる（来店確認）
                   </Button>

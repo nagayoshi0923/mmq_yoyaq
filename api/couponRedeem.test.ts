@@ -48,7 +48,7 @@ describe('もぎる（来店確認）API', () => {
     mock.rpc.mockResolvedValue({ data: null, error: { code: 'P0028', message: 'ご本人の予約を指定してください' } })
     const r = await call({ method: 'POST', query: { action: 'redeem-usage' }, body: { usage_id: 'usage' } })
     expect(r.status).toHaveBeenCalledWith(400)
-    expect(r.json).toHaveBeenCalledWith({ success: false, error: 'ご本人の予約を指定してください' })
+    expect(r.json).toHaveBeenCalledWith({ success: false, error: 'ご本人の予約を指定してください', code: 'P0028' })
   })
   it('来店時にその場で使ったクーポンは、使用に続けて来店確認（venue_use）を付ける', async () => {
     mock.rpc.mockImplementation((name: string) => Promise.resolve(name === 'use_customer_coupon'
