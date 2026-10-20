@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/patterns/list'
 import { SearchInput, FilterBar } from '@/components/patterns/filter'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -368,7 +369,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
 
                       {/* 確定公演の日程・店舗・GM（読み込み中はスケルトン） */}
                       {group.status === 'confirmed' && !group.details_loaded && (
-                        <div className="mt-1.5 h-4 w-56 max-w-full rounded bg-muted animate-pulse" data-testid="private-group-details-skeleton" aria-label="確定公演の情報を読み込み中" />
+                        <Skeleton className="mt-1.5 h-4 w-56 max-w-full" data-testid="private-group-details-skeleton" aria-label="確定公演の情報を読み込み中" />
                       )}
                       {group.status === 'confirmed' && group.confirmed_date && (
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-green-700">
