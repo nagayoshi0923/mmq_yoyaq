@@ -1,4 +1,5 @@
 -- 正本: 顧客QA回帰修正（本番取得定義から最小変更）＋ 20261011200000（候補日の order＝送られた優先順・希望店舗は部分集合で可）
+-- ＋ 20261020210000（送る店舗で private_booking_assert_candidate を通す）
 CREATE OR REPLACE FUNCTION public.create_private_booking_request(p_scenario_id uuid, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_participant_count integer, p_candidate_datetimes jsonb, p_notes text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_private_group_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -569,6 +570,15 @@ BEGIN
       RAISE EXCEPTION 'PRIVATE_BOOKING_CANDIDATE_CONFLICT:%:%', v_cand_date, v_candidate_time_slot
         USING ERRCODE = 'P0030';
     END IF;
+
+    -- 2026-10-20: 候補の追加・グループ作成と同じ検査（private_booking_assert_candidate）を、送る店舗だけで通す。
+    -- 上の公演・受付停止だけでは、店舗の曜日の枠（available_slots）・休業日・営業時間・作品の固定開始時刻・
+    -- 作品の時間枠・上演店舗・所要時間を見ておらず、候補を追加した後の設定変更や、希望店舗の一部だけに送る申込で
+    -- 受け付けない枠が通っていた（docs/product-spec/貸切受付ルール.md 手順 7・例 R34〜R35）。
+    PERFORM public.private_booking_assert_candidate(
+      v_org_id, COALESCE(v_scenario_master_id, p_scenario_id), v_seen_store_ids, v_cand_date,
+      v_candidate_time_slot, to_char(v_cand_start, 'HH24:MI'), to_char(v_cand_end, 'HH24:MI')
+    );
   END LOOP;
   -- =========================================================================
 
