@@ -1090,10 +1090,10 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
         "from("organization_scenarios_with_master") .select("available_stores") .eq("scenario_master_id", "a1") .eq("organization_id", undefined) .limit(1) .maybeSingle()",
       ],
       "privateGroupPageReadApi.findScenarioForGroup": [
-        "from("organization_scenarios_with_master") .select("id, organization_id, scenario_master_id, title, key_visual_url, playe…) .eq("scenario_master_id", "a1") .eq("organization_id", "a2") .single()",
+        "from("organization_scenarios_with_master") .select("id, organization_id, scenario_master_id, title, key_visual_url, playe…) .eq("scenario_master_id", "a1") .eq("organization_id", "a2") .eq("org_status", "available") .eq("accepts_private_booking", true) .neq("scenario_kind", "offsite_only") .maybeSingle()",
       ],
       "privateGroupPageReadApi.findScenarioForGroup (最後の引数なし)": [
-        "from("organization_scenarios_with_master") .select("id, organization_id, scenario_master_id, title, key_visual_url, playe…) .eq("scenario_master_id", "a1") .eq("organization_id", undefined) .single()",
+        "from("organization_scenarios_with_master") .select("id, organization_id, scenario_master_id, title, key_visual_url, playe…) .eq("scenario_master_id", "a1") .eq("organization_id", undefined) .eq("org_status", "available") .eq("accepts_private_booking", true) .neq("scenario_kind", "offsite_only") .maybeSingle()",
       ],
       "privateGroupPageReadApi.getChatSettings": [
         "from("global_settings") .select("chat_enabled, chat_guest_allowed, system_msg_candidate_dates_added_ti…) .eq("organization_id", "a1") .maybeSingle()",
@@ -1114,10 +1114,10 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
         "from("stores") .select("id, name, short_name, ownership_type, is_temporary") .in("id", "a1") .eq("organization_id", undefined) .eq("status", "active")",
       ],
       "privateGroupPageReadApi.listActiveStoresForGroup": [
-        "from("stores") .select("id, name, address, region") .eq("organization_id", "a1") .eq("status", "active") .neq("is_temporary", true) .or("ownership_type.neq.office,ownership_type.is.null")",
+        "from("stores") .select("id, name, address, region, ownership_type, is_temporary, status") .eq("organization_id", "a1") .eq("status", "active") .or("ownership_type.neq.office,ownership_type.is.null")",
       ],
       "privateGroupPageReadApi.listActiveStoresForGroup (最後の引数なし)": [
-        "from("stores") .select("id, name, address, region") .eq("organization_id", undefined) .eq("status", "active") .neq("is_temporary", true) .or("ownership_type.neq.office,ownership_type.is.null")",
+        "from("stores") .select("id, name, address, region, ownership_type, is_temporary, status") .eq("organization_id", undefined) .eq("status", "active") .or("ownership_type.neq.office,ownership_type.is.null")",
       ],
       "privateGroupPageReadApi.listActiveStoresOfOrganization": [
         "from("stores") .select("id, name, short_name, ownership_type, is_temporary") .eq("organization_id", "a1") .eq("status", "active") .order("name")",

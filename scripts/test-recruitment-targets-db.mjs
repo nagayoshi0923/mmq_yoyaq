@@ -5,6 +5,14 @@ const db = new PGlite()
 const read = name => readFileSync(name, 'utf8')
 try {
  await db.exec(read('supabase/tests/fixtures/recruitment_deadlines.sql'))
+ // 募集期限の設定（set_performance_recruitment_deadline）は現行の resolve_operating_setting で開催判断の時刻を読む。
+ // 関数が読む表を足して、本物の関数（supabase/rpcs）をそのまま入れる（監査 C4: 無いと 42883 で落ちていた）。
+ await db.exec(`ALTER TABLE stores ADD COLUMN IF NOT EXISTS organization_id uuid;
+ ALTER TABLE organization_scenarios ADD COLUMN IF NOT EXISTS extra_preparation_time integer;
+ CREATE TABLE IF NOT EXISTS email_settings(id uuid, organization_id uuid, store_id uuid);
+ CREATE TABLE IF NOT EXISTS performance_schedule_settings(organization_id uuid, store_id uuid, default_duration integer);
+ CREATE TABLE IF NOT EXISTS operating_setting_overrides(organization_id uuid, store_id uuid, organization_scenario_id uuid, schedule_event_id uuid, settings jsonb);`)
+ for (const name of ['get_operating_setting_default', 'resolve_operating_setting']) await db.exec(read(`supabase/rpcs/${name}.sql`))
  await db.exec(read('supabase/schemas/performance_recruitment_deadlines.sql'))
  await db.exec(read('supabase/schemas/performance_recruitment_notices.sql'))
  await db.exec(`ALTER TABLE organization_scenarios ADD COLUMN recruitment_extension_enabled boolean NOT NULL DEFAULT true, ADD COLUMN recruitment_max_missing smallint NOT NULL DEFAULT 2 CHECK(recruitment_max_missing BETWEEN 1 AND 20), ADD COLUMN recruitment_deadline_minutes smallint NOT NULL DEFAULT 90;`)

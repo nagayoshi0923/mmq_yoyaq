@@ -27,6 +27,7 @@ import { clearNextGroupSource, loadNextGroupSource } from '@/lib/nextPrivateGrou
 import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
 import { parseStoreIdsParam } from '@/pages/PrivateBookingStart/paths'
 import { groupInviteShareText } from '@/lib/shareTexts'
+import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
 
 export function PrivateGroupCreate() {
   const navigate = useNavigate()
@@ -86,18 +87,18 @@ export function PrivateGroupCreate() {
   const bookingBasePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
 
 
-  /** シナリオ設定で公演店舗が限定されているか（空配列・未設定は全店舗可） */
-  const scenarioStoreAllowlist = useMemo(() => {
+  /** 作品の上演店舗の指定（空配列・未設定は臨時会場以外の全店舗） */
+  const scenarioAvailableStores = useMemo(() => {
     const raw = scenario?.available_stores
-    if (!Array.isArray(raw) || raw.length === 0) return null
-    const ids = raw.filter((id): id is string => typeof id === 'string' && id.length > 0)
-    return ids.length > 0 ? new Set(ids) : null
+    if (!Array.isArray(raw)) return []
+    return raw.filter((id): id is string => typeof id === 'string' && id.length > 0)
   }, [scenario?.available_stores])
 
-  const eligibleStores = useMemo(() => {
-    if (!scenarioStoreAllowlist) return stores
-    return stores.filter((s) => scenarioStoreAllowlist.has(s.id))
-  }, [stores, scenarioStoreAllowlist])
+  // 選べる店舗は DB の判定（I12）と同じ: 上演店舗の指定があればその店舗（臨時会場でも可）、無ければ臨時会場以外
+  const eligibleStores = useMemo(
+    () => stores.filter((s) => isStorePlayableForScenario(s, scenarioAvailableStores)),
+    [stores, scenarioAvailableStores]
+  )
 
   useEffect(() => {
     // 読み込み前（店舗が空）に外すと URL の希望店舗まで消えるので、読み込み後だけ
@@ -283,10 +284,21 @@ export function PrivateGroupCreate() {
           <Card>
             <CardContent className="p-8 text-center">
               <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-              <h2 className="text-lg font-medium mb-2">シナリオが見つかりません</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                シナリオを選択してからグループを作成してください
-              </p>
+              {scenarioId ? (
+                <>
+                  <h2 className="text-lg font-medium mb-2">この作品はいま貸切を受け付けていません</h2>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    公開が止まっているか、作品が見つかりませんでした。ほかの作品からグループを作成してください
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-medium mb-2">シナリオが見つかりません</h2>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    シナリオを選択してからグループを作成してください
+                  </p>
+                </>
+              )}
               <Button onClick={() => navigate(bookingBasePath)}>
                 シナリオ一覧へ
               </Button>
@@ -458,7 +470,7 @@ export function PrivateGroupCreate() {
                   <p className="text-xs text-muted-foreground">
                     希望する店舗を選択してください。未選択の場合は、後からグループ管理画面で選択できます。
                   </p>
-                  {scenarioStoreAllowlist && (
+                  {scenarioAvailableStores.length > 0 && (
                     <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-2">
                       このシナリオは設定により、公演可能な店舗のみ選択できます。
                     </p>

@@ -7,24 +7,32 @@
 import { supabase } from '@/lib/supabase'
 
 export const privateGroupPageReadApi = {
-  /** 組織のシナリオ（グループ作成用） */
+  /**
+   * 組織のシナリオ（グループ作成用）。グループ作成（create_private_group_atomic）と同じ条件で、
+   * 公開中（org_status='available'）・貸切受付 ON・出張限定でない作品だけを返す。当てはまらなければ data は null。
+   */
   async findScenarioForGroup(scenarioMasterId: string, organizationId: string) {
     return supabase
       .from('organization_scenarios_with_master')
       .select('id, organization_id, scenario_master_id, title, key_visual_url, player_count_min, player_count_max, available_stores, duration')
       .eq('scenario_master_id', scenarioMasterId)
       .eq('organization_id', organizationId)
-      .single()
+      .eq('org_status', 'available')
+      .eq('accepts_private_booking', true)
+      .neq('scenario_kind', 'offsite_only')
+      .maybeSingle()
   },
 
-  /** 稼働中の店舗（臨時・オフィスを除く） */
+  /**
+   * 稼働中の店舗（オフィスを除く。臨時会場も含めて返す）。
+   * 臨時会場は作品の上演店舗に明示されているときだけ選べるので、画面で isStorePlayableForScenario により絞る。
+   */
   async listActiveStoresForGroup(organizationId: string) {
     return supabase
       .from('stores')
-      .select('id, name, address, region')
+      .select('id, name, address, region, ownership_type, is_temporary, status')
       .eq('organization_id', organizationId)
       .eq('status', 'active')
-      .neq('is_temporary', true)
       .or('ownership_type.neq.office,ownership_type.is.null')
   },
 

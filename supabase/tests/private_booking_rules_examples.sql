@@ -4,6 +4,8 @@
 -- 前提（表の「共通の前提」と同じ）: 店舗は毎日 10:00〜23:00 営業、枠の標準開始は 平日 午前10:00・午後13:00・夜19:00 /
 -- 土日祝 午前10:00・午後14:00・夜19:00。準備時間 60 分。作品の時間帯の制限なし。
 BEGIN;
+-- 試験用の主催者とグループ（seed だけの新しい DB でも通るよう、無ければ作る。最後の ROLLBACK で消える）
+\ir fixtures/private_test_group.sql
 CREATE TEMP TABLE _rule_rows(no text, date date, slot text, ok boolean, start_time text, end_time text, reason text, detail text, adjusted boolean);
 CREATE TEMP TABLE _ctx(org uuid, sm uuid, st1 uuid, st2 uuid, grp uuid);
 INSERT INTO _ctx VALUES('00000000-0000-4000-a000-000000000001','00000000-0000-4000-a000-000000000202',

@@ -6,6 +6,15 @@
 - R5: `docs/ops/本番公開の戻し方_2026-10.md`。rollback 3 本（`20261010100000`・`20261010130000`・`20261010160000`）は表・列を消す前に非公開スキーマ `rollback_backup` へ写す（同日の二重退避は止まる）。`check:migration-rollbacks` に「2026-10-10 以降で DROP TABLE する rollback は退避必須」を追加。手元 DB（local-repro）で 7 本を 1 取引で流して取り消し、退避 9 表・二重退避の停止・anon から読めないことを確認。
 - 本番配備時の secret: `CRON_SECRET`（本番・staging とも設定済み、`app_config.trigger_secret` と同じ値）。新しい secret は不要。
 
+## 2026-10-20 / 外部監査（staging d179ebe98）R1・C2・C3・C4（fix/audit-r1-c2-c3-c4、staging 向け PR）
+
+- R1 申込の確認画面の終了時刻: `src/pages/PrivateBookingRequest/index.tsx` の `enrichSlotEnd` が DB の終了時刻を作品の所要時間で上書きしていた（初期値・候補の追加・送信前の再検証）。特別営業日に DB が 14:00〜18:00 を返しても 14:00〜17:00 になり保存で弾かれた。`enrichSlotEnd` を消し、確認画面を開いた時点で候補の日付の空き状況を DB に問い合わせ、選べる候補は DB の時刻にそろえる（前ページの時刻から変わったら知らせる）／選べない候補は理由を出して送信させない。送信前の再検証も同じ問い合わせを取り直す。URL から来て DB で時刻が決まらなかった候補の仮の終了（`resolvePrivateBookingUrlPrefillSlot`）は空にした（enrichSlotEnd を消すと「14:00 - 14:00」と出るため）。
+- C2 グループ作成画面の店舗: `listActiveStoresForGroup` が臨時会場を一律で除いていた → 臨時会場も読み、`isStorePlayableForScenario` で絞る（上演店舗に明示した臨時会場は選べる。指定の無い臨時会場・オフィスは出さない）。
+- C3 公開停止の作品: `create_private_group_atomic` に `org_status='available'` と `scenario_kind<>'offsite_only'` を追加、文面「この作品はいま貸切を受け付けていません」。グループ作成画面の作品取得（`findScenarioForGroup`）も同じ条件で絞り、取れなければ同じ文面を出す。migration `20261020120000_private_group_create_requires_public_scenario`（rollback 同名）、DB テスト `supabase/tests/private_group_create_public_scenario.sql`（`test:rpcs` に追加）。`expected-function-overrides.json` の body_md5 を更新。近日公開（coming_soon）も受け付けない。
+- C4 DB テスト: `scripts/test-recruitment-targets-db.mjs` に現行の `get_operating_setting_default`・`resolve_operating_setting` と読む表を足した（42883 の解消）。`private_candidate_slot_availability.sql`・`private_booking_rules_examples.sql` は `supabase/tests/fixtures/private_test_group.sql` で試験用の主催者とグループを（無ければ）作る。
+- 確認: vitest 全件、`npm run verify`、PGlite の DB テスト（scripts の PGlite 72 本すべて）、新しい手元 DB（基準 + migration + seed を別の番号で 0 から起動）で `test:rpcs` の 5 ファイルすべて通過。C3 は rollback → 新テストが落ちる → 再適用で通ることを確認。C4 の 2 本は修正前に「グループを閲覧できません」「候補日を追加する権限がありません」で落ちることを確認。手元（staging 接続、5185、375px）で日時付きの申込: 選べる日（12/2 夜・11/25 午後）は DB の 19:00〜23:00・13:00〜17:00 のまま、選べない日（11/19 午後）は「この日時は選べません（他の公演と重なります）」で送信不可。staging には未来の特別営業日が無く、14:00〜18:00 の例は画面テストと DB テスト（R25）で確認。
+- staging への migration 適用は発注者が行う。適用後に `supabase/structure/staging.json` を更新する。
+
 ## 2026-10-20 / staging 点検（貸切の流れ）の公開前修正 12 件（fix/release-blockers-b、staging 向け PR）
 
 - A1 日時から選ぶ作品一覧: その日に申し込めない作品も「貸切できます」で出ていた。作品ごとの日付の理由を返す DB 関数 `private_booking_scenario_date_reasons`（保存と同じ `assert_private_booking_candidate_date`）で「この日は申し込めません（作品の公演期間外です）」と出し、押せなくする。選んだ作品は `private_booking_candidate_slot_availability` で確かめ、だめなら理由をボタンの上に出して進めない（`src/pages/privateBookingSelectModel.ts`）。

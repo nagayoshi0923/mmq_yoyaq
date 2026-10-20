@@ -1,6 +1,7 @@
 -- QW-20260917-001 A04: either the complete invitation group is created, or nothing is.
 -- 候補日時は候補追加（private_group_add_candidate_dates）と同じ private_booking_assert_candidate で、保存時の最新の空き状況を確かめる。
 -- 仕様の正本: docs/product-spec/貸切受付ルール.md（判定の手順 7）。
+-- 作品は公開中（org_status='available'）・貸切受付 ON・出張限定でないものだけ（監査 C3 2026-10-20。公開停止の作品でもグループを作れていた）。
 CREATE OR REPLACE FUNCTION public.create_private_group_atomic(p_organization_id uuid, p_scenario_master_id uuid, p_name text DEFAULT NULL::text, p_preferred_store_ids uuid[] DEFAULT '{}'::uuid[], p_candidate_dates jsonb DEFAULT '[]'::jsonb, p_notes text DEFAULT NULL::text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -18,8 +19,9 @@ BEGIN
  END IF;
  IF NOT EXISTS(SELECT 1 FROM organization_scenarios_with_master
    WHERE organization_id=p_organization_id AND scenario_master_id=p_scenario_master_id
-   AND player_count_min>=1 AND player_count_max>=player_count_min AND accepts_private_booking IS TRUE) THEN
-  RAISE EXCEPTION 'この作品は現在貸切を受け付けていません' USING ERRCODE='22023';
+   AND player_count_min>=1 AND player_count_max>=player_count_min AND accepts_private_booking IS TRUE
+   AND org_status='available' AND scenario_kind IS DISTINCT FROM 'offsite_only') THEN
+  RAISE EXCEPTION 'この作品はいま貸切を受け付けていません' USING ERRCODE='22023';
  END IF;
  IF EXISTS(SELECT 1 FROM unnest(coalesce(p_preferred_store_ids,'{}')) s(id)
    WHERE NOT EXISTS(SELECT 1 FROM stores WHERE stores.id=s.id AND organization_id=p_organization_id AND status='active')) THEN
