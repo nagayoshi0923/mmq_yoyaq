@@ -108,6 +108,9 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
 
     try {
       const orgId = await getCurrentOrganizationId()
+      // 組織の解決を待つ間に新しい読み込みが始まっていたら、古い呼び出しは error も loading も触らない。
+      // 古い呼び出しの「組織なし」が、新しい呼び出しで出た一覧をエラー表示に変えるのを防ぐ（Codex 第2回再レビュー R6）
+      if (!current()) return
       if (!orgId) {
         setError('組織情報が取得できません')
         return

@@ -1,3 +1,9 @@
+## 2026-10-21 / 古い読み込みの組織取得失敗が新しい一覧をエラー表示にする（fix/recheck2-r6-org-generation、Codex 第2回再レビュー R6）
+
+- Codex の第2回再レビュー（R6、P2）。`usePrivateGroupList` の `loadGroups` は組織 ID の解決後に読み込み順（世代）を確かめていなかったため、読み込み A の組織解決が遅れて null で終わると、後から始めて成功した読み込み B の一覧に「組織情報が取得できません」が立ち、画面がエラー側へ切り替わっていた。
+- 直し: 組織の解決直後にも既存の世代検査（`current()`）を入れ、古い呼び出しでは error も loading も触らない。
+- テスト: `usePrivateGroupList.test.tsx` に、A の組織解決を保留 → B 成功 → A が null で終わっても error が立たず B の一覧が残る、を追加（修正前は失敗）。vitest 全件、`npm run verify`。
+
 ## 2026-10-21 / RPC の構成エラー（PGRST202・404）でも申込シートの入力を消していた（fix/recheck2-r4-access-lost、Codex 第2回再レビュー R4）
 
 - Codex の第2回再レビュー（R4、P2）。`isPrivateGroupAccessLost` が HTTP 404 を一律に「権限が無い・グループが無い」と判定していたため、RPC がスキーマキャッシュに無い（PGRST202、配備途中やスキーマ再読み込み待ち）だけでも申込シートの入力を消して「招待が見つかりません」に切り替えていた。
