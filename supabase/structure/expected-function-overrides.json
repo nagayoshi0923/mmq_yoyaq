@@ -774,7 +774,7 @@
       "service_role=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "b255c5805c401fcefa623f8bcd3d08ce",
+    "body_md5": "c16154625cddad0c4cbd809639204740",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -1301,7 +1301,7 @@
       "service_role=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "9d93872c318347f3f43ccb705838ca95",
+    "body_md5": "646b25666f6013a03f21b20df40dc37f",
     "language": "sql",
     "security_definer": false
   },
@@ -1323,7 +1323,7 @@
       "service_role=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "25493d0324d8064a8e260d4e579b96ce",
+    "body_md5": "21c0e5d9af1940b9379f8cff3705e443",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -1345,6 +1345,36 @@
     ],
     "returns": "boolean",
     "body_md5": "abd0079c694bc3b10022aa619285c90e",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_photo_quota(p_group_id uuid)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "8ee703f0b8bae6de392553572cbda16d",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_photo_check_limit(p_group_id uuid, p_adding integer)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "void",
+    "body_md5": "ec414a4be0e18776efcad3e7f9032878",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_message_photo_enforce_limit()": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "trigger",
+    "body_md5": "e002cb2e5e0580a32690f10a29b778ed",
     "language": "plpgsql",
     "security_definer": true
   }

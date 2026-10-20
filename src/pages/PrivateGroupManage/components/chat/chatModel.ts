@@ -18,6 +18,28 @@ export const PICKER_EMOJIS = [
 /** 写真を 1 回に送れる枚数 */
 export const MAX_PHOTOS_PER_MESSAGE = 10
 
+/**
+ * 写真を選べるか（2026-10-20 社長決定: グループ全体で上限 10 枚。組織で変更可。1 回 10 枚の制限はそのまま）。
+ * quota が null（読めていない）なら 1 回 10 枚だけで判断し、送るときに DB が確かめる。
+ *   perSend: 今回選べる最大の枚数（1 回 10 枚とグループの残りの小さい方）
+ *   left: 今選んでいる分を引いたグループの残り（「あと N 枚」）。quota が無ければ null
+ */
+export function photoPickState(quota: { limit: number; remaining: number } | null, selected: number) {
+  const remaining = quota ? Math.max(0, Math.floor(quota.remaining)) : null
+  const perSend = remaining === null ? MAX_PHOTOS_PER_MESSAGE : Math.min(MAX_PHOTOS_PER_MESSAGE, remaining)
+  const blocked = remaining === 0
+  return {
+    perSend,
+    left: remaining === null ? null : Math.max(0, remaining - selected),
+    blocked,
+    canPickMore: !blocked && selected < perSend,
+    blockedMessage: quota ? `このグループの写真は ${quota.limit} 枚までです。上限に達したため、これ以上は送れません` : '',
+    overMessage: quota && remaining !== null && remaining < MAX_PHOTOS_PER_MESSAGE
+      ? `このグループの写真は ${quota.limit} 枚までです。残り ${remaining} 枚です`
+      : `写真は1回${MAX_PHOTOS_PER_MESSAGE}枚までです`,
+  }
+}
+
 /** 返信の引用に出す本文の長さ */
 export const QUOTE_LENGTH = 30
 

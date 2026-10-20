@@ -1,5 +1,6 @@
 /**
  * チャットの入力欄（グループページ刷新 段階 2）。カメラ・写真（1 回 10 枚まで）・絵文字・送信。
+ * 写真はグループ全体でも上限がある（既定 10 枚、2026-10-20）。写真を選ぶボタンの横に「あと N 枚」、上限に達したら選べなくして理由を出す。
  * 返信中は上に引用を出す。写真を選ぶと送る前に並べて見せ、外せる。
  * 初めての人には「長押しで返信・リアクション」の小さな案内を入力欄の上に出す（× で閉じたら出さない。点検 55）。
  */
@@ -7,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Camera, ImagePlus, Loader2, Reply, Send, Smile, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { MAX_PHOTOS_PER_MESSAGE } from './chatModel'
+import { photoPickState } from './chatModel'
 import { EmojiGrid } from './EmojiPicker'
 
 const HINT_KEY = 'mmq_chat_longpress_hint_closed'
@@ -26,9 +27,11 @@ interface ChatComposerProps {
   /** 送れたら true（入力欄を空にする） */
   onSend: (text: string, files: File[]) => Promise<boolean>
   onTyping: () => void
+  /** グループ全体の写真の上限と残り。読めていなければ null（1 回 10 枚の制限だけで選ばせ、送るときに DB が確かめる） */
+  photoQuota?: { limit: number; remaining: number } | null
 }
 
-export function ChatComposer({ disabled, blockMessage, replyQuote, onCancelReply, onSend, onTyping }: ChatComposerProps) {
+export function ChatComposer({ disabled, blockMessage, replyQuote, onCancelReply, onSend, onTyping, photoQuota = null }: ChatComposerProps) {
   const [text, setText] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [sending, setSending] = useState(false)
@@ -69,15 +72,18 @@ export function ChatComposer({ disabled, blockMessage, replyQuote, onCancelReply
     return () => observer.disconnect()
   }, [fitHeight])
 
+  const pick = photoPickState(photoQuota, files.length)
   const addFiles = (list: FileList | null) => {
     const picked = Array.from(list ?? []).filter(f => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name))
     if (picked.length === 0) return
     setFiles(prev => {
       const next = [...prev, ...picked]
-      if (next.length > MAX_PHOTOS_PER_MESSAGE) toast.error(`写真は1回${MAX_PHOTOS_PER_MESSAGE}枚までです`)
-      return next.slice(0, MAX_PHOTOS_PER_MESSAGE)
+      if (next.length > pick.perSend) toast.error(pick.overMessage)
+      return next.slice(0, pick.perSend)
     })
   }
+  const photoButtonDisabled = disabled || sending || !pick.canPickMore
+  const photoButtonTitle = pick.blocked ? pick.blockedMessage : '写真を選ぶ（1回10枚まで）'
 
   const canSend = !disabled && !sending && (text.trim().length > 0 || files.length > 0)
   const send = async () => {
@@ -99,6 +105,7 @@ export function ChatComposer({ disabled, blockMessage, replyQuote, onCancelReply
   return (
     <div className="shrink-0 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]" data-testid="chat-composer">
       {blockMessage && <p className="text-xs text-muted-foreground px-3 pt-2">{blockMessage}</p>}
+      {!disabled && pick.blocked && <p className="text-xs text-muted-foreground px-3 pt-2" data-testid="chat-photo-limit">{pick.blockedMessage}</p>}
       {!hintClosed && !disabled && (
         <div className="flex items-center gap-2 px-3 pt-2 text-xs text-muted-foreground" data-testid="chat-longpress-hint">
           <span className="flex-1">メッセージを長押しすると、返信・リアクション・コピーができます（パソコンは右クリック）</span>
@@ -131,7 +138,7 @@ export function ChatComposer({ disabled, blockMessage, replyQuote, onCancelReply
               </button>
             </div>
           ))}
-          <span className="self-end text-xs text-muted-foreground whitespace-nowrap pb-1">{files.length}/{MAX_PHOTOS_PER_MESSAGE}</span>
+          <span className="self-end text-xs text-muted-foreground whitespace-nowrap pb-1">{files.length}/{pick.perSend}</span>
         </div>
       )}
       {emojiOpen && (
@@ -142,12 +149,15 @@ export function ChatComposer({ disabled, blockMessage, replyQuote, onCancelReply
       <div className="flex items-end gap-1 px-2 py-2">
         <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { addFiles(e.target.files); e.target.value = '' }} data-testid="chat-camera-input" />
         <input ref={libraryRef} type="file" accept="image/*" multiple className="hidden" onChange={e => { addFiles(e.target.files); e.target.value = '' }} data-testid="chat-photo-input" />
-        <button type="button" className={iconButton} onClick={() => cameraRef.current?.click()} disabled={disabled || sending} aria-label="カメラで撮る" title="カメラで撮る">
+        <button type="button" className={iconButton} onClick={() => cameraRef.current?.click()} disabled={photoButtonDisabled} aria-label="カメラで撮る" title={pick.blocked ? pick.blockedMessage : 'カメラで撮る'}>
           <Camera className="w-5 h-5" aria-hidden="true" />
         </button>
-        <button type="button" className={iconButton} onClick={() => libraryRef.current?.click()} disabled={disabled || sending} aria-label="写真を選ぶ" title="写真を選ぶ（1回10枚まで）">
+        <button type="button" className={iconButton} onClick={() => libraryRef.current?.click()} disabled={photoButtonDisabled} aria-label="写真を選ぶ" title={photoButtonTitle}>
           <ImagePlus className="w-5 h-5" aria-hidden="true" />
         </button>
+        {!disabled && pick.left !== null && (
+          <span className="self-center shrink-0 text-xs leading-none text-muted-foreground whitespace-nowrap pr-1" data-testid="chat-photo-remaining">あと {pick.left} 枚</span>
+        )}
         <textarea
           ref={textRef}
           rows={1}
