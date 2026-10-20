@@ -1,3 +1,11 @@
+## 2026-10-20 / マイページのクーポンで使用履歴が空になる（PGRST201）→ 予約の埋め込みに外部キー名を明示（fix/coupon-usages-embed-ambiguity、staging 向け PR）
+
+- 原因: `coupon_usages` と `reservations` の間に外部キーが 2 本ある（`coupon_usages_reservation_id_fkey`＝使用→予約、`reservations_coupon_usage_id_fkey`＝予約→使用。後者を作る記述は migration では 20260214000001 の「列が無ければ REFERENCES 付きで追加」だけで、20261012120000 には外部キーの追加は無い。本番に後者があるかは未確認（本番には触れていない）。staging と手元 DB にはある）。`coupon_usages ... reservations (...)` の素の埋め込みが PGRST201 で失敗し、`/api/coupons?type=all` が使用履歴を黙って空にしていた（使用日時が出ない・「この予約に適用済み」が出ない）。手元 DB（supabase start）でも同じく再現。
+- 直し: `api/_lib/coupons/usageSelects.ts` に select 文字列を集め、予約の埋め込みは `reservations:reservations!coupon_usages_reservation_id_fkey(...)` で書く（返却キーは従来どおり `reservations`）。お客様の一覧（`customerReads.ts`）と管理画面の使用履歴 2 か所（`adminReads.ts`、従来は列名ヒント `reservations:reservation_id`）が使う。`reservationCoupons.ts`・`adjustments.ts` は予約を埋め込んでいないので変更なし。逆向き（`reservations` から `coupon_usages`）の埋め込みは API・画面に無い。
+- 失敗時: 使用履歴が読めないときは `console.error` に code・message・details・hint を出し、各クーポンに `coupon_usages_error: true` を付けて返す。マイページ › クーポンは「使用履歴を読み込めませんでした」と「再読み込み」を出す。
+- 他の組の点検（staging の REST で埋め込みの解決だけ確認）: `coupon_usages`→`customers`（`redeemed_by_member` の 1 本）、`coupon_usages`→`customer_coupons`、`customer_coupons`→`customers`／`coupon_campaigns`／`coupon_usages`、`customers`→`reservations`／`coupon_usages`、`reservations`→`customers`／`stores` はどれも 1 本で曖昧でない。
+- テスト: `api/_lib/coupons/usageSelects.test.ts`（ヒント名が入ること、`api`・`src` のコードに外部キー名なしの埋め込みが残っていないことを走査）、`api/couponRedeem.test.ts`（ヒント付きで読む・PGRST201 で `coupon_usages_error`）、DB 側 `supabase/tests/coupon_usage_embed_hints.sql`（外部キーが 2 本でヒント名が実在し向きが正しい、読み取りのみ。`test:rpcs` に追加、手元 DB で PASS）。
+- 本番: 次の本番公開にこの修正を含めること。本番に `reservations_coupon_usage_id_fkey` があれば今も同じ現象が出ている可能性があるので、発注者が本番の外部キーを読み取りで確認する。
 ## 2026-10-20 / 本番 #1140: カレンダーから 180 日より先の貸切を申し込めた → 「貸切を受け付ける範囲」を設定にして全経路で弾く（fix/private-booking-horizon-180、staging 向け PR。main 向け hotfix は hotfix/private-booking-horizon-180-main）
 
 - 事象（スタッフ報告）: 作品ページの貸切は 180 日後までだが、公開カレンダー・リストの「貸切申込」チップは先の月へいくらでも出て、申込ページ（`?date=`）にも DB の保存の検査（`assert_private_booking_candidate_date`）にも上限日が無かった。

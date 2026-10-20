@@ -61,7 +61,9 @@ export function CouponsPage() {
   const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
-  const { data: coupons = [], isLoading: couponsLoading } = useCouponsQuery()
+  const { data: coupons = [], isLoading: couponsLoading, refetch: reloadCoupons, isFetching: couponsFetching } = useCouponsQuery()
+  // 使用履歴だけ読めなかったとき（クーポン自体は出せる）。黙って空にせず再読み込みを案内する
+  const usagesFailed = coupons.some(coupon => coupon.coupon_usages_error)
   const { data: currentReservations = [], isLoading: reservationsLoading, isError: reservationsError, refetch: reloadReservations } = useCurrentReservationsQuery()
   const useCouponMutation = useUseCouponMutation()
   const redeemMutation = useRedeemCouponUsageMutation()
@@ -182,6 +184,16 @@ export function CouponsPage() {
           利用条件を確認して、対象の予約に使用できます
         </p>
       </div>
+
+      {usagesFailed && (
+        <div role="alert" className="flex items-center justify-between gap-3 border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 rounded-none">
+          <span className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            使用履歴を読み込めませんでした
+          </span>
+          <Button variant="outline" size="sm" disabled={couponsFetching} onClick={() => void reloadCoupons()}>再読み込み</Button>
+        </div>
+      )}
 
       <AppliedCouponsSection
         cards={appliedCoupons}

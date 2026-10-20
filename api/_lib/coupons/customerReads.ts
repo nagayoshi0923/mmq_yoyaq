@@ -4,6 +4,7 @@ import { db } from '../db.js'
 import { CUSTOMER_COUPON_FIELDS, findCustomerByUserId } from './common.js'
 import { withUsableStoresLabel } from './usableStores.js'
 import { isMissingRedeemColumn } from './reservationCoupons.js'
+import { customerUsageSelect } from './usageSelects.js'
 
 // =========================================
 // 顧客向け: 利用可能クーポン
@@ -92,38 +93,25 @@ export async function handleAll(
   if (couponIds.length === 0) return res.status(200).json(rows)
 
   // 来店確認（redeemed_*）の列は 20261020130000 で足した。適用前の DB では列なしで読み直す
-  const usageBase = `
-      id,
-      customer_coupon_id,
-      reservation_id,
-      used_at,
-      discount_amount,
-      reservations (
-        id,
-        title,
-        status,
-        requested_datetime,
-        store_id,
-        stores ( name, short_name )
-      )
-    `
-  let usageResult: { data: unknown[] | null; error: { code?: string; message: string } | null } = await database
+  // 予約の埋め込みは外部キー名を明示する（usageSelects.ts。書かないと PGRST201 で失敗する）
+  let usageResult: { data: unknown[] | null; error: { code?: string; message: string; details?: unknown; hint?: unknown } | null } = await database
     .from('coupon_usages')
-    .select(`${usageBase}, redeemed_at, redeemed_source`)
+    .select(customerUsageSelect(true))
     .in('customer_coupon_id', couponIds)
     .order('used_at', { ascending: false })
   if (isMissingRedeemColumn(usageResult.error)) {
     usageResult = await database
       .from('coupon_usages')
-      .select(usageBase)
+      .select(customerUsageSelect(false))
       .in('customer_coupon_id', couponIds)
       .order('used_at', { ascending: false })
   }
   const { data: usageRows, error: usageError } = usageResult
 
   if (usageError) {
-    console.warn('[coupons:all] usages fetch failed:', usageError)
-    return res.status(200).json(rows.map(c => ({ ...c, coupon_campaigns: { ...c.coupon_campaigns, ...c.rules_snapshot }, coupon_usages: [] })))
+    // 握りつぶさず理由を残し、画面には「使用履歴を読み込めなかった」ことを伝える（クーポン自体は表示する）
+    console.error('[coupons:all] usages fetch failed:', { code: usageError.code, message: usageError.message, details: usageError.details, hint: usageError.hint })
+    return res.status(200).json(rows.map(c => ({ ...c, coupon_campaigns: { ...c.coupon_campaigns, ...c.rules_snapshot }, coupon_usages: [], coupon_usages_error: true })))
   }
 
   // 店舗名は使用履歴と同じ問い合わせで読む（店舗だけを後から読み直す往復をなくす）

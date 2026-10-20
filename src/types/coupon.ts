@@ -80,6 +80,8 @@ export interface CustomerCoupon {
   coupon_campaigns?: CouponCampaign | null
   /** getAllCoupons 時のみ: 各使用ごとの予約（公演）情報 */
   coupon_usages?: CustomerCouponUsageWithReservation[] | null
+  /** getAllCoupons 時のみ: 使用履歴を読み込めなかった（coupon_usages は空で返る） */
+  coupon_usages_error?: boolean
   /** getAllCoupons 時のみ: 使える店舗（例「クインズワルツの全店舗（東京・埼玉）」） */
   usable_stores_label?: string | null
   /** getAllCoupons 時のみ: 押すと開く店舗名の一覧（全店舗のクーポンのとき） */
