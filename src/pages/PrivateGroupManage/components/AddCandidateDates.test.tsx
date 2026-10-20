@@ -3,10 +3,10 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { beforeEach, afterEach, expect, it, vi } from 'vitest'
 import { AddCandidateDates } from './AddCandidateDates'
-const HORIZON = vi.hoisted(() => ({ days: 180 }))
+const HORIZON = vi.hoisted(() => ({ days: 180 as number | null, failed: false }))
 vi.mock('@/lib/privateBookingHorizon', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/privateBookingHorizon')>()),
-  usePrivateBookingHorizonDays: () => ({ days: HORIZON.days, loading: false }),
+  usePrivateBookingHorizonDays: () => ({ days: HORIZON.days, loading: HORIZON.days === null && !HORIZON.failed, failed: HORIZON.failed, retry: () => {} }),
 }))
 
 const mocks = vi.hoisted(() => ({ save: vi.fn(), toast: vi.fn(), holiday: vi.fn(), holidayState: { isCustomHoliday: () => false, isLoading: false, error: null as string | null } }))
@@ -20,7 +20,7 @@ vi.mock('@/hooks/useCandidateSlotAvailability', () => {
  return { useCandidateSlotAvailability: () => stable }
 })
 vi.mock('@/hooks/useScenarioStoreHint', () => ({ useScenarioStoreHint: () => null }))
-vi.mock('@/components/private-booking/PrivateBookingSlotGrid', () => ({ PrivateBookingSlotGrid: (props: { availableDates: string[]; onSlotToggle: (date: string, slot: unknown) => void }) => <button onClick={() => props.onSlotToggle(props.availableDates[0], { key: 'afternoon', label: '午後', startTime: '13:00', endTime: '16:00' })}>テスト候補</button> }))
+vi.mock('@/components/private-booking/PrivateBookingSlotGrid', () => ({ PrivateBookingSlotGrid: (props: { currentMonth: Date; availableDates: string[]; onSlotToggle: (date: string, slot: unknown) => void }) => <button data-month={`${props.currentMonth.getFullYear()}-${String(props.currentMonth.getMonth() + 1).padStart(2, '0')}`} onClick={() => props.onSlotToggle(props.availableDates[0], { key: 'afternoon', label: '午後', startTime: '13:00', endTime: '16:00' })}>テスト候補</button> }))
 let root: Root
 let container: HTMLDivElement
 const updated = vi.fn()
@@ -29,6 +29,7 @@ const render = () => act(async () => { root.render(<AddCandidateDates groupId="g
 beforeEach(() => {
  Object.assign(globalThis,{ IS_REACT_ACT_ENVIRONMENT: true })
  mocks.holidayState.isLoading = false; mocks.holidayState.error = null
+ HORIZON.days = 180; HORIZON.failed = false
  container = document.createElement('div'); root = createRoot(container)
 })
 afterEach(async () => { await act(async () => root.unmount()); vi.clearAllMocks() })
@@ -79,4 +80,25 @@ it('ページ埋め込みでは保存列を貼り付けない', async () => {
  await render()
  await act(async () => button('候補日を追加').click())
  expect(container.querySelector('[data-testid="candidate-dates-actions"]')!.className).not.toContain('sticky')
+})
+
+// Codex 第2回再レビュー R5: 受付範囲の取得中・失敗（days=null）を「選べる日が無い月」と取り違え、24 か月先まで進んでいた
+const shownMonth = () => button('テスト候補').getAttribute('data-month')
+const jstYmd = (offsetDays = 0) => new Date(Date.now() + 9 * 3600_000 + offsetDays * 86400_000).toISOString().slice(0, 10)
+it.each([
+  ['取得中', false],
+  ['取得失敗', true],
+])('受付範囲が%sの間は月を進めず、読めたら受付範囲内の月を出す', async (_label, failed) => {
+ HORIZON.days = null; HORIZON.failed = failed
+ await render()
+ await act(async () => button('候補日を追加').click())
+ for (let i = 0; i < 5; i++) await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+ expect(shownMonth()).toBe(jstYmd().slice(0, 7))
+ // 再試行で 90 日と読めた
+ HORIZON.days = 90; HORIZON.failed = false
+ await render()
+ for (let i = 0; i < 5; i++) await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+ const month = shownMonth()!
+ expect(month >= jstYmd().slice(0, 7)).toBe(true)
+ expect(`${month}-01` <= jstYmd(90)).toBe(true)
 })
