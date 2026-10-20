@@ -137,7 +137,8 @@ it('5xx・時間切れも一時的な失敗として扱い、画面を切り替�
 it.each([
   ['参加の権限が無くなった（42501 / 403）', { message: 'グループを閲覧できません', code: '42501', status: 403 }],
   ['ログインが切れた（401）', { message: 'JWT expired', code: 'PGRST301', status: 401 }],
-  ['グループが無い（404）', { message: 'Not Found', code: '', status: 404 }],
+  ['閲覧の権限が無い（コード無しの 403）', { message: 'Forbidden', code: '', status: 403 }],
+  ['RPC が明示的に「見つからない」を返した（P0002 / 404）', { message: 'グループが見つかりません', code: 'P0002', status: 404 }],
   ['グループが無い（中身が空）', Object.assign(new Error('グループを取得できませんでした'), { code: 'PRIVATE_GROUP_NOT_FOUND' })],
 ])('%s ときは「見つかりません」に切り替える', async (_label, failure) => {
   read.mockResolvedValueOnce(snapshot).mockRejectedValueOnce(failure)
@@ -147,5 +148,30 @@ it.each([
     expect(host.querySelector('[data-testid="not-found"]')).not.toBeNull()
     expect(host.querySelector('[data-testid="request-confirm"]')).toBeNull()
     expect(hook.reconnecting).toBe(false)
+  } finally { await act(async () => root.unmount()) }
+})
+
+// Codex 第2回再レビュー R4: 404 は「RPC がスキーマキャッシュに無い」（PGRST202）など API 構成の一時的なずれでも返る。
+// 不存在・権限喪失の証拠が無い 404 では入力を消さず、次に読めたら元に戻る。
+it.each([
+  ['RPC がスキーマキャッシュに無い（PGRST202 / 404）', { message: 'Could not find the function public.private_group_read_snapshot in the schema cache', code: 'PGRST202', status: 404 }],
+  ['関数が無い（42883 / 404）', { message: 'function does not exist', code: '42883', status: 404 }],
+  ['コードの無い 404', { message: 'Not Found', code: '', status: 404 }],
+])('%s では入力を残して読み直し、次に読めたら知らせを消す', async (_label, failure) => {
+  read.mockResolvedValueOnce(snapshot).mockRejectedValueOnce(failure).mockResolvedValueOnce(snapshot)
+  const { host, root } = await openAndFill()
+  try {
+    await act(async () => { await hook.refetch(true) })
+    expect(host.querySelector('[data-testid="not-found"]')).toBeNull()
+    expect(host.querySelector('[data-testid="reconnecting"]')).not.toBeNull()
+    expect(hook.error).toBe(null)
+    expect(host.querySelector<HTMLButtonElement>('[data-testid="request-submit"]')!.disabled).toBe(false)
+    expect(host.querySelector('[data-testid="request-confirm"]')!.textContent).toContain('初めての方が 2 名います')
+
+    await act(async () => { await hook.refetch(true) })
+    expect(host.querySelector('[data-testid="reconnecting"]')).toBeNull()
+    await click(host.querySelector('[aria-label="内容の選択に戻る"]'))
+    expect(rows(host).filter(x => x.dataset.picked === 'true')).toHaveLength(3)
+    expect(host.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('初めての方が 2 名います')
   } finally { await act(async () => root.unmount()) }
 })

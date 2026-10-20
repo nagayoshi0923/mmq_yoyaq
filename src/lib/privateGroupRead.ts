@@ -46,17 +46,30 @@ export interface PrivateGroupLinkedReservation {
 }
 /** グループが無い（RPC は成功したが中身が空）ときのコード */
 export const PRIVATE_GROUP_NOT_FOUND_CODE = 'PRIVATE_GROUP_NOT_FOUND'
-/** 見る権限が無い・ログイン切れ・グループが無いと分かるコード（private_group_read_snapshot は閲覧不可を 42501 で返す） */
+/**
+ * 見る権限が無い・ログイン切れ・グループが無いと分かるコード。
+ * - 42501: private_group_read_snapshot が閲覧不可のときに明示的に返す
+ * - P0002: RPC が「見つからない」を明示的に返す（no_data_found）
+ * - 22P02: グループIDの形が不正（何度読んでも同じ）
+ * - PGRST301/302/303: ログインの鍵（JWT）が無効・期限切れ
+ */
 const ACCESS_LOST_CODES = new Set([PRIVATE_GROUP_NOT_FOUND_CODE, '42501', 'P0002', '22P02', 'PGRST301', 'PGRST302', 'PGRST303'])
 /**
  * 読み込みの失敗が「権限が無い・ログイン切れ・グループが無い」と確定したものか。
  * それ以外（通信の切断・5xx・時間切れ・原因不明）は一時的な失敗として扱い、直前の内容を残して読み直す（Codex 点検 不具合 3）。
+ *
+ * HTTP 404 の扱い（Codex 第2回再レビュー R4）:
+ * PostgREST の 404 は「RPC が見つからない」（PGRST202 = スキーマキャッシュに無い、42883 = 関数が無い）でも返る。
+ * これは配備の途中やスキーマ再読み込み待ちで起きる API 構成の一時的なずれで、グループの不存在の証拠ではない。
+ * そのため 404 という状態だけでは権限喪失とみなさない。404 のうち権限喪失として扱うのは、
+ * RPC が明示的に「見つからない」を返した P0002 などのコード（上の一覧）が付いているときだけ。
+ * 401・403 は状態だけで権限喪失（ログイン切れ・閲覧不可）とみなす。
  */
 export function isPrivateGroupAccessLost(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false
   const { code, status } = error as { code?: unknown; status?: unknown }
-  if (typeof status === 'number' && [401, 403, 404].includes(status)) return true
-  return typeof code === 'string' && ACCESS_LOST_CODES.has(code)
+  if (typeof code === 'string' && ACCESS_LOST_CODES.has(code)) return true
+  return typeof status === 'number' && (status === 401 || status === 403)
 }
 export async function readPrivateGroup(input: { groupId?: string | null; inviteCode?: string | null; memberId?: string | null }): Promise<PrivateGroupSnapshot> {
   const { data, error, status } = await supabase.rpc('private_group_read_snapshot', {
