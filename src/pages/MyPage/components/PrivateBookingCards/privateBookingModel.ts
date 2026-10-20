@@ -585,7 +585,10 @@ export function buildPrivateBookingView(input: PrivateBookingBuildInput): Privat
   const items: PrivateBookingItem[] = []
   for (const group of groups) {
     if (group.status === 'cancelled') continue
-    const linked = privateReservations.find(r => r.id === group.reservation_id || r.private_group_id === group.id)
+    // グループが指す申込を優先する。取り下げ・却下のあと申し込み直すと同じグループの申込が複数並ぶため、
+    // 先に見つかった古い取消済みの申込に結ぶと「候補日を直して申し込み直す」などの判定がずれる
+    const linked = (group.reservation_id ? privateReservations.find(r => r.id === group.reservation_id) : undefined)
+      ?? privateReservations.find(r => r.private_group_id === group.id)
     if (linked) linkedReservationIds.add(linked.id)
     // グループ側に作品画像が無い旧データは予約の作品画像で補う
     const fallbackImage = linked?.scenario_master_id ? scenarioImages[linked.scenario_master_id] ?? null : null

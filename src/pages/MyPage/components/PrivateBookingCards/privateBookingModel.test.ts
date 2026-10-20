@@ -92,6 +92,22 @@ describe('申込だけ取り下げてグループを残した（2026-10-20 社�
   })
 })
 
+describe('同じグループの申込が複数ある（取り下げて申し込み直し、また取り下げた）', () => {
+  it('グループが指す申込に結び、先に並ぶ古い取消済みの申込には結ばない', () => {
+    const view = buildPrivateBookingView({
+      groups: [group({ id: 'kept', status: 'gathering', reservation_id: 'r-new', candidate_dates_count: 2 })],
+      reservations: [
+        reservation({ id: 'r-old', status: 'cancelled', reservation_source: 'web_private', private_group_id: 'kept' }),
+        reservation({ id: 'r-new', status: 'cancelled', reservation_source: 'web_private', private_group_id: 'kept' }),
+      ],
+      scheduleEvents: {}, scenarioImages: {}, surveyPending: {}, todayYmd: TODAY,
+    })
+    expect(view.bySection.action).toHaveLength(1)
+    expect(view.bySection.action[0].label).toBe('候補日を直して申し込み直す')
+    expect(view.bySection.action[0].reservationId).toBe('r-new')
+  })
+})
+
 describe('1 貸切 = 1 カード', () => {
   it('グループと予約を結合して 1 枚にし、節に振り分ける', () => {
     const view = buildPrivateBookingView({
