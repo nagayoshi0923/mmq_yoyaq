@@ -6,6 +6,19 @@
 - R3［P2］退避した店舗公開名を書き戻していない: 手順書 (b) の書き戻し SQL に 4b（店舗 ID と組織が一致し今が空の店だけ `stores.public_name` を戻す）と、来店確認・公開名の照合 SQL を追加。`supabase/tests/coupon_redeem_rollback_backup.sql` を 20261011210000 まで戻す流れに広げ、写す → 戻す → 当て直す → 書き戻しで値が戻ることを確認。
 - staging でやること: migration 20261021120000 の適用（md5 は上）、Edge `process-customer-notice-emails` の配備（staging への merge で deploy-supabase が配備）。本番は公開手順 (4)〜(7) に含まれる。
 
+## 2026-10-21 / 受付範囲の取得待ちで候補追加カレンダーが 24 か月先へ進む（fix/recheck2-r5-candidate-month、Codex 第2回再レビュー R5）
+
+- Codex の第2回再レビュー（R5、P2）。`AddCandidateDates` の「選べる日が無い月は次の月へ自動で進める」処理が、受付範囲（`horizonDays`）の取得中・失敗（null）でどの月も空に見えるのを空月と取り違え、上限 24 回まで進めていた。
+- 直し: 受付範囲が null の間は自動で進めず、開いたときの「最初の月へ戻す」も範囲が分かってから行う。範囲の外（今日から N 日先より後）の月を出していたら最初の月へ戻し、自動で進めるのも範囲内まで（次の月が範囲外なら止める）。手動の「次月を表示」・月送りは従来どおり（null の間は次月ボタンも押せない）。
+- 他の画面: 作品ページの貸切フォーム（`usePrivateBooking`）、日付指定の申込、`PrivateBookingSlotGrid` には自動で月を進める処理が無いことを確認（`showMonthOf` は URL の日付の月を出すだけ）。変更は `AddCandidateDates` だけ。
+- テスト: `AddCandidateDates.test.tsx` に、受付範囲が取得中・取得失敗で開いても今月のまま、90 日と読めたら範囲内の月、を追加（修正前は 2 年後の月になり失敗）。vitest 全件、`npm run verify`。
+
+## 2026-10-21 / 古い読み込みの組織取得失敗が新しい一覧をエラー表示にする（fix/recheck2-r6-org-generation、Codex 第2回再レビュー R6）
+
+- Codex の第2回再レビュー（R6、P2）。`usePrivateGroupList` の `loadGroups` は組織 ID の解決後に読み込み順（世代）を確かめていなかったため、読み込み A の組織解決が遅れて null で終わると、後から始めて成功した読み込み B の一覧に「組織情報が取得できません」が立ち、画面がエラー側へ切り替わっていた。
+- 直し: 組織の解決直後にも既存の世代検査（`current()`）を入れ、古い呼び出しでは error も loading も触らない。
+- テスト: `usePrivateGroupList.test.tsx` に、A の組織解決を保留 → B 成功 → A が null で終わっても error が立たず B の一覧が残る、を追加（修正前は失敗）。vitest 全件、`npm run verify`。
+
 ## 2026-10-21 / RPC の構成エラー（PGRST202・404）でも申込シートの入力を消していた（fix/recheck2-r4-access-lost、Codex 第2回再レビュー R4）
 
 - Codex の第2回再レビュー（R4、P2）。`isPrivateGroupAccessLost` が HTTP 404 を一律に「権限が無い・グループが無い」と判定していたため、RPC がスキーマキャッシュに無い（PGRST202、配備途中やスキーマ再読み込み待ち）だけでも申込シートの入力を消して「招待が見つかりません」に切り替えていた。

@@ -2,10 +2,10 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-const mocks = vi.hoisted(() => ({ read: vi.fn(), settings: vi.fn(), from: vi.fn(), failTable: '', queries: [] as Array<{table: string; filters: Record<string, unknown>}> }))
+const mocks = vi.hoisted(() => ({ org: vi.fn(), read: vi.fn(), settings: vi.fn(), from: vi.fn(), failTable: '', queries: [] as Array<{table: string; filters: Record<string, unknown>}> }))
 vi.mock('@/lib/privateGroupRead', () => ({ readPrivateGroupList: mocks.read }))
 vi.mock('@/lib/groupSurveySettings', () => ({ getGroupsSurveySettings: mocks.settings }))
-vi.mock('@/lib/organization', () => ({ getCurrentOrganizationId: async () => 'org' }))
+vi.mock('@/lib/organization', () => ({ getCurrentOrganizationId: () => mocks.org() }))
 vi.mock('@/lib/supabase', () => ({ supabase: { from: mocks.from } }))
 import { usePrivateGroupList } from './usePrivateGroupList'
 let root: Root
@@ -16,6 +16,7 @@ afterEach(async()=>{if(root)await act(async()=>root.unmount())})
 beforeEach(() => {
   Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true})
   vi.clearAllMocks(); mocks.failTable = ''; mocks.queries = []
+  mocks.org.mockReset(); mocks.org.mockResolvedValue('org')
   mocks.read.mockResolvedValue([{ id: 'g', organizer_id: 'u', organizer_display_name: '幹事表示名', reservation_id: 'current', status: 'confirmed', members: [{ id: 'm', user_id: 'u', is_organizer: true, staff_display_name: '幹事表示名', guest_name: '旧名' }], candidate_dates: [], scenario_masters: null }])
   mocks.settings.mockResolvedValue({g: {survey_enabled:true}})
   const rows: Record<string, unknown[]> = {
@@ -154,4 +155,23 @@ it('再読み込み後に前の読み込みの結果が届いても上書きし�
   await act(async () => resolvers[1]([row('new')]))
   await act(async () => resolvers[0]([row('old')]))
   expect(result.current.groups.map(g => g.id)).toEqual(['new'])
+})
+
+// Codex 第2回再レビュー R6: 取得 A の組織解決を保留 → 取得 B が成功 → A が「組織なし」で終わっても、B の一覧をエラー表示にしない
+it('古い読み込みの組織取得失敗は、新しい読み込みで出た一覧をエラーにしない', async () => {
+  let resolveOldOrg!: (value: string | null) => void
+  mocks.org.mockReset()
+  mocks.org.mockReturnValueOnce(new Promise<string | null>(resolve => { resolveOldOrg = resolve })).mockResolvedValue('org')
+  await render()
+  expect(result.current.loading).toBe(true)
+  // 取得 B（再読み込み）が先に終わる
+  await act(async () => { await result.current.loadGroups() })
+  expect(result.current.error).toBeNull()
+  expect(result.current.groups[0]).toMatchObject({ id: 'g', details_loaded: true })
+  // 取得 A の組織解決が null で遅れて終わる
+  await act(async () => { resolveOldOrg(null) })
+  expect(result.current.error).toBeNull()
+  expect(result.current.loading).toBe(false)
+  expect(result.current.detailsLoading).toBe(false)
+  expect(result.current.groups[0]).toMatchObject({ id: 'g', details_loaded: true })
 })
