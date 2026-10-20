@@ -19,7 +19,8 @@ interface Input {
   handover: PrivateGroupHandoverSummary | null
   joinedCount: number
   candidateCount: number
-  onDone: () => void
+  /** 閉じる・取り下げ・キャンセル・抜けるのあと。groupKept: 申込だけ取り下げてグループは残した */
+  onDone: (detail: { groupKept: boolean }) => void | Promise<unknown>
   onMembersChanged: () => unknown
 }
 
@@ -45,6 +46,6 @@ export function useGroupBookingActions({ group, user, existingMember, linkedRese
     handover: handover?.is_requester ? toHandoverInfo(handover) : null,
     replyEmail: user?.email || existingMember?.guest_email || '',
     replyName: existingMember?.guest_name || user?.name || '',
-  }, { onDone, onMembersChanged: async () => { await onMembersChanged() } })
+  }, { onDone: (_action, detail) => onDone(detail), onMembersChanged: async () => { await onMembersChanged() } })
   return { bookingPhase, bookingActions }
 }

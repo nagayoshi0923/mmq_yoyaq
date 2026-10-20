@@ -5,6 +5,7 @@ import {
   privateBookingConfirmText,
   privateBookingPhase,
   removeMemberConfirmText,
+  withdrawRequestText,
   type PrivateBookingMenuContext,
 } from './privateBookingMenu'
 import { toMemberRows } from './privateGroupSummary'
@@ -94,7 +95,23 @@ describe('確認文は影響を数字で見せる', () => {
   })
   it('申込を取り下げる', () => {
     const t = privateBookingConfirmText('withdraw', { otherMembers: 2, candidateDates: 2 })
-    expect(t.message).toContain('店舗への申込を取り消し、グループも閉じます。メンバー 2 名に知らせます')
+    expect(t.message).toContain('店舗への申込を取り下げ、グループも閉じます。メンバー 2 名に知らせます')
+  })
+  it('申込の取り下げはグループを残すか選べる（既定は残す）', () => {
+    const keep = withdrawRequestText('keep_group', { hasGroup: true, otherMembers: 2 })
+    expect(keep.title).toBe('申込を取り下げますか')
+    expect(keep.message).toBe('店舗への申込を取り下げます。キャンセル料はかかりません。')
+    expect(keep.options.map(o => o.mode)).toEqual(['keep_group', 'close_group'])
+    expect(keep.options[0]).toMatchObject({ label: '申込だけ取り下げる', note: expect.stringContaining('候補日を直して、もう一度申し込めます') })
+    expect(keep.options[1]).toMatchObject({ label: 'グループも閉じる', note: expect.stringContaining('メンバー 2 名に知らせます') })
+    expect(keep.confirmLabel).toBe('申込を取り下げる')
+    expect(withdrawRequestText('close_group', { hasGroup: true, otherMembers: 0 }).confirmLabel).toBe('取り下げてグループを閉じる')
+    expect(withdrawRequestText('close_group', { hasGroup: true, otherMembers: 0 }).options[1].note).toContain('メンバーに知らせます')
+  })
+  it('グループの無い旧い貸切予約の取り下げは選択肢を出さない', () => {
+    const t = withdrawRequestText('keep_group', { hasGroup: false, otherMembers: 0 })
+    expect(t.options).toEqual([])
+    expect(t.confirmLabel).toBe('申込を取り下げる')
   })
   it('キャンセル（確定日を出す）', () => {
     const t = privateBookingConfirmText('cancel', { otherMembers: 1, candidateDates: 0, confirmedDate: '2026-10-25' })

@@ -280,7 +280,7 @@ CREATE TRIGGER customer_notice_on_private_request AFTER INSERT ON public.reserva
 CREATE OR REPLACE FUNCTION public.customer_notice_on_reservation_cancelled()
  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp' AS $function$
 DECLARE v_user uuid; v_work text; v_when text; v_event_cancelled boolean; v_private boolean; v_link text; v_key text;
- v_title text; v_msg text; v_kind text; v_bell uuid; v_email text; v_name text; v_count integer; v_group boolean;
+ v_title text; v_msg text; v_kind text; v_bell uuid; v_email text; v_name text; v_count integer; v_group boolean; v_kept boolean;
 BEGIN
  BEGIN
   SELECT user_id INTO v_user FROM public.customers WHERE id=NEW.customer_id;
@@ -300,7 +300,11 @@ BEGIN
    END IF;
   ELSIF NEW.cancellation_reason='お客様による貸切申込の取り下げ' THEN
    v_kind := 'private_withdrawn'; v_title := '貸切の申込を取り下げました';
-   v_msg := format('「%s」の貸切の申込を取り下げました（予約番号 %s）。',v_work,coalesce(NEW.reservation_number,'-'));
+   -- グループを残す取り下げ（withdraw_private_request_keep_group）はグループを募集中へ戻してから申込を取り消す
+   v_kept := NEW.private_group_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.private_groups pg
+     WHERE pg.id=NEW.private_group_id AND pg.status='gathering');
+   v_msg := format('「%s」の貸切の申込を取り下げました（予約番号 %s）。%s',v_work,coalesce(NEW.reservation_number,'-'),
+     CASE WHEN v_kept THEN 'グループはそのままです。候補日を直してもう一度申し込めます。' ELSE '' END);
   ELSIF NEW.cancellation_reason='貸切リクエストを却下しました' THEN
    v_kind := 'private_rejected'; v_title := '店舗が貸切の申込をお断りしました';
    v_msg := format('「%s」の貸切の申込は、店舗の都合によりお受けできませんでした。詳しくはお送りしたメール・グループのお知らせをご確認ください。',v_work);
@@ -324,7 +328,8 @@ BEGIN
      CASE WHEN v_count IS NOT NULL THEN '候補日: '||v_count||'件（申込中だったもの）' END,
      CASE WHEN NEW.participant_count IS NOT NULL THEN '参加人数: '||NEW.participant_count||'名' END,
      CASE WHEN v_group THEN '' END,
-     CASE WHEN v_group THEN 'グループは閉じられ、メンバーの皆さまにもお知らせしました。' END],
+     CASE WHEN v_group AND v_kept THEN 'グループはそのまま残っています。候補日を直して、もう一度申し込めます。'
+          WHEN v_group THEN 'グループは閉じられ、メンバーの皆さまにもお知らせしました。' END],
     v_link,
     CASE WHEN v_group THEN 'ご不明な点は、グループ画面の歯車マークから「店舗へのお問い合わせ」をご利用ください。' END,
     false,v_bell);

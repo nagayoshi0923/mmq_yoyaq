@@ -81,6 +81,17 @@ describe('いまの状態の箱（マイページのカードと同じラベル�
     expect(v.barAction).toEqual(v.primary)
     expect(v.barLabel).toBe('申し込む ›')
   })
+  it('申込だけ取り下げてグループを残した: 「候補日を直して申し込み直す」（2026-10-20 社長決定）', () => {
+    const v = buildGroupStatus(base({ rebook: true }))
+    expect(v.chip).toBe('候補日を直して申し込み直す')
+    expect(v.tone).toBe('purple')
+    expect(v.body).toBe('申込を取り下げました。候補日を直して、もう一度店舗に申し込めます（候補日 3 件・参加 3 人）。')
+    expect(v.primary).toEqual({ kind: 'book', label: '候補日を選んで店舗に申し込む' })
+    expect(v.secondary.map(s => s.label)).toEqual(['候補日を編集', '招待リンクを送る'])
+    expect(v.oneLine).toBe('候補日を直して申し込み直す・3人中 1人が回答済み')
+    // メンバーの箱は従来どおり
+    expect(buildGroupStatus(base({ rebook: true, isOrganizer: false, organizerName: 'いちこ', table: buildAnswerTable(group, 'sabu'), myMemberId: 'sabu' })).chip).toBe('日程に回答する')
+  })
   it('主催者・候補日なし: 候補日を追加', () => {
     const v = buildGroupStatus(base({ table: buildAnswerTable({ ...group, candidate_dates: [] } as unknown as PrivateGroup, 'org') }))
     expect(v.chip).toBe('候補日を決める')

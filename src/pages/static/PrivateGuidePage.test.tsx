@@ -50,6 +50,9 @@ describe('貸切の流れ（/guide/private）', () => {
       expect(text).toContain(phrase)
     }
     expect(text).not.toContain('公演前アンケート')
+    // 申込の取り下げはグループを残すか選べる（2026-10-20 社長決定）
+    expect(text).toContain('グループを残すか閉じるかを選べます')
+    expect(text).toContain('候補日を直してもう一度申し込めます')
     expect(text).not.toContain('別運営')
   })
 

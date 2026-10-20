@@ -79,6 +79,11 @@ describe('自動のお知らせはすべて灰色の 1 行（チャットにカ�
       .toMatchObject({ text: '日程リクエストが却下されました', link: { label: '理由を見る', target: 'expand' }, detail: '満席' })
     expect(text({ type: 'system', action: 'booking_cancelled' }).link).toEqual({ label: '概要を見る', target: 'overview' })
   })
+  it('申込だけ取り下げた（グループは残す）は灰色の 1 行', () => {
+    expect(text({ type: 'system', action: 'booking_withdrawn', title: '申込を取り下げました。候補日を直してもう一度申し込めます' }))
+      .toEqual({ kind: 'booking_withdrawn', text: '申込を取り下げました。候補日を直してもう一度申し込めます' })
+    expect(text({ type: 'system', action: 'booking_withdrawn' }).text).toBe('申込を取り下げました。候補日を直してもう一度申し込めます')
+  })
   it('事前配役アンケート: 期限を添えて「回答する」', () => {
     expect(text({ type: 'system', action: 'survey_notice', message: '【お願い】\n\n回答期限: 11/5まで\n\nよろしく' }))
       .toMatchObject({ text: '事前配役アンケートの回答をお願いします（11/5 まで）', link: { label: '回答する', target: 'survey' } })

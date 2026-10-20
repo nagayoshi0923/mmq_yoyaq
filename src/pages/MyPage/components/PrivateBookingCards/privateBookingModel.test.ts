@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PrivateGroup, Reservation } from '@/types'
-import { buildPrivateBookingView, countActivePrivateBookings, decideGroupAction, isPrivateReservation, type CastingProgress } from './privateBookingModel'
+import { buildPrivateBookingView, countActivePrivateBookings, decideGroupAction, isPrivateReservation, rebookAfterWithdrawal, type CastingProgress } from './privateBookingModel'
 import { summarizePrivateGroup, type PrivateGroupSummary } from './privateGroupSummary'
 
 const TODAY = '2026-10-09'
@@ -60,6 +60,35 @@ describe('貸切の判定', () => {
     expect(isPrivateReservation(reservation({ schedule_event_id: 'e1' }), { e1: { date: TODAY, start_time: '13:00', category: 'private' } })).toBe(true)
     expect(isPrivateReservation(reservation({ schedule_event_id: 'e1' }), { e1: { date: TODAY, start_time: '13:00', category: 'open', is_private_booking: true } })).toBe(true)
     expect(isPrivateReservation(reservation({ schedule_event_id: 'e1' }), { e1: { date: TODAY, start_time: '13:00', category: 'open' } })).toBe(false)
+  })
+})
+
+describe('申込だけ取り下げてグループを残した（2026-10-20 社長決定）', () => {
+  it('募集中に戻り、紐づく申込が取消済みのときだけ「候補日を直して申し込み直す」', () => {
+    expect(rebookAfterWithdrawal({ status: 'gathering', reservation_id: 'r1' }, 'cancelled')).toBe(true)
+    expect(rebookAfterWithdrawal({ status: 'gathering', reservation_id: null }, null)).toBe(false)
+    expect(rebookAfterWithdrawal({ status: 'gathering', reservation_id: 'r1' }, 'pending')).toBe(false)
+    // 店舗の却下後は日程調整中（date_adjusting）。取り下げではないので含めない
+    expect(rebookAfterWithdrawal({ status: 'date_adjusting', reservation_id: 'r1' }, 'cancelled')).toBe(false)
+  })
+  it('主催者・候補日ありはラベルが「候補日を直して申し込み直す」。候補日 0 件・メンバーは従来どおり', () => {
+    const opts = { todayYmd: TODAY, surveyPending: false, rebook: true }
+    expect(decideGroupAction(group({ candidate_dates_count: 2 }), opts).action).toBe('rebook')
+    expect(decideGroupAction(group({ candidate_dates_count: 0 }), opts).action).toBe('pick_dates')
+    expect(decideGroupAction(group({ is_organizer: false, candidate_dates_count: 2, my_unanswered_count: 1 }), opts).action).toBe('answer_dates')
+  })
+  it('マイページのカード: 要対応に出し、申込シートへの主ボタン', () => {
+    const view = buildPrivateBookingView({
+      groups: [group({ id: 'kept', status: 'gathering', reservation_id: 'r-old', candidate_dates_count: 3 })],
+      reservations: [reservation({ id: 'r-old', status: 'cancelled', reservation_source: 'web_private', private_group_id: 'kept' })],
+      scheduleEvents: {}, scenarioImages: {}, surveyPending: {}, todayYmd: TODAY,
+    })
+    const card = view.bySection.action[0]
+    expect(card.label).toBe('候補日を直して申し込み直す')
+    expect(card.description).toBe('申込を取り下げました。候補日を直して、もう一度店舗に申し込めます（候補日 3 件・参加 3 人）。')
+    expect(card.primary).toEqual({ label: '候補日を選んで店舗に申し込む', href: '/group/invite/CODE1?sheet=booking' })
+    expect(card.menu.phase).toBe('pre_request')
+    expect(card.reservationId).toBe('r-old')
   })
 })
 
