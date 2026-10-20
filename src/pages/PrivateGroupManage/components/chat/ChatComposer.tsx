@@ -156,7 +156,7 @@ export function ChatComposer({ disabled, blockMessage, replyQuote, onCancelReply
           <ImagePlus className="w-5 h-5" aria-hidden="true" />
         </button>
         {!disabled && pick.left !== null && (
-          <span className="self-center shrink-0 text-[11px] leading-none text-muted-foreground whitespace-nowrap pr-1" data-testid="chat-photo-remaining">あと {pick.left} 枚</span>
+          <span className="self-center shrink-0 text-xs leading-none text-muted-foreground whitespace-nowrap pr-1" data-testid="chat-photo-remaining">あと {pick.left} 枚</span>
         )}
         <textarea
           ref={textRef}
