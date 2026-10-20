@@ -28,6 +28,10 @@ const cases: { name: string; row: BusinessHoursSettingRow | undefined }[] = [
   { name: '明示朝開始', row: { ...base, opening_hours: Object.fromEntries(days.map(day => [day, { ...open, slot_start_times: { morning: '11:00', afternoon: '15:00', evening: '20:00' } }])) } },
   { name: '営業時間だけ', row: { ...base, opening_hours: Object.fromEntries(days.map(day => [day, { is_open: true }])) } },
   { name: '早い閉店', row: { ...base, opening_hours: Object.fromEntries(days.map(day => [day, { ...open, close_time: '18:00' }])) } },
+  // 札幌店の平日（2026-10-20）: 朝を無効にした曜日は朝を返さない。土日は朝も有効
+  { name: '平日朝を無効', row: { ...base, opening_hours: Object.fromEntries(days.map(day => [day, ['saturday', 'sunday'].includes(day)
+    ? { is_open: true, open_time: '09:00', close_time: '23:00', available_slots: ['morning', 'afternoon', 'evening'] as ('morning' | 'afternoon' | 'evening')[], slot_start_times: { morning: '10:00', afternoon: '14:00', evening: '19:00' } }
+    : { is_open: true, open_time: '13:00', close_time: '23:00', available_slots: ['afternoon', 'evening'] as ('morning' | 'afternoon' | 'evening')[], slot_start_times: { morning: '10:00', afternoon: '13:00', evening: '19:00' } }])) } },
   { name: '深夜閉店は23時まで', row: { ...base, opening_hours: Object.fromEntries(days.map(day => [day, { ...open, close_time: '23:59' }])) } },
 ]
 const dates = ['2026-09-27', '2026-09-28', '2026-10-03', '2026-10-12']

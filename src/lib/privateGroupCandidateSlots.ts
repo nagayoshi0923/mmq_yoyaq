@@ -167,17 +167,12 @@ function buildSlotsFromDayConfig(
   isCustomHoliday: (d: string) => boolean,
   options?: { explicitMorningInDb?: boolean; respectConfiguredHours?: boolean }
 ): PerStoreSlot[] {
-  let availableSlots =
+  // 店舗の曜日設定で有効な枠だけを使う（空・未設定なら 3 枠）。以前は朝・夜を常に足していた（2026-10-20 札幌店の平日朝）。
+  // DB の private_booking_store_day_slots と同じ解釈（privateBookingStoreDaySlots.db.test.ts で照合）。
+  const availableSlots =
     dayHours.available_slots && (options?.respectConfiguredHours || dayHours.available_slots.length > 0)
       ? [...dayHours.available_slots]
       : getDefaultAvailableSlots(dayOfWeek, dateStr, isCustomHoliday)
-
-  if (!options?.respectConfiguredHours && !availableSlots.includes('morning')) {
-    availableSlots = ['morning', ...availableSlots]
-  }
-  if (!options?.respectConfiguredHours && !availableSlots.includes('evening')) {
-    availableSlots = [...availableSlots, 'evening']
-  }
 
   const defaultStarts = weekendStyleDefaults ? defaultSlotTimesWeekend : defaultSlotTimesWeekday
   const startMinutes: Record<'morning' | 'afternoon' | 'evening', number> = {

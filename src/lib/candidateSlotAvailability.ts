@@ -49,7 +49,7 @@ export const CANDIDATE_SLOT_REASON_TEXT: Record<CandidateSlotReason, string> = {
   no_store_for_scenario: 'この作品を上演できる店舗が希望店舗にありません',
   conflict: '他の公演と重なります',
   blocked: '受付停止中',
-  closed: '営業時間外',
+  closed: 'この店舗はこの時間帯の貸切を受け付けていません',
   slot_not_allowed: 'この作品では選べない時間帯です',
   past_deadline: '受付締切を過ぎています',
   not_recruiting: 'この作品は現在貸切を募集していません',
