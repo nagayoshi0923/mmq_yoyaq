@@ -168,19 +168,27 @@ export function AddCandidateDates({
     return nextMonthStart > privateBookingHorizonMaxYmd(horizonDays)
   }, [currentMonth, horizonDays])
 
-  // Auto-skip empty months, reset month on open
+  // 開いたときに最初の月へ戻し、選べる日が無い月は自動で次の月へ進める。
+  // 受付範囲（horizonDays）が読み込み中・読めなかった（null）間は、どの月も「選べる日が無い」に見えるので進めない。
+  // 進めると上限 24 回まで先の月へ飛んでしまう（Codex 第2回再レビュー R5）。
+  // 範囲が分かってから最初の月へ戻し、範囲の外（今日から N 日先より後）の月は表示しない・そこへは進まない。
   useEffect(() => {
     if (!isOpen) {
       wasOpenRef.current = false
       emptyMonthAutoSkipRef.current = 0
       return
     }
-    if (loading || deadlineLoading || holidaysLoading || holidaysError) return
+    if (loading || deadlineLoading || holidaysLoading || holidaysError || horizonDays === null) return
 
-    if (!wasOpenRef.current) {
+    const maxYmd = privateBookingHorizonMaxYmd(horizonDays)
+    const monthStartYmd = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-01`
+    const first = getFirstSelectableMonthStart(minAdvanceDays)
+    const firstYmd = `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, '0')}-01`
+    // 範囲の外の月にいたら最初の月へ戻す（最初の月そのものなら戻し続けない）
+    if (!wasOpenRef.current || (monthStartYmd > maxYmd && monthStartYmd !== firstYmd)) {
       wasOpenRef.current = true
       emptyMonthAutoSkipRef.current = 0
-      setCurrentMonth(getFirstSelectableMonthStart(minAdvanceDays))
+      setCurrentMonth(first)
       return
     }
 
@@ -188,10 +196,10 @@ export function AddCandidateDates({
       emptyMonthAutoSkipRef.current = 0
       return
     }
-    if (emptyMonthAutoSkipRef.current >= 24) return
+    if (isNextDisabled || emptyMonthAutoSkipRef.current >= 24) return
     emptyMonthAutoSkipRef.current += 1
     setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
-  }, [isOpen, loading, deadlineLoading, holidaysLoading, holidaysError, availableDates.length, currentMonth, minAdvanceDays])
+  }, [isOpen, loading, deadlineLoading, holidaysLoading, holidaysError, horizonDays, isNextDisabled, availableDates.length, currentMonth, minAdvanceDays])
 
   const handleSlotToggle = useCallback((date: string, slot: PrivateBookingSlot) => {
     if (savingRef.current || holidaysLoading || holidaysError) return
