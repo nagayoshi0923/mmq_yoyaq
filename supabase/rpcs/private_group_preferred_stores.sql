@@ -45,6 +45,17 @@ BEGIN
     AND e.date+e.start_time < v_candidate_end_at+make_interval(mins=>public.resolve_preparation_minutes(g.organization_id,NULL,NULL,e.id))
     AND e.date+e.end_time+CASE WHEN e.end_time<e.start_time THEN interval '1 day' ELSE interval '0 days' END > v_candidate_start_at-make_interval(mins=>public.resolve_preparation_minutes(g.organization_id,choice.store_id,g.scenario_master_id,NULL)))
   ) INTO available;
+  -- 2026-10-20: 候補の追加と同じ検査（店舗の曜日の枠・休業日・営業時間・募集停止・作品の固定開始時刻・時間枠・上演店舗・所要時間）を
+  -- 新しい希望店舗で通し、どの店舗でも受け付けない候補は外す（例 R36）。日付だけの理由（締切・範囲・募集期間・公演期間）は
+  -- 店舗を変えても変わらないので、ここでは外さない（申込の送信で弾く）。
+  IF available THEN
+   BEGIN
+    PERFORM public.private_booking_assert_candidate(g.organization_id,coalesce(g.scenario_master_id,g.scenario_id),selected,cd.date,slot,
+     to_char(cd.start_time::time,'HH24:MI'),to_char(cd.end_time::time,'HH24:MI'));
+   EXCEPTION WHEN SQLSTATE '22023' OR SQLSTATE '40001' THEN available:=false;
+    WHEN SQLSTATE 'P0045' OR SQLSTATE 'P0058' OR SQLSTATE 'P0044' OR SQLSTATE 'P0054' THEN NULL;
+   END;
+  END IF;
   IF NOT available THEN
    DELETE FROM public.private_group_candidate_dates WHERE id=cd.id AND group_id=g.id;
    removed:=removed+1;

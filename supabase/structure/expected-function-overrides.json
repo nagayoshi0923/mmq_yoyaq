@@ -47,7 +47,7 @@
       "service_role=X/postgres"
     ],
     "returns": "integer",
-    "body_md5": "028e31406df967c188bdc0a291683693",
+    "body_md5": "7789faef2c22581c7a7dbdcb0313342a",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -80,7 +80,7 @@
       "service_role=X/postgres"
     ],
     "returns": "uuid",
-    "body_md5": "97a03cc83dcc5a2f248f569f68be69cb",
+    "body_md5": "e9a9b7734feef48aaaa861502d7df13c",
     "language": "plpgsql",
     "security_definer": true
   },
