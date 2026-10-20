@@ -45,3 +45,22 @@ test('名前付きsecretキーを許可し不正な設定は無視',()=>{
  assert.equal(setup({SUPABASE_SECRET_KEYS:'{"default":"named-secret"}'}).isCronOrServiceRoleCall(request('named-secret')),true)
  for(const config of ['invalid','null','["untrusted-array"]','{"default":42}'])assert.equal(setup({SUPABASE_SECRET_KEYS:config}).isCronOrServiceRoleCall(request('untrusted-array')),false)
 })
+
+test('Edge間の内部呼び出しは共有シークレットを専用ヘッダーで渡し、受け側で通る（監査R3）',()=>{
+ const s=setup({SUPABASE_SERVICE_ROLE_KEY:'internal',CRON_SECRET:' cron '})
+ const headers=s.internalFunctionHeaders()
+ assert.deepEqual(Object.keys(headers),['x-cron-secret'])
+ // ゲートウェイが Authorization を差し替えた後でも通ること
+ assert.equal(s.isCronOrServiceRoleCall(request('gateway-minted-jwt',headers)),true)
+ assert.equal(s.isCronOrServiceRoleCall(request('gateway-minted-jwt')),false)
+ assert.deepEqual({...setup({}).internalFunctionHeaders()},{})
+ assert.deepEqual({...setup({CRON_SECRET:'  '}).internalFunctionHeaders()},{})
+ assert.equal(setup({EDGE_FUNCTION_CRON_SECRET:'edge'}).internalFunctionHeaders()['x-cron-secret'],'edge')
+})
+test('Edge関数どうしの invoke は内部認証ヘッダーを付ける（監査R3）',()=>{
+ const caller=readFileSync('supabase/functions/check-performance-cancellation/index.ts','utf8')
+ const invokes=[...caller.matchAll(/functions\.invoke\([^)]*\)/g)].map(m=>m[0])
+ assert.ok(invokes.length>0)
+ for(const call of invokes)assert.match(call,/headers/)
+ assert.match(caller,/internalFunctionHeaders\(\)/)
+})

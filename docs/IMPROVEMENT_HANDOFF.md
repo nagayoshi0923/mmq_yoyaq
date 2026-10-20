@@ -1,3 +1,11 @@
+## 2026-10-20 / 外部監査 R3（Discord 再送の 401）・R5（新規データを失わない戻し方）（fix/audit-r3-r5、staging 向け PR）
+
+- R3 原因: `check-performance-cancellation` が追加募集の後に `retry-discord-notifications` を `supabase.functions.invoke` で呼ぶとき、送るのは supabase-js の鍵（`sb_secret_...`）だけ。ゲートウェイが Authorization を自前の JWT に差し替える（ログの `sb_api_key_compatibility=minted`）ため、受け側の `isCronOrServiceRoleCall` は鍵の一致を確認できず 401。staging 24 時間で 133 回、本番でも 91 回（どちらも本文 25 バイト＝`{"only_recruitment":true}`）。5 分毎の cron（pg_net、`x-cron-secret`）は本番で 268 回すべて 200。
+- R3 直し: `_shared/security.ts` に `internalFunctionHeaders()`（`CRON_SECRET` を `x-cron-secret` で渡す）。呼び出し側は未設定なら呼ばずにキューへ任せ、失敗は状態コードを記録して止めない（通知は pending のまま cron が送る。受け側で止まった sending は `recover_recruitment_mail_alerts` が 5 分で戻す）。テストは `scripts/edge-security-boundary.test.mjs`。
+- R3 別件: staging には `retry-discord-notifications` の cron が無い（本番はある）。staging の Discord キューは追加募集の即時呼び出しでしか流れない。
+- R5: `docs/ops/本番公開の戻し方_2026-10.md`。rollback 3 本（`20261010100000`・`20261010130000`・`20261010160000`）は表・列を消す前に非公開スキーマ `rollback_backup` へ写す（同日の二重退避は止まる）。`check:migration-rollbacks` に「2026-10-10 以降で DROP TABLE する rollback は退避必須」を追加。手元 DB（local-repro）で 7 本を 1 取引で流して取り消し、退避 9 表・二重退避の停止・anon から読めないことを確認。
+- 本番配備時の secret: `CRON_SECRET`（本番・staging とも設定済み、`app_config.trigger_secret` と同じ値）。新しい secret は不要。
+
 ## 2026-10-20 / staging 点検（貸切の流れ）の公開前修正 12 件（fix/release-blockers-b、staging 向け PR）
 
 - A1 日時から選ぶ作品一覧: その日に申し込めない作品も「貸切できます」で出ていた。作品ごとの日付の理由を返す DB 関数 `private_booking_scenario_date_reasons`（保存と同じ `assert_private_booking_candidate_date`）で「この日は申し込めません（作品の公演期間外です）」と出し、押せなくする。選んだ作品は `private_booking_candidate_slot_availability` で確かめ、だめなら理由をボタンの上に出して進めない（`src/pages/privateBookingSelectModel.ts`）。

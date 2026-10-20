@@ -1,9 +1,39 @@
 -- 20261010100000 の取り消し: 貸切グループページ刷新 段階 2（チャット強化と写真）を外す
--- 注意: 既読・リアクション・ピン留め・返信先・写真の記録が消える。削除済みの発言の本文は戻らない（空のまま普通の発言に見える）。
+-- 注意: 既読・リアクション・ピン留め・返信先・写真の記録は、先に rollback_backup へ退避してから消す（下の DO ブロック）。削除済みの発言の本文は戻らない（空のまま普通の発言に見える）。
 -- 写真のファイルとバケット（Storage private-group-photos）は SQL から消せない（Storage は API 経由の削除だけ受け付ける。
 -- 手元で確認済み: "Direct deletion from storage tables is not allowed"）。非公開のまま残っても誰も読めないので害はない。
 -- 消すときは Supabase の管理画面か Storage API で中身を空にしてからバケットを消す。最後の DO ブロックは消せる環境でだけ消す。
 BEGIN;
+-- 消す前に退避する（2026-10-20 監査 R5。手順は docs/ops/本番公開の戻し方_2026-10.md）
+-- 退避先: 非公開のスキーマ rollback_backup の <表名>_backup_<JST の日付>。ブラウザの役割（anon / authenticated）からは読めない。
+-- 同じ日の退避が既にあれば上書きせず、ここで止める（このファイル全体が 1 つの取引なので何も消えない）。
+CREATE SCHEMA IF NOT EXISTS rollback_backup;
+REVOKE ALL ON SCHEMA rollback_backup FROM PUBLIC, anon, authenticated;
+DO $backup$
+DECLARE v_suffix text := to_char(now() AT TIME ZONE 'Asia/Tokyo', 'YYYYMMDD'); v_src text; v_dst text; v_rows bigint;
+BEGIN
+  FOREACH v_src IN ARRAY ARRAY['private_group_message_photos', 'private_group_message_reactions', 'private_group_read_states'] LOOP
+    IF to_regclass('public.' || v_src) IS NULL THEN CONTINUE; END IF;
+    v_dst := v_src || '_backup_' || v_suffix;
+    IF to_regclass(format('rollback_backup.%I', v_dst)) IS NOT NULL THEN
+      RAISE EXCEPTION '退避先 rollback_backup.% が既にあります。中身を確かめて別名へ移してから流し直してください', v_dst;
+    END IF;
+    EXECUTE format('CREATE TABLE rollback_backup.%I AS TABLE public.%I', v_dst, v_src);
+    EXECUTE format('REVOKE ALL ON rollback_backup.%I FROM PUBLIC, anon, authenticated', v_dst);
+    EXECUTE format('SELECT count(*) FROM rollback_backup.%I', v_dst) INTO v_rows;
+    RAISE NOTICE '退避しました: public.% → rollback_backup.% (% 行)', v_src, v_dst, v_rows;
+  END LOOP;
+  -- 発言に足した列（返信先・削除時刻・ピン留め）は、値のある行だけ id と一緒に写す
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'private_group_messages' AND column_name = 'deleted_at') THEN
+    v_dst := 'private_group_messages_cols_backup_' || v_suffix;
+    IF to_regclass(format('rollback_backup.%I', v_dst)) IS NOT NULL THEN
+      RAISE EXCEPTION '退避先 rollback_backup.% が既にあります', v_dst;
+    END IF;
+    EXECUTE format('CREATE TABLE rollback_backup.%I AS SELECT id, group_id, reply_to_message_id, deleted_at, pinned_at, pinned_by_member_id FROM public.private_group_messages WHERE reply_to_message_id IS NOT NULL OR deleted_at IS NOT NULL OR pinned_at IS NOT NULL', v_dst);
+    EXECUTE format('REVOKE ALL ON rollback_backup.%I FROM PUBLIC, anon, authenticated', v_dst);
+    RAISE NOTICE '退避しました: private_group_messages の追加列 → rollback_backup.%', v_dst;
+  END IF;
+END $backup$;
 DROP FUNCTION IF EXISTS public.private_group_chat_state(uuid, uuid, text);
 DROP FUNCTION IF EXISTS public.private_group_chat_action(uuid, uuid, text, jsonb, text);
 DROP FUNCTION IF EXISTS public.private_group_message_is_system(text);
