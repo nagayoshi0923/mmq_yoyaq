@@ -16,7 +16,11 @@ type CouponWithRules = Record<string, unknown> & {
   rules_snapshot: { usage_valid_from?: string | null; usage_valid_until?: string | null } & Record<string, unknown> | null
 }
 type UsageStore = { name: string; short_name: string | null }
-type UsageReservation = { id: string; title: string | null; status?: string | null; requested_datetime: string | null; store_id: string | null; stores?: UsageStore | UsageStore[] | null }
+type UsageEvent = { date: string | null; start_time: string | null }
+type UsageReservation = {
+  id: string; title: string | null; status?: string | null; requested_datetime: string | null; store_id: string | null
+  stores?: UsageStore | UsageStore[] | null; schedule_events?: UsageEvent | UsageEvent[] | null
+}
 type CouponUsageRow = {
   id: string; customer_coupon_id: string; reservation_id: string | null; used_at: string | null; discount_amount: number | null
   redeemed_at?: string | null; redeemed_source?: string | null
@@ -123,6 +127,8 @@ export async function handleAll(
     const r = Array.isArray(resRaw) ? resRaw[0] : resRaw
     const storeRaw = r?.stores
     const storeInfo = Array.isArray(storeRaw) ? storeRaw[0] : storeRaw
+    const eventRaw = r?.schedule_events
+    const eventInfo = Array.isArray(eventRaw) ? eventRaw[0] : eventRaw
     const entry = {
       id: u.id,
       reservation_id: u.reservation_id,
@@ -138,6 +144,9 @@ export async function handleAll(
             requested_datetime: r.requested_datetime,
             store_id: r.store_id,
             stores: storeInfo ? { name: storeInfo.name, short_name: storeInfo.short_name } : null,
+            // 公演の日付（日本時間の日付そのもの）と開始時刻。公演当日の判定はこちらが正（20261020220000）
+            performance_date: eventInfo?.date ?? null,
+            performance_start_time: eventInfo?.start_time ?? null,
           }
         : null,
     }

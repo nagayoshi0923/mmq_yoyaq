@@ -62,6 +62,10 @@ export interface CustomerCouponUsageWithReservation {
     requested_datetime: string
     store_id: string | null
     stores?: { name: string; short_name?: string | null } | null
+    /** 公演の日付（YYYY-MM-DD、日本時間の日付そのもの）。公演当日の判定はこちらが正。公演の無い予約・古い API では来ない */
+    performance_date?: string | null
+    /** 公演の開始時刻（HH:MM[:SS]） */
+    performance_start_time?: string | null
   } | null
 }
 

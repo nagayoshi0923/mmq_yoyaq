@@ -618,7 +618,8 @@ export function PerformanceModal({
                 final_price: total,
                 discount_amount: 0,
                 duration: 240,
-                requested_datetime: new Date().toISOString(),
+                // 公演の日時（日本時間）。以前は保存した時刻（new Date()）を入れており、公演当日の判定がずれていた（20261020220000）
+                requested_datetime: `${saveData.date}T${saveData.start_time}+09:00`,
                 payment_method: p.paymentMethod,
                 payment_status: (p.paymentMethod === 'online' || isStaffPay) ? 'paid' : 'pending',
                 status: 'confirmed',

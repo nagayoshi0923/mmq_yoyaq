@@ -1333,7 +1333,7 @@
       "service_role=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "0250d560f15080401e0b2a9abc389cff",
+    "body_md5": "b3e2236054aa3ff2662a633cef642f3f",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -1377,5 +1377,15 @@
     "body_md5": "e002cb2e5e0580a32690f10a29b778ed",
     "language": "plpgsql",
     "security_definer": true
+  },
+  "coupon_performance_day(p_schedule_event_id uuid, p_requested_datetime timestamp with time zone)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "date",
+    "body_md5": "6f310d8517d6461d9f6a1929092bcf24",
+    "language": "sql",
+    "security_definer": false
   }
 }

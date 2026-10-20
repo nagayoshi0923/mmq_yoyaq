@@ -20,7 +20,7 @@ afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi
 
 const card: AppliedCouponCard = {
   usageId: 'u1', couponId: 'c1', campaignName: '初回クーポン', discountAmount: 500,
-  reservationTitle: '架空作品', storeName: '高田馬場店', startsAt: '2026-10-20T04:00:00Z', redeemedAt: null,
+  reservationTitle: '架空作品', storeName: '高田馬場店', startsAt: '2026-10-20T04:00:00Z', performanceDate: '2026-10-20', redeemedAt: null,
 }
 const buttonByText = (text: string) => [...host.querySelectorAll('button')].find(b => b.textContent?.includes(text))
 
@@ -59,7 +59,7 @@ describe('この予約に適用済みのクーポン', () => {
   })
   it('公演当日でなければ「もぎる」を押せず、押せる日を出す', async () => {
     const onRedeem = vi.fn()
-    await act(async () => root.render(<AppliedCouponsSection cards={[{ ...card, startsAt: '2026-10-21T04:00:00Z' }]} onRedeem={onRedeem} redeeming={false} />))
+    await act(async () => root.render(<AppliedCouponsSection cards={[{ ...card, startsAt: '2026-10-21T04:00:00Z', performanceDate: '2026-10-21' }]} onRedeem={onRedeem} redeeming={false} />))
     expect(host.querySelector('[data-testid="applied-coupon-not-today"]')?.textContent).toContain('公演当日に押せます（10/21）')
     const button = buttonByText('もぎる（来店確認）')!
     expect(button.disabled).toBe(true)
@@ -69,6 +69,12 @@ describe('この予約に適用済みのクーポン', () => {
   })
   it('公演当日なら「公演当日に押せます」は出さず、押せる', async () => {
     await act(async () => root.render(<AppliedCouponsSection cards={[card]} onRedeem={vi.fn()} redeeming={false} />))
+    expect(host.textContent).not.toContain('公演当日に押せます')
+    expect(buttonByText('もぎる（来店確認）')!.disabled).toBe(false)
+  })
+  it('当日かどうかは公演の日付で決める（開始日時が別の日を指していても公演日が今日なら押せる）', async () => {
+    // requested_datetime に予約を作った時刻が入っていた予約（staging で 31 件）を想定
+    await act(async () => root.render(<AppliedCouponsSection cards={[{ ...card, startsAt: '2026-09-19T03:28:00Z', performanceDate: '2026-10-20' }]} onRedeem={vi.fn()} redeeming={false} />))
     expect(host.textContent).not.toContain('公演当日に押せます')
     expect(buttonByText('もぎる（来店確認）')!.disabled).toBe(false)
   })
@@ -89,5 +95,11 @@ describe('公演当日の判定（日本時間）', () => {
     expect(isPerformanceDay('2026-10-20T15:00:00Z', now)).toBe(false) // 10/21 0:00 JST
     expect(isPerformanceDay('2026-10-19T14:59:00Z', now)).toBe(false) // 10/19 23:59 JST
     expect(isPerformanceDay('2099-01-01T04:00:00Z', now)).toBe(false)
+  })
+  it('公演の日付（YYYY-MM-DD）はそのまま日本時間の日付として比べる', () => {
+    expect(isPerformanceDay('2026-10-20', new Date('2026-10-19T15:00:00Z'))).toBe(true) // 10/20 0:00 JST
+    expect(isPerformanceDay('2026-10-20', new Date('2026-10-20T14:59:00Z'))).toBe(true) // 10/20 23:59 JST
+    expect(isPerformanceDay('2026-10-20', new Date('2026-10-20T15:00:00Z'))).toBe(false) // 10/21 0:00 JST
+    expect(isPerformanceDay('2026-10-20', new Date('2026-10-19T14:59:00Z'))).toBe(false) // 10/19 23:59 JST
   })
 })

@@ -12,11 +12,18 @@ export function usageReservationEmbed(columns: string, options: { alias?: string
   return `${alias}:reservations!${COUPON_USAGE_RESERVATION_FK}${options.inner ? '!inner' : ''}(${columns})`
 }
 
-/** お客様のクーポン一覧（/api/coupons?type=all）で読む使用履歴の列 */
+/** reservations から公演（schedule_events）を埋め込む外部キー名 */
+export const RESERVATION_EVENT_FK = 'reservations_schedule_event_id_fkey'
+
+/**
+ * お客様のクーポン一覧（/api/coupons?type=all）で読む使用履歴の列。
+ * 公演当日の判定（来店確認の「もぎる」）は公演の日付が正なので、予約の公演（日付・開始時刻）も読む。
+ * requested_datetime は予約を作った時刻が入っている予約があるため、公演の無い予約の代わりにだけ使う（20261020220000）。
+ */
 export function customerUsageSelect(withRedeem: boolean): string {
   const base = [
     'id', 'customer_coupon_id', 'reservation_id', 'used_at', 'discount_amount',
-    usageReservationEmbed('id, title, status, requested_datetime, store_id, stores ( name, short_name )'),
+    usageReservationEmbed(`id, title, status, requested_datetime, store_id, stores ( name, short_name ), schedule_events!${RESERVATION_EVENT_FK} ( date, start_time )`),
   ]
   if (withRedeem) base.push('redeemed_at', 'redeemed_source')
   return base.join(', ')
