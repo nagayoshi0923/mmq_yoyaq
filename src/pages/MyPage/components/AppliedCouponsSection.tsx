@@ -33,7 +33,7 @@ export function AppliedCouponsSection({ cards, onRedeem, redeeming }: AppliedCou
 
   return (
     <div data-testid="applied-coupons">
-      <h3 className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-2">
+      <h3 className="text-sm font-bold text-foreground mb-1 flex items-center gap-2">
         <span className="w-1 h-5 rounded-full bg-mypage-primary"></span>
         この予約に適用済みのクーポン
       </h3>
@@ -49,8 +49,8 @@ export function AppliedCouponsSection({ cards, onRedeem, redeeming }: AppliedCou
               <span className="text-xs px-2 py-1 bg-white text-mypage-primary font-bold">この予約に適用済み</span>
             </div>
             <div className="px-4 py-3">
-              <h4 className="font-medium text-gray-900 text-sm">{card.campaignName}</h4>
-              <p className="ts-body text-gray-900 mt-1 font-bold">{card.reservationTitle}</p>
+              <h4 className="font-medium text-foreground text-sm">{card.campaignName}</h4>
+              <p className="ts-body text-foreground mt-1 font-bold">{card.reservationTitle}</p>
               <p className="ts-muted mt-0.5">
                 {[card.storeName, `${formatJstDateJa(card.startsAt, true)} ${formatJstTime(card.startsAt)}〜`].filter(Boolean).join(' ｜ ')}
               </p>
@@ -62,7 +62,7 @@ export function AppliedCouponsSection({ cards, onRedeem, redeeming }: AppliedCou
                 </div>
               ) : (
                 <div className="mt-3 flex items-center justify-between gap-3">
-                  <span className="text-xs text-gray-500">来店確認: 未確認</span>
+                  <span className="text-xs text-muted-foreground">来店確認: 未確認</span>
                   <Button
                     className="bg-mypage-primary hover:bg-mypage-primary-hover min-h-11"
                     onClick={() => setTarget(card)}
@@ -87,11 +87,11 @@ export function AppliedCouponsSection({ cards, onRedeem, redeeming }: AppliedCou
             <div className="px-5 py-4">
               <div className="bg-gray-50 rounded-lg p-4 mb-4 text-center">
                 <p className="text-2xl font-bold text-mypage-primary">¥{target.discountAmount.toLocaleString()} OFF</p>
-                <p className="text-sm text-gray-600 mt-1">{target.campaignName}</p>
-                <p className="text-sm text-gray-900 mt-2 font-bold">{target.reservationTitle}</p>
-                <p className="text-xs text-gray-600">{formatJstDateJa(target.startsAt, true)} {formatJstTime(target.startsAt)}〜</p>
+                <p className="text-sm text-muted-foreground mt-1">{target.campaignName}</p>
+                <p className="text-sm text-foreground mt-2 font-bold">{target.reservationTitle}</p>
+                <p className="text-xs text-muted-foreground">{formatJstDateJa(target.startsAt, true)} {formatJstTime(target.startsAt)}〜</p>
               </div>
-              <p className="text-xs text-gray-500 text-center mb-4">
+              <p className="text-xs text-muted-foreground text-center mb-4">
                 このクーポンはご予約時に割引済みです。押しても新たにクーポンは使われません。スタッフの前で押してください。
               </p>
               <div className="flex gap-3">

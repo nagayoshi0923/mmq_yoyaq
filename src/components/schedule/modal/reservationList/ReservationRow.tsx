@@ -180,7 +180,7 @@ export function ReservationRow({
                                 return (
                                   <span
                                     data-testid="reservation-coupon-badge"
-                                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${badge.redeemed ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-700 border-gray-200'}`}
+                                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium border ${badge.redeemed ? 'bg-green-100 text-green-700 border-green-200' : 'bg-muted text-muted-foreground border-border'}`}
                                   >
                                     {badge.label}
                                   </span>

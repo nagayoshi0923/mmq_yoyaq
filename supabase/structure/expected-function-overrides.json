@@ -1294,5 +1294,15 @@
     "body_md5": "05b78724b47e36b0c0a0adde26e907ca",
     "language": "plpgsql",
     "security_definer": true
+  },
+  "redeem_coupon_usage(p_user uuid, p_usage_id uuid, p_source text)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "1049534c83b9131319b3176dffac34d8",
+    "language": "plpgsql",
+    "security_definer": true
   }
 }

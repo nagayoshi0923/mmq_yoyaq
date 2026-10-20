@@ -317,11 +317,11 @@ export function CouponPresent() {
               </div>
 
               <div className="mt-6 rounded-lg border border-gray-200 px-4 py-4" data-testid="applied-coupon-guide">
-                <h4 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
+                <h4 className="font-bold text-foreground mb-1 flex items-center gap-2">
                   <Scissors className="w-4 h-4" style={{ color: THEME.primary }} />
                   予約時にクーポンを付けた場合
                 </h4>
-                <p className="text-sm text-gray-600 leading-relaxed">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   ご予約の時点で割引済みです。来店時は、マイページのクーポンの「この予約に適用済み」で「もぎる（来店確認）」をスタッフの前で押してください。押してもクーポンが新たに使われることはありません。
                 </p>
               </div>
