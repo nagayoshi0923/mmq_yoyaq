@@ -42,6 +42,47 @@ describe('クーポン利用API',()=>{
 })
 
 
+describe('来店確認（もぎる）は公演当日だけ', () => {
+  const redeemReq = { method: 'POST', headers: {}, query: { action: 'redeem-usage' }, body: { usage_id: 'usage' } } as unknown as VercelRequest
+  it('当日でないと断られたら 400 と理由（not_performance_day）を返す', async () => {
+    mock.rpc.mockResolvedValue({ data: null, error: { code: 'P0028', message: '公演当日に押してください', hint: 'not_performance_day' } })
+    const r = response(); await handler(redeemReq, r as unknown as VercelResponse)
+    expect(mock.rpc).toHaveBeenCalledWith('redeem_coupon_usage', { p_user: 'verified-user', p_usage_id: 'usage', p_source: 'customer_present' })
+    expect(r.status).toHaveBeenCalledWith(400)
+    expect(r.json).toHaveBeenCalledWith({ success: false, error: '公演当日に押してください', code: 'not_performance_day' })
+  })
+  it('ほかの断りは 400 と DB のコードを返す', async () => {
+    mock.rpc.mockResolvedValue({ data: null, error: { code: 'P0028', message: 'クーポンが見つかりません' } })
+    const r = response(); await handler(redeemReq, r as unknown as VercelResponse)
+    expect(r.status).toHaveBeenCalledWith(400)
+    expect(r.json).toHaveBeenCalledWith({ success: false, error: 'クーポンが見つかりません', code: 'P0028' })
+  })
+  it('当日なら成功をそのまま返す', async () => {
+    mock.rpc.mockResolvedValue({ data: { success: true, usage_id: 'usage', redeemed_at: '2026-10-20T03:00:00Z', already_redeemed: false }, error: null })
+    const r = response(); await handler(redeemReq, r as unknown as VercelResponse)
+    expect(r.status).toHaveBeenCalledWith(200)
+    expect(r.json).toHaveBeenCalledWith({ success: true, usage_id: 'usage', redeemed_at: '2026-10-20T03:00:00Z', already_redeemed: false })
+  })
+  it('その場で使った（use）のが先の予約なら、使用は成功のまま印は付けず理由を添える', async () => {
+    mock.rpc
+      .mockResolvedValueOnce({ data: { success: true, usage_id: 'usage', discount_amount: 500 }, error: null })
+      .mockResolvedValueOnce({ data: null, error: { code: 'P0028', message: '公演当日に押してください', hint: 'not_performance_day' } })
+    const r = response()
+    await handler({ method: 'POST', headers: {}, query: { action: 'use' }, body: { customer_coupon_id: 'coupon', reservation_id: 'reservation' } } as unknown as VercelRequest, r as unknown as VercelResponse)
+    expect(mock.rpc).toHaveBeenNthCalledWith(2, 'redeem_coupon_usage', { p_user: 'verified-user', p_usage_id: 'usage', p_source: 'venue_use' })
+    expect(r.status).toHaveBeenCalledWith(200)
+    expect(r.json).toHaveBeenCalledWith({ success: true, usage_id: 'usage', discount_amount: 500, redeemed: false, redeem_code: 'not_performance_day' })
+  })
+  it('その場で使った（use）のが当日なら、そのまま印を付けて成功を返す', async () => {
+    mock.rpc
+      .mockResolvedValueOnce({ data: { success: true, usage_id: 'usage', discount_amount: 500 }, error: null })
+      .mockResolvedValueOnce({ data: { success: true, usage_id: 'usage', already_redeemed: false }, error: null })
+    const r = response()
+    await handler({ method: 'POST', headers: {}, query: { action: 'use' }, body: { customer_coupon_id: 'coupon', reservation_id: 'reservation' } } as unknown as VercelRequest, r as unknown as VercelResponse)
+    expect(r.json).toHaveBeenCalledWith({ success: true, usage_id: 'usage', discount_amount: 500 })
+  })
+})
+
 describe('クーポンの予約候補と期限', () => {
   function seed(rows: Record<string, unknown[]>) {
     mock.from.mockImplementation((table: string) => {

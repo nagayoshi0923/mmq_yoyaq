@@ -1,3 +1,13 @@
+## 2026-10-20 / クーポンの「もぎる（来店確認）」を公演当日だけにする（fix/coupon-redeem-same-day、staging 向け PR）
+
+- 不具合: `redeem_coupon_usage` に日付の確認が無く、先の予約（2099 年でも）に来店確認ができた。マイページの「この予約に適用済み」からも今すぐ押せた。
+- DB: migration `20261020180000_coupon_usage_redeem_same_day`（rollback 同名＝ 20261020130000 の本文に戻す）。`customer_present`／`venue_use` とも、予約の公演日（`requested_datetime` の日本時間の日付）が今日（日本時間）のときだけ。それ以外は P0028・HINT `not_performance_day`「公演当日に押してください」。確認済みの冪等な返りは変えない。expected-function-overrides の body_md5 は手元 DB で適用後の md5(prosrc)（適用前の md5 が既存の期待値と一致することを確認）。
+- API: `redeem-usage` は断りを 400 と `code`（`not_performance_day`／DB のコード）で返す。`use` で先の予約に使ったときは使用は成功のまま印を付けず `redeemed: false`・`redeem_code` を添える。
+- 画面: `AppliedCouponsSection` は当日でなければボタンを無効にし「公演当日に押せます（M/D）」。サーバーの `not_performance_day` は「来店確認は公演当日（M/D）に押してください」と表示。
+- 仕様書: `docs/COUPON_RULES.md` に「来店確認（もぎる）は公演当日のみ」。
+- 確認: `supabase/tests/coupon_usage_redeem_same_day.sql`（`test:rpcs` に追加。当日可・翌日 0:30／2099 年／前日 23:30／3 日前／venue_use の先日付は拒否・確認済みは冪等。旧関数では失敗することも確認）、`npm run test:coupon-redeem-db`（当日のみ・rollback で元に戻る）、vitest 全件、`npm run verify`。手元（`npm run dev:full`、手元 DB、375px）で試験会員 customer1 に今日と 10/25 の適用済みを仮に入れ、今日は押せて「来店時に確認済み」、10/25 は無効表示「公演当日に押せます（10/25）」、API 直叩きは 400・`not_performance_day` を確認（仮データは削除済み）。
+- staging への migration 適用は発注者が行う。適用後に staging の md5(prosrc) が期待値と一致することを確かめ、`supabase/structure/staging.json` を更新する。
+
 ## 2026-10-20 / 予約詳細の「取り下げる」にもグループを残すか選ぶダイアログ（feat/mypage-withdraw-keep-group、staging 向け PR）
 
 - 社長決定（2026-10-20）: #1143 のダイアログ `WithdrawRequestDialog` を予約詳細（`/mypage/reservation/{id}`）の「申込の取り下げ」にも出す。マイページの貸切カードの「操作」は #1143 で対応済みだったので、残っていた入口はここだけ（マイページ配下で取り下げを呼ぶのは `usePrivateBookingActions` と予約詳細の 2 か所）。
