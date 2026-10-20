@@ -3,6 +3,12 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+const HORIZON = vi.hoisted(() => ({ days: 180 }))
+vi.mock('@/lib/privateBookingHorizon', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/privateBookingHorizon')>()),
+  usePrivateBookingHorizonDays: () => ({ days: HORIZON.days, loading: false }),
+}))
+
 const mocks = vi.hoisted(() => ({ days: 90, rpc: vi.fn(), from: vi.fn(), submit: vi.fn(), create: vi.fn(), blocked: vi.fn(), holiday: () => false }))
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }))
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'user', email: 'fixture@example.invalid' } }) }))

@@ -67,6 +67,8 @@ export const SETTING_DEFINITIONS: Record<string, SettingDefinition> = {
   survey_enabled: structure('operations', '事前配役アンケート', 'boolean'),
   survey_deadline_days: integer('operations', '事前配役アンケートの締切（日前）', 0, 90),
   survey_url: text('operations', '事前配役アンケートのURL'),
+  // 貸切を受け付ける範囲（今日から何日先まで）。MMQ の既定 → 組織 → 作品 → 公演の順。店舗では指定しない（docs/product-spec/貸切受付ルール.md I21）
+  private_booking_horizon_days: { ...integer('operations', '貸切を受け付ける範囲（今日から何日先まで）', 1, 180), scopes: ['organization', 'scenario', 'performance'] },
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

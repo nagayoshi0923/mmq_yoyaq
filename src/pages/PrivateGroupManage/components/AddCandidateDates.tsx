@@ -17,6 +17,7 @@ import { PrivateBookingSlotGrid } from '@/components/private-booking/PrivateBook
 import { showToast } from '@/utils/toast'
 import { getJstParts } from '@/utils/jstDate'
 import { privateBookingErrorText } from '@/lib/privateBookingErrors'
+import { privateBookingHorizonMaxYmd, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
 
 function getJstDateStringFromNow(now = new Date()): string {
   const jstOffsetMin = 9 * 60
@@ -89,18 +90,15 @@ export function AddCandidateDates({
 
   // 予約受付締切（公演日の何日前まで候補にできるか）。設定 > 予約設定の値
   const { days: minAdvanceDays, loading: deadlineLoading } = usePrivateBookingDeadlineState({ organizationId, scenarioId })
+  // 申し込める範囲（今日から N 日先まで。MMQ 既定 180 → 組織 → 作品の設定。I21）
+  const { days: horizonDays } = usePrivateBookingHorizonDays({ organizationId, scenarioId })
 
   const { availableDates } = useMemo(() => {
     const dates: string[] = []
     const todayJstStr = getJstDateStringFromNow()
     const minStr = addCalendarDaysYmd(todayJstStr, minAdvanceDays)
 
-    const jstOffsetMin = 9 * 60
-    const jstNow = new Date(
-      new Date().getTime() + (jstOffsetMin + new Date().getTimezoneOffset()) * 60 * 1000
-    )
-    const maxFuture = new Date(jstNow.getFullYear(), jstNow.getMonth(), jstNow.getDate() + 180)
-    const maxFutureStr = `${maxFuture.getFullYear()}-${String(maxFuture.getMonth() + 1).padStart(2, '0')}-${String(maxFuture.getDate()).padStart(2, '0')}`
+    const maxFutureStr = privateBookingHorizonMaxYmd(horizonDays)
 
     const start = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
     const end = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0)
@@ -115,7 +113,7 @@ export function AddCandidateDates({
     }
 
     return { availableDates: dates }
-  }, [currentMonth, minAdvanceDays])
+  }, [currentMonth, minAdvanceDays, horizonDays])
 
   // 空き判定は DB（保存と同じ判定）。画面では計算しない
   const availabilityTarget = useMemo(() => (isOpen ? { kind: 'group' as const, groupId } : null), [isOpen, groupId])
@@ -158,14 +156,10 @@ export function AddCandidateDates({
   }, [currentMonth, minAdvanceDays])
 
   const isNextDisabled = useMemo(() => {
-    const jstOffsetMin = 9 * 60
-    const jstNow = new Date(
-      new Date().getTime() + (jstOffsetMin + new Date().getTimezoneOffset()) * 60 * 1000
-    )
-    const maxFuture = new Date(jstNow.getFullYear(), jstNow.getMonth(), jstNow.getDate() + 180)
-    const nextMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
-    return nextMonthStart > maxFuture
-  }, [currentMonth])
+    const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+    const nextMonthStart = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-01`
+    return nextMonthStart > privateBookingHorizonMaxYmd(horizonDays)
+  }, [currentMonth, horizonDays])
 
   // Auto-skip empty months, reset month on open
   useEffect(() => {

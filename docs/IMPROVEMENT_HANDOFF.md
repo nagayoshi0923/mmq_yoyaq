@@ -1,3 +1,11 @@
+## 2026-10-20 / 本番 #1140: カレンダーから 180 日より先の貸切を申し込めた → 「貸切を受け付ける範囲」を設定にして全経路で弾く（fix/private-booking-horizon-180、staging 向け PR。main 向け hotfix は hotfix/private-booking-horizon-180-main）
+
+- 事象（スタッフ報告）: 作品ページの貸切は 180 日後までだが、公開カレンダー・リストの「貸切申込」チップは先の月へいくらでも出て、申込ページ（`?date=`）にも DB の保存の検査（`assert_private_booking_candidate_date`）にも上限日が無かった。
+- 社長指示（2026-10-20）: 上限は固定値にせず設定で変える。優先順位は MMQ の既定（180）→ 組織 → 作品 → 公演。既存の運営設定（`operating_setting_overrides`・`resolve_operating_setting`）にキー `private_booking_horizon_days` として乗せる（MMQ の既定は `get_operating_setting_default`。`global_settings` は組織ごとの表なので「MMQ の既定」には使わない）。店舗では指定しない。値は 1〜180（181 以上は公開の空き取得 RPC の 180 日の範囲上限も変える必要があるため）。
+- DB: `get_effective_private_booking_horizon_days(組織, 作品, 公演)`（未ログインでも読める。作品未選択の入口は組織の値と公開中の作品の個別指定のうち最長）。`assert_private_booking_candidate_date` が今日（日本時間）+ 日数より先を「申し込めるのは今日から N 日先までです」（P0058）で弾く → 候補追加・グループ作成・日時付き申込・空き判定（理由 `too_far`、detail に文面）・作品一覧の日付理由（`too_far`）すべてに効く。空き判定と作品一覧の日付理由は staging と本番で本文が違うため、migration は今の本文に同じ置き換えをする形（同じファイルを両方で使え、再実行しても同じ）。migration `20261020150000_private_booking_horizon_days`（rollback 同名）。例 R31〜R33。
+- 画面: `src/lib/privateBookingHorizon.ts` に日付計算と読み込み（`usePrivateBookingHorizonDays`）。公開カレンダー・リストは範囲より先の日にチップを出さず、範囲が月の途中で終わる月は「貸切の申込は今日から N 日先（M/D）までです」。申込ページは `?date=` が範囲より先なら理由を出して進めない。日時から選ぶ作品一覧も同じ。作品ページ（`MAX_FUTURE_DAYS`）・申込ページ（`CANDIDATE_HORIZON_DAYS`）・グループの候補日追加の固定 180 を設定値に。設定画面は 設定 › 貸切予約の受付締切（組織）・作品編集 › ゲーム設定（作品）・公演の個別設定 › 開催判断・準備（公演）。保存したら `private-booking-horizon-days` と `public-private-slots` を無効化して読み直す。変更は管理者だけ（既存の運営設定 API が admin／license_admin に限定）。
+- 確認: 手元 DB で migration 適用（2 回流しても同じ）・rollback で元の本文（md5）に戻ることを確認・R1〜R33・空き判定テスト・smoke 通過。vitest 全件、`npm run verify`、`check:private-booking-rules`。staging・本番への適用は発注者が行う。
+- 注意: 手元 DB に別の作業（public-pages の `20261020160000_private_group_photo_limit`）が `resolve_operating_setting` を上書きしていた（このキーを含んだ版）。両方が同じ関数を全文で置き換えるので、後から取り込む方でキーの一覧を合わせること。
 ## 2026-10-20 / クーポンの「もぎる」を予約に適用済みのクーポンにも（社長決定 B）・限定クーポンの「全店舗」誤表示（fix/coupon-tear-and-usable-stores、staging 向け PR）
 
 - 1 もぎる（社長決定 B）: 予約時に付けたクーポンは予約確定で消費される（従来どおり）。来店時にマイページのクーポンを開いても一覧に無い／「使用済み」でスタッフが混乱していた。マイページのクーポン（`src/pages/MyPage/pages/CouponsPage.tsx`）と登録後のクーポン案内（`src/pages/CouponPresent.tsx`）に「この予約に適用済みのクーポン」を出す（当日〜30 日先の確定予約に付いた使用、`src/pages/MyPage/utils/appliedCoupons.ts`）。未確認なら「もぎる（来店確認）」→確認ダイアログ→「来店時に確認済み（時刻）」。消費は増やさない。

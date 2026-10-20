@@ -17,7 +17,8 @@
 -- 保存時の検査は private_booking_assert_candidate（supabase/rpcs/private_booking_assert_candidate.sql）。候補追加とグループ作成が共用する。
 -- reason: no_store_for_scenario（この作品を上演できる希望店舗がない）/ conflict（他の公演と重なる）/ blocked（受付停止）/
 --         closed（営業時間外）/ slot_not_allowed（この作品で選べない時間帯）/ past_deadline（受付締切後）/
---         not_recruiting（募集期間外）/ outside_period（公演期間外）/ already_added（追加済み、グループ用のみ）/
+--         not_recruiting（募集期間外）/ outside_period（公演期間外）/ too_far（申し込める範囲より先。設定 I21、detail に文面）/
+--         already_added（追加済み、グループ用のみ）/
 --         start_fixed（作品の開始時刻が決まっていて、その時刻では前後の公演と重なる）
 -- detail: conflict で隙間はあるが所要時間が入らないとき「空き 2 時間・必要 5 時間」。
 --         start_fixed のとき「この作品の開始時刻 14:30 では前後の公演と重なります」。adjusted: 標準開始からずらした時刻。
@@ -200,12 +201,13 @@ BEGIN
   EXCEPTION WHEN SQLSTATE 'P0045' THEN day_reason:='past_deadline';
    WHEN SQLSTATE 'P0044' THEN day_reason:='not_recruiting';
    WHEN SQLSTATE 'P0054' THEN day_reason:='outside_period';
+   WHEN SQLSTATE 'P0058' THEN day_reason:='too_far';
   END;
   -- 以下は保存（private_booking_assert_candidate）と同じ判定。土日祝の扱い（特別営業日を含む）は店舗ごとに store_fit が決める。
   holiday:=extract(dow FROM d) IN (0,6) OR public.is_booking_calendar_holiday(d) OR coalesce(custom_holidays ? d::text,false);
   FOREACH slot IN ARRAY ARRAY['morning','afternoon','evening'] LOOP
    date:=d; time_slot:=slot; available:=false; reason:=NULL; start_time:=NULL; end_time:=NULL; detail:=NULL; adjusted:=false;
-   IF day_reason IS NOT NULL THEN reason:=day_reason;
+   IF day_reason IS NOT NULL THEN reason:=day_reason; IF day_reason='too_far' THEN detail:='申し込めるのは今日から '||public.get_effective_private_booking_horizon_days(p_organization_id,p_scenario_id,NULL)||' 日先までです'; END IF;
    ELSIF NOT has_store THEN reason:='no_store_for_scenario';
    ELSE
     -- 標準開始で入る店舗があればその時刻（複数なら早いほう）、無ければ最も早く始められる店舗の時刻。終了はその店舗の所要時間で決める

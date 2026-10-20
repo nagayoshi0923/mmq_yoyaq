@@ -117,7 +117,10 @@ export const CalendarView = memo(function CalendarView({
         isLoggedIn={isLoggedIn}
         primaryColor={primaryColor}
       />
-      
+
+      {getPrivateOptions.horizonDays != null && getPrivateOptions.horizonEnd && (
+        <p className="text-xs text-muted-foreground px-1">貸切の申込は今日から {getPrivateOptions.horizonDays} 日先（{Number(getPrivateOptions.horizonEnd.slice(5, 7))}/{Number(getPrivateOptions.horizonEnd.slice(8, 10))}）までです</p>
+      )}
       {/* カレンダーグリッド */}
       <div className="bg-white border overflow-hidden">
         {/* 曜日ヘッダー（日曜始まり） */}
