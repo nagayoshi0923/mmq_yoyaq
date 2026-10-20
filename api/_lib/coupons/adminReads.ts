@@ -4,6 +4,7 @@ import { db } from '../db.js'
 import { type AuthUser } from '../auth.js'
 import { getErrorMessage } from '../../../src/lib/errorFields.js'
 import { COUPON_CAMPAIGN_FIELDS, CUSTOMER_COUPON_FIELDS, CUSTOMER_COUPON_WITH_CUSTOMER_FIELDS, USAGE_CHUNK_SIZE, chunk, fetchAllRows } from './common.js'
+import { ADMIN_COUPON_USAGE_SELECT, ADMIN_CUSTOMER_USAGE_SELECT } from './usageSelects.js'
 
 // =========================================
 // 管理者向け: キャンペーン一覧
@@ -110,11 +111,7 @@ export async function handleCustomerUsages(req: VercelRequest, res: VercelRespon
   const { rows, error } = await fetchAllRows<{
     id: string; discount_amount: number; used_at: string | null;
     reservations: { id: string; title: string; requested_datetime: string | null }
-  }>(() => db!.from('coupon_usages').select(`
-    id, discount_amount, used_at,
-    reservations:reservation_id!inner(id, title, requested_datetime),
-    customer_coupons!inner(customer_id, organization_id, coupon_campaigns!inner(organization_id))
-  `)
+  }>(() => db!.from('coupon_usages').select(ADMIN_CUSTOMER_USAGE_SELECT)
     .eq('customer_coupons.customer_id', customerId)
     .eq('customer_coupons.organization_id', user.orgId)
     .eq('customer_coupons.coupon_campaigns.organization_id', user.orgId)
@@ -148,13 +145,7 @@ export async function handleAdminUsages(req: VercelRequest, res: VercelResponse,
 
   const { data, error } = await database
     .from('coupon_usages')
-    .select(`
-      id,
-      reservation_id,
-      discount_amount,
-      used_at,
-      reservations:reservation_id (title)
-    `)
+    .select(ADMIN_COUPON_USAGE_SELECT)
     .eq('customer_coupon_id', customerCouponId)
     .order('used_at', { ascending: false })
 

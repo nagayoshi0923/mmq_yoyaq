@@ -2,6 +2,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from '../db.js'
 import { CUSTOMER_COUPON_FIELDS, findCustomerByUserId } from './common.js'
+import { customerUsageSelect } from './usageSelects.js'
 
 // =========================================
 // 顧客向け: 利用可能クーポン
@@ -90,20 +91,7 @@ export async function handleAll(
 
   const { data: usageRows, error: usageError } = await database
     .from('coupon_usages')
-    .select(`
-      id,
-      customer_coupon_id,
-      reservation_id,
-      used_at,
-      discount_amount,
-      reservations (
-        id,
-        title,
-        requested_datetime,
-        store_id,
-        stores ( name, short_name )
-      )
-    `)
+    .select(customerUsageSelect(false))
     .in('customer_coupon_id', couponIds)
     .order('used_at', { ascending: false })
 
