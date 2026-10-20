@@ -1,3 +1,14 @@
+## 2026-10-20 / 候補の再取得で申込シート・候補日カレンダーの入力が消える（fix/candidate-refetch-keeps-input、PR #1171）
+
+- Codex の staging 点検（b47cf9377）。グループ画面は読み直しのたびに「読み込み中」に切り替えてシートを作り直していたため、申込シートの送る直前の確認（候補日の時刻が更新されました）で、選んだ候補・優先順・人数・店舗への連絡・電話番号・同意がすべて消えていた。手元 DB・手元画面（customer1、port 5193）で再現し、修正後に入力が残ることを確認。
+- 直し: `PrivateGroupInvite/index.tsx` の読み込み中はグループが無いときだけ。申込シート・`AddCandidateDates` は `src/lib/keepSelectionOnRefetch.ts` で、消えた・選べなくなった候補だけを理由付きで外す（候補日カレンダーは DB の時刻にそろえる）。外した店舗・直した電話番号・申込確認画面のお名前等（`useCustomerData`）も読み直しで上書きしない。判定は変更なし。
+- テスト: `keepSelectionOnRefetch.test.ts`・`BookingRequestSheet.test.tsx`・`useCustomerData.test.tsx`、vitest 全件、`npm run verify`。
+
+## 2026-10-20 / 店舗への申込と希望店舗の変更で受付判定の一部が抜けていた（fix/private-booking-range-gaps、PR #1168、staging 取り込み済み）
+
+- Codex の staging 点検（b47cf9377）。`create_private_booking_request` は日付（トリガー）と公演・受付停止しか見ず、店舗の曜日の枠・休業日・営業時間・作品の固定開始時刻・時間枠・上演店舗・所要時間を確かめていなかった。`private_group_set_preferred_stores` も公演・受付停止だけで候補を外していた。本店でだけ入る朝の候補を申込シートで二号店（平日の朝は無効）だけに送ると通った。
+- 直し: どちらも送る店舗（新しい希望店舗）で `private_booking_assert_candidate` を通す。migration `20261020210000_private_booking_request_full_candidate_check`（rollback 同名）。例 R34〜R36（`private_booking_rules_examples.sql`、修正前に落ちることを確認）。`yoyaq_004` の回帰 SQL に店舗の営業設定を追加。
+- staging への migration 適用は発注者が行う。適用後に staging の md5(prosrc) で `expected-function-overrides.json`（手元 DB の値で暫定）と `staging.json` を更新する。
 ## 2026-10-20 / マイページ › クーポンの「この予約に使う」（予約後の使用）を公演当日だけにする（fix/coupon-use-same-day、staging 向け PR）
 
 - 社長決定（2026-10-20）: 予約したあとで既存の予約にクーポンを当てる操作も公演当日（日本時間）だけ。予約時にクーポンを付けるのは今までどおり日付の制限なし。
