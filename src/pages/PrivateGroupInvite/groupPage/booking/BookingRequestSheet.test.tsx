@@ -6,7 +6,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import type { PrivateGroup } from '@/types'
 
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() } }))
 vi.mock('@/lib/api/privateGroupPageReadApi', () => ({ privateGroupPageReadApi: { findOwnCustomerPhone: async () => ({ data: { phone: '09012345678' } }) } }))
 vi.mock('@/pages/ScenarioDetailPage/components/BookingNotice', () => ({ BookingNotice: () => <div data-testid="notice">注意事項</div> }))
 const range = vi.hoisted(() => ({ playerMin: 4, playerMax: 6 }))
@@ -17,7 +17,8 @@ const availability = {
   taka: { '2026-10-23|afternoon': { available: true, reason: null }, '2026-10-30|afternoon': { available: true, reason: null }, '2026-10-29|evening': { available: true, reason: null } },
   otsuka: { '2026-10-23|afternoon': { available: false, reason: '他の公演と重なります' }, '2026-10-30|afternoon': { available: false, reason: '他の公演と重なります' }, '2026-10-29|evening': { available: true, reason: null } },
 }
-vi.mock('./useStoreAvailability', () => ({ useStoreAvailability: () => ({ availability, loading: false }) }))
+const avail = vi.hoisted(() => ({ loading: false }))
+vi.mock('./useStoreAvailability', () => ({ useStoreAvailability: () => ({ availability: avail.loading ? null : availability, loading: avail.loading }) }))
 const submit = vi.fn()
 vi.mock('../../submitBookingRequest', () => ({ submitGroupBookingRequest: (...a: unknown[]) => submit(...a) }))
 
@@ -38,7 +39,7 @@ const group = {
   ],
 } as unknown as PrivateGroup
 
-beforeEach(() => { submit.mockReset(); range.playerMin = 4; range.playerMax = 6; Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }) })
+beforeEach(() => { submit.mockReset(); avail.loading = false; range.playerMin = 4; range.playerMax = 6; Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }) })
 
 async function render() {
   const host = document.createElement('div')
@@ -155,5 +156,84 @@ it('送る直前に DB の候補日の時刻が変わっていたら、送らず
     expect(onSubmitted).not.toHaveBeenCalled()
     expect(host.querySelector('[data-testid="request-confirm"]')).toBeNull()
     expect(host.querySelector('[data-testid="request-next"]')).not.toBeNull()
+  } finally { await act(async () => root.unmount()) }
+})
+
+it('候補日を読み直しても、選んだ候補・優先順・人数・店舗への連絡・電話番号・同意は消えず、取り下げられた候補だけを理由付きで外す（2026-10-20）', async () => {
+  const host = document.createElement('div')
+  document.body.appendChild(host)
+  const root = createRoot(host)
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const view = (g: unknown) => (
+    <QueryClientProvider client={client}>
+      <BookingRequestSheet
+        group={g as never}
+        myMemberId="ichi"
+        user={{ id: 'u-ichi', email: 'i@x' }}
+        scenarioTitle="告別詩"
+        playerRange={{ min: 4, max: 6 }}
+        preferredStores={[{ id: 'taka', name: '高田馬場店' }, { id: 'otsuka', name: '大塚店' }]}
+        organizerMember={undefined}
+        canMutateSchedule
+        isCustomHoliday={() => false}
+        onClose={vi.fn()}
+        onSubmitted={vi.fn()}
+        onCandidatesChanged={vi.fn()}
+      />
+    </QueryClientProvider>
+  )
+  try {
+    await act(async () => root.render(view(group)))
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    // 3 件とも選び、10/29 を先頭にする。人数 5 名・店舗への連絡を入れて、確認画面で同意する
+    await click(rows(host)[2])
+    await click(host.querySelector('[aria-label="10/29(木) 夜 18:00〜23:00 の優先を上げる"]'))
+    await click(host.querySelector('[aria-label="10/29(木) 夜 18:00〜23:00 の優先を上げる"]'))
+    await click([...host.querySelectorAll('[data-testid="request-participants"] [role="radio"]')].find(c => c.textContent === '5 名'))
+    const notes = host.querySelector<HTMLTextAreaElement>('textarea')!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(notes, '初めての方が 2 名います')
+      notes.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await click(host.querySelector('[data-testid="request-next"]'))
+    await click(host.querySelector('#request-agree'))
+    expect(host.querySelector<HTMLButtonElement>('[data-testid="request-submit"]')!.disabled).toBe(false)
+
+    // 読み直し: 10/30 は取り下げられ、10/23 は DB で 13:30〜18:30 に変わった
+    const next = {
+      ...group,
+      candidate_dates: [
+        (group.candidate_dates as unknown as Array<{ id: string }>)[1],
+        { ...(group.candidate_dates as unknown as Array<Record<string, unknown>>)[2], start_time: '13:30:00', end_time: '18:30:00' },
+      ],
+    }
+    // 候補日が変わると空き状況も読み直す（読み込み中を挟む）
+    avail.loading = true
+    await act(async () => root.render(view(next)))
+    avail.loading = false
+    await act(async () => root.render(view(next)))
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+
+    // 確認画面のまま、同意も消えない
+    expect(host.querySelector<HTMLButtonElement>('[data-testid="request-submit"]')!.disabled).toBe(false)
+    expect(host.querySelector('[data-testid="request-confirm"]')!.textContent).toContain('初めての方が 2 名います')
+    expect(host.querySelector('[data-testid="request-confirm"]')!.textContent).toContain('5 名')
+    // 内容の選択に戻ると、残った候補は優先順のまま・新しい時刻で選ばれ、外した候補は理由付きで知らせる
+    await click(host.querySelector('[aria-label="内容の選択に戻る"]'))
+    const picked = rows(host).filter(x => x.dataset.picked === 'true')
+    expect(picked.map(x => [x.dataset.rank, x.textContent?.includes('10/29') ? '10/29' : x.textContent?.includes('10/23(金) 午後 13:30〜18:30') ? '10/23 13:30' : '?'])).toEqual([['1', '10/29'], ['2', '10/23 13:30']])
+    expect(host.querySelector('[data-testid="request-removed-notice"]')!.textContent).toBe(
+      '選べなくなった候補を外しました: 10/30(金) 午後 13:00〜18:00（候補日が取り下げられたか、店舗が見送りました）',
+    )
+    expect(host.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('初めての方が 2 名います')
+    expect([...host.querySelectorAll('[data-testid="request-participants"] [role="radio"]')].find(c => c.getAttribute('aria-checked') === 'true')!.textContent).toBe('5 名')
+
+    // 内容を見直したあとは同意し直す（従来どおり）
+    submit.mockResolvedValue(false)
+    await click(host.querySelector('[data-testid="request-next"]'))
+    await click(host.querySelector('#request-agree'))
+    await click(host.querySelector('[data-testid="request-submit"]'))
+    expect(submit.mock.calls[0][0].orderedCandidateIds).toEqual(['c29', 'c23'])
+    expect(submit.mock.calls[0][0].bookingPhone).toBe('09012345678')
   } finally { await act(async () => root.unmount()) }
 })
