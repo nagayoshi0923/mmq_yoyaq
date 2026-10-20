@@ -39,8 +39,32 @@ export function storeLabelForChannel(name?: string | null, shortName?: string | 
   return full || '大塚店'
 }
 
+/** 明示された配役のみ採用。配列順から役割を推測しない。 */
+export function senshinGmSuffix(gms: string[] = [], roles: Record<string, string> = {}, staffNames?: string[]): string {
+  const names = [...new Set(gms)]
+  if (names.some(n => !n || (staffNames && !staffNames.includes(n)))) throw new Error('戦塵GMのスタッフ照合が必要です')
+  if (Object.entries(roles).some(([name, role]) => !names.includes(name) || !['main', 'sub'].includes(role))
+    || names.some(name => !['main', 'sub'].includes(roles[name]))) throw new Error('戦塵GMの配役が一致しません')
+  const clean = (name: string) => name.normalize('NFC').toLowerCase().replace(/[\s#@:/\\]+/gu, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+  const label = (role: string) => names.filter(n => roles[n] === role).map(n => {
+    const value = clean(n)
+    if (!value) throw new Error('戦塵GM名が空です')
+    return value
+  }).sort().join('・') || '未定'
+  return `メイン${label('main')}サブ${label('sub')}`
+}
+
+export function appendSenshinGms(base: string, gms: string[] = [], roles: Record<string, string> = {}, staffNames?: string[]): string {
+  const name = base + senshinGmSuffix(gms, roles, staffNames)
+  if (name.length > 100) throw new Error('戦塵チャンネル名が100文字を超えます')
+  return name
+}
+
 export function buildSenshinChannelNames(input: {
   eventDate: string
+  gms?: string[]
+  gmRoles?: Record<string, string>
+  staffNames?: string[]
   startTime: string
   storeName?: string | null
   storeShortName?: string | null
@@ -52,7 +76,16 @@ export function buildSenshinChannelNames(input: {
   const wd = WEEKDAYS[new Date(jstNoonUtc).getUTCDay()]
   const doors = subtractMinutes(input.startTime, 30)
   const store = storeLabelForChannel(input.storeName, input.storeShortName)
-  const playerName = `${ymd}${wd}${doors.label}開場${store}`
+  const base = `${ymd}${wd}${doors.label}開場${store}`
+  let playerName = base
+  try {
+    playerName = appendSenshinGms(base, input.gms, input.gmRoles, input.staffNames)
+    if ((playerName + '-観戦用').length > 100) throw new Error('戦塵観戦チャンネル名が100文字を超えます')
+  } catch (error) {
+    // GM名の不整合で予約承認・従来のチャンネル作成を止めない。
+    console.warn('senshin_channel_gm_name_skipped', { eventDate: ymd, reason: String(error) })
+    playerName = base
+  }
   return {
     playerName,
     spectatorName: `${playerName}-観戦用`,
