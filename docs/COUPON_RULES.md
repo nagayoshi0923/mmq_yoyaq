@@ -53,3 +53,14 @@
 - API `POST /api/coupons?action=redeem-usage` は断りを 400 で返し、理由を `code`（`not_performance_day` など）で渡す。`action=use` で先の予約にクーポンを使ったときは、使用は成功のまま印を付けず、`redeemed: false`・`redeem_code` を添える（当日に「この予約に適用済み」から押す）。
 - 画面は当日でなければ「もぎる」を押せない状態にし、「公演当日に押せます（M/D）」を出す。判定は日本時間の日付。
 - 検証: `supabase/tests/coupon_usage_redeem_same_day.sql`（`npm run test:rpcs`）、`npm run test:coupon-redeem-db`、`api/coupons.test.ts`、`AppliedCouponsSection.test.tsx`。
+
+## 予約後の「この予約に使う」は公演当日のみ
+
+マイページ › クーポンでクーポンを押し、既存の予約を選んで「この予約に使う」（API `POST /api/coupons?action=use`、関数 `use_customer_coupon`）は **公演当日のみ**（社長決定、2026-10-20、migration `20261020190000`）。予約の途中でクーポンを付ける経路（`create_reservation_with_lock_v2` が使用履歴を直接作る）は今までどおり日付の制限なし。
+
+- 公演日は予約の公演の日付（`schedule_events.date`、日本時間の日付そのもの）。公演の無い予約だけ `reservations.requested_datetime` を日本時間の日付にしたものを使う。今日（日本時間）と違えば `P0028`（HINT `not_performance_day`）で「公演当日にお使いください」と断り、使用履歴も予約の金額も変えない。
+  - `requested_datetime` を使わない理由: 予約作成の関数は「日付＋開始時刻」をセッションの時間帯（DB は UTC）で解釈して入れるため、夕方以降の公演は日本時間にすると翌日になることがある。画面の候補も公演の日付を出している。
+- 同じ予約に使用済みなら日付にかかわらず成功で何もしない（`already_used`。二度押し・再送）。
+- API は断りを 400 で返し、理由を `code`（`not_performance_day`、ほかは DB の SQLSTATE）で渡す。
+- 画面は選んだ予約が当日でなければ「この予約に使う」を押せない状態にし、「公演当日に使えます（M/D）」を出す（候補が複数なら当日でない予約の下にも出す）。割引額の確認も当日だけ。サーバーが断ったときは「クーポンは公演当日（M/D）にお使いください」。判定は日本時間の日付。ボタンの文言は来店確認の「もぎる」と分けるため「この予約に使う」にした。
+- 検証: `supabase/tests/coupon_use_same_day.sql`（`npm run test:rpcs`。当日の昼・夕方は可、翌日 0:30／前日 23:30／2099 年／3 日前は拒否、使用済みは冪等、予約時の適用は 30 日先でも可）、`api/coupons.test.ts`、`CouponsPage.test.tsx`、`e2e/coupon-rules.spec.ts`。

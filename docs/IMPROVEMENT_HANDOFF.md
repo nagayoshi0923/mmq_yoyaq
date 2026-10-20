@@ -1,3 +1,14 @@
+## 2026-10-20 / マイページ › クーポンの「この予約に使う」（予約後の使用）を公演当日だけにする（fix/coupon-use-same-day、staging 向け PR）
+
+- 社長決定（2026-10-20）: 予約したあとで既存の予約にクーポンを当てる操作も公演当日（日本時間）だけ。予約時にクーポンを付けるのは今までどおり日付の制限なし。
+- 経路: 画面 `CouponsPage` → `POST /api/coupons?action=use` → `use_customer_coupon`（使用履歴 `coupon_usages` を作り予約の金額を下げる）→ 続けて `redeem_coupon_usage(venue_use)`。予約時の適用は `create_reservation_with_lock_v2` が `coupon_usages` へ直接入れるので `use_customer_coupon` を通らない（呼び出し元は `action=use` だけ）。
+- DB: migration `20261020190000_coupon_use_same_day`（rollback 同名＝ 20261007110002 の本文に戻す。手元で md5 が元に戻ることを確認）。公演日は `schedule_events.date`、公演の無い予約だけ `requested_datetime` の日本時間の日付。当日でなければ P0028・HINT `not_performance_day`「公演当日にお使いください」。使用済み（already_used）の返りは日付にかかわらず変えない。expected-function-overrides の body_md5 は手元 DB で適用後の md5(prosrc)（`78fc42309474e4d064466bdb8f94ac48`。適用前は既存の期待値 `594779c5…` と一致）。
+  - `requested_datetime` を正にしなかった理由: 予約作成の関数は「日付＋開始時刻」を DB の時間帯（UTC）で解釈して入れるため、夕方以降の公演は日本時間にすると翌日になる。`redeem_coupon_usage`（20261020180000）は `requested_datetime` で判定しているので、夕方以降の公演では当日に「もぎる」が断られるおそれがある（未確認・未修正。staging の実データで `requested_datetime` と公演の日時を読み取りで照らすと確かめられる）。
+- API: `use` の断りを 400 と `code`（`not_performance_day`／DB の SQLSTATE）で返す。
+- 画面: 確認ダイアログのボタンを「もぎる」から「この予約に使う」に（来店確認の「もぎる」と分ける）。選んだ予約が当日でなければ押せず「公演当日に使えます（M/D）」、当日でない候補の下にも同じ文言。割引額の確認は当日だけ。サーバーの `not_performance_day` は「クーポンは公演当日（M/D）にお使いください」。
+- 確認: `supabase/tests/coupon_use_same_day.sql`（`test:rpcs` に追加。当日の昼・夕方は可／翌日 0:30・前日 23:30・2099 年・3 日前は拒否で履歴も金額も不変／使用済みは冪等／予約時の適用は 30 日先でも可。旧関数では失敗することも確認）、`npm run test:rpcs`、`api/coupons.test.ts`、`CouponsPage.test.tsx`、`e2e/coupon-rules.spec.ts`（手元で 4 件通過）、vitest 全件、`npm run verify`。
+- staging への migration 適用は発注者が行う。適用後に staging の md5(prosrc) が期待値と一致することを確かめ、`supabase/structure/staging.json` を更新する。
+
 ## 2026-10-20 / クーポンの「もぎる（来店確認）」を公演当日だけにする（fix/coupon-redeem-same-day、staging 向け PR）
 
 - 不具合: `redeem_coupon_usage` に日付の確認が無く、先の予約（2099 年でも）に来店確認ができた。マイページの「この予約に適用済み」からも今すぐ押せた。

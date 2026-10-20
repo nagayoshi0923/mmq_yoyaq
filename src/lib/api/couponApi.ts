@@ -113,7 +113,8 @@ export async function grantRegistrationCoupon(
 }
 
 /**
- * クーポンを使用（もぎる）
+ * 予約したあとで既存の予約にクーポンを使う（マイページの「この予約に使う」）。
+ * 公演当日（日本時間）だけ使える。当日でなければサーバーが断り、code='not_performance_day' を返す（20261020190000）。
  * @param customerCouponId 顧客クーポンID
  * @param reservationId 紐づける予約ID（任意）
  * @returns 使用結果
@@ -121,9 +122,9 @@ export async function grantRegistrationCoupon(
 export async function useCoupon(
   customerCouponId: string,
   reservationId?: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<UseCouponResult> {
   try {
-    return await apiClient.post<{ success: boolean; error?: string }>(
+    return await apiClient.post<UseCouponResult>(
       '/api/coupons?action=use',
       {
         customer_coupon_id: customerCouponId,
@@ -133,8 +134,16 @@ export async function useCoupon(
   } catch (err) {
     logger.error('クーポン使用エラー:', err)
     const message = err instanceof Error ? err.message : 'クーポン使用に失敗しました'
-    return { success: false, error: message }
+    const code = err instanceof ApiClientError && typeof err.body?.code === 'string' ? err.body.code : undefined
+    return { success: false, error: message, code }
   }
+}
+
+/** 予約後のクーポン使用の結果。code はサーバーが断った理由（'not_performance_day' = 公演当日ではない） */
+export interface UseCouponResult {
+  success: boolean
+  error?: string
+  code?: string
 }
 
 /**
