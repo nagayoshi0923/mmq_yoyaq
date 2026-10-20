@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-20T05:38:48.327Z",
+  "captured_at": "2026-10-20T05:46:39.086Z",
   "table_count": 156,
-  "function_count": 434,
-  "digest": "726853423a694790131384cf4c1d4151764ae54fbd842de046cc90fa9ff52867"
+  "function_count": 435,
+  "digest": "5153cbfd1b500fce79dea930068cb10b57e6f6bf2484e3660f317370f1292ab7"
  },
  "tables": {
   "staff": {
@@ -3923,6 +3923,24 @@
      "type": "timestamp with time zone",
      "default": "now()",
      "not_null": true
+    },
+    {
+     "name": "redeemed_at",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "redeemed_by_member",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "redeemed_source",
+     "type": "text",
+     "default": null,
+     "not_null": false
     }
    ],
    "indexes": [
@@ -4026,6 +4044,16 @@
      "def": "PRIMARY KEY (id)",
      "name": "coupon_usages_pkey",
      "type": "p"
+    },
+    {
+     "def": "FOREIGN KEY (redeemed_by_member) REFERENCES customers(id) ON DELETE SET NULL",
+     "name": "coupon_usages_redeemed_by_member_fkey",
+     "type": "f"
+    },
+    {
+     "def": "CHECK (((redeemed_source IS NULL) OR (redeemed_source = ANY (ARRAY['customer_present'::text, 'venue_use'::text]))))",
+     "name": "coupon_usages_redeemed_source_check",
+     "type": "c"
     },
     {
      "def": "FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE",
@@ -27995,6 +28023,16 @@
    "body_md5": "6ffe3a0f1067d9c11b15addca6e33d92",
    "language": "sql",
    "security_definer": false
+  },
+  "redeem_coupon_usage(p_user uuid, p_usage_id uuid, p_source text)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "1049534c83b9131319b3176dffac34d8",
+   "language": "plpgsql",
+   "security_definer": true
   },
   "private_group_handover_user_name(p_user_id uuid, p_group_id uuid)": {
    "acl": [
