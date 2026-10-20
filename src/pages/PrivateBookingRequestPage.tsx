@@ -18,6 +18,7 @@ import {
   slotParamToKey,
 } from '@/lib/privateBookingUrlPrefill'
 import { isBeyondPrivateBookingHorizon, privateBookingTooFarText, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
+import { PrivateBookingHorizonNotice } from '@/components/private-booking/PrivateBookingHorizonNotice'
 
 interface TimeSlot {
   label: string
@@ -286,7 +287,19 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     )
   }
 
-  if (dateTooFar) {
+  // 受付範囲を読めなかったときは、既定の 180 日で進めず再試行を出す（組織が 90 日などだと保存で拒否されるため。Codex 点検 不具合 5）
+  if (date && horizon.days === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="text-center space-y-4">
+          <PrivateBookingHorizonNotice horizon={horizon} className="justify-center text-left" />
+          <button onClick={handleBack} className="text-primary hover:underline">戻る</button>
+        </div>
+      </div>
+    )
+  }
+
+  if (dateTooFar && horizon.days !== null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="text-center space-y-4" role="alert">

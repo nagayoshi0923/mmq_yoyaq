@@ -155,6 +155,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     isAvailabilityReady,
     availabilityError,
     reloadAvailability,
+    horizon: privateBookingHorizon,
     slotAvailability,
     monthDates: privateDates,
     showMonthOf,
@@ -690,6 +691,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     deadlineDays={privateBookingDeadlineDays}
                     availabilityError={availabilityError}
                     onRetryAvailability={reloadAvailability}
+                    horizon={privateBookingHorizon}
                   />
                   
                   {/* 選択された時間枠の表示 */}

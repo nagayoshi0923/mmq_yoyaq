@@ -9,6 +9,8 @@ import type { CandidateSlotAvailability } from '@/lib/candidateSlotAvailability'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { PrivateBookingHorizonNotice } from '@/components/private-booking/PrivateBookingHorizonNotice'
+import type { PrivateBookingHorizonState } from '@/lib/privateBookingHorizon'
 
 interface Store {
   id: string
@@ -52,6 +54,8 @@ interface PrivateBookingFormProps {
   /** 空き状況を読めなかったときの文面（通信失敗など）。「空きなし」と区別して赤い案内と再読み込みを出す */
   availabilityError?: string | null
   onRetryAvailability?: () => void
+  /** 受付範囲。days が null（読み込み中・読めなかった）の間は日付・枠を出さず、確認中・再試行を出す（Codex 点検 不具合 5） */
+  horizon?: PrivateBookingHorizonState
 }
 
 export const PrivateBookingForm = memo(function PrivateBookingForm({
@@ -71,6 +75,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   deadlineDays = 14,
   availabilityError = null,
   onRetryAvailability,
+  horizon,
 }: PrivateBookingFormProps) {
   const gridSelectedSlots = useMemo(() =>
     selectedSlots.map(s => ({
@@ -120,7 +125,9 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         </p>
       )}
 
-      {availabilityError ? (
+      {horizon && horizon.days === null ? (
+        <PrivateBookingHorizonNotice horizon={horizon} className="mt-2" />
+      ) : availabilityError ? (
         // 読めなかったときは日付・枠を出さない（空きが無いように見えるため）。予約確認の取消規定（#1084）と同じ形
         <Card className="border-2 border-red-300 bg-red-50" data-testid="private-booking-availability-error">
           <CardContent className="p-3 space-y-2">

@@ -45,7 +45,8 @@ import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcType
 import { toJstYmd } from '@/utils/jstDate'
 import { privateBookingErrorText } from '@/lib/privateBookingErrors'
 import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
-import { privateBookingTooFarText, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
+import { PRIVATE_BOOKING_HORIZON_CHECKING_TEXT, privateBookingHorizonMaxYmd, privateBookingTooFarText, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
+import { PrivateBookingHorizonNotice } from '@/components/private-booking/PrivateBookingHorizonNotice'
 
 const MAX_TIME_SLOTS = 6
 
@@ -131,13 +132,15 @@ export function PrivateBookingRequest({
     queryFn: async () => (await resolveOrgIdFromPageContext()) ?? null,
   })
   // 申し込める範囲（今日から N 日先まで。MMQ 既定 180 → 組織 → 作品の設定。I21）
-  const { days: horizonDays } = usePrivateBookingHorizonDays({ organizationId: slotOrganizationId, scenarioId })
+  // 読めるまで（読めなかったときも）は days が null。候補の追加と送信を止める（既定の 180 日で進めない。Codex 点検 不具合 5）
+  const horizon = usePrivateBookingHorizonDays({ organizationId: slotOrganizationId, scenarioId })
+  const horizonDays = horizon.days
 
   // 追加可能な日付の範囲（受付締切日数後から、申し込める範囲の最後の日まで）
   const dateRange = useMemo(() => {
     const todayYmd = toJstYmd(new Date())
     const minDate = addCalendarDaysYmd(todayYmd, deadlineDays)
-    const horizonMax = addCalendarDaysYmd(todayYmd, horizonDays)
+    const horizonMax = privateBookingHorizonMaxYmd(horizonDays)
     const maxDate = horizonMax >= minDate ? horizonMax : minDate
     return { minDate, maxDate }
   }, [deadlineDays, horizonDays])
@@ -247,6 +250,10 @@ export function PrivateBookingRequest({
       toast.error(`候補日は本日より${deadlineDays}日後以降のみ選べます`)
       return
     }
+    if (horizonDays === null) {
+      toast.error(PRIVATE_BOOKING_HORIZON_CHECKING_TEXT)
+      return
+    }
     if (newDate > dateRange.maxDate) {
       toast.error(privateBookingTooFarText(horizonDays))
       return
@@ -325,6 +332,11 @@ export function PrivateBookingRequest({
     
     if (editableTimeSlots.length === 0) {
       setError('候補日時を1件以上選択してください')
+      return
+    }
+
+    if (horizonDays === null) {
+      setError(PRIVATE_BOOKING_HORIZON_CHECKING_TEXT)
       return
     }
 
@@ -552,7 +564,7 @@ export function PrivateBookingRequest({
                       <Button
                         size="sm"
                         onClick={handleAddTimeSlot}
-                        disabled={!newDate || !newSlotLabel}
+                        disabled={!newDate || !newSlotLabel || horizonDays === null}
                         className="bg-purple-600 hover:bg-purple-700"
                       >
                         追加する
@@ -791,6 +803,7 @@ export function PrivateBookingRequest({
               </div>
             ) : (
             <div className="space-y-2">
+            <PrivateBookingHorizonNotice horizon={horizon} />
             {/* 送信の失敗・入力の不足は、押したボタンのすぐ上に出す（2026-10-20 staging 点検: 画面の一番上では見えなかった） */}
             {error && (
               <div role="alert" className="flex items-start gap-2 rounded-md border-2 border-red-200 bg-red-50 p-3 text-sm text-red-800" data-testid="private-request-error">
@@ -800,7 +813,7 @@ export function PrivateBookingRequest({
             )}
             <Button
               onClick={onSubmit}
-              disabled={isSubmitting || groupLoading || hasFullyBlockedCandidate || hasUnavailableCandidate}
+              disabled={isSubmitting || groupLoading || hasFullyBlockedCandidate || hasUnavailableCandidate || horizonDays === null}
               className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
             >
               {(isSubmitting || groupLoading) ? (

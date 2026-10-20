@@ -1,3 +1,10 @@
+## 2026-10-21 / 貸切の受付範囲を読めないと 180 日で表示を続ける（fix/private-booking-horizon-fetch-failure、Codex 点検 不具合 5）
+
+- Codex の点検。`fetchPrivateBookingHorizonDays` は `get_effective_private_booking_horizon_days` を読めないと既定の 180 日を返していたため、組織が 90 日などのときに画面では 91 日目以降を選べ、保存で DB に拒否されていた。
+- 直し: 読めないときは例外にし、180 日は「読めたが設定が無い」ときだけ。`usePrivateBookingHorizonDays` は `{ days, loading, failed, retry }` を返し、まだ分からない間は `days: null`（`privateBookingHorizonMaxYmd(null)` は昨日＝どの日も選べない）。同じセッションで一度読めていれば、読み直しの失敗では最後に読めた値を使う（React Query が前の値を保つ）。各画面（作品ページの貸切フォーム・候補日の追加・貸切リクエストの日付指定・作品選び・リクエスト入力）は `src/components/private-booking/PrivateBookingHorizonNotice.tsx` で「受付範囲を確認しています」／読めなければ再試行を出し、候補の選択と申込ボタンを止める。公開トップのカレンダー・リストは取得失敗で申込枠を出さない（30 秒ごとに読み直す）。
+- 方針の理由: 「最後に読めた値」だけでは初めて開いたときに使える値が無く、結局どこかの既定値に頼ることになる。止めて再試行を出すほうが単純で、画面と保存が食い違わない。読み直しの失敗では React Query が前の値を保つので、一度読めた画面が急に止まることも無い。
+- テスト: `privateBookingHorizon.hook.test.tsx`（失敗時に 30 日先も 120 日先も選べない・再試行で 90 日が効く・設定なしだけ 180・読み直し失敗で前の値）、`PrivateBookingForm.test.tsx`、`usePublicPrivateBookingSlots.test.tsx`、vitest 全件、`npm run verify`。
+
 ## 2026-10-20 / 「もぎる（来店確認）」の当日判定を公演の日付にそろえる（fix/coupon-redeem-event-date、staging 向け PR）
 
 - 不具合: #1166 の `redeem_coupon_usage` は `reservations.requested_datetime` の日本時間の日付で当日を判定していた。staging の過去 60 日の予約 1,070 件のうち 31 件は `requested_datetime` が予約を作った時刻（例 260919-8B88: 9/19 12:28、公演 10/11 13:00）で、公演当日に押しても断られる。夕方以降の公演も日本時間で翌日にずれうる。

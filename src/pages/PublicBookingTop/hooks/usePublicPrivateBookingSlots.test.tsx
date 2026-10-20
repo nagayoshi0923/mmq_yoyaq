@@ -72,8 +72,20 @@ it('設定を 90 日に変えると 91 日目の申込枠を出さない（90 �
   expect(getOptions('2030-01-08','afternoon')).toEqual([])
   expect(getOptions.horizonDays).toBe(90)
 })
-it('範囲を読めないとき（関数が未適用など）は既定の 180 日で判定する',async()=>{
+it('範囲を読めないときは既定の 180 日で開放せず、範囲内の日も申込枠を出さない（Codex 点検 不具合 5）',async()=>{
   api.horizon.mockResolvedValue({data:null,error:new Error('not found')})
+  await mount()
+  // 2030-01-08 は今日（2029-12-01）から 38 日先。組織が 90 日でも範囲内だが、範囲を読めないので出さない
+  expect(getOptions('2030-01-08','afternoon')).toEqual([])
+  expect(getOptions.horizonDays).toBe(null)
+  // 再試行（次の読み直し）で読めたら出す
+  api.horizon.mockResolvedValue({data:90,error:null})
+  await act(async()=>{await client.invalidateQueries({queryKey:['public-private-slots']});await new Promise(resolve=>setTimeout(resolve,20))})
+  expect(getOptions('2030-01-08','afternoon')).toEqual([{storeId:'a',startTime:'14:00'}])
+  expect(getOptions.horizonDays).toBe(90)
+})
+it('読めたが設定が無い（null）ときだけ既定の 180 日',async()=>{
+  api.horizon.mockResolvedValue({data:null,error:null})
   vi.setSystemTime(new Date('2029-07-11T10:00:00+09:00'))
   await mount()
   expect(getOptions('2030-01-08','afternoon')).toEqual([])

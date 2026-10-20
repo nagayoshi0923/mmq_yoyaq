@@ -64,7 +64,9 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
 
   const scenarioMasterId = scenario?.scenario_master_id || scenario?.scenario_id || scenario?.id || scenarioId
   // 申し込める範囲（今日から N 日先まで。MMQ 既定 180 → 組織 → 作品の設定。I21）。判定の正本は DB
-  const { days: horizonDays } = usePrivateBookingHorizonDays({ organizationId: scenario?.organization_id || organizationId, scenarioId: scenarioMasterId })
+  // 読めるまで（読めなかったときも）は days が null で、どの日も出さない（既定の 180 日で選ばせない。Codex 点検 不具合 5）
+  const horizon = usePrivateBookingHorizonDays({ organizationId: scenario?.organization_id || organizationId, scenarioId: scenarioMasterId })
+  const horizonDays = horizon.days
   const horizonMaxYmd = privateBookingHorizonMaxYmd(horizonDays)
 
   const generatePrivateDates = useCallback(() => {
@@ -171,10 +173,13 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     availableStores,
     isNextMonthDisabled,
     isLoadingEvents,
-    isAvailabilityReady: canRevalidate,
+    // 受付範囲が分からない間は、枠の選択も申込ボタンも止める
+    isAvailabilityReady: canRevalidate && horizonDays !== null,
     /** 空き状況を読めなかった（通信失敗など）。「空きなし」と区別して出し、再読み込みできるようにする */
     availabilityError,
     reloadAvailability,
+    /** 受付範囲（今日から何日先まで）。days が null の間は日付を出さず、確認中・再試行を出す */
+    horizon,
     slotAvailability,
     monthDates,
     showMonthOf,
