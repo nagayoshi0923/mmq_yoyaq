@@ -9,7 +9,7 @@ export async function loadPrivateDiscordProvisionContext(supabase:any, reservati
     const eventId = reservation.schedule_event_id
     const { data: event, error: eventError } = await supabase
       .from('schedule_events')
-      .select('id, date, start_time, store_id, gms, scenario_master_id, is_cancelled')
+      .select('id, date, start_time, store_id, gms, gm_roles, scenario_master_id, is_cancelled')
       .eq('id', eventId)
       .eq('organization_id', reservation.organization_id)
       .maybeSingle()

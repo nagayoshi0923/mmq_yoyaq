@@ -1,3 +1,9 @@
+## 2026-10-20 / 戦塵Discordの日付別チャンネルにメイン・サブGMを追加
+
+- [x] `gm_roles`・公演の`gms`・同組織の`staff`を照合し、`メインえるサブりんな`形式で命名。複数サブと未定を扱い、不整合・100文字超過は従来名と警告にフォールバックする。
+- 本番専用関数 `provision-private-booking-discord` v28へ承認済み配備。既存33公演66チャンネルを改名・再取得確認済み。他67件の名前、全件の権限とカテゴリは不変。予約・スタッフ割当は変更なし。
+- このPRは稼働中の変更を通常配備で保持するための保存。認可・既存ルーム再利用・取消・終了処理は変更なし。本番でテスト予約や通知は作成していない。
+
 ## 2026-10-20 / マイページのクーポンで使用履歴が空になる（PGRST201）→ 予約の埋め込みに外部キー名を明示（fix/coupon-usages-embed-ambiguity、staging 向け PR）
 
 - 原因: `coupon_usages` と `reservations` の間に外部キーが 2 本ある（`coupon_usages_reservation_id_fkey`＝使用→予約、`reservations_coupon_usage_id_fkey`＝予約→使用。後者を作る記述は migration では 20260214000001 の「列が無ければ REFERENCES 付きで追加」だけで、20261012120000 には外部キーの追加は無い。本番に後者があるかは未確認（本番には触れていない）。staging と手元 DB にはある）。`coupon_usages ... reservations (...)` の素の埋め込みが PGRST201 で失敗し、`/api/coupons?type=all` が使用履歴を黙って空にしていた（使用日時が出ない・「この予約に適用済み」が出ない）。手元 DB（supabase start）でも同じく再現。
