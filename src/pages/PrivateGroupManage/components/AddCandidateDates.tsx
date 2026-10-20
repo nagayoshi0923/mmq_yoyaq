@@ -15,6 +15,7 @@ import { ScenarioStoreHint } from '@/components/private-booking/ScenarioStoreHin
 import { usePrivateBookingDeadlineState, DEFAULT_PRIVATE_BOOKING_DEADLINE_DAYS } from '@/hooks/usePrivateBookingDeadlineDays'
 import { PrivateBookingSlotGrid } from '@/components/private-booking/PrivateBookingSlotGrid'
 import { showToast } from '@/utils/toast'
+import { keepSelectedSlots, removedSelectionMessage } from '@/lib/keepSelectionOnRefetch'
 import { getJstParts } from '@/utils/jstDate'
 import { privateBookingErrorText } from '@/lib/privateBookingErrors'
 import { privateBookingHorizonMaxYmd, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
@@ -81,6 +82,8 @@ export function AddCandidateDates({
   const [selectedSlots, setSelectedSlots] = useState<
     Array<{ date: string; slot: PrivateBookingSlot }>
   >([])
+  const selectedSlotsRef = useRef(selectedSlots)
+  selectedSlotsRef.current = selectedSlots
   const [saving, setSaving] = useState(false)
   const savingRef = useRef(false)
   const pendingRequestRef = useRef<{ fingerprint: string; id: string } | null>(null)
@@ -126,13 +129,14 @@ export function AddCandidateDates({
   const loading = availabilityLoading
   const storeHint = useScenarioStoreHint(isOpen ? organizationId : null, scenarioId, storeIds)
 
-  // 読み直した結果で選べなくなった枠は選択から外す（保存で弾かれる前に）
+  // 読み直した結果で選べなくなった枠だけを選択から外し、理由を知らせる（保存で弾かれる前に）。
+  // 選べる枠の選択は保ち、DB の時刻が変わった枠は時刻だけそろえる（2026-10-20 Codex staging 点検）
   useEffect(() => {
     if (loading) return
-    setSelectedSlots(prev => {
-      const next = prev.filter(({ date, slot }) => !availability.slotsByDate[date] || !availability.unavailableReasons[`${date}-${slot.label}`])
-      return next.length === prev.length ? prev : next
-    })
+    const { next, removed, changed } = keepSelectedSlots(selectedSlotsRef.current, availability)
+    if (!changed) return
+    setSelectedSlots(next)
+    if (removed.length > 0) showToast.warning(removedSelectionMessage(removed))
   }, [loading, availability])
 
   const existingSlotKeys = useMemo(() => new Set(existingDates.filter(date => !date.withdrawn_at).map(

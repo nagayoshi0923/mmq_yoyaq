@@ -472,7 +472,9 @@ export function PrivateGroupInvite() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openParam, group?.id, existingMemberId])
 
-  if (groupLoading) {
+  // 読み込み中の画面は、まだグループが無いときだけ。読み直し（送る直前の確認で候補日が変わった・保存の後など）で
+  // 画面を作り直すと、開いているシートの入力（選んだ候補・店舗への連絡・電話番号・同意）が消える（2026-10-20 Codex staging 点検）
+  if (groupLoading && !group) {
     return <InviteLoadingScreen />
   }
 

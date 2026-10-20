@@ -6,7 +6,7 @@
  *   下に固定: 「注意事項を確認して申し込む（候補日 N 件）」→ 2 段目で注意事項・キャンセル規定に同意して送る
  * 送信は従来の submitGroupBookingRequest（create_private_booking_request_with_notice）。
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -26,6 +26,7 @@ import {
   storeChips, storesToSend, togglePick,
 } from './requestSheetModel'
 import { useStoreAvailability } from './useStoreAvailability'
+import { keepPickedCandidates, removedSelectionMessage } from '@/lib/keepSelectionOnRefetch'
 
 type GroupType = NonNullable<ReturnType<typeof usePrivateGroupByInviteCode>['group']>
 type GroupMember = NonNullable<GroupType['members']>[number]
@@ -89,7 +90,31 @@ export function BookingRequestSheet(props: BookingRequestSheetProps) {
     setPicks(initialPicks(candidates, members, id => blockedReason(id) !== null))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availabilityLoading, candidates, members, picks])
-  useEffect(() => { setSelectedStores(new Set(storeIds)) }, [storeIds])
+  // 候補日・空き状況を読み直したら、選んだ候補日と優先順は保ったまま、消えた・選べなくなった候補だけを外して理由を出す
+  // （読み直しで選択を初期化しない。2026-10-20 Codex staging 点検）
+  const [removedNotice, setRemovedNotice] = useState<string | null>(null)
+  const labelsRef = useRef(new Map<string, string>())
+  useEffect(() => {
+    if (picks !== null && !availabilityLoading) {
+      const { next, removed } = keepPickedCandidates(picks, candidates, blockedReason, labelsRef.current)
+      if (removed.length > 0) {
+        setPicks(next)
+        const message = removedSelectionMessage(removed)
+        setRemovedNotice(message)
+        toast.warning(message)
+      }
+    }
+    // 空きの読み込み中に候補が消えても、外したときに元の日時を出せるよう、見た候補の表示名は残しておく
+    for (const c of candidates) labelsRef.current.set(c.id, c.label)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availabilityLoading, availability, candidates, picks])
+  // 希望店舗の一覧が読み直されても、利用者が外した店舗は外したまま（新しく増えた店舗だけ選んだ状態で足す）
+  const knownStoresRef = useRef<Set<string>>(new Set(storeIds))
+  useEffect(() => {
+    const known = knownStoresRef.current
+    setSelectedStores(prev => new Set(storeIds.filter(id => prev.has(id) || !known.has(id))))
+    knownStoresRef.current = new Set([...known, ...storeIds])
+  }, [storeIds])
 
   // 連絡先の電話番号（従来の申込と同じく、主催者の登録済みの番号を入れておく）
   const { data: savedPhone } = useQuery({
@@ -100,7 +125,13 @@ export function BookingRequestSheet(props: BookingRequestSheetProps) {
       return (data as { phone?: string | null } | null)?.phone ?? ''
     },
   })
-  useEffect(() => { if (savedPhone && !phone) setPhone(savedPhone) }, [savedPhone, phone])
+  // 登録済みの番号は最初の 1 回だけ入れる（読み直しや、利用者が消して打ち直している途中で上書きしない）
+  const phoneFilledRef = useRef(false)
+  useEffect(() => {
+    if (phoneFilledRef.current || !savedPhone) return
+    phoneFilledRef.current = true
+    setPhone(prev => prev || savedPhone)
+  }, [savedPhone])
 
   const order = picks ?? []
   const picked = order.map(id => candidates.find(c => c.id === id)).filter((c): c is NonNullable<typeof c> => Boolean(c))
@@ -194,6 +225,9 @@ export function BookingRequestSheet(props: BookingRequestSheetProps) {
             <div className="flex flex-col gap-5">
               <section aria-label="候補日">
                 <h2 className="mb-2 text-sm font-bold">1. 候補日 <span className="text-xs font-normal text-muted-foreground">{picked.length} 件選択中</span></h2>
+                {removedNotice && (
+                  <p className="mb-2 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800" role="status" data-testid="request-removed-notice">{removedNotice}</p>
+                )}
                 {picks === null ? (
                   <div className="py-6 text-center text-sm text-muted-foreground"><Loader2 className="mx-auto mb-1 h-5 w-5 animate-spin" aria-hidden="true" />空き状況を確認しています</div>
                 ) : (
