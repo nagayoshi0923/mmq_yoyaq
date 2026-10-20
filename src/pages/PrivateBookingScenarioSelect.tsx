@@ -21,7 +21,8 @@ import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
 import { fetchScenarioDateReasons, type CandidateSlotAvailabilityTarget } from '@/lib/candidateSlotAvailability'
 import { useCandidateSlotAvailability } from '@/hooks/useCandidateSlotAvailability'
 import { selectedSlotCheck } from './privateBookingSelectModel'
-import { isBeyondPrivateBookingHorizon, privateBookingTooFarText, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
+import { isBeyondPrivateBookingHorizon, PRIVATE_BOOKING_HORIZON_CHECKING_TEXT, privateBookingTooFarText, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
+import { PrivateBookingHorizonNotice } from '@/components/private-booking/PrivateBookingHorizonNotice'
 
 interface Scenario {
   id: string
@@ -119,7 +120,8 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
 
   // 申し込める範囲（今日から N 日先まで。I21）。入口用の日数（組織の値と作品の個別指定のうち最長）より先なら、どの作品も申し込めない。
   // 作品ごとの範囲は DB の private_booking_scenario_date_reasons（too_far）と、選んだ作品の空き判定で確かめる
-  const { days: entryHorizonDays } = usePrivateBookingHorizonDays({ organizationId })
+  const entryHorizon = usePrivateBookingHorizonDays({ organizationId })
+  const entryHorizonDays = entryHorizon.days
   const dateTooFar = isBeyondPrivateBookingHorizon(preselectedDate, entryHorizonDays)
 
   const dateTimeLabel = `${formatJstDateJa(preselectedDate, true) || preselectedDate} ${slotLabels[preselectedSlot] || preselectedSlot}`
@@ -128,7 +130,9 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
   const gridScenarios = useMemo<PrivateScenario[]>(
     () => scenarios.map((s) => {
       const open = isScenarioBookingOpen(s)
-      const dayReason = dateTooFar ? privateBookingTooFarText(entryHorizonDays) : dateReasons[s.id]
+      // 受付範囲を読めるまでは、既定の 180 日で選ばせない（Codex 点検 不具合 5）
+      const dayReason = entryHorizonDays === null ? PRIVATE_BOOKING_HORIZON_CHECKING_TEXT
+        : dateTooFar ? privateBookingTooFarText(entryHorizonDays) : dateReasons[s.id]
       return {
         ...s,
         closed: !open || Boolean(dayReason),
@@ -326,6 +330,8 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
               <p className="text-xs text-muted-foreground">{dateTimeLabel}</p>
               <p className="text-xs text-muted-foreground">作品を選ぶと、下に人数・料金・希望店舗が出ます。</p>
             </div>
+
+            <PrivateBookingHorizonNotice horizon={entryHorizon} />
 
             <PrivateScenarioGrid
               scenarios={gridScenarios}

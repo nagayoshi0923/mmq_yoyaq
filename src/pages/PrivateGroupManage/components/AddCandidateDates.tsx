@@ -19,6 +19,7 @@ import { keepSelectedSlots, removedSelectionMessage } from '@/lib/keepSelectionO
 import { getJstParts } from '@/utils/jstDate'
 import { privateBookingErrorText } from '@/lib/privateBookingErrors'
 import { privateBookingHorizonMaxYmd, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
+import { PrivateBookingHorizonNotice } from '@/components/private-booking/PrivateBookingHorizonNotice'
 
 function getJstDateStringFromNow(now = new Date()): string {
   const jstOffsetMin = 9 * 60
@@ -94,7 +95,9 @@ export function AddCandidateDates({
   // 予約受付締切（公演日の何日前まで候補にできるか）。設定 > 予約設定の値
   const { days: minAdvanceDays, loading: deadlineLoading } = usePrivateBookingDeadlineState({ organizationId, scenarioId })
   // 申し込める範囲（今日から N 日先まで。MMQ 既定 180 → 組織 → 作品の設定。I21）
-  const { days: horizonDays } = usePrivateBookingHorizonDays({ organizationId, scenarioId })
+  // 読めるまで（読めなかったときも）は days が null で、どの日も選べない（既定の 180 日で選ばせない。Codex 点検 不具合 5）
+  const horizon = usePrivateBookingHorizonDays({ organizationId, scenarioId })
+  const horizonDays = horizon.days
 
   const { availableDates } = useMemo(() => {
     const dates: string[] = []
@@ -280,7 +283,7 @@ export function AddCandidateDates({
     )
   }
 
-  const saveDisabled = selectedSlots.length === 0 || saving || loading || deadlineLoading || holidaysLoading || !!holidaysError
+  const saveDisabled = selectedSlots.length === 0 || saving || loading || deadlineLoading || holidaysLoading || !!holidaysError || horizonDays === null
   const inset = isDialog ? 'px-3 sm:px-4' : ''
 
   const grid = (
@@ -313,8 +316,9 @@ export function AddCandidateDates({
     />
   )
 
-  const notes = (holidaysError || availabilityError || storeHint) && (
+  const notes = (holidaysError || availabilityError || storeHint || horizonDays === null) && (
     <div className={`space-y-1 py-1.5 ${inset}`}>
+      <PrivateBookingHorizonNotice horizon={horizon} />
       {holidaysError && <p role="alert" className="text-sm text-destructive">{holidaysError}</p>}
       {availabilityError && (
         <div className="flex flex-wrap items-center gap-2">

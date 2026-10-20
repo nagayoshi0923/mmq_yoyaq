@@ -41,6 +41,20 @@ it('読めているときは枠を出し、案内は出さない', async () => {
   expect(host.querySelector('[data-testid="private-booking-availability-error"]')).toBeNull()
 })
 
+it('受付範囲を読めなかったときは枠を出さず、再試行を出す。読めたら枠を出す（Codex 点検 不具合 5）', async () => {
+  const retry = vi.fn()
+  await act(async () => root.render(<PrivateBookingForm {...formProps} horizon={{ days: null, loading: false, failed: true, retry }} />))
+  expect(host.querySelector('[data-testid="slot-grid"]')).toBeNull()
+  expect(host.querySelector('[data-testid="private-booking-horizon-failed"]')!.textContent).toContain('受付範囲を確認できませんでした')
+  await act(async () => host.querySelector<HTMLButtonElement>('[data-testid="private-booking-horizon-retry"]')!.click())
+  expect(retry).toHaveBeenCalledTimes(1)
+  await act(async () => root.render(<PrivateBookingForm {...formProps} horizon={{ days: null, loading: true, failed: false, retry }} />))
+  expect(host.querySelector('[data-testid="slot-grid"]')).toBeNull()
+  expect(host.textContent).toContain('受付範囲を確認しています')
+  await act(async () => root.render(<PrivateBookingForm {...formProps} horizon={{ days: 90, loading: false, failed: false, retry }} />))
+  expect(host.querySelector('[data-testid="slot-grid"]')).not.toBeNull()
+})
+
 it('料金パネルの「まずはメンバーを招待して貸切グループを作成」も選んでいる希望店舗を引き継ぐ', async () => {
   let path = ''
   function Where() { const l = useLocation(); path = l.pathname + l.search; return null }
