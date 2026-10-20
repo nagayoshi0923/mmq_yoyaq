@@ -60,10 +60,15 @@ it('waits for survey batches before starting reservation batches', async () => {
   let finish!: (value: Record<string, {survey_enabled: boolean}>) => void
   mocks.settings.mockReturnValue(new Promise(resolve => { finish = resolve }))
   await render()
-  expect(result.current.loading).toBe(true)
+  // グループ本体は先に出し、後から埋める列だけ読み込み中
+  expect(result.current.loading).toBe(false)
+  expect(result.current.detailsLoading).toBe(true)
+  expect(result.current.groups[0]).toMatchObject({id:'g',details_loaded:false,organizer:{name:'幹事表示名'}})
+  expect(result.current.groups[0].confirmed_date).toBeUndefined()
   expect(mocks.from).not.toHaveBeenCalled()
   await act(async () => finish({g: {survey_enabled:true}}))
-  expect(result.current.loading).toBe(false)
+  expect(result.current.detailsLoading).toBe(false)
+  expect(result.current.groups[0]).toMatchObject({details_loaded:true,survey_enabled:true,confirmed_date:'2027-03-01'})
   expect(mocks.from).toHaveBeenCalledWith('reservations')
 })
 
@@ -116,4 +121,37 @@ it('includes old and current reservation numbers without replacing the current e
   expect(result.current.groups[0].confirmed_date).toBe('2027-03-01')
   const history = mocks.queries.find(q => q.table === 'reservations' && q.filters.private_group_id)
   expect(history?.filters).toEqual({organization_id:'org',private_group_id:['g']})
+})
+
+it('最初の 100 件が届いた時点で一覧を出し、続きと追加情報は後から埋める', async () => {
+  const base = (i: number) => ({id:`g${i}`,organizer_id:'u',organizer_display_name:`幹事${i}`,reservation_id:null,status:'date_adjusting',created_at:`2026-10-01T00:00:00Z`,members:[],candidate_dates:[{id:`c${i}`}],scenario_masters:[{id:'s',title:'作品'}]})
+  let finishList!: (rows: unknown[]) => void
+  mocks.read.mockImplementation((_scope: string, _org: string, _ids: unknown, onPage: (rows: unknown[]) => void) => {
+    onPage(Array.from({length:100},(_,i)=>base(i)))
+    return new Promise(resolve => { finishList = resolve })
+  })
+  mocks.settings.mockImplementation(async (ids: string[]) => Object.fromEntries(ids.map(id => [id,{survey_enabled:false}])))
+  await render()
+  expect(result.current.loading).toBe(false)
+  expect(result.current.loadingMore).toBe(true)
+  expect(result.current.groups).toHaveLength(100)
+  expect(result.current.groups[0]).toMatchObject({details_loaded:false,scenario_masters:{title:'作品'},organizer:{name:'幹事0'}})
+  expect(mocks.settings).not.toHaveBeenCalled()
+  await act(async () => finishList(Array.from({length:101},(_,i)=>base(i))))
+  expect(result.current.loadingMore).toBe(false)
+  expect(result.current.detailsLoading).toBe(false)
+  expect(result.current.groups).toHaveLength(101)
+  expect(result.current.groups.every(g => g.details_loaded)).toBe(true)
+})
+
+it('再読み込み後に前の読み込みの結果が届いても上書きしない', async () => {
+  const resolvers: Array<(rows: unknown[]) => void> = []
+  mocks.read.mockImplementation(() => new Promise(resolve => { resolvers.push(resolve) }))
+  mocks.settings.mockImplementation(async (ids: string[]) => Object.fromEntries(ids.map(id => [id,{survey_enabled:false}])))
+  await render()
+  await act(async () => { void result.current.loadGroups() })
+  const row = (id: string) => ({id,organizer_id:'u',reservation_id:null,status:'date_adjusting',created_at:'2026-10-01T00:00:00Z',members:[],candidate_dates:[],scenario_masters:null})
+  await act(async () => resolvers[1]([row('new')]))
+  await act(async () => resolvers[0]([row('old')]))
+  expect(result.current.groups.map(g => g.id)).toEqual(['new'])
 })

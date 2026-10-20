@@ -78,11 +78,17 @@ export async function readPrivateGroupMessages(groupId: string, memberId?: strin
   return data || []
 }
 
-export async function readPrivateGroupList(scope: 'joined' | 'organized' | 'staff', organizationId: string | null = null, groupIds?: string[]): Promise<PrivateGroup[]> {
+const byCreatedDesc = (a: PrivateGroup, b: PrivateGroup) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id)
+
+/**
+ * onPage を渡すと、100 件ずつ届くたびにそこまでの分（作成日の新しい順）を渡す。
+ * 全件そろうのを待たずに一覧を先に出すため（グループ一覧の初期待ち）。取得の順番・同時数は変えない。
+ */
+export async function readPrivateGroupList(scope: 'joined' | 'organized' | 'staff', organizationId: string | null = null, groupIds?: string[], onPage?: (loaded: PrivateGroup[]) => void): Promise<PrivateGroup[]> {
   // 指定IDが多いときは100件ずつに分けて同時に読む（#835）。続きの読み込みを順番に待たない。
   if (groupIds && groupIds.length > 100) {
     const pages = await fetchInChunks(groupIds, chunk => readPrivateGroupList(scope, organizationId, chunk))
-    return pages.flat().sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id))
+    return pages.flat().sort(byCreatedDesc)
   }
   const groups: PrivateGroup[] = []
   let cursor: string | null = null
@@ -95,12 +101,14 @@ export async function readPrivateGroupList(scope: 'joined' | 'organized' | 'staf
     const page = (data || []) as PrivateGroup[]
     groups.push(...page.map(withoutWithdrawnCandidates))
     // 指定IDの分を取り切ったら続きを取りに行かない（100件ちょうどのとき空の追加取得をしない、#837）
-    if (page.length < 100 || (groupIds && groups.length >= groupIds.length)) break
+    const done = page.length < 100 || (groupIds && groups.length >= groupIds.length)
+    if (onPage && !done) onPage([...groups].sort(byCreatedDesc))
+    if (done) break
     const next = page[page.length - 1].id
     if (next === cursor) throw new Error('グループ一覧の続きを取得できませんでした')
     cursor = next
   }
-  return groups.sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id))
+  return groups.sort(byCreatedDesc)
 }
 
 /** 履歴ダイアログでは古い500件で打ち切らず全履歴を取得する。 */
