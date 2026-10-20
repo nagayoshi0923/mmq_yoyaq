@@ -1,3 +1,9 @@
+## 2026-10-20 / 予約詳細の「取り下げる」にもグループを残すか選ぶダイアログ（feat/mypage-withdraw-keep-group、staging 向け PR）
+
+- 社長決定（2026-10-20）: #1143 のダイアログ `WithdrawRequestDialog` を予約詳細（`/mypage/reservation/{id}`）の「申込の取り下げ」にも出す。マイページの貸切カードの「操作」は #1143 で対応済みだったので、残っていた入口はここだけ（マイページ配下で取り下げを呼ぶのは `usePrivateBookingActions` と予約詳細の 2 か所）。
+- 実装: `src/pages/MyPage/pages/reservationDetail/PrivateRequestWithdrawSection.tsx`（説明・ボタン・ダイアログ）。`useWithdrawPrivateRequestMutation` に `keepGroup` を足し、`groupKept` を返す。メンバー数は `readPrivateGroup` で読む（読めなければ人数なしの文面）。グループの無い直接申込は選択肢を出さず従来どおり。失敗時は理由を toast（従来は何も出ていなかった）。取り下げ後は従来どおり `/mypage?sub=private`。
+- ついでの修正（`buildPrivateBookingView`）: 同じグループに申込が複数ある（取り下げ→申し込み直し→また取り下げ）と、カードが先に並ぶ古い取消済みの申込に結ばれ「候補日を直して申し込み直す」にならず「申込に進む」になっていた。グループの `reservation_id` が指す申込を優先して結ぶ。
+- 確認: vitest 全件、`npm run verify`。手元（staging 接続、5191、375px）で QA 会員 A の 5DIVE グループを申込 → 予約詳細で「申込だけ取り下げる」→ マイページの貸切は「候補日を直して申し込み直す」、キャンセルのタブに「取り下げ」→ グループページの申込シートから申し込み直せた → もう一度予約詳細から取り下げ（グループは残した状態で終了）。「グループも閉じる」の実行は画面では試していない（従来の処理のまま、単体テストで受け渡しを確認）。
 ## 2026-10-20 / 戦塵Discordの日付別チャンネルにメイン・サブGMを追加
 
 - [x] `gm_roles`・公演の`gms`・同組織の`staff`を照合し、`メインえるサブりんな`形式で命名。複数サブと未定を扱い、不整合・100文字超過は従来名と警告にフォールバックする。

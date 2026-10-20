@@ -8,9 +8,9 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, Calendar, MapPin, Users, Clock, CreditCard, Ticket, ExternalLink, Pencil, MessageCircle } from 'lucide-react'
 import { InviteShareButton } from '@/components/InviteShareButton'
-import { ConfirmDialog } from '@/components/patterns/modal'
 import { ReservationCancelDialog } from './reservationDetail/ReservationCancelDialog'
 import { ParticipantCountDialog } from './reservationDetail/ParticipantCountDialog'
+import { PrivateRequestWithdrawSection } from './reservationDetail/PrivateRequestWithdrawSection'
 import { reservationPriceBreakdown } from '../utils/reservationPriceBreakdown'
 import { PrivateGroupInquiryDialog } from '../components/PrivateBookingCards/PrivateGroupInquiryDialog'
 import { formatDeadline } from '@/lib/cancellationSummary'
@@ -20,7 +20,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import {
   useReservationDetailQuery, useCurrentSeatsQuery,
   useCancelReservationMutation,
-  useWithdrawPrivateRequestMutation, useUpdateParticipantCountMutation,
+  useUpdateParticipantCountMutation,
 } from '../hooks/useReservationDetailQuery'
 import { toJstYmd, formatJstTime, formatJstDateJa, formatJstDateTime } from '@/utils/jstDate'
 import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
@@ -34,7 +34,6 @@ export function ReservationDetailPage() {
   const reservationId = location.pathname.split('/').pop()
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
-  const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editParticipantCount, setEditParticipantCount] = useState(0)
   const [inquiryOpen, setInquiryOpen] = useState(false)
@@ -57,10 +56,6 @@ export function ReservationDetailPage() {
   const cancelMutation = useCancelReservationMutation(reservationId ?? '', () => {
     toast.success('予約をキャンセルしました')
     navigate('/mypage')
-  })
-  const withdrawMutation = useWithdrawPrivateRequestMutation(reservationId ?? '', () => {
-    toast.success('貸切リクエストを取り下げました')
-    navigate('/mypage?sub=private')
   })
 
   const updateCountMutation = useUpdateParticipantCountMutation(
@@ -299,20 +294,12 @@ export function ReservationDetailPage() {
                 {getCustomerPrivateBookingStatusDescription(reservation.status)}
               </p>
             </div>
-            <div className="pt-3 border-t border-amber-200 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm text-amber-700">申込の取り下げ</p>
-                <p className="text-xs text-amber-600 mt-1">日程確定前なのでキャンセル料はかかりません。グループも一緒に閉じます。</p>
-              </div>
-              <Button
-                variant="destructive"
-                size="sm"
-                className="h-11 px-4 text-sm shrink-0"
-                onClick={() => setWithdrawDialogOpen(true)}
-              >
-                取り下げる
-              </Button>
-            </div>
+            {/* グループを残すか閉じるかを選ぶ（貸切カードの「操作」と同じダイアログ。2026-10-20 社長決定） */}
+            <PrivateRequestWithdrawSection
+              reservationId={reservation.id}
+              groupId={reservation.private_group_id ?? null}
+              onDone={() => navigate('/mypage?sub=private')}
+            />
           </div>
         )}
 
@@ -528,20 +515,6 @@ export function ReservationDetailPage() {
         }}
         replyEmail={user?.email || reservation.customer_email || ''}
         replyName={reservation.customer_name || ''}
-      />
-
-      <ConfirmDialog
-        open={withdrawDialogOpen}
-        onOpenChange={setWithdrawDialogOpen}
-        title="貸切リクエストを取り下げますか？"
-        message="店舗への申込を取り消し、貸切グループも閉じます。取り下げ後は元に戻せません。"
-        cancelLabel="やめる"
-        confirmLabel="取り下げる"
-        variant="destructive"
-        isLoading={withdrawMutation.isPending}
-        onConfirm={async () => {
-          await withdrawMutation.mutateAsync()
-        }}
       />
 
       <ParticipantCountDialog

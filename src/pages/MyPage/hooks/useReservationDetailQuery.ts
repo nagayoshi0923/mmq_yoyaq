@@ -309,18 +309,24 @@ export function useUpdateParticipantCountMutation(reservationId: string, schedul
   })
 }
 
-/** 申込中の貸切リクエスト（公演未確定）をお客様自身が取り下げる。予約とグループをまとめて取消する */
-export function useWithdrawPrivateRequestMutation(reservationId: string, onSuccess: () => void) {
+/**
+ * 申込中の貸切リクエスト（公演未確定）をお客様自身が取り下げる。
+ * keepGroup: グループは残して募集中へ戻す（候補日を直して申し込み直せる。2026-10-20 社長決定）。
+ * 省略時は従来どおり予約とグループをまとめて取消する（グループの無い直接申込もこちら）
+ */
+export function useWithdrawPrivateRequestMutation(reservationId: string, onSuccess: (detail: { groupKept: boolean }) => void) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: () => // 本人確認は DB 側が auth.uid() で行うため customer_id は不要
-      reservationApi.cancelWithGroupLock(reservationId, null, PRIVATE_REQUEST_WITHDRAWN_REASON),
-    onSuccess: async () => {
+    mutationFn: async ({ keepGroup = false }: { keepGroup?: boolean } = {}) => { // 本人確認は DB 側が auth.uid() で行うため customer_id は不要
+      await reservationApi.cancelWithGroupLock(reservationId, null, PRIVATE_REQUEST_WITHDRAWN_REASON, { keepGroup })
+      return { groupKept: keepGroup }
+    },
+    onSuccess: async (detail) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['mypage-data'] }),
         queryClient.invalidateQueries({ queryKey: reservationDetailKeys.detail(reservationId) }),
       ])
-      onSuccess()
+      onSuccess(detail)
     },
   })
 }
