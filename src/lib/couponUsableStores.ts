@@ -20,6 +20,9 @@ export function isCouponUsableStore(store: StoreCountSource): boolean {
   return !store.is_temporary && store.status !== 'inactive'
 }
 
+/** 対象店舗の指定があるのに店舗が読めないときの表示（「全店舗」にしない。監査 C1） */
+export const COUPON_USABLE_STORES_PENDING_LABEL = '利用できる店舗を確認中です'
+
 export interface CouponUsableStores {
   /** 「クインズワルツの全店舗（東京・埼玉）」／絞ったクーポンは「クインズワルツ（高田馬場店・大久保店）」 */
   label: string
@@ -38,10 +41,11 @@ export function couponUsableStores(
 ): CouponUsableStores {
   const org = organizationName?.trim() || '発行した店舗グループ'
   const nameOf = (store: CouponStoreSource) => storeDisplayName(store, { organizationName })
-  const targets = targetStoreIds && targetStoreIds.length > 0
-    ? stores.filter(store => targetStoreIds.includes(store.id))
-    : []
-  if (targets.length > 0) {
+  // 対象店舗の指定があるクーポンは「全店舗」にしない（監査 C1、2026-10-20）。
+  // 指定した店舗が一覧から読めない（未読込・削除済み・他組織）ときは「確認中」と出す。
+  if (targetStoreIds && targetStoreIds.length > 0) {
+    const targets = stores.filter(store => targetStoreIds.includes(store.id))
+    if (targets.length === 0) return { label: COUPON_USABLE_STORES_PENDING_LABEL, storeNames: [] }
     return { label: `${org}（${[...new Set(targets.map(nameOf))].join('・')}）`, storeNames: [] }
   }
   const usable = stores.filter(isCouponUsableStore)

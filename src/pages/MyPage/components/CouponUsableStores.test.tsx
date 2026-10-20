@@ -26,4 +26,9 @@ describe('クーポンの使える店舗', () => {
     expect(host.querySelector('button')).toBeNull()
     expect(host.textContent).toBe('使える店舗: クインズワルツ（高田馬場店）')
   })
+  it('対象店舗が読めないクーポンは「全店舗」と出さず確認中と出す（監査 C1）', async () => {
+    await act(async () => root.render(<CouponUsableStores label="利用できる店舗を確認中です" storeNames={[]} />))
+    expect(host.textContent).toBe('利用できる店舗を確認中です')
+    expect(host.textContent).not.toContain('全店舗')
+  })
 })

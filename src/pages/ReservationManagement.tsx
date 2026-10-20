@@ -28,6 +28,8 @@ import { devDb } from '@/components/ui/DevField'
 import { format, isPast } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 import { RESERVATION_SOURCE } from '@/lib/constants'
+import { useReservationCouponStatuses } from '@/components/schedule/modal/reservationList/useReservationCouponStatuses'
+import { couponDetail } from '@/components/schedule/modal/reservationList/reservationCoupons'
 
 // 支払い方法を日本語に変換
 const formatPaymentMethod = (method: string | null | undefined): string => {
@@ -59,6 +61,8 @@ const getReservationAlerts = (reservation: ReservationWithDetails) => {
 
 export function ReservationManagement() {
   const [selectedReservation, setSelectedReservation] = useState<ReservationWithDetails | null>(null)
+  // 詳細で開いた予約のクーポンと来店確認（お客様が来店時に「もぎる」を押したか）
+  const { data: selectedCouponStatuses } = useReservationCouponStatuses(selectedReservation ? [selectedReservation.id] : [])
   const navigate = useNavigate()
   const { organization } = useOrganization()
 
@@ -585,6 +589,14 @@ export function ReservationManagement() {
                         <div className="w-40 text-sm font-bold text-muted-foreground mb-1 sm:mb-0">お支払い</div>
                         <div className="flex-1 text-sm text-foreground">{formatPaymentMethod(selectedReservation.payment_method)}</div>
                       </div>
+                      {(selectedCouponStatuses ?? []).length > 0 && (
+                        <div className="py-4 flex flex-col sm:flex-row sm:items-center" data-testid="reservation-detail-coupon">
+                          <div className="w-40 text-sm font-bold text-muted-foreground mb-1 sm:mb-0">クーポン</div>
+                          <div className="flex-1 text-sm text-foreground space-y-1">
+                            {(selectedCouponStatuses ?? []).map(status => <p key={status.usage_id}>{couponDetail(status)}</p>)}
+                          </div>
+                        </div>
+                      )}
                       <div className="py-4 flex flex-col sm:flex-row sm:items-center">
                         <div className="w-40 text-sm font-bold text-muted-foreground mb-1 sm:mb-0">予約者名</div>
                         <div className="flex-1 text-sm text-foreground">{selectedReservation.customer_name}</div>

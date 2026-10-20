@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from '../db.js'
 import { CUSTOMER_COUPON_FIELDS, findCustomerByUserId } from './common.js'
 import { withUsableStoresLabel } from './usableStores.js'
+import { isMissingRedeemColumn } from './reservationCoupons.js'
 
 // =========================================
 // 顧客向け: 利用可能クーポン
@@ -14,9 +15,10 @@ type CouponWithRules = Record<string, unknown> & {
   rules_snapshot: { usage_valid_from?: string | null; usage_valid_until?: string | null } & Record<string, unknown> | null
 }
 type UsageStore = { name: string; short_name: string | null }
-type UsageReservation = { id: string; title: string | null; requested_datetime: string | null; store_id: string | null; stores?: UsageStore | UsageStore[] | null }
+type UsageReservation = { id: string; title: string | null; status?: string | null; requested_datetime: string | null; store_id: string | null; stores?: UsageStore | UsageStore[] | null }
 type CouponUsageRow = {
   id: string; customer_coupon_id: string; reservation_id: string | null; used_at: string | null; discount_amount: number | null
+  redeemed_at?: string | null; redeemed_source?: string | null
   reservations: UsageReservation | UsageReservation[] | null
 }
 
@@ -89,9 +91,8 @@ export async function handleAll(
   const couponIds = rows.map(c => c.id)
   if (couponIds.length === 0) return res.status(200).json(rows)
 
-  const { data: usageRows, error: usageError } = await database
-    .from('coupon_usages')
-    .select(`
+  // 来店確認（redeemed_*）の列は 20261020130000 で足した。適用前の DB では列なしで読み直す
+  const usageBase = `
       id,
       customer_coupon_id,
       reservation_id,
@@ -100,13 +101,25 @@ export async function handleAll(
       reservations (
         id,
         title,
+        status,
         requested_datetime,
         store_id,
         stores ( name, short_name )
       )
-    `)
+    `
+  let usageResult: { data: unknown[] | null; error: { code?: string; message: string } | null } = await database
+    .from('coupon_usages')
+    .select(`${usageBase}, redeemed_at, redeemed_source`)
     .in('customer_coupon_id', couponIds)
     .order('used_at', { ascending: false })
+  if (isMissingRedeemColumn(usageResult.error)) {
+    usageResult = await database
+      .from('coupon_usages')
+      .select(usageBase)
+      .in('customer_coupon_id', couponIds)
+      .order('used_at', { ascending: false })
+  }
+  const { data: usageRows, error: usageError } = usageResult
 
   if (usageError) {
     console.warn('[coupons:all] usages fetch failed:', usageError)
@@ -127,10 +140,13 @@ export async function handleAll(
       reservation_id: u.reservation_id,
       used_at: u.used_at,
       discount_amount: u.discount_amount,
+      redeemed_at: u.redeemed_at ?? null,
+      redeemed_source: u.redeemed_source ?? null,
       reservations: r
         ? {
             id: r.id,
             title: r.title,
+            status: r.status ?? null,
             requested_datetime: r.requested_datetime,
             store_id: r.store_id,
             stores: storeInfo ? { name: storeInfo.name, short_name: storeInfo.short_name } : null,

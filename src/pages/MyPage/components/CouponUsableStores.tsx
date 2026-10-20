@@ -4,6 +4,7 @@
  */
 import { useState } from 'react'
 import { ChevronDown, MapPin } from 'lucide-react'
+import { COUPON_USABLE_STORES_PENDING_LABEL } from '@/lib/couponUsableStores'
 
 interface CouponUsableStoresProps {
   label: string
@@ -17,7 +18,7 @@ export function CouponUsableStores({ label, storeNames }: CouponUsableStoresProp
     return (
       <p className="mt-2 flex items-start gap-1 ts-body text-foreground" data-testid="coupon-usable-stores">
         <MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
-        <span>使える店舗: {label}</span>
+        <span>{label === COUPON_USABLE_STORES_PENDING_LABEL ? label : `使える店舗: ${label}`}</span>
       </p>
     )
   }

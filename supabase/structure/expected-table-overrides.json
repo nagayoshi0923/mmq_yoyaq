@@ -4593,5 +4593,176 @@
     "type": "c"
    }
   ]
+ },
+ "coupon_usages": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "customer_coupon_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "reservation_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "discount_amount",
+    "type": "integer",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "used_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "redeemed_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "redeemed_by_member",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "redeemed_source",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE UNIQUE INDEX coupon_usages_pkey ON public.coupon_usages USING btree (id)",
+    "name": "coupon_usages_pkey"
+   },
+   {
+    "def": "CREATE INDEX idx_coupon_usages_coupon ON public.coupon_usages USING btree (customer_coupon_id)",
+    "name": "idx_coupon_usages_coupon"
+   },
+   {
+    "def": "CREATE INDEX idx_coupon_usages_reservation ON public.coupon_usages USING btree (reservation_id)",
+    "name": "idx_coupon_usages_reservation"
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "d",
+    "name": "coupon_usages_delete_staff_or_admin",
+    "check": null,
+    "roles": null,
+    "using": "is_staff_or_admin()",
+    "permissive": true
+   },
+   {
+    "cmd": "a",
+    "name": "coupon_usages_insert_customer",
+    "check": "(customer_coupon_id IN ( SELECT customer_coupons.id\n   FROM customer_coupons\n  WHERE (customer_coupons.customer_id IN ( SELECT customers.id\n           FROM customers\n          WHERE (customers.user_id = auth.uid())))))",
+    "roles": null,
+    "using": null,
+    "permissive": true
+   },
+   {
+    "cmd": "a",
+    "name": "coupon_usages_insert_via_rpc",
+    "check": "(EXISTS ( SELECT 1\n   FROM customer_coupons cc\n  WHERE (cc.id = coupon_usages.customer_coupon_id)))",
+    "roles": null,
+    "using": null,
+    "permissive": true
+   },
+   {
+    "cmd": "r",
+    "name": "coupon_usages_select",
+    "check": null,
+    "roles": null,
+    "using": "((customer_coupon_id IN ( SELECT customer_coupons.id\n   FROM customer_coupons\n  WHERE (customer_coupons.customer_id IN ( SELECT customers.id\n           FROM customers\n          WHERE (customers.user_id = auth.uid()))))) OR is_org_admin())",
+    "permissive": true
+   },
+   {
+    "cmd": "w",
+    "name": "coupon_usages_update_admin",
+    "check": "is_org_admin()",
+    "roles": null,
+    "using": "is_org_admin()",
+    "permissive": true
+   },
+   {
+    "cmd": "d",
+    "name": "org_scope_restrict_delete",
+    "check": null,
+    "roles": [
+     "authenticated"
+    ],
+    "using": "(( SELECT is_platform_master() AS is_platform_master) OR (EXISTS ( SELECT 1\n   FROM customer_coupons cc\n  WHERE ((cc.id = coupon_usages.customer_coupon_id) AND (cc.organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id))))))",
+    "permissive": false
+   },
+   {
+    "cmd": "w",
+    "name": "org_scope_restrict_update",
+    "check": "(( SELECT is_platform_master() AS is_platform_master) OR (EXISTS ( SELECT 1\n   FROM customer_coupons cc\n  WHERE ((cc.id = coupon_usages.customer_coupon_id) AND (cc.organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id))))))",
+    "roles": [
+     "authenticated"
+    ],
+    "using": "(( SELECT is_platform_master() AS is_platform_master) OR (EXISTS ( SELECT 1\n   FROM customer_coupons cc\n  WHERE ((cc.id = coupon_usages.customer_coupon_id) AND (cc.organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id))))))",
+    "permissive": false
+   }
+  ],
+  "triggers": [
+   {
+    "def": "CREATE TRIGGER enforce_coupon_performance_scope BEFORE INSERT OR UPDATE ON public.coupon_usages FOR EACH ROW EXECUTE FUNCTION enforce_coupon_performance_scope()",
+    "name": "enforce_coupon_performance_scope"
+   },
+   {
+    "def": "CREATE TRIGGER trigger_update_coupon_on_usage AFTER INSERT ON public.coupon_usages FOR EACH ROW EXECUTE FUNCTION update_customer_coupon_on_usage()",
+    "name": "trigger_update_coupon_on_usage"
+   }
+  ],
+  "constraints": [
+   {
+    "def": "FOREIGN KEY (customer_coupon_id) REFERENCES customer_coupons(id) ON DELETE CASCADE",
+    "name": "coupon_usages_customer_coupon_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((discount_amount > 0))",
+    "name": "coupon_usages_discount_amount_check",
+    "type": "c"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "coupon_usages_pkey",
+    "type": "p"
+   },
+   {
+    "def": "FOREIGN KEY (redeemed_by_member) REFERENCES customers(id) ON DELETE SET NULL",
+    "name": "coupon_usages_redeemed_by_member_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK (((redeemed_source IS NULL) OR (redeemed_source = ANY (ARRAY['customer_present'::text, 'venue_use'::text]))))",
+    "name": "coupon_usages_redeemed_source_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE",
+    "name": "coupon_usages_reservation_id_fkey",
+    "type": "f"
+   }
+  ]
  }
 }

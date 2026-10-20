@@ -2,6 +2,7 @@
  * マイページ - クーポン一覧ページ
  * 保有クーポンと使用履歴を表示
  * クーポンをタップしてもぎる機能付き
+ * 予約時に付けたクーポンは「この予約に適用済み」に出し、来店時に「もぎる（来店確認）」を押せる（社長決定 B、2026-10-20）
  */
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -9,8 +10,10 @@ import { previewCouponUse } from '@/lib/api/couponApi'
 import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle, Scissors } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CouponUsableStores } from '../components/CouponUsableStores'
+import { AppliedCouponsSection } from '../components/AppliedCouponsSection'
+import { listAppliedCoupons } from '../utils/appliedCoupons'
 import type { CustomerCoupon, CustomerCouponUsageWithReservation } from '@/types'
-import { useCouponsQuery, useCurrentReservationsQuery, useUseCouponMutation } from '../hooks/useCouponsQuery'
+import { useCouponsQuery, useCurrentReservationsQuery, useRedeemCouponUsageMutation, useUseCouponMutation } from '../hooks/useCouponsQuery'
 import { countUsableCoupons, getLastCouponUsedAt, isUsedCouponVisible, resolveCouponDisplayStatus } from '../utils/couponListVisibility'
 import { formatJstDateJa, formatJstDateTime } from '@/utils/jstDate'
 import { showToast } from '@/utils/toast'
@@ -61,6 +64,7 @@ export function CouponsPage() {
   const { data: coupons = [], isLoading: couponsLoading } = useCouponsQuery()
   const { data: currentReservations = [], isLoading: reservationsLoading, isError: reservationsError, refetch: reloadReservations } = useCurrentReservationsQuery()
   const useCouponMutation = useUseCouponMutation()
+  const redeemMutation = useRedeemCouponUsageMutation()
 
   const preview = useQuery({
     queryKey: ['coupon-use-preview', selectedCoupon?.coupon.id, selectedReservationId],
@@ -124,6 +128,7 @@ export function CouponsPage() {
   const usedCoupons = sortedCoupons.filter(c => isUsedCouponVisible(c, now))
 
   const totalAvailableCount = countUsableCoupons(coupons, now)
+  const appliedCoupons = listAppliedCoupons(coupons, now)
 
   const expandedActiveCoupons = activeCoupons.flatMap(coupon => {
     const cards: { coupon: CustomerCoupon; index: number; total: number }[] = []
@@ -177,6 +182,12 @@ export function CouponsPage() {
           利用条件を確認して、対象の予約に使用できます
         </p>
       </div>
+
+      <AppliedCouponsSection
+        cards={appliedCoupons}
+        onRedeem={usageId => redeemMutation.mutateAsync(usageId)}
+        redeeming={redeemMutation.isPending}
+      />
 
       {expandedActiveCoupons.length > 0 && (
         <div>
@@ -306,6 +317,7 @@ export function CouponsPage() {
                                 className="text-xs text-gray-600 leading-snug pl-2 border-l-2 border-gray-200"
                               >
                                 {formatCouponUsagePerformance(u)}
+                                {u.redeemed_at && <span className="ml-1 text-green-700">（来店時に確認済み）</span>}
                               </p>
                             ))}
                           </div>

@@ -23,4 +23,12 @@ describe('クーポンを使える店舗の表示', () => {
   it('店舗が読めないときは組織名だけ', () => {
     expect(couponUsableStores('クインズワルツ札幌店', []).label).toBe('クインズワルツ札幌店の店舗')
   })
+  it('対象店舗の指定があるのに一致する店舗が無いときは「全店舗」にせず「確認中」と出す（監査 C1）', () => {
+    expect(couponUsableStores('クインズワルツ', stores, ['zz'])).toEqual({ label: '利用できる店舗を確認中です', storeNames: [] })
+    expect(couponUsableStores('クインズワルツ', [], ['a'])).toEqual({ label: '利用できる店舗を確認中です', storeNames: [] })
+  })
+  it('対象指定が空配列・null なら全店舗として扱う', () => {
+    expect(couponUsableStores('クインズワルツ', stores, []).label).toBe('クインズワルツの全店舗（東京・埼玉）')
+    expect(couponUsableStores('クインズワルツ', stores, null).label).toBe('クインズワルツの全店舗（東京・埼玉）')
+  })
 })

@@ -1,3 +1,15 @@
+## 2026-10-20 / クーポンの「もぎる」を予約に適用済みのクーポンにも（社長決定 B）・限定クーポンの「全店舗」誤表示（fix/coupon-tear-and-usable-stores、staging 向け PR）
+
+- 1 もぎる（社長決定 B）: 予約時に付けたクーポンは予約確定で消費される（従来どおり）。来店時にマイページのクーポンを開いても一覧に無い／「使用済み」でスタッフが混乱していた。マイページのクーポン（`src/pages/MyPage/pages/CouponsPage.tsx`）と登録後のクーポン案内（`src/pages/CouponPresent.tsx`）に「この予約に適用済みのクーポン」を出す（当日〜30 日先の確定予約に付いた使用、`src/pages/MyPage/utils/appliedCoupons.ts`）。未確認なら「もぎる（来店確認）」→確認ダイアログ→「来店時に確認済み（時刻）」。消費は増やさない。
+- DB: migration `20261020130000_coupon_usage_redeem`（rollback 同名）。`coupon_usages` に `redeemed_at`・`redeemed_by_member`（customers.id）・`redeemed_source`（customer_present／venue_use）。RPC `redeem_coupon_usage(p_user, p_usage_id, p_source)`（service_role のみ。本人のクーポン・本人の予約〔貸切の参加メンバー含む、can_use_coupon_reservation〕・確定予約のときだけ。確認済みなら成功で何もしない）。API `POST /api/coupons?action=redeem-usage`。来店時にその場でもぎる従来の使用（action=use）は、使用に続けて venue_use で印を付ける（失敗しても使用は成功）。
+- スタッフ側: `GET /api/coupons?type=reservation-coupons`（requireStaff、自組織の予約だけ）。予約一覧の行に「クーポン 来店確認済み／未確認」、展開の予約台帳と予約管理の予約詳細に「クーポン名 ¥割引・来店確認済み（時刻）」。
+- 読み取りは来店確認の列が無い DB（migration 適用前）では列なしで読み直す（`isMissingRedeemColumn`）。
+- 説明: クーポン受付対応・クーポンの種類のマニュアル（コード内の既定と seedLegacyPages）に「予約時にクーポンを付けたお客さま」を追加。FAQ 貼り替え文にはもぎるの項目が無いので変更なし。
+- 2 C1: `couponUsableStores` が対象店舗の指定ありで一致 0 件のとき「全店舗」にしていた。指定あり／なしを先に分け、一致 0 件は「利用できる店舗を確認中です」（マイページでは「使える店舗:」を付けない）。
+- 構造の期待値: `supabase/structure/expected-function-overrides.json`（redeem_coupon_usage）と `expected-table-overrides.json`（coupon_usages）を手元の「基準＋変更」の写しから追加（`scripts/check-db-baseline.sh` 通過）。
+- 確認: vitest（API・マイページ・スケジュール・マニュアル 250 件）、`npm run verify`、`npm run test:coupon-redeem-db`（PGlite: 冪等・他人のクーポン・他人の予約・取消済み・貸切メンバー・権限・rollback）、既存 `test:coupon-rules-db`。手元（staging 接続、5186）で QA 会員 A にログイン。staging の QA 会員 A はクーポン 0 枚のため、画面の API 応答だけを差し替えて表示（375px・PC 幅、未確認・確認済み・確認ダイアログ）を確認。もぎるは押していない。
+- staging への migration 適用は発注者が行う。適用後に `supabase/structure/staging.json` を更新する。
+
 ## 2026-10-20 / 外部監査 R3（Discord 再送の 401）・R5（新規データを失わない戻し方）（fix/audit-r3-r5、staging 向け PR）
 
 - R3 原因: `check-performance-cancellation` が追加募集の後に `retry-discord-notifications` を `supabase.functions.invoke` で呼ぶとき、送るのは supabase-js の鍵（`sb_secret_...`）だけ。ゲートウェイが Authorization を自前の JWT に差し替える（ログの `sb_api_key_compatibility=minted`）ため、受け側の `isCronOrServiceRoleCall` は鍵の一致を確認できず 401。staging 24 時間で 133 回、本番でも 91 回（どちらも本文 25 バイト＝`{"only_recruitment":true}`）。5 分毎の cron（pg_net、`x-cron-secret`）は本番で 268 回すべて 200。

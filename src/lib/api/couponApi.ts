@@ -138,6 +138,47 @@ export async function useCoupon(
 }
 
 /**
+ * 予約に適用済みのクーポンを来店時に「もぎる」（来店確認の印を付ける。消費は予約時のまま）。
+ * 既に確認済みなら成功で何もしない。
+ */
+export async function redeemCouponUsage(
+  usageId: string
+): Promise<{ success: boolean; redeemed_at?: string; already_redeemed?: boolean; error?: string }> {
+  try {
+    return await apiClient.post<{ success: boolean; redeemed_at?: string; already_redeemed?: boolean; error?: string }>(
+      '/api/coupons?action=redeem-usage',
+      { usage_id: usageId }
+    )
+  } catch (err) {
+    logger.error('来店確認エラー:', err)
+    const message = err instanceof Error ? err.message : '来店確認を記録できませんでした'
+    return { success: false, error: message }
+  }
+}
+
+/** スタッフ向け: 予約に付いたクーポンと来店確認の状態 */
+export interface ReservationCouponStatus {
+  usage_id: string
+  reservation_id: string
+  discount_amount: number
+  campaign_name: string | null
+  used_at: string | null
+  redeemed_at: string | null
+  redeemed_source: string | null
+}
+
+export async function getReservationCouponStatuses(reservationIds: string[]): Promise<ReservationCouponStatus[]> {
+  if (reservationIds.length === 0) return []
+  try {
+    const params = new URLSearchParams({ type: 'reservation-coupons', reservation_ids: reservationIds.join(',') })
+    return await apiClient.get<ReservationCouponStatus[]>(`/api/coupons?${params}`)
+  } catch (err) {
+    logger.error('予約のクーポン取得エラー:', err)
+    return []
+  }
+}
+
+/**
  * 現在進行中の予約を取得（クーポン使用時の紐付け用）
  * 本日以降の対象の確定予約を返す。利用条件は使用前にサーバーで確認する。
  * 通常予約、貸切公演（参加メンバー含む）、スタッフ予約の全てに対応

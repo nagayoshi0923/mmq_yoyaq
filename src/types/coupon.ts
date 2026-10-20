@@ -51,9 +51,14 @@ export interface CustomerCouponUsageWithReservation {
   reservation_id: string
   used_at: string
   discount_amount: number
+  /** 来店時に「もぎる」を押した時刻（未確認は null。20261020130000 適用前の DB では来ない） */
+  redeemed_at?: string | null
+  /** customer_present=予約に適用済みを来店時に確認 / venue_use=来店時にその場で使用 */
+  redeemed_source?: string | null
   reservations?: {
     id: string
     title: string | null
+    status?: string | null
     requested_datetime: string
     store_id: string | null
     stores?: { name: string; short_name?: string | null } | null

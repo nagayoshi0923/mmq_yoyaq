@@ -31,6 +31,7 @@
     "db:reset": "npx supabase db reset --linked",
     "db:diff": "npx supabase db diff --schema public",
     "test:coupon-rules-db": "node scripts/test-coupon-rules-db.mjs",
+    "test:coupon-redeem-db": "node scripts/test-coupon-redeem-db.mjs",
     "test:participant-change-coupon-db": "node scripts/test-participant-change-coupon-db.mjs",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
