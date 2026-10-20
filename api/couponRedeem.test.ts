@@ -133,3 +133,29 @@ describe('スタッフ側: 予約のクーポンと来店確認', () => {
     expect(mock.from).not.toHaveBeenCalled()
   })
 })
+
+describe('マイページのクーポン一覧: 予約の埋め込みと読み込み失敗', () => {
+  const usageRow = { id: 'u1', customer_coupon_id: 'c1', reservation_id: 'r1', used_at: '2026-10-10T00:00:00Z', discount_amount: 500,
+    redeemed_at: null, redeemed_source: null,
+    reservations: { id: 'r1', title: '作品', status: 'confirmed', requested_datetime: '2026-10-20T04:00:00Z', store_id: 's', stores: null } }
+  it('予約の埋め込みは外部キー名を明示する（2 本の外部キーで PGRST201 にならない）', async () => {
+    const { selects } = seed({ customers: [{ data: [{ id: 'customer' }], error: null }], customer_coupons: [{ data: [{ id: 'c1', organization_id: null, coupon_campaigns: {}, rules_snapshot: {} }], error: null }], coupon_usages: [{ data: [usageRow], error: null }] })
+    await call({ method: 'GET', query: { type: 'all' } })
+    expect(selects.coupon_usages[0]).toContain('reservations!coupon_usages_reservation_id_fkey')
+  })
+  it('使用履歴を読めなかったときは理由を記録し、画面に coupon_usages_error を返す', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    seed({
+      customers: [{ data: [{ id: 'customer' }], error: null }],
+      customer_coupons: [{ data: [{ id: 'c1', organization_id: null, coupon_campaigns: {}, rules_snapshot: {} }], error: null }],
+      coupon_usages: [{ data: null, error: { code: 'PGRST201', message: 'Could not embed because more than one relationship was found' } }],
+    })
+    const r = await call({ method: 'GET', query: { type: 'all' } })
+    expect(r.status).toHaveBeenCalledWith(200)
+    const coupon = r.json.mock.calls[0][0][0]
+    expect(coupon.coupon_usages).toEqual([])
+    expect(coupon.coupon_usages_error).toBe(true)
+    expect(spy).toHaveBeenCalledWith('[coupons:all] usages fetch failed:', expect.objectContaining({ code: 'PGRST201' }))
+    spy.mockRestore()
+  })
+})

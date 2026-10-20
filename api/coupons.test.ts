@@ -187,7 +187,7 @@ describe('顧客管理のクーポン使用履歴', () => {
     ])
     expect(queries[0].select.mock.calls[0][0]).toContain('customer_coupons!inner')
     expect(queries[0].select.mock.calls[0][0]).toContain('coupon_campaigns!inner')
-    expect(queries[0].select.mock.calls[0][0]).toContain('reservation_id!inner')
+    expect(queries[0].select.mock.calls[0][0]).toContain('reservations!coupon_usages_reservation_id_fkey!inner')
     expect(r.json).toHaveBeenCalledWith([{ id: 'usage', discount_amount: 1000, used_at: null,
       reservation: { id: 'reservation', title: '作品', requested_datetime: null } }])
   })
