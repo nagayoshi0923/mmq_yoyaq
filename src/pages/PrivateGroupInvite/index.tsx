@@ -39,6 +39,7 @@ import { markPromptPending } from '@/lib/webPushSupport'
 import { useRequireCompleteProfile } from '@/hooks/useRequireCompleteProfile'
 import { clearGuestDeviceStorage, guestSessionStorageKey, useGuestDeviceState, type GuestResponseValue } from './guestDeviceState'
 import { groupInviteShareText } from '@/lib/shareTexts'
+import { inviteGateScreen } from './inviteScreenGate'
 
 interface Coupon {
   id: string
@@ -49,6 +50,9 @@ interface Coupon {
 }
 
 type ResponseValue = GuestResponseValue
+
+const GROUP_RECONNECTING_TEXT = '接続を確認しています。再試行します'
+const GROUP_RECONNECTING_TOAST_ID = 'private-group-reconnecting'
 
 export function PrivateGroupInvite() {
   const navigate = useNavigate()
@@ -67,7 +71,13 @@ export function PrivateGroupInvite() {
   const requireCompleteProfile = useRequireCompleteProfile()
   const queryClient = useQueryClient()
   const [existingMemberId, setExistingMemberId] = useState<string | null>(null)
-  const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus, linkedReservation, handover } = usePrivateGroupByInviteCode(code || null, existingMemberId)
+  const { group, loading: groupLoading, error: groupError, reconnecting: groupReconnecting, refetch, linkedReservationStatus, linkedReservation, handover } = usePrivateGroupByInviteCode(code || null, existingMemberId)
+  // 一時的な通信失敗では画面を切り替えず（開いているシートの入力を残す）、控えめに知らせて次の定期取得で読み直す（Codex 点検 不具合 3）
+  useEffect(() => {
+    if (!groupReconnecting) return
+    toast.message(GROUP_RECONNECTING_TEXT, { id: GROUP_RECONNECTING_TOAST_ID, duration: Infinity })
+    return () => { toast.dismiss(GROUP_RECONNECTING_TOAST_ID) }
+  }, [groupReconnecting])
   const { joinGroup, submitDateResponses, leaveGroup, loading: actionLoading } = usePrivateGroup()
   // group が宣言された後で呼ぶ（organization_id を参照するため）
   const { isCustomHoliday } = useCustomHolidays({ organizationId: group?.organization_id })
@@ -474,11 +484,12 @@ export function PrivateGroupInvite() {
 
   // 読み込み中の画面は、まだグループが無いときだけ。読み直し（送る直前の確認で候補日が変わった・保存の後など）で
   // 画面を作り直すと、開いているシートの入力（選んだ候補・店舗への連絡・電話番号・同意）が消える（2026-10-20 Codex staging 点検）
-  if (groupLoading && !group) {
+  const gate = inviteGateScreen({ loading: groupLoading, error: groupError, hasGroup: Boolean(group) })
+  if (gate === 'loading') {
     return <InviteLoadingScreen />
   }
 
-  if (groupError || !group) {
+  if (gate === 'not-found' || !group) {
     return <InviteNotFoundScreen onBackToTop={() => navigate('/')} />
   }
 

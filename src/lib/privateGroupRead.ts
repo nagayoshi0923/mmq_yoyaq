@@ -44,14 +44,29 @@ export interface PrivateGroupLinkedReservation {
   candidates: Array<{ date: string | null; startTime: string | null; endTime: string | null; timeSlot: string | null }>
   requested_store_names: string[]
 }
+/** グループが無い（RPC は成功したが中身が空）ときのコード */
+export const PRIVATE_GROUP_NOT_FOUND_CODE = 'PRIVATE_GROUP_NOT_FOUND'
+/** 見る権限が無い・ログイン切れ・グループが無いと分かるコード（private_group_read_snapshot は閲覧不可を 42501 で返す） */
+const ACCESS_LOST_CODES = new Set([PRIVATE_GROUP_NOT_FOUND_CODE, '42501', 'P0002', '22P02', 'PGRST301', 'PGRST302', 'PGRST303'])
+/**
+ * 読み込みの失敗が「権限が無い・ログイン切れ・グループが無い」と確定したものか。
+ * それ以外（通信の切断・5xx・時間切れ・原因不明）は一時的な失敗として扱い、直前の内容を残して読み直す（Codex 点検 不具合 3）。
+ */
+export function isPrivateGroupAccessLost(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false
+  const { code, status } = error as { code?: unknown; status?: unknown }
+  if (typeof status === 'number' && [401, 403, 404].includes(status)) return true
+  return typeof code === 'string' && ACCESS_LOST_CODES.has(code)
+}
 export async function readPrivateGroup(input: { groupId?: string | null; inviteCode?: string | null; memberId?: string | null }): Promise<PrivateGroupSnapshot> {
-  const { data, error } = await supabase.rpc('private_group_read_snapshot', {
+  const { data, error, status } = await supabase.rpc('private_group_read_snapshot', {
     p_group_id: input.groupId || null, p_invite_code: input.inviteCode || null,
     p_member_id: input.memberId || null,
     p_guest_token: input.groupId ? getPrivateGroupGuestToken(input.groupId) : null,
   })
-  if (error) throw error
-  if (!data?.group) throw new Error('グループを取得できませんでした')
+  // HTTP の状態（0 = 通信できなかった、5xx、401/403/404）で一時的な失敗かを見分けられるよう、エラーに付ける
+  if (error) throw Object.assign(error, { status })
+  if (!data?.group) throw Object.assign(new Error('グループを取得できませんでした'), { code: PRIVATE_GROUP_NOT_FOUND_CODE })
   const snapshot = data as PrivateGroupSnapshot
   return { ...snapshot, group: withoutWithdrawnCandidates(snapshot.group) }
 }

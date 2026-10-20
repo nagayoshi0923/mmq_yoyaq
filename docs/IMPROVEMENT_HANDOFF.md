@@ -1,3 +1,9 @@
+## 2026-10-21 / 通信エラーが一度起きると申込シートの入力が消える（fix/private-group-snapshot-transient-error、Codex 点検 不具合 3）
+
+- Codex の点検。`usePrivateGroupSnapshot` の読み直し（15 秒ごと・画面に戻ったとき）が 1 回でも失敗すると、catch で内容を消して「招待が見つかりません」に切り替わり、開いていた申込シートの入力（候補・人数・店舗への連絡・同意）が消えていた。
+- 直し: `src/lib/privateGroupRead.ts` の `isPrivateGroupAccessLost` で失敗を見分ける。401/403/404、RPC の 42501（閲覧不可）・PGRST301〜303（ログイン切れ）・P0002/22P02、中身が空（`PRIVATE_GROUP_NOT_FOUND`）だけを「権限が無い・グループが無い」とし、画面を切り替える。それ以外（通信の切断＝status 0・5xx・時間切れ 57014・原因不明）は、直前の内容を残して `reconnecting` を立て、画面上部の小さな通知（sonner）で「接続を確認しています。再試行します」を出す。次に読めたら消える。初回の読み込み失敗（残す内容が無い）は従来どおり。入口の切り替えは `PrivateGroupInvite/inviteScreenGate.ts` に切り出し。#1171 の入力保持はそのまま。
+- テスト: `BookingRequestSheet.refetchError.test.tsx`（実際の `usePrivateGroupSnapshot` を使い、1 回失敗→成功で入力が残る・5xx/時間切れでも切り替えない・403/401/404/空で切り替わる）、`usePrivateGroupSnapshot.test.tsx`、vitest 全件、`npm run verify`。
+
 ## 2026-10-20 / 「もぎる（来店確認）」の当日判定を公演の日付にそろえる（fix/coupon-redeem-event-date、staging 向け PR）
 
 - 不具合: #1166 の `redeem_coupon_usage` は `reservations.requested_datetime` の日本時間の日付で当日を判定していた。staging の過去 60 日の予約 1,070 件のうち 31 件は `requested_datetime` が予約を作った時刻（例 260919-8B88: 9/19 12:28、公演 10/11 13:00）で、公演当日に押しても断られる。夕方以降の公演も日本時間で翌日にずれうる。
