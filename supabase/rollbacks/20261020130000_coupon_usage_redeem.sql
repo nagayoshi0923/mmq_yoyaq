@@ -6,7 +6,13 @@
 --           （usage_id, redeemed_at, redeemed_by_member, redeemed_source, backed_up_at。印のある行だけ）
 --   ブラウザの役割（anon / authenticated）からは読めない。同じ日の退避が既にあれば止まり、何も消さない。
 --   当て直した後の書き戻しは docs/ops/本番公開の戻し方_2026-10.md の (b)。
+-- 退避を読む前に coupon_usages を ACCESS EXCLUSIVE で押さえ、列を消して COMMIT するまで離さない（2026-10-21、Codex 第 2 回再レビュー R2）。
+--   押さえないと、退避を読んだ後に確定した来店確認（実行中の「もぎる」）が退避されずに列ごと消える。
+--   実行中の更新があれば、それが確定するのを待ってから退避する。10 秒待っても押さえられなければ失敗し、何も変えない
+--   （そのときは時間をおいて流し直す）。押さえている間は使用履歴の読み書きが待たされる（退避と列の削除の数秒だけ）。
 BEGIN;
+SET LOCAL lock_timeout = '10s';
+LOCK TABLE public.coupon_usages IN ACCESS EXCLUSIVE MODE;
 CREATE SCHEMA IF NOT EXISTS rollback_backup;
 REVOKE ALL ON SCHEMA rollback_backup FROM PUBLIC, anon, authenticated;
 DO $backup$

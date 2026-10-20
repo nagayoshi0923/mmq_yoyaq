@@ -513,13 +513,14 @@
     "language": "plpgsql",
     "security_definer": true
   },
-  "claim_customer_notice_emails(p_limit integer)": {
+  "claim_customer_notice_emails(p_limit integer)": null,
+  "claim_customer_notice_emails(p_limit integer, p_only_ids uuid[])": {
     "acl": [
       "postgres=X/postgres",
       "service_role=X/postgres"
     ],
     "returns": "TABLE(id uuid, organization_id uuid, kind text, email_type text, to_email text, to_name text, subject text, body_text text, reply_to text, sender_name text)",
-    "body_md5": "5e3ed9675ff8f4f198fea5a4b800a3b5",
+    "body_md5": "2c937de7f542dca58c1c560c26acd77a",
     "language": "plpgsql",
     "security_definer": true
   },

@@ -1,3 +1,11 @@
+## 2026-10-21 / 公開前再チェック 2 の R1〜R3（限定メール試験の取り出し限定・来店確認の rollback の排他・店舗公開名の書き戻し）（fix/recheck2-r1-r3、staging 向け PR）
+
+- Codex 第 2 回再レビュー（`.runtime/MMQ_公開前再チェック2_結果_2026-10-21.md`）の R1〜R3。
+- R1［P1］限定メール試験が試験相手だけに限定されない: 手順書 (7) の「ほかの送信待ちを 1 時間延期 → 送信処理を非同期で呼ぶ → 延期を戻す」は、取り出しの遅れ・延期後の新規 pending・期限切れ sending で他のお客様にも送れた。取り出し段階で限定する方式に変更。migration `20261021120000_customer_notice_claim_only_ids`（同名 rollback）で `claim_customer_notice_emails(p_limit, p_only_ids uuid[] DEFAULT NULL)`（旧 `(integer)` は消して作り直し。引数なしは従来どおり、空配列は何も取り出さない）。Edge `process-customer-notice-emails` は本文 `{"only_ids":[...]}` を `_shared/customer-notice-only-ids.ts` で読み、壊れた本文・空・ID でないものは 400（全件送信に落とさない）。手順書は ID 指定で 1 回呼ぶ形に書き換え、延期の一括加減算をやめた。expected-function-overrides: 旧版 null、新版 `2c937de7f542dca58c1c560c26acd77a`。試験: `supabase/tests/customer_notice_claim_only_ids.sql`（他顧客の pending・後から積んだ pending・期限切れ sending があっても 1 行だけ、空配列 0 行、引数なしは従来どおり 3 行）、`customer-notice-only-ids.test.ts`（deno）。
+- R2［P1］来店確認の退避前に同時更新を排他していない: `supabase/rollbacks/20261020130000_coupon_usage_redeem.sql` の冒頭（BEGIN の直後）で `SET LOCAL lock_timeout = '10s'` と `LOCK TABLE public.coupon_usages IN ACCESS EXCLUSIVE MODE`。退避 → 列削除 → COMMIT まで保持。2 接続試験 `supabase/tests/coupon_redeem_rollback_race.sh`（`npm run test:coupon-rollback-race`、手元 DB 専用）: A が 5 件目を更新して 3 秒保持 → B はロック待ちに入り、A の確定後に 5 件退避。A が 15 秒保持 → B は 10 秒で 55P03 になり何も変えない。直す前の版を `ROLLBACK_FILE` で流すと退避 4 件で失敗する（Codex の再現と同じ）。
+- R3［P2］退避した店舗公開名を書き戻していない: 手順書 (b) の書き戻し SQL に 4b（店舗 ID と組織が一致し今が空の店だけ `stores.public_name` を戻す）と、来店確認・公開名の照合 SQL を追加。`supabase/tests/coupon_redeem_rollback_backup.sql` を 20261011210000 まで戻す流れに広げ、写す → 戻す → 当て直す → 書き戻しで値が戻ることを確認。
+- staging でやること: migration 20261021120000 の適用（md5 は上）、Edge `process-customer-notice-emails` の配備（staging への merge で deploy-supabase が配備）。本番は公開手順 (4)〜(7) に含まれる。
+
 ## 2026-10-21 / 管理画面のグループ一覧を先に出し、追加情報は後から埋める（perf/private-group-list-progressive、staging 向け PR）
 
 - Codex の点検（改善 6、P2）。貸切・予約 › グループ一覧は、グループ本体を 100 件ずつ全件取り、続けてアンケート設定・予約・履歴・公演・店舗を段階的に取り終えるまで「読み込み中」のままで、検索欄も出なかった（1,311 件の組織で再現）。
