@@ -45,10 +45,12 @@ interface BookingRequestSheetProps {
   onClose: () => void
   /** 送ったあと（シートを閉じてグループを読み直す） */
   onSubmitted: () => void
+  /** 送る直前に候補日の時刻が DB で変わっていた（シートは開いたまま、グループを読み直す） */
+  onCandidatesChanged?: () => void
 }
 
 export function BookingRequestSheet(props: BookingRequestSheetProps) {
-  const { group, myMemberId, user, scenarioTitle, playerRange, preferredStores, organizerMember, canMutateSchedule, isCustomHoliday, onClose, onSubmitted } = props
+  const { group, myMemberId, user, scenarioTitle, playerRange, preferredStores, organizerMember, canMutateSchedule, isCustomHoliday, onClose, onSubmitted, onCandidatesChanged } = props
   const table = useMemo(() => buildAnswerTable(group, myMemberId), [group, myMemberId])
   const candidates = useMemo(() => sheetCandidates(table, group.candidate_dates ?? []), [table, group.candidate_dates])
   const members = table.memberCount
@@ -136,7 +138,8 @@ export function BookingRequestSheet(props: BookingRequestSheetProps) {
     const ok = await submitGroupBookingRequest({
       group, user, isOrganizer: true, canMutateScheduleBeforeStoreReply: canMutateSchedule,
       orderedCandidateIds: order, bookingPhone: phone, bookingNotes: notes, requestedStores: sendStores, participantCount: count,
-      organizerMember, isCustomHoliday, setIsSubmittingBooking: setSubmitting,
+      organizerMember, setIsSubmittingBooking: setSubmitting,
+      onCandidateTimesChanged: () => { setStep('form'); onCandidatesChanged?.() },
     })
     if (ok) onSubmitted()
   }
