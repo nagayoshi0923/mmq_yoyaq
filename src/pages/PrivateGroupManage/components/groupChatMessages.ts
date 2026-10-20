@@ -6,7 +6,7 @@ import type { PrivateGroupMessage } from '@/types'
 
 export interface SystemMessage {
   type: 'system'
-  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'member_removed' | 'booking_requested' | 'booking_rejected' | 'booking_cancelled' | 'individual_notice' | 'performance_cancelled' | 'staff_message' | 'character_assignment' | 'character_method_selected' | 'organizer_handover' | 'date_answer_reminder' | 'next_group_created'
+  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'member_removed' | 'booking_requested' | 'booking_rejected' | 'booking_cancelled' | 'booking_withdrawn' | 'individual_notice' | 'performance_cancelled' | 'staff_message' | 'character_assignment' | 'character_method_selected' | 'organizer_handover' | 'date_answer_reminder' | 'next_group_created'
   count?: number
   dates?: Array<{ date: string; time_slot: string }>
   confirmedDate?: string
@@ -291,6 +291,9 @@ export function noticeLine(systemMsg: SystemMessage, authorMemberId: string | nu
       const detail = [systemMsg.body, systemMsg.rejectionReason].filter(Boolean).join('\n\n')
       return { kind, text: systemMsg.title || '店舗が日程をお受けできませんでした', notable: true, ...(detail ? expand('理由を見る', detail) : { link: { label: '日程を見る', target: 'dates' } }) }
     }
+    case 'booking_withdrawn':
+      // 申込だけ取り下げてグループを残した（withdraw_private_request_keep_group、2026-10-20）
+      return { kind, text: systemMsg.title || '申込を取り下げました。候補日を直してもう一度申し込めます' }
     case 'booking_cancelled':
       return { kind, text: systemMsg.title || '店舗が予約を取り消しました', link: { label: '概要を見る', target: 'overview' }, notable: true }
     case 'pre_reading_notice':

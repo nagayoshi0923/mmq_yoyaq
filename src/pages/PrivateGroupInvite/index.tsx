@@ -451,8 +451,9 @@ export function PrivateGroupInvite() {
   const { bookingPhase, bookingActions } = useGroupBookingActions({
     group, user, existingMember, linkedReservation, linkedReservationStatus, handover,
     joinedCount: joinedMembers.length, candidateCount: activeCandidateDates.length,
-    // 閉じる・取り下げ・キャンセル・抜けるのあとはグループ画面に居場所が無いのでマイページへ
-    onDone: () => navigate('/mypage?tab=reservations&sub=private'),
+    // 閉じる・取り下げ・キャンセル・抜けるのあとはグループ画面に居場所が無いのでマイページへ。
+    // 申込だけ取り下げてグループを残したときは、この画面のまま読み直す（候補日を直して申し込み直す段階に戻る）
+    onDone: ({ groupKept }) => (groupKept ? refetch() : navigate('/mypage?tab=reservations&sub=private')),
     onMembersChanged: () => refetch(),
   })
 

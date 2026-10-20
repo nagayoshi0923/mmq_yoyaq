@@ -136,10 +136,11 @@ export function privateBookingConfirmText(action: PrivateBookingDangerAction, im
         confirmLabel: 'グループを閉じる',
       }
     case 'withdraw':
+      // 取り下げはグループを残すか選ぶ専用のダイアログ（withdrawRequestText）。ここは閉じる場合の文面
       return {
-        title: '申込を取り下げますか？',
-        message: `店舗への申込を取り消し、グループも閉じます。${notifyText(impact.otherMembers)}日程確定前なのでキャンセル料はかかりません。取り下げは元に戻せません。`,
-        confirmLabel: '申込を取り下げる',
+        title: '申込を取り下げますか',
+        message: `店舗への申込を取り下げ、グループも閉じます。${notifyText(impact.otherMembers)}キャンセル料はかかりません。`,
+        confirmLabel: '取り下げてグループを閉じる',
       }
     case 'cancel': {
       const when = impact.confirmedDate ? `${formatJstMonthDay(impact.confirmedDate, true)}の` : ''
@@ -155,6 +156,35 @@ export function privateBookingConfirmText(action: PrivateBookingDangerAction, im
         message: `あなたの日程の回答は消え、このグループのチャットや日程は見られなくなります。参加メンバーは ${impact.otherMembers + 1} 名から ${impact.otherMembers} 名になります。${leaveStoreNotice(impact.phase)}`,
         confirmLabel: 'グループから抜ける',
       }
+  }
+}
+
+/** 申込の取り下げで、グループを残すか（既定）閉じるか（2026-10-20 社長決定） */
+export type WithdrawRequestMode = 'keep_group' | 'close_group'
+
+export interface WithdrawRequestText {
+  title: string
+  message: string
+  confirmLabel: string
+  options: Array<{ mode: WithdrawRequestMode; label: string; note: string }>
+}
+
+/**
+ * 「申込を取り下げる」のダイアログの文面（選んだ方で確定ボタンの文言が変わる）。
+ * グループの無い旧い貸切予約は選択肢を出さない（取り下げるだけ）。
+ */
+export function withdrawRequestText(mode: WithdrawRequestMode, impact: { hasGroup: boolean; otherMembers: number }): WithdrawRequestText {
+  if (!impact.hasGroup) {
+    return { title: '申込を取り下げますか', message: '店舗への申込を取り下げます。キャンセル料はかかりません。', confirmLabel: '申込を取り下げる', options: [] }
+  }
+  return {
+    title: '申込を取り下げますか',
+    message: '店舗への申込を取り下げます。キャンセル料はかかりません。',
+    confirmLabel: mode === 'keep_group' ? '申込を取り下げる' : '取り下げてグループを閉じる',
+    options: [
+      { mode: 'keep_group', label: '申込だけ取り下げる', note: 'グループは残します。候補日を直して、もう一度申し込めます' },
+      { mode: 'close_group', label: 'グループも閉じる', note: impact.otherMembers > 0 ? `メンバー ${impact.otherMembers} 名に知らせます。閉じたグループは元に戻せません` : 'メンバーに知らせます。閉じたグループは元に戻せません' },
+    ],
   }
 }
 

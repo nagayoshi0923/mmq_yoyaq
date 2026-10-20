@@ -27,6 +27,8 @@ export type NextActionKind =
   | 'pick_dates'
   | 'answer_dates'
   | 'proceed_booking'
+  // 申込だけ取り下げてグループを残した（2026-10-20 社長決定）。主催者が候補日を直して申し込み直す
+  | 'rebook'
   | 'waiting_store'
   | 'waiting_organizer'
   | 'upcoming'
@@ -42,6 +44,7 @@ const NEXT_ACTION_LABELS: Record<Exclude<NextActionKind, 'upcoming'>, string> = 
   pick_dates: '候補日を決める',
   answer_dates: '日程に回答する',
   proceed_booking: '申込に進む',
+  rebook: '候補日を直して申し込み直す',
   waiting_store: '店舗の返事待ち',
   waiting_organizer: '主催者の準備待ち',
   ended: '終了',
@@ -59,6 +62,7 @@ const SECTION_BY_ACTION: Record<NextActionKind, PrivateBookingSection> = {
   pick_dates: 'action',
   answer_dates: 'action',
   proceed_booking: 'action',
+  rebook: 'action',
   waiting_store: 'waiting_store',
   waiting_organizer: 'waiting_organizer',
   upcoming: 'confirmed',
@@ -251,7 +255,15 @@ export type GroupActionInput = Pick<PrivateGroupSummary, 'status' | 'schedule' |
 /** グループの「次にやること」と進み具合（優先順は NextActionKind の並び）。マイページのカードとグループ画面で共通 */
 export function decideGroupAction(
   group: GroupActionInput,
-  options: { todayYmd: string; surveyPending: boolean; transferPending?: boolean; ended?: boolean; casting?: CastingProgress | null },
+  options: {
+    todayYmd: string
+    surveyPending: boolean
+    transferPending?: boolean
+    ended?: boolean
+    casting?: CastingProgress | null
+    /** 申込だけ取り下げてグループを残した（募集中に戻り、紐づく申込は取消済み）。判定は rebookAfterWithdrawal */
+    rebook?: boolean
+  },
 ): GroupDecision {
   // 引き継ぎの同意待ちは最優先。進み具合はいまの状態のまま見せる
   if (options.transferPending) {
@@ -278,10 +290,20 @@ export function decideGroupAction(
   const candidates = group.candidate_dates_count
   const datesProgress = pre(candidates === 0 ? 1 : group.all_members_responded ? 3 : 2)
   if (group.is_organizer) {
-    return { action: candidates === 0 ? 'pick_dates' : 'proceed_booking', progress: datesProgress }
+    if (candidates === 0) return { action: 'pick_dates', progress: datesProgress }
+    return { action: options.rebook ? 'rebook' : 'proceed_booking', progress: datesProgress }
   }
   if (candidates > 0 && group.my_unanswered_count > 0) return { action: 'answer_dates', progress: datesProgress }
   return { action: 'waiting_organizer', progress: datesProgress }
+}
+
+/**
+ * 申込だけ取り下げてグループを残した状態か（マイページのカードとグループ画面の箱で共通）。
+ * グループを残す取り下げ（withdraw_private_request_keep_group）はグループを募集中（gathering）へ戻し、
+ * reservation_id は取消済みの申込を指したまま残す。店舗の却下後は日程調整中（date_adjusting）なので含めない。
+ */
+export function rebookAfterWithdrawal(group: { status: string; reservation_id?: string | null }, linkedReservationStatus: string | null | undefined): boolean {
+  return group.status === 'gathering' && Boolean(group.reservation_id) && linkedReservationStatus === 'cancelled'
 }
 
 /** 1 行の説明文（マイページのカードとグループ画面の「いまの状態」の箱で共通） */
@@ -320,6 +342,8 @@ export function groupDescription(group: GroupDescriptionInput, action: NextActio
       return `候補日 ${c} 件のうち ${group.my_unanswered_count} 件が未回答です。都合を回答してください`
     case 'proceed_booking':
       return `${group.all_members_responded ? `候補日 ${c} 件の回答がそろいました。` : `候補日 ${c} 件・参加 ${group.member_count} 人。`}店舗に送る候補日を選んで申し込みます。複数の候補日を送ると、店舗がその中から 1 つ確定します。`
+    case 'rebook':
+      return `申込を取り下げました。候補日を直して、もう一度店舗に申し込めます（候補日 ${c} 件・参加 ${group.member_count} 人）。`
     case 'waiting_store': {
       // 送った候補日の件数（グループに残っている候補日の件数ではない。2026-10-20 staging 点検）
       const sent = group.requested_candidates_count ?? c
@@ -352,6 +376,7 @@ function primaryOf(action: NextActionKind, base: string): PrivateBookingItem['pr
     case 'pick_dates':
       return { label: NEXT_ACTION_LABELS[action], href: base, inPlace: 'dates' }
     case 'proceed_booking':
+    case 'rebook':
       // グループ画面の申込シート（候補日を複数選んで優先順を付ける）。箱の主ボタンと同じ文言
       return { label: BOOK_ACTION_LABEL, href: `${base}?sheet=booking` }
     case 'answer_survey':
@@ -374,7 +399,8 @@ function fromGroup(
   options: { todayYmd: string; surveyPending: boolean; castingConfirmed: boolean; fallbackImage: string | null; linked: Reservation | undefined; stores?: StoreAddressMap },
 ): PrivateBookingItem {
   const casting = castingProgressOf(group.casting, options.castingConfirmed)
-  const { action, progress } = decideGroupAction(group, { ...options, casting, transferPending: group.handover?.isRecipient === true })
+  const rebook = rebookAfterWithdrawal(group, options.linked && options.linked.id === group.reservation_id ? options.linked.status : null)
+  const { action, progress } = decideGroupAction(group, { ...options, casting, rebook, transferPending: group.handover?.isRecipient === true })
   const base = `/group/invite/${group.invite_code}`
   // 元主催者（依頼した人）のカードは、節はそのままでラベルだけ「○○さんの同意待ち」にする
   const requested = group.handover && !group.handover.isRecipient ? group.handover : null

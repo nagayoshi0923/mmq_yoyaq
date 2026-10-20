@@ -169,7 +169,7 @@ export function PrivateGuidePage({ organizationSlug }: { organizationSlug?: stri
         <Body>
           店舗が候補日の中から 1 つを選んで確定すると、その日時が正式な公演の日時になります。メールとベルのお知らせで連絡します。店舗が申込を見送ったときは、理由と一緒にお知らせします。
         </Body>
-        <Annotation>店舗の返事を待つあいだは、主催者が「申込を取り下げる」ことができます（キャンセル料はかかりません）</Annotation>
+        <Annotation>店舗の返事を待つあいだは、主催者が「申込を取り下げる」ことができます（キャンセル料はかかりません）。グループを残して候補日を直し、もう一度申し込むこともできます</Annotation>
       </StepSection>
 
       <hr className="max-w-3xl mx-auto border-border" />
@@ -239,7 +239,7 @@ export function PrivateGuidePage({ organizationSlug }: { organizationSlug?: stri
         <SubStep n={3} title="やめるとき">
           <Bullets items={[
             '店舗に申し込む前: 「グループを閉じる」',
-            '店舗の返事待ちのあいだ: 「申込を取り下げる」（キャンセル料はかかりません）',
+            '店舗の返事待ちのあいだ: 「申込を取り下げる」（キャンセル料はかかりません）。グループを残すか閉じるかを選べます。残すと、候補日を直してもう一度申し込めます',
             '日程が確定したあと: 「キャンセル」',
           ]} />
           <Body>

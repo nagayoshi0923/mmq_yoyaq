@@ -6,6 +6,14 @@
 - 画面: `src/lib/privateBookingHorizon.ts` に日付計算と読み込み（`usePrivateBookingHorizonDays`）。公開カレンダー・リストは範囲より先の日にチップを出さず、範囲が月の途中で終わる月は「貸切の申込は今日から N 日先（M/D）までです」。申込ページは `?date=` が範囲より先なら理由を出して進めない。日時から選ぶ作品一覧も同じ。作品ページ（`MAX_FUTURE_DAYS`）・申込ページ（`CANDIDATE_HORIZON_DAYS`）・グループの候補日追加の固定 180 を設定値に。設定画面は 設定 › 貸切予約の受付締切（組織）・作品編集 › ゲーム設定（作品）・公演の個別設定 › 開催判断・準備（公演）。保存したら `private-booking-horizon-days` と `public-private-slots` を無効化して読み直す。変更は管理者だけ（既存の運営設定 API が admin／license_admin に限定）。
 - 確認: 手元 DB で migration 適用（2 回流しても同じ）・rollback で元の本文（md5）に戻ることを確認・R1〜R33・空き判定テスト・smoke 通過。vitest 全件、`npm run verify`、`check:private-booking-rules`。staging・本番への適用は発注者が行う。
 - 注意: 手元 DB に別の作業（public-pages の `20261020160000_private_group_photo_limit`）が `resolve_operating_setting` を上書きしていた（このキーを含んだ版）。両方が同じ関数を全文で置き換えるので、後から取り込む方でキーの一覧を合わせること。
+## 2026-10-20 / 申込の取り下げでグループを残すか選べる（fix/withdraw-request-keep-group-option、staging 向け PR）
+
+- 社長決定（2026-10-20）: 店舗の返事待ちの「申込を取り下げる」で、グループも必ず閉じていたため日程を変えて申し込み直せなかった。確認ダイアログ `WithdrawRequestDialog`（マイページの貸切カードの「操作」とグループページの ⋮ →「操作」・申込内容の箱で共通、`usePrivateBookingActions`）で「申込だけ取り下げる（既定）」／「グループも閉じる」を選ぶ。文面は `withdrawRequestText`。
+- 残す場合: `/api/reservations?action=cancel-with-group-lock` に `keep_group: true` → 新 RPC `withdraw_private_request_keep_group`（申込者本人かつ主催者・返事待ちのみ。グループを gathering へ戻してから申込を取消、候補日・回答は残す、チャットに `booking_withdrawn` の 1 行。二重実行は P0054）。閉じる場合は従来の `cancel_reservation_and_group_with_notice`。
+- 画面: 残した場合はグループページのまま読み直し、箱とマイページのカードは「候補日を直して申し込み直す」（`rebookAfterWithdrawal`、主ボタンは申込シート）。
+- お知らせ: 主催者のベル・控えのメールは「グループはそのまま」の文面（`customer_notice_on_reservation_cancelled`）、店舗の取り下げ通知に「グループは残っています」を 1 行（`enqueue_private_request_withdrawal`）。メンバーへのベル・メールは出さない。
+- migration `20261020140000_private_request_withdraw_keep_group`（rollback 同名）。expected-function-overrides は PGlite で適用した md5(prosrc)（旧版の md5 が一致することを確認済み）。DB テスト `scripts/test-private-request-withdraw-keep-group-db.mjs`（CI に追加）。
+- 確認: vitest 全件、`npm run verify`、DB テスト（残す・権限・二重実行・状態の食い違い・失敗時の巻き戻し・閉じる流れの文面・rollback→再適用）。手元（staging 接続、5187、375px）でダイアログの表示と選択の切り替え。staging に返事待ちの QA グループが無く書き込みもできないため、実データでの取り下げは migration 適用後に発注者が確認する。
 ## 2026-10-20 / クーポンの「もぎる」を予約に適用済みのクーポンにも（社長決定 B）・限定クーポンの「全店舗」誤表示（fix/coupon-tear-and-usable-stores、staging 向け PR）
 
 - 1 もぎる（社長決定 B）: 予約時に付けたクーポンは予約確定で消費される（従来どおり）。来店時にマイページのクーポンを開いても一覧に無い／「使用済み」でスタッフが混乱していた。マイページのクーポン（`src/pages/MyPage/pages/CouponsPage.tsx`）と登録後のクーポン案内（`src/pages/CouponPresent.tsx`）に「この予約に適用済みのクーポン」を出す（当日〜30 日先の確定予約に付いた使用、`src/pages/MyPage/utils/appliedCoupons.ts`）。未確認なら「もぎる（来店確認）」→確認ダイアログ→「来店時に確認済み（時刻）」。消費は増やさない。

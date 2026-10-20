@@ -348,7 +348,7 @@
       "service_role=X/postgres"
     ],
     "returns": "void",
-    "body_md5": "a2933a5af38103a5a00ea40b969d3cdb",
+    "body_md5": "12fe5111bbe614ed10e7deba05c4a6dc",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -629,7 +629,7 @@
       "service_role=X/postgres"
     ],
     "returns": "trigger",
-    "body_md5": "81c3618b663c355612831244fe2a4152",
+    "body_md5": "33cef1b8c42cd5b6cb674eab48b2bd91",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -1334,6 +1334,17 @@
     ],
     "returns": "jsonb",
     "body_md5": "1049534c83b9131319b3176dffac34d8",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "withdraw_private_request_keep_group(p_reservation_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "boolean",
+    "body_md5": "abd0079c694bc3b10022aa619285c90e",
     "language": "plpgsql",
     "security_definer": true
   }

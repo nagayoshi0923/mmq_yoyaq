@@ -27,10 +27,10 @@ beforeEach(() => {
   const query = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn(async () => ({ data: mock.row, error: null })) }
   query.select.mockReturnValue(query); query.eq.mockReturnValue(query); mock.from.mockReturnValue(query)
 })
-async function withdraw() {
+async function withdraw(extra: Record<string, unknown> = {}) {
   const res = { status: vi.fn(), json: vi.fn(), setHeader: vi.fn() }; res.status.mockReturnValue(res)
   await handler({ method: 'PATCH', headers: {}, query: { action: 'cancel-with-group-lock', id: 'reservation' },
-    body: { cancellation_reason: 'お客様による貸切申込の取り下げ' } } as unknown as VercelRequest, res as unknown as VercelResponse)
+    body: { cancellation_reason: 'お客様による貸切申込の取り下げ', ...extra } } as unknown as VercelRequest, res as unknown as VercelResponse)
   return res
 }
 
@@ -70,5 +70,29 @@ it('キャンセル自体が失敗したら通知を積まない', async () => {
   mock.userRpc.mockResolvedValue({ data: null, error: { code: '55P03', message: 'fixture' } })
   const res = await withdraw()
   expect(res.status).toHaveBeenCalledWith(409)
+  expect(mock.dbRpc).not.toHaveBeenCalled()
+})
+
+it('グループを閉じる取り下げ（既定）は従来の RPC を呼ぶ', async () => {
+  await withdraw()
+  expect(mock.userRpc).toHaveBeenCalledExactlyOnceWith('cancel_reservation_and_group_with_notice', expect.objectContaining({ p_reservation_id: 'reservation' }))
+})
+
+it('グループを残す取り下げは withdraw_private_request_keep_group を呼び、店舗への通知も積む', async () => {
+  const res = await withdraw({ keep_group: true })
+  expect(res.status).toHaveBeenCalledWith(200)
+  expect(mock.userRpc).toHaveBeenCalledExactlyOnceWith('withdraw_private_request_keep_group', { p_reservation_id: 'reservation' })
+  expect(mock.dbRpc).toHaveBeenCalledExactlyOnceWith('enqueue_private_request_withdrawal', { p_reservation_id: 'reservation' })
+})
+
+it.each([
+  ['P0054', 409, 'すでに取り下げ済み'],
+  ['P0055', 409, '返事待ちの申込ではない'],
+  ['P0009', 403, '主催者だけ'],
+])('グループを残す取り下げの失敗（%s）は理由を返し、通知を積まない', async (code, status, text) => {
+  mock.userRpc.mockResolvedValue({ data: null, error: { code, message: 'fixture' } })
+  const res = await withdraw({ keep_group: true })
+  expect(res.status).toHaveBeenCalledWith(status)
+  expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining(text) }))
   expect(mock.dbRpc).not.toHaveBeenCalled()
 })

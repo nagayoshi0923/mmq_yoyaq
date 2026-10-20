@@ -58,6 +58,7 @@ export async function handleCancelWithGroupLock(req: VercelRequest, res: VercelR
   const body = (req.body ?? {}) as Record<string, unknown>
   const customerId = body.customer_id as string | null | undefined
   const reason = (body.cancellation_reason as string | null | undefined) ?? null
+  const keepGroup = body.keep_group === true
 
   const own = await ensureReservationOwnedByOrg(id, user)
   if (!own.ok) return res.status(own.status).json({ error: own.error })
@@ -75,15 +76,18 @@ export async function handleCancelWithGroupLock(req: VercelRequest, res: VercelR
   if (!customerGate.ok) return res.status(customerGate.status).json({ error: customerGate.error })
 
   const userClient = createUserScopedClient(user.jwt)
-  const { data, error } = await userClient.rpc('cancel_reservation_and_group_with_notice', {
-    p_reservation_id: id,
-    p_customer_id: customerId ?? null,
-    p_cancellation_reason: reason,
-  })
+  // 返事待ちの申込の取り下げで「グループは残す」を選んだとき（2026-10-20 社長決定）。理由は DB 側で固定する
+  const { data, error } = keepGroup
+    ? await userClient.rpc('withdraw_private_request_keep_group', { p_reservation_id: id })
+    : await userClient.rpc('cancel_reservation_and_group_with_notice', {
+      p_reservation_id: id,
+      p_customer_id: customerId ?? null,
+      p_cancellation_reason: reason,
+    })
 
   if (error) {
     console.error('[reservations:cancel-with-group-lock] RPC error:', error)
-    const failure = groupCancellationError(error)
+    const failure = keepGroup ? withdrawKeepGroupError(error) : groupCancellationError(error)
     return res.status(failure.status).json({ error: failure.message, detail: error.message })
   }
   if (data !== true) {
@@ -94,6 +98,14 @@ export async function handleCancelWithGroupLock(req: VercelRequest, res: VercelR
   }
   const billingWarning = await recordBillingForCancellation(user, reservationForPolicy, requestReceivedAt)
   return res.status(200).json({ success: true, billingWarning })
+}
+
+// グループを残す取り下げの失敗理由（withdraw_private_request_keep_group）
+function withdrawKeepGroupError(error: { code?: string; message?: string } | null) {
+  if (error?.code === 'P0054') return { status: 409, message: 'この申込はすでに取り下げ済みです。画面を更新してください。' }
+  if (error?.code === 'P0055') return { status: 409, message: '店舗の返事待ちの申込ではないため、取り下げられません。画面を更新してください。' }
+  if (error?.code === 'P0009') return { status: 403, message: '申込を取り下げられるのは、申し込んだ主催者だけです。' }
+  return groupCancellationError(error)
 }
 
 const PENDING_PRIVATE_REQUEST_STATUSES = new Set(['pending', 'pending_gm', 'gm_confirmed', 'pending_store'])
