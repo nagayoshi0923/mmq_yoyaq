@@ -5,6 +5,7 @@
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
+import { rebookAfterWithdrawal } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingModel'
 import type { NavigateFunction } from 'react-router-dom'
 import { deleteGroupMessage, privateGroupChatAction } from '@/lib/privateGroupChat'
 import { saveNextGroupSource } from '@/lib/nextPrivateGroup'
@@ -193,6 +194,8 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
       ? { answered: casting.status?.answered_count ?? 0, total: casting.status?.target_count ?? 0 }
       : null,
     requestedCandidateCount: linkedReservation?.candidates.length || null,
+    // canMutateSchedule は「紐づく申込が無い、または取消済み」のときだけ true（rebookAfterWithdrawal と同じ判定）
+    rebook: rebookAfterWithdrawal(group, canMutateSchedule && group.reservation_id ? 'cancelled' : null),
   }), [group, bookingPhase, isOrganizer, organizerName, memberCount, table, existingMemberId, linkedReservation, survey, handover, canMutateSchedule, now, ended, isLoggedIn, casting.progress, casting.status])
 
   // 同じメンバーで次の貸切: もとのグループを覚えて作品選択へ。グループを作ったら招待がこのチャットに流れる

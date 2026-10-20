@@ -1,3 +1,11 @@
+## 2026-10-20 / 申込の取り下げでグループを残すか選べる（fix/withdraw-request-keep-group-option、staging 向け PR）
+
+- 社長決定（2026-10-20）: 店舗の返事待ちの「申込を取り下げる」で、グループも必ず閉じていたため日程を変えて申し込み直せなかった。確認ダイアログ `WithdrawRequestDialog`（マイページの貸切カードの「操作」とグループページの ⋮ →「操作」・申込内容の箱で共通、`usePrivateBookingActions`）で「申込だけ取り下げる（既定）」／「グループも閉じる」を選ぶ。文面は `withdrawRequestText`。
+- 残す場合: `/api/reservations?action=cancel-with-group-lock` に `keep_group: true` → 新 RPC `withdraw_private_request_keep_group`（申込者本人かつ主催者・返事待ちのみ。グループを gathering へ戻してから申込を取消、候補日・回答は残す、チャットに `booking_withdrawn` の 1 行。二重実行は P0054）。閉じる場合は従来の `cancel_reservation_and_group_with_notice`。
+- 画面: 残した場合はグループページのまま読み直し、箱とマイページのカードは「候補日を直して申し込み直す」（`rebookAfterWithdrawal`、主ボタンは申込シート）。
+- お知らせ: 主催者のベル・控えのメールは「グループはそのまま」の文面（`customer_notice_on_reservation_cancelled`）、店舗の取り下げ通知に「グループは残っています」を 1 行（`enqueue_private_request_withdrawal`）。メンバーへのベル・メールは出さない。
+- migration `20261020140000_private_request_withdraw_keep_group`（rollback 同名）。expected-function-overrides は PGlite で適用した md5(prosrc)（旧版の md5 が一致することを確認済み）。DB テスト `scripts/test-private-request-withdraw-keep-group-db.mjs`（CI に追加）。
+- 確認: vitest 全件、`npm run verify`、DB テスト（残す・権限・二重実行・状態の食い違い・失敗時の巻き戻し・閉じる流れの文面・rollback→再適用）。手元（staging 接続、5187、375px）でダイアログの表示と選択の切り替え。staging に返事待ちの QA グループが無く書き込みもできないため、実データでの取り下げは migration 適用後に発注者が確認する。
 ## 2026-10-20 / クーポンの「もぎる」を予約に適用済みのクーポンにも（社長決定 B）・限定クーポンの「全店舗」誤表示（fix/coupon-tear-and-usable-stores、staging 向け PR）
 
 - 1 もぎる（社長決定 B）: 予約時に付けたクーポンは予約確定で消費される（従来どおり）。来店時にマイページのクーポンを開いても一覧に無い／「使用済み」でスタッフが混乱していた。マイページのクーポン（`src/pages/MyPage/pages/CouponsPage.tsx`）と登録後のクーポン案内（`src/pages/CouponPresent.tsx`）に「この予約に適用済みのクーポン」を出す（当日〜30 日先の確定予約に付いた使用、`src/pages/MyPage/utils/appliedCoupons.ts`）。未確認なら「もぎる（来店確認）」→確認ダイアログ→「来店時に確認済み（時刻）」。消費は増やさない。

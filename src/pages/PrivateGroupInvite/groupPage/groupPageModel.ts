@@ -339,6 +339,8 @@ export interface GroupStatusInput {
   surveyAnswered?: { answered: number; total: number } | null
   /** 店舗へ送った候補日の件数（申込後。分からなければ null） */
   requestedCandidateCount?: number | null
+  /** 申込だけ取り下げてグループを残した（rebookAfterWithdrawal）。主催者の箱が「候補日を直して申し込み直す」になる */
+  rebook?: boolean
 }
 
 /** 確定後の状態名に合わせてグループの status を補う（予約の状態でグループ行の更新遅れを補う） */
@@ -371,6 +373,7 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
     transferPending: input.handover?.isRecipient === true,
     ended: input.ended === true,
     casting: input.casting ?? null,
+    rebook: input.rebook === true,
   })
   const requested = input.handover && !input.handover.isRecipient ? input.handover : null
   const chip = requested ? handoverWaitingLabel(requested) : labelOf(action, summary.schedule?.date)
@@ -443,6 +446,19 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
         secondary = [invite]
       }
       oneLine = [chip, answeredSub, best ? `${rowShortLabel(best)}が有力` : null].filter(Boolean).join('・')
+      break
+    case 'rebook':
+      // 申込だけ取り下げた（2026-10-20 社長決定）: 候補日を直して、同じ申込シートからもう一度申し込む
+      sub = answeredSub
+      if (input.canMutateSchedule) {
+        primary = { kind: 'book', label: BOOK_ACTION_LABEL }
+        secondary = [{ kind: 'edit_dates', label: '候補日を編集' }, invite]
+        barAction = primary
+        barLabel = '申し込む ›'
+      } else {
+        secondary = [invite]
+      }
+      oneLine = [chip, answeredSub].filter(Boolean).join('・')
       break
     case 'answer_dates':
       sub = answeredSub

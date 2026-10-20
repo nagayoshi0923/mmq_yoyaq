@@ -261,12 +261,14 @@ export const reservationApi = {
 
   // 予約 + 貸切グループを同一トランザクションでキャンセル（通常キャンセル専用）
   // 却下フロー（skipGroupCancel: true）では使わず、cancelWithLock を使い続けること
-  async cancelWithGroupLock(reservationId: string, customerId: string | null, reason?: string): Promise<boolean> {
+  // options.keepGroup: 返事待ちの貸切申込の取り下げで、グループを残す（募集中へ戻す。2026-10-20 社長決定）
+  async cancelWithGroupLock(reservationId: string, customerId: string | null, reason?: string, options: { keepGroup?: boolean } = {}): Promise<boolean> {
     await apiClient.patch<{ success: boolean }>(
       `/api/reservations?action=cancel-with-group-lock&id=${encodeURIComponent(reservationId)}`,
       {
         customer_id: customerId,
         cancellation_reason: reason ?? null,
+        ...(options.keepGroup ? { keep_group: true } : {}),
       }
     )
     return true
