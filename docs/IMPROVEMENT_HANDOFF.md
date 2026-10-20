@@ -1,3 +1,9 @@
+## 2026-10-21 / クーポンの当日判定が日本時間の 0 時をまたいでも切り替わらない（fix/coupon-jst-today-clock、staging 向け PR）
+
+- Codex の点検（不具合 4、P2）。マイページ › クーポンの「もぎる（来店確認）」は描画のたびに `new Date()` で当日を判定していたが、時刻の変化では再描画しないため、公演前日 23:59:59 に開いたまま 0 時を過ぎても無効のままだった（再読み込みで回復）。「この予約に使う」（#1169）も同じ。
+- 直し: 日本時間の「今日」（YYYY-MM-DD）を返す共通フック `src/hooks/useJstToday.ts` を追加。次の日本時間 0 時（+250ms）にタイマーで更新し、スリープ明けなどに備えて `visibilitychange`（表示に戻ったとき）・`focus` でも読み直す。常駐の定期処理は持たない。`AppliedCouponsSection`（もぎる）と `CouponsPage`（この予約に使う・候補の「公演当日に使えます」）の当日判定をこの時計にそろえた。`isPerformanceDay` は第 2 引数に YYYY-MM-DD も受ける。サーバー側の判定（`coupon_performance_day`）は変更なし。
+- テスト: `useJstToday.test.tsx`（0 時までの残り時間、23:59:59→00:00:01 で切り替わる、visibilitychange・focus で読み直す）、`AppliedCouponsSection.test.tsx`（開いたまま 0 時をまたぐと「もぎる」が押せる、画面復帰で切り替わる）、`CouponsPage.test.tsx`（0 時をまたいで画面に戻ると「この予約に使う」が押せ割引額の確認が走る）、vitest 全件、`npm run verify`。
+
 ## 2026-10-20 / 「もぎる（来店確認）」の当日判定を公演の日付にそろえる（fix/coupon-redeem-event-date、staging 向け PR）
 
 - 不具合: #1166 の `redeem_coupon_usage` は `reservations.requested_datetime` の日本時間の日付で当日を判定していた。staging の過去 60 日の予約 1,070 件のうち 31 件は `requested_datetime` が予約を作った時刻（例 260919-8B88: 9/19 12:28、公演 10/11 13:00）で、公演当日に押しても断られる。夕方以降の公演も日本時間で翌日にずれうる。

@@ -88,6 +88,28 @@ describe('この予約に適用済みのクーポン', () => {
   })
 })
 
+describe('開いたまま日本時間の 0 時をまたぐ', () => {
+  it('公演前日 23:59:59 に開き 00:00:01 になると「もぎる」が押せるようになる', async () => {
+    vi.useRealTimers(); vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-20T14:59:59Z')) // 2026-10-20 23:59:59 JST
+    const tomorrow = { ...card, startsAt: '2026-10-21T04:00:00Z', performanceDate: '2026-10-21' }
+    await act(async () => root.render(<AppliedCouponsSection cards={[tomorrow]} onRedeem={vi.fn()} redeeming={false} />))
+    expect(host.querySelector('[data-testid="applied-coupon-not-today"]')).not.toBeNull()
+    await act(async () => { vi.advanceTimersByTime(2000) })
+    expect(host.querySelector('[data-testid="applied-coupon-not-today"]')).toBeNull()
+    expect(buttonByText('もぎる（来店確認）')?.disabled).toBe(false)
+  })
+  it('スリープ明けで画面に戻ったとき（visibilitychange）にも切り替わる', async () => {
+    vi.useRealTimers(); vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-20T14:59:59Z'))
+    const tomorrow = { ...card, startsAt: '2026-10-21T04:00:00Z', performanceDate: '2026-10-21' }
+    await act(async () => root.render(<AppliedCouponsSection cards={[tomorrow]} onRedeem={vi.fn()} redeeming={false} />))
+    vi.setSystemTime(new Date('2026-10-20T15:00:01Z'))
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')) })
+    expect(buttonByText('もぎる（来店確認）')?.disabled).toBe(false)
+  })
+})
+
 describe('公演当日の判定（日本時間）', () => {
   it('日本時間の日付で比べる', () => {
     const now = new Date('2026-10-20T14:30:00Z') // 10/20 23:30 JST

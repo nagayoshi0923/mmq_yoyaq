@@ -70,6 +70,21 @@ describe('この予約に使う（予約後のクーポン使用）', () => {
     expect(mock.preview).not.toHaveBeenCalled()
   })
 
+  it('開いたまま日本時間の 0 時をまたいで画面に戻ると、当日になった予約に使えるようになる（もぎると同じ時計）', async () => {
+    vi.setSystemTime(new Date('2026-10-20T14:59:59Z')) // 2026-10-20 23:59:59 JST
+    mock.reservations = [reservation('tomorrow', '2026-10-21', '明日の公演')]
+    await openDialog()
+    expect(useButton()?.disabled).toBe(true)
+    vi.setSystemTime(new Date('2026-10-20T15:00:01Z')) // 2026-10-21 00:00:01 JST
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')) })
+    for (let i = 0; i < 20 && !host.textContent?.includes('今回の割引額'); i++) {
+      await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    }
+    expect(host.querySelector('[data-testid="coupon-use-not-today"]')).toBeNull()
+    expect(mock.preview).toHaveBeenCalledWith('coupon', 'tomorrow')
+    expect(useButton()?.disabled).toBe(false)
+  })
+
   it('候補が複数なら、当日でない予約にだけ使える日を添える', async () => {
     mock.reservations = [reservation('today', '2026-10-20', '今日の公演'), reservation('later', '2026-11-03', '先の公演')]
     await openDialog()

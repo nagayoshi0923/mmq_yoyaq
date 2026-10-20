@@ -17,6 +17,7 @@ import type { CustomerCoupon, CustomerCouponUsageWithReservation } from '@/types
 import { useCouponsQuery, useCurrentReservationsQuery, useRedeemCouponUsageMutation, useUseCouponMutation } from '../hooks/useCouponsQuery'
 import { countUsableCoupons, getLastCouponUsedAt, isUsedCouponVisible, resolveCouponDisplayStatus } from '../utils/couponListVisibility'
 import { formatJstDateJa, formatJstDateTime, formatJstMonthDay } from '@/utils/jstDate'
+import { useJstToday } from '@/hooks/useJstToday'
 import { showToast } from '@/utils/toast'
 
 function cleanScenarioTitleForCoupon(title?: string | null): string {
@@ -71,7 +72,9 @@ export function CouponsPage() {
 
   const selectedReservation = (currentReservations as CurrentReservation[]).find(r => r.id === selectedReservationId) ?? null
   // 予約後にクーポンを使うのは公演当日だけ。当日でなければ割引額の確認もしない（サーバーも同じ判定で断る）
-  const selectedNotToday = !!selectedReservation && !isPerformanceDay(selectedReservation.date)
+  // 「もぎる」と同じ日本時間の時計。開いたまま 0 時をまたいでも当日判定が切り替わる
+  const today = useJstToday()
+  const selectedNotToday = !!selectedReservation && !isPerformanceDay(selectedReservation.date, today)
 
   const preview = useQuery({
     queryKey: ['coupon-use-preview', selectedCoupon?.coupon.id, selectedReservationId],
@@ -439,7 +442,7 @@ export function CouponsPage() {
                             <p className="text-gray-600 text-xs mt-0.5">
                               {reservation.store_name} ｜ {formatJstDateJa(reservation.date)} {reservation.time}〜
                             </p>
-                            {!isPerformanceDay(reservation.date) && (
+                            {!isPerformanceDay(reservation.date, today) && (
                               <p className="text-xs text-muted-foreground mt-0.5">公演当日に使えます（{formatJstMonthDay(reservation.date)}）</p>
                             )}
                           </div>
