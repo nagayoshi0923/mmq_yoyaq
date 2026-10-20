@@ -5,6 +5,8 @@
 - R2［P1］来店確認の退避前に同時更新を排他していない: `supabase/rollbacks/20261020130000_coupon_usage_redeem.sql` の冒頭（BEGIN の直後）で `SET LOCAL lock_timeout = '10s'` と `LOCK TABLE public.coupon_usages IN ACCESS EXCLUSIVE MODE`。退避 → 列削除 → COMMIT まで保持。2 接続試験 `supabase/tests/coupon_redeem_rollback_race.sh`（`npm run test:coupon-rollback-race`、手元 DB 専用）: A が 5 件目を更新して 3 秒保持 → B はロック待ちに入り、A の確定後に 5 件退避。A が 15 秒保持 → B は 10 秒で 55P03 になり何も変えない。直す前の版を `ROLLBACK_FILE` で流すと退避 4 件で失敗する（Codex の再現と同じ）。
 - R3［P2］退避した店舗公開名を書き戻していない: 手順書 (b) の書き戻し SQL に 4b（店舗 ID と組織が一致し今が空の店だけ `stores.public_name` を戻す）と、来店確認・公開名の照合 SQL を追加。`supabase/tests/coupon_redeem_rollback_backup.sql` を 20261011210000 まで戻す流れに広げ、写す → 戻す → 当て直す → 書き戻しで値が戻ることを確認。
 - staging でやること: migration 20261021120000 の適用（md5 は上）、Edge `process-customer-notice-emails` の配備（staging への merge で deploy-supabase が配備）。本番は公開手順 (4)〜(7) に含まれる。
+- 第 3 回レビュー N2［P2］: 手順書 2 章 5 の構造照合の 1 行の式は、期待差分で null（消したはずの関数）を「無い」ことまで NG にしていた（理想の構造で A 3 件・B 4 件の偽 NG）。`scripts/check-function-overrides.mjs` に置き換え（null は残っていれば NG、それ以外は存在・本文 md5・権限）。理想の構造で A・B とも 0 件、使い捨て DB に実際に当てた構造でも A（4380f874 の期待差分）133 件・B 134 件 OK。旧 claim が残る・md5 違い・権限違いは NG になることも確認。
+- 第 3 回レビュー N3［P2］: 戻す一覧に本番 hotfix 済みの 20261020100000 が入っており、戻すと札幌店の平日朝の枠が復活した。手順書を「2 章の 0 で公開前の適用済み一覧と `private_booking_store_day_slots` の md5（c0bec3c1cd17722fe446b23745ce89b8）を保存 → (c) の 3 で基準に無い版だけを新しい順に戻す → 一覧と md5 が基準どおりか確認」に変更。戻す一覧は 29 本、1 章の表の 19 は「当てない・戻さない」。`scripts/test-release-rollback-scope.sh`（使い捨て DB、約 45 秒）: 基準＋公開分以外＋hotfix → 29 本を当てる → 29 本だけ戻す → 一覧が基準と同じ・md5 が c0bec… のまま。対照で 20261020100000 の rollback を流すと md5 が af118b02… に変わる。「30 本の往復が通った＝公開直前に戻る証明」とは書かない。
 
 ## 2026-10-21 / 受付範囲の取得待ちで候補追加カレンダーが 24 か月先へ進む（fix/recheck2-r5-candidate-month、Codex 第2回再レビュー R5）
 
