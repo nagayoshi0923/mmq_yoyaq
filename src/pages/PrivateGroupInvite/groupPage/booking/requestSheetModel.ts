@@ -28,7 +28,10 @@ export interface SheetCandidate {
   ng: number
   /** × の人がいる */
   hasNg: boolean
+  /** 開始・終了は DB（private_group_candidate_dates）が確定した値のまま（「13:00」。作品の所要時間から計算し直さない） */
   startTime: string
+  /** 終了（「18:00」。DB に無ければ空） */
+  endTime: string
 }
 
 /** DB の時間帯の書き方（午前・朝・morning など）をそろえる */
@@ -59,7 +62,10 @@ export function candidateNote(row: AnswerRow, columns: ReadonlyArray<AnswerColum
   return none.length ? `${none.join('・')}が未回答` : ''
 }
 
-/** 申込シートに並べる候補日（店舗が見送った日は除く。並びは回答表と同じ日付順） */
+/**
+ * 申込シートに並べる候補日（店舗が見送った日は除く。並びは回答表と同じ日付順）。
+ * 時刻は DB の候補日の開始・終了をそのまま出す（送信も同じ値。submitBookingRequest が送る直前に DB と突き合わせる）。
+ */
 export function sheetCandidates(
   table: AnswerTable,
   dates: ReadonlyArray<{ id: string; time_slot: string; end_time?: string | null }>,
@@ -79,6 +85,7 @@ export function sheetCandidates(
       ng: row.ng,
       hasNg: row.ng > 0,
       startTime: row.startTime,
+      endTime: end,
     }
   })
 }

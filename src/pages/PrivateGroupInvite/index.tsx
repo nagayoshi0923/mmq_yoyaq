@@ -625,6 +625,7 @@ export function PrivateGroupInvite() {
         isCustomHoliday={isCustomHoliday}
         onClose={closeSheet}
         onSubmitted={() => { closeSheetReplace(); void refetch() }}
+        onCandidatesChanged={() => { void refetch() }}
       />
     )
   }

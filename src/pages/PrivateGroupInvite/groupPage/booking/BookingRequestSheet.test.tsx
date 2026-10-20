@@ -44,7 +44,7 @@ async function render() {
   const host = document.createElement('div')
   document.body.appendChild(host)
   const root = createRoot(host)
-  const onClose = vi.fn(), onSubmitted = vi.fn()
+  const onClose = vi.fn(), onSubmitted = vi.fn(), onCandidatesChanged = vi.fn()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   await act(async () => root.render(
     <QueryClientProvider client={client}>
@@ -60,11 +60,12 @@ async function render() {
         isCustomHoliday={() => false}
         onClose={onClose}
         onSubmitted={onSubmitted}
+        onCandidatesChanged={onCandidatesChanged}
       />
     </QueryClientProvider>,
   ))
   await act(async () => { await new Promise(r => setTimeout(r, 0)) })
-  return { host, root, onClose, onSubmitted }
+  return { host, root, onClose, onSubmitted, onCandidatesChanged }
 }
 const rows = (host: HTMLElement) => [...host.querySelectorAll<HTMLElement>('[data-testid="request-candidate"]')]
 const click = async (el: Element | null | undefined) => { await act(async () => { (el as HTMLElement).click() }) }
@@ -137,5 +138,22 @@ it('作品の人数が固定なら選ばせず「参加人数 6 名（作品の�
     submit.mockResolvedValue(true)
     await click(host.querySelector('[data-testid="request-submit"]'))
     expect(submit.mock.calls[0][0].participantCount).toBe(6)
+  } finally { await act(async () => root.unmount()) }
+})
+
+it('送る直前に DB の候補日の時刻が変わっていたら、送らずに内容の選択へ戻してグループを読み直す', async () => {
+  const { host, root, onSubmitted, onCandidatesChanged } = await render()
+  try {
+    // 画面の時刻は DB の候補日の値のまま（所要時間から計算し直さない）
+    expect(rows(host)[0].textContent).toContain('13:00〜18:00')
+    await click(host.querySelector('[data-testid="request-next"]'))
+    await click(host.querySelector('#request-agree'))
+    submit.mockImplementation(async (ctx: { onCandidateTimesChanged?: () => void }) => { ctx.onCandidateTimesChanged?.(); return false })
+    await click(host.querySelector('[data-testid="request-submit"]'))
+    expect(submit.mock.calls[0][0]).not.toHaveProperty('isCustomHoliday')
+    expect(onCandidatesChanged).toHaveBeenCalledTimes(1)
+    expect(onSubmitted).not.toHaveBeenCalled()
+    expect(host.querySelector('[data-testid="request-confirm"]')).toBeNull()
+    expect(host.querySelector('[data-testid="request-next"]')).not.toBeNull()
   } finally { await act(async () => root.unmount()) }
 })
