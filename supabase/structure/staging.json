@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-20T14:22:08.027Z",
+  "captured_at": "2026-10-20T14:44:27.489Z",
   "table_count": 156,
-  "function_count": 440,
-  "digest": "55eca532423c42ab8953a4eb2c6610e8ab7a090864a8a57a1f8dec52643a3c7b"
+  "function_count": 441,
+  "digest": "e3595dfd37c152e7161c9b7f25048a6514ccb19e42a4093ebb2f41fef438adbc"
  },
  "tables": {
   "staff": {
@@ -28064,7 +28064,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "0250d560f15080401e0b2a9abc389cff",
+   "body_md5": "b3e2236054aa3ff2662a633cef642f3f",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28847,6 +28847,16 @@
    "body_md5": "92a83745723e331291a09a0347780e32",
    "language": "plpgsql",
    "security_definer": true
+  },
+  "coupon_performance_day(p_schedule_event_id uuid, p_requested_datetime timestamp with time zone)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "date",
+   "body_md5": "6f310d8517d6461d9f6a1929092bcf24",
+   "language": "sql",
+   "security_definer": false
   },
   "update_reservation_participants(p_reservation_id uuid, p_new_count integer, p_customer_id uuid)": {
    "acl": [
