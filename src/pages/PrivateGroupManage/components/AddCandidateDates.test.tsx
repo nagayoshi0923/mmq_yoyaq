@@ -3,6 +3,12 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { beforeEach, afterEach, expect, it, vi } from 'vitest'
 import { AddCandidateDates } from './AddCandidateDates'
+const HORIZON = vi.hoisted(() => ({ days: 180 }))
+vi.mock('@/lib/privateBookingHorizon', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/privateBookingHorizon')>()),
+  usePrivateBookingHorizonDays: () => ({ days: HORIZON.days, loading: false }),
+}))
+
 const mocks = vi.hoisted(() => ({ save: vi.fn(), toast: vi.fn(), holiday: vi.fn(), holidayState: { isCustomHoliday: () => false, isLoading: false, error: null as string | null } }))
 vi.mock('@/lib/privateGroupCandidateDates', () => ({ addPrivateGroupCandidates: mocks.save }))
 vi.mock('@/utils/logger', () => ({ logger: { error: vi.fn() } }))

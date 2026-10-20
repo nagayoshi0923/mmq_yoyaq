@@ -16,6 +16,7 @@ import {
   resolvePrivateBookingUrlPrefillSlot,
   slotParamToKey,
 } from '@/lib/privateBookingUrlPrefill'
+import { isBeyondPrivateBookingHorizon, privateBookingTooFarText, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
 
 interface TimeSlot {
   label: string
@@ -78,6 +79,10 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
   }
   
   const date = formatDate(dateParam)
+  // 申し込める範囲（今日から N 日先まで。MMQ 既定 180 → 組織 → 作品の設定。I21）。
+  // カレンダー・リストの「貸切申込」から渡る ?date= がこれより先なら、理由を出して申込フォームへ進めない（2026-10-20 本番 #1140）
+  const horizon = usePrivateBookingHorizonDays({ organizationId: scenario?.organization_id ?? null, scenarioId: scenario?.id ?? null })
+  const dateTooFar = Boolean(date) && isBeyondPrivateBookingHorizon(date, horizon.days)
   const urlSlotPrefillKey = `${scenarioId}|${date}|${storeId}|${slotParam}|${timeParam}`
 
   useEffect(() => {
@@ -256,7 +261,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     navigate(bookingBasePath)
   }
 
-  if (loading) {
+  if (loading || (scenario?.organization_id && !scenario.__privateBookingBlocked && date && horizon.loading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">読み込み中...</p>
@@ -273,6 +278,25 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
               ? 'このシナリオは現在貸切リクエストを受け付けていません'
               : 'シナリオが見つかりません'}
           </p>
+          <button
+            onClick={handleBack}
+            className="text-primary hover:underline"
+          >
+            戻る
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (dateTooFar) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="text-center space-y-4" role="alert">
+          <p className="text-muted-foreground">
+            選んだ日（{date}）には貸切を申し込めません。{privateBookingTooFarText(horizon.days)}。
+          </p>
+          <p className="text-sm text-muted-foreground">カレンダーに戻り、{horizon.days} 日先までの日付を選び直してください。</p>
           <button
             onClick={handleBack}
             className="text-primary hover:underline"

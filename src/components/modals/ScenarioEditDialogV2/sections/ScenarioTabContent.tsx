@@ -6,7 +6,7 @@ import { EmailSettings } from '@/pages/Settings/pages/EmailSettings'
 import { CancellationSettings } from '@/pages/Settings/pages/CancellationSettings'
 import { OperatingTextSettings } from '@/components/settings/OperatingTextSettings'
 import { OperatingScalarSettings } from '@/components/settings/OperatingScalarSettings'
-import { OPERATION_SETTING_KEYS, PAYMENT_SETTING_FIELDS } from '@/components/settings/operatingSettingFields'
+import { OPERATION_SETTING_KEYS, PAYMENT_SETTING_FIELDS, PRIVATE_BOOKING_HORIZON_SETTING_KEYS } from '@/components/settings/operatingSettingFields'
 import { PrivateBookingDeadlineSection } from '@/components/settings/PrivateBookingDeadlineSection'
 import { RecruitmentSettingsSection } from './RecruitmentSettingsSection'
 import { BookingCutoffSection } from './BookingCutoffSection'
@@ -46,7 +46,7 @@ export function ScenarioTabContent({ tabId, formData, setFormData, scenarioId, c
     case 'basic':
       return <BasicInfoSectionV2 formData={formData} setFormData={setFormData} scenarioId={scenarioId} onDelete={canDeleteScenario ? handleDelete : undefined} />
     case 'game':
-      return <div className="space-y-3"><GameInfoSectionV2 formData={formData} setFormData={setFormData} /><OperatingScalarSettings scope="scenario" targetId={currentOrgScenarioId} keys={OPERATION_SETTING_KEYS} title="開催判断・準備時間・クーポン" /><RecruitmentSettingsSection masterId={currentMasterId} minimumPlayers={formData.player_count_min} /><BookingCutoffSection masterId={currentMasterId} /><PrivateBookingDeadlineSection masterId={currentMasterId} /></div>
+      return <div className="space-y-3"><GameInfoSectionV2 formData={formData} setFormData={setFormData} /><OperatingScalarSettings scope="scenario" targetId={currentOrgScenarioId} keys={OPERATION_SETTING_KEYS} title="開催判断・準備時間・クーポン" /><RecruitmentSettingsSection masterId={currentMasterId} minimumPlayers={formData.player_count_min} /><BookingCutoffSection masterId={currentMasterId} /><PrivateBookingDeadlineSection masterId={currentMasterId} /><OperatingScalarSettings scope="scenario" targetId={currentOrgScenarioId} keys={PRIVATE_BOOKING_HORIZON_SETTING_KEYS} title="貸切を受け付ける範囲" /></div>
     case 'characters':
       return <CharactersSectionV2 formData={formData} setFormData={setFormData} />
     case 'pricing':

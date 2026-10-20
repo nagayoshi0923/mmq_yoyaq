@@ -2,6 +2,12 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+const HORIZON = vi.hoisted(() => ({ days: 180 }))
+vi.mock('@/lib/privateBookingHorizon', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/privateBookingHorizon')>()),
+  usePrivateBookingHorizonDays: () => ({ days: HORIZON.days, loading: false }),
+}))
+
 const mocks = vi.hoisted(() => ({ scenario: vi.fn(), stores: vi.fn(), rpc: vi.fn(), from: vi.fn(), holiday: () => false }))
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }))
 vi.mock('@/hooks/useOrganization', () => ({ useOrganization: () => ({ organization: { id: 'org', slug: 'test' } }) }))
@@ -45,4 +51,25 @@ it('貸切受付停止作品はフォームを開かない', async () => {
   await render()
   expect(host.querySelector('output')).toBeNull()
   expect(host.textContent).toContain('現在貸切リクエストを受け付けていません')
+})
+it('カレンダーから渡った日付が申し込める範囲（今日から 180 日先）より先なら、理由を出して申込フォームへ進めない', async () => {
+  window.history.replaceState({}, '', `/test/private-booking-request?scenario=${scenarioId}&store=${storeId}&date=2099-01-05&slot=evening&time=19:00`)
+  await render()
+  expect(host.querySelector('output')).toBeNull()
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain('申し込めるのは今日から 180 日先までです')
+})
+it('設定が 90 日なら、91 日先の日付は進めず 90 日先は進める', async () => {
+  const { privateBookingHorizonMaxYmd, addYmdDays } = await import('@/lib/privateBookingHorizon')
+  HORIZON.days = 90
+  try {
+    const day90 = privateBookingHorizonMaxYmd(90)
+    window.history.replaceState({}, '', `/test/private-booking-request?scenario=${scenarioId}&store=${storeId}&date=${addYmdDays(day90, 1)}&slot=evening&time=19:00`)
+    await render()
+    expect(host.querySelector('output')).toBeNull()
+    expect(host.textContent).toContain('申し込めるのは今日から 90 日先までです')
+    await act(async () => root.unmount()); root = createRoot(host)
+    window.history.replaceState({}, '', `/test/private-booking-request?scenario=${scenarioId}&store=${storeId}&date=${day90}&slot=evening&time=19:00`)
+    await render()
+    expect(host.querySelector('output')).not.toBeNull()
+  } finally { HORIZON.days = 180 }
 })

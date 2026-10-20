@@ -2,6 +2,12 @@
 import {act} from 'react'
 import {createRoot,type Root} from 'react-dom/client'
 import {afterEach,expect,it,vi} from 'vitest'
+const HORIZON = vi.hoisted(() => ({ days: 180 }))
+vi.mock('@/lib/privateBookingHorizon', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/privateBookingHorizon')>()),
+  usePrivateBookingHorizonDays: () => ({ days: HORIZON.days, loading: false }),
+}))
+
 const m=vi.hoisted(()=>({state:{availability:{slotsByDate:{},unavailableReasons:{}} as {slotsByDate:Record<string,unknown[]>;unavailableReasons:Record<string,string>},loading:false,ready:true,error:null,reload:()=>{}},target:vi.fn(),warning:vi.fn(),save:vi.fn()}))
 vi.mock('@/hooks/useUserPreference',()=>({usePrivateBookingStorePreference:()=>[['store'],m.save],useStoreFilterPreference:()=>[[]]}))
 vi.mock('@/hooks/useCandidateSlotAvailability',()=>({useCandidateSlotAvailability:(target:unknown)=>{m.target(target);return m.state}}))
