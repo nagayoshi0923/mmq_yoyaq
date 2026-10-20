@@ -11,6 +11,8 @@ import { EmailConfirmDialog } from './reservationList/dialogs/EmailConfirmDialog
 import { SendEmailDialog } from './reservationList/dialogs/SendEmailDialog'
 import { AddParticipantSection } from './reservationList/AddParticipantSection'
 import { ReservationRow } from './reservationList/ReservationRow'
+import { useReservationCouponStatuses } from './reservationList/useReservationCouponStatuses'
+import { groupCouponStatusesByReservation } from './reservationList/reservationCoupons'
 import type { NewParticipant } from './reservationList/newParticipant'
 import { EMPTY_CANCELLATION_EMAIL_STATE, type ReservationCancellationEmailState } from './reservationList/cancellationEmailState'
 import { showToast } from '@/utils/toast'
@@ -69,6 +71,9 @@ export function ReservationList({
     onParticipantChange,
     onLocalParticipantUpdate,
   })
+  // 予約に付いたクーポンの来店確認（お客様がマイページで「もぎる」を押したか）
+  const { data: couponStatusRows } = useReservationCouponStatuses(reservations.map(r => r.id))
+  const couponStatusesByReservation = groupCouponStatusesByReservation(couponStatusRows)
   const [expandedReservation, setExpandedReservation] = useState<string | null>(null)
   const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set())
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
@@ -462,6 +467,7 @@ export function ReservationList({
                       handleUpdateReservationStatus={handleUpdateReservationStatus}
                       handleToggleArrivedLate={handleToggleArrivedLate}
                       onParticipantChange={onParticipantChange}
+                      couponStatuses={couponStatusesByReservation.get(reservation.id)}
                     />
                   ))}
                 </div>

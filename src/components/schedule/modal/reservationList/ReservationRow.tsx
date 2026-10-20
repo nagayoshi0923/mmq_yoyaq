@@ -25,6 +25,8 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import type { Staff as StaffType, Scenario, Store, Reservation, Customer } from '@/types'
 import type { ScheduleEvent } from '@/types/schedule'
+import type { ReservationCouponStatus } from '@/lib/api/couponApi'
+import { couponBadge, couponDetail } from './reservationCoupons'
 
 // 予約台帳の支払表示用ラベル（AddParticipantSection の選択肢と表記を揃える）
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
@@ -55,6 +57,8 @@ interface ReservationRowProps {
   handleUpdateReservationStatus: (reservationId: string, newStatus: Reservation['status']) => void
   handleToggleArrivedLate: (reservationId: string, value: boolean) => void
   onParticipantChange?: (eventId: string, newCount: number) => void
+  /** この予約に付いたクーポンと来店確認の状態 */
+  couponStatuses?: ReservationCouponStatus[]
 }
 
 export function ReservationRow({
@@ -73,6 +77,7 @@ export function ReservationRow({
   handleUpdateReservationStatus,
   handleToggleArrivedLate,
   onParticipantChange,
+  couponStatuses,
 }: ReservationRowProps) {
                     const isExpanded = expandedReservation === reservation.id
                     const isLast = index === reservations.length - 1
@@ -168,6 +173,19 @@ export function ReservationRow({
                                   貸切
                                 </span>
                               )}
+                              {/* クーポンの来店確認（予約時に適用済みのクーポンを、お客様が来店時に「もぎる」で確認したか） */}
+                              {(() => {
+                                const badge = couponBadge(couponStatuses)
+                                if (!badge) return null
+                                return (
+                                  <span
+                                    data-testid="reservation-coupon-badge"
+                                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${badge.redeemed ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-700 border-gray-200'}`}
+                                  >
+                                    {badge.label}
+                                  </span>
+                                )
+                              })()}
                               {/* スタッフ参加バッジ */}
                               {!isCancelled && (reservation.payment_method === 'staff' ||
                                 (STAFF_RESERVATION_SOURCES as readonly string[]).includes(reservation.reservation_source ?? '')) && (
@@ -563,6 +581,12 @@ export function ReservationRow({
                                       <span className="text-xs text-muted-foreground w-20 shrink-0">支払</span>
                                       <span className="text-xs">{paymentLabel}</span>
                                     </div>
+                                    {(couponStatuses ?? []).map(status => (
+                                      <div key={status.usage_id} className="flex items-baseline gap-2 col-span-2" data-testid="reservation-coupon-detail">
+                                        <span className="text-xs text-muted-foreground w-20 shrink-0">クーポン</span>
+                                        <span className="text-xs">{couponDetail(status)}</span>
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
                               )
