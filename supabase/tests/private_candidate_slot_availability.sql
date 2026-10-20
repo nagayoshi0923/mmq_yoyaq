@@ -2,6 +2,8 @@
 -- 保存 RPC（private_group_add_candidate_dates）が同じ結論になることを確かめる。手元の試験データ（supabase/seed.sql）を使い、最後に戻す。
 -- 実行: psql "$(npx supabase status --output json | jq -r .DB_URL)" -v ON_ERROR_STOP=1 -f supabase/tests/private_candidate_slot_availability.sql
 BEGIN;
+-- 試験用の主催者とグループ（seed だけの新しい DB でも通るよう、無ければ作る。最後の ROLLBACK で消える）
+\ir fixtures/private_test_group.sql
 DO $$
 DECLARE
  org uuid:='00000000-0000-4000-a000-000000000001';

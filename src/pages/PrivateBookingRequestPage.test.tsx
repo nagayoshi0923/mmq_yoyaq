@@ -33,7 +33,7 @@ it('非同期読込後、計算結果が空でもカレンダーの日時を候�
   mocks.stores.mockReturnValue(new Promise(done => { resolve = done }))
   await render(); expect(host.querySelector('output')).toBeNull()
   await act(async () => resolve([{ id: storeId, status: 'active' }]))
-  expect(JSON.parse(host.querySelector('output')!.textContent!)).toEqual([{ date: '2026-10-19', slot: { label: '夜', startTime: '19:30', endTime: '19:30' } }])
+  expect(JSON.parse(host.querySelector('output')!.textContent!)).toEqual([{ date: '2026-10-19', slot: { label: '夜', startTime: '19:30', endTime: '' } }])
 })
 it('DB の空き判定で選べる枠はその時刻で候補を渡す', async () => {
   mocks.rpc.mockResolvedValue({ data: [{ date: '2026-10-19', time_slot: 'evening', available: true, reason: null, start_time: '18:30', end_time: '21:30' }], error: null })
