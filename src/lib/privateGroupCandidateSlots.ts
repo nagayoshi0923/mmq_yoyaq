@@ -200,6 +200,7 @@ function buildSlotsFromDayConfig(
   }
 
   const eveningEndCap = parseCloseToMinutes(dayHours.close_time)
+  const openMin = typeof dayHours.open_time === 'string' && dayHours.open_time.includes(':') ? timeToMinutes(dayHours.open_time) : 0
 
   const out: PerStoreSlot[] = []
   const order: ('morning' | 'afternoon' | 'evening')[] = ['morning', 'afternoon', 'evening']
@@ -209,7 +210,8 @@ function buildSlotsFromDayConfig(
 
     const slotEnd = options?.respectConfiguredHours ? Math.min(eveningEndCap, SLOT_END_LIMITS[key]) : key === 'evening' ? eveningEndCap : SLOT_END_LIMITS[key]
 
-    const startMin = options?.respectConfiguredHours ? Math.max(startMinutes[key], dayHours.open_time ? timeToMinutes(dayHours.open_time) : 0) : startMinutes[key]
+    // 枠の開始は開店時刻より前にしない（全経路。DB の private_booking_store_day_slots と同じ。2026-10-21 issue #1200）
+    const startMin = Math.max(startMinutes[key], openMin)
     if (startMin >= slotEnd) continue
 
     out.push({

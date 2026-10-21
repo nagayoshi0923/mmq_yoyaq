@@ -1,3 +1,12 @@
+## 2026-10-21 / 貸切の枠の開始を店舗の開店時刻より前にしない（issue #1200「平日に午前枠が出る」、fix/issue1200-slot-start-open-time、staging 向け PR・未マージ）
+
+- 報告: 作品ページの貸切タブで 2026/12/1〜4（平日）に午前 10:00〜13:30 が選べる（店舗・作品・環境は投稿者も不明）。調査資料は Vault `.runtime/issue1200_平日午前枠_調査_2026-10-21.md`。
+- 原因（設定と経路の食い違い）: 本番のクインズワルツ 7 店は平日「開店 13:00・朝も有効・朝の開始 10:00」。DB `private_booking_store_day_slots` は朝の開始時刻の設定を開店時刻より優先して朝 10:00 を返し（作品ページ・候補日追加・保存）、画面の公開トップ入口（`respectConfiguredHours`）だけが開店 13:00 で朝を落としていた。#1136 は「設定に無い朝・夜の強制追加」を外した変更で、東京側の朝の有無は前後で同じ。
+- 直し: 規則 I1・I3 を「どの枠も開始は開店時刻より前にしない（開始 = max(標準開始, 開店)。枠の終わり以上なら `closed`）」に改め、DB（migration `20261021150000_slot_start_not_before_open_time`、rollback 同名）と画面 `buildSlotsFromDayConfig`（全経路）をそろえた。作品の開始時刻（I11）が開店前の枠は、開店時刻へずらさず `closed`（`private_booking_slot_store_fit`。作品の開始時刻は絶対の社長決定と同じ扱い）。合成（営業設定なし）・`available_slots`・特別営業日は変更なし。例 R30 を改め R37〜R43 を追加。
+- 影響（要判断）: staging の読み取りでは、クインズワルツの公開中・貸切受付中の作品のうち 2 作品が平日の開始時刻を開店前（朝 09:00／朝 10:00・昼 12:00）にしており、平日の朝・昼 12:00 が選べなくなる。本番の件数は未確認（本番に接続していない）。開店前の平日朝の候補が残っているグループは、店舗への申込で弾かれ、希望店舗の変更で外れる（行は消さない）。
+- 試験: 手元の使い捨て DB（基準＋migration、外部送信なし）で test:rpcs 全 12 本、修正前の関数では R30・R43 が失敗。架空店舗（平日 開店 13:00・朝 10:00 有効）で 12/1〜4 の朝が修正前は 10:00〜13:30、修正後は `closed`、昼・夜・土曜は変わらず。関数 md5: `private_booking_store_day_slots` c09aff1056693628d0f42def9100cae7、`private_booking_slot_store_fit` 09494708afb77da74261d3e1ea6f92ed（rollback で c0bec3c1… / 92d6516a… に戻ることも確認）。vitest 全件、`npm run verify`、check:private-booking-rules、check:migration-rollbacks。
+- 残り: staging へ migration 適用 → `node scripts/db-structure-snapshot.mjs staging --write` で staging.json 更新 → 本番は社長判断（上の影響を確認のうえ）。
+
 ## 2026-10-21 / 公開前再チェック 2 の R1〜R3（限定メール試験の取り出し限定・来店確認の rollback の排他・店舗公開名の書き戻し）（fix/recheck2-r1-r3、staging 向け PR）
 
 - Codex 第 2 回再レビュー（`.runtime/MMQ_公開前再チェック2_結果_2026-10-21.md`）の R1〜R3。

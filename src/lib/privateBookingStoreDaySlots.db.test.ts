@@ -32,6 +32,13 @@ const cases: { name: string; row: BusinessHoursSettingRow | undefined }[] = [
   { name: '平日朝を無効', row: { ...base, opening_hours: Object.fromEntries(days.map(day => [day, ['saturday', 'sunday'].includes(day)
     ? { is_open: true, open_time: '09:00', close_time: '23:00', available_slots: ['morning', 'afternoon', 'evening'] as ('morning' | 'afternoon' | 'evening')[], slot_start_times: { morning: '10:00', afternoon: '14:00', evening: '19:00' } }
     : { is_open: true, open_time: '13:00', close_time: '23:00', available_slots: ['afternoon', 'evening'] as ('morning' | 'afternoon' | 'evening')[], slot_start_times: { morning: '10:00', afternoon: '13:00', evening: '19:00' } }])) } },
+  // issue #1200（2026-10-21）: 開店 13:00 で朝も有効・朝の開始 10:00 の平日は朝を返さない（開始を開店より前にしない）。土日（開店 09:00）は朝あり
+  { name: '開店13時で朝の開始10時が残る平日', row: { ...base, opening_hours: Object.fromEntries(days.map(day => [day, ['saturday', 'sunday'].includes(day)
+    ? { is_open: true, open_time: '09:00', close_time: '23:00', available_slots: ['morning', 'afternoon', 'evening'] as ('morning' | 'afternoon' | 'evening')[], slot_start_times: { morning: '10:00', afternoon: '14:00', evening: '19:00' } }
+    : { is_open: true, open_time: '13:00', close_time: '23:00', available_slots: ['afternoon', 'evening', 'morning'] as ('morning' | 'afternoon' | 'evening')[], slot_start_times: { morning: '10:00', afternoon: '13:00', evening: '19:00' } }])) } },
+  // 開店 11:00 なら朝は 11:00 から（朝の開始 10:00 より開店が優先）。開店 20:00 なら夜も 20:00 から
+  { name: '開店11時で朝を短縮', row: { ...base, opening_hours: Object.fromEntries(days.map(day => [day, { is_open: true, open_time: '11:00', close_time: '23:00', available_slots: ['morning', 'afternoon', 'evening'] as ('morning' | 'afternoon' | 'evening')[], slot_start_times: { morning: '10:00', afternoon: '13:00', evening: '19:00' } }])) } },
+  { name: '開店20時は夜だけ', row: { ...base, opening_hours: Object.fromEntries(days.map(day => [day, { is_open: true, open_time: '20:00', close_time: '23:00', available_slots: ['morning', 'afternoon', 'evening'] as ('morning' | 'afternoon' | 'evening')[], slot_start_times: { morning: '10:00', afternoon: '13:00', evening: '19:00' } }])) } },
   { name: '深夜閉店は23時まで', row: { ...base, opening_hours: Object.fromEntries(days.map(day => [day, { ...open, close_time: '23:59' }])) } },
 ]
 const dates = ['2026-09-27', '2026-09-28', '2026-10-03', '2026-10-12']
@@ -56,6 +63,17 @@ describe('保存側の営業枠と既存画面の一致', () => {
       }
     })
   }
+  it('開店 13:00 の平日は朝を返さず、昼 13:00・夜 19:00 から（issue #1200）', () => {
+    const row = cases.find(c => c.name === '開店13時で朝の開始10時が残る平日')!.row
+    // 2026-12-01（火）は平日、2026-12-05（土）は土曜
+    expect(getPerStoreSlotsForDate('2026-12-01', row, () => false, { allowSyntheticWhenMissingRow: false })?.map(s => [s.key, s.startMin]))
+      .toEqual([['afternoon', 780], ['evening', 1140]])
+    expect(getPerStoreSlotsForDate('2026-12-05', row, () => false, { allowSyntheticWhenMissingRow: false })?.map(s => [s.key, s.startMin]))
+      .toEqual([['morning', 600], ['afternoon', 840], ['evening', 1140]])
+    // 公開トップの入口（respectConfiguredHours）と作品ページ・候補追加の経路で同じ
+    expect(getPerStoreSlotsForDate('2026-12-01', row, () => false, { allowSyntheticWhenMissingRow: false, respectConfiguredHours: true })?.map(s => s.key))
+      .toEqual(['afternoon', 'evening'])
+  })
   it('ブラウザから内部ヘルパーを直接呼べない', async () => {
     await db.exec('SET ROLE authenticated')
     try {

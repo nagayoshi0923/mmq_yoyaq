@@ -2,6 +2,8 @@
 -- 祝日判定は呼出側が組織の独自休日と日本の祝日を合わせて渡す。
 -- 店舗の曜日設定の available_slots に無い枠は返さない（2026-10-20: 札幌店の平日朝。以前は朝・夜を常に足していた）。
 -- 営業設定が無い店舗（合成）と available_slots が空の日は 3 枠とも有効。営業中の範囲は「有効な枠のうち最初の枠の開始〜閉店」。
+-- 枠の開始は開店時刻（open_time）より前にしない（2026-10-21 issue #1200: 開店 13:00 で朝の開始 10:00 が設定に残る店舗の平日朝）。
+-- 開始が枠の終わり（朝 13:00・昼 19:00・夜 閉店）以上になった枠は返さない（closed）。合成は対象外。
 CREATE OR REPLACE FUNCTION public.private_booking_store_day_slots(
  p_date date, p_hours jsonb, p_is_holiday boolean, p_allow_missing boolean
 ) RETURNS TABLE(slot_key text,start_minutes integer,end_minutes integer,closing_minutes integer)
@@ -64,6 +66,9 @@ BEGIN
   IF key='morning' AND NOT synthetic AND NOT explicit_morning AND position(':' IN opening_time)>0
    AND opening_time::time<'13:00'::time THEN
    start_minutes:=extract(hour FROM opening_time::time)::integer*60+extract(minute FROM opening_time::time)::integer;
+  END IF;
+  IF NOT synthetic AND coalesce(position(':' IN opening_time),0)>0 THEN
+   start_minutes:=greatest(start_minutes,extract(hour FROM opening_time::time)::integer*60+extract(minute FROM opening_time::time)::integer);
   END IF;
   end_minutes:=CASE key WHEN 'morning' THEN 780 WHEN 'afternoon' THEN 1140 ELSE close_minutes END;
   IF start_minutes<end_minutes THEN slot_key:=key; closing_minutes:=close_minutes; RETURN NEXT; END IF;

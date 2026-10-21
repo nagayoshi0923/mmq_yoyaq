@@ -1270,7 +1270,7 @@
       "service_role=X/postgres"
     ],
     "returns": "TABLE(store_id uuid, start_min integer, standard_min integer, fits boolean, why text, gap_minutes integer, fixed boolean, minutes integer)",
-    "body_md5": "92d6516a85fc622250bcc462c921f957",
+    "body_md5": "09494708afb77da74261d3e1ea6f92ed",
     "language": "plpgsql",
     "security_definer": false
   },
@@ -1280,7 +1280,7 @@
       "service_role=X/postgres"
     ],
     "returns": "TABLE(slot_key text, start_minutes integer, end_minutes integer, closing_minutes integer)",
-    "body_md5": "c0bec3c1cd17722fe446b23745ce89b8",
+    "body_md5": "c09aff1056693628d0f42def9100cae7",
     "language": "plpgsql",
     "security_definer": false
   },
@@ -1395,7 +1395,7 @@
       "service_role=X/postgres"
     ],
     "returns": "TABLE(slot_key text, start_minutes integer, end_minutes integer, closing_minutes integer)",
-    "body_md5": "c0bec3c1cd17722fe446b23745ce89b8",
+    "body_md5": "c09aff1056693628d0f42def9100cae7",
     "language": "plpgsql",
     "security_definer": false
   }
