@@ -319,8 +319,16 @@ export function useEventSave({
         // - 違う入力の未確定の要求: 先に DB で照合する。作成済みなら新しく作らずに知らせる。未作成なら DB がその要求を
         //   取消済みにする（遅れて届いても作らない）ので、確定として消してから通常の新規作成へ進む。照合できなければ作らない
         const requestFingerprint = JSON.stringify(eventData)
-        const { data: sessionData } = await supabase.auth.getSession()
-        const pendingUserId = sessionData?.session?.user?.id ?? 'unknown-user'
+        // 未確定の要求は利用者ごとに覚えるので、利用者を確認できないときは作成を始めない
+        // （仮の利用者として覚えると、ログイン状態が戻った後に照合できない。Codex 再レビュー a649ec3 の 2）
+        let pendingUserId: string | undefined
+        try {
+          const { data: sessionData } = await supabase.auth.getSession()
+          pendingUserId = sessionData?.session?.user?.id
+        } catch { pendingUserId = undefined }
+        if (!pendingUserId) {
+          throw new ApiClientError(401, 'ログイン状態を確認できなかったため、保存していません。画面を再読み込みしてから、もう一度保存してください')
+        }
         let reusedPending = false
         let clientRequestId: string = crypto.randomUUID()
         for (const pendingCreate of listPendingEventCreates(organizationId, pendingUserId)) {

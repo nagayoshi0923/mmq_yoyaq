@@ -8,7 +8,7 @@
  *       取消済みにしたうえで NULL を返す（以後、遅れて届いても作らない）
  * 同じ要求 ID で送り直したときの失敗（店舗確認などの前処理の失敗を含む）は、前回の要求が未作成である証拠にならないので消さない。
  *
- * 保存先: この端末のブラウザの localStorage（組織＋利用者ごと、要求 ID ごとに複数件。複数タブでの別々の結果不明も上書きしない）。
+ * 保存先: この端末のブラウザの localStorage（組織＋利用者ごと、要求 ID ごとに別のキー。複数タブでの別々の結果不明も上書きしない）。
  * localStorage に書けない（非公開ウィンドウ・容量超過等）ときは、この画面のメモリだけで覚える。その場合、再読み込みや画面を閉じた後は照合できない。
  * 別の端末・別のブラウザとは共有しない。
  */
@@ -23,7 +23,9 @@ export type PendingEventCreate = {
 
 const memory = new Map<string, PendingEventCreate[]>()
 const scopeKey = (organizationId: string, userId: string) => `${organizationId}:${userId}`
-const storageKey = (organizationId: string, userId: string) => `mmq:pending-event-create:${scopeKey(organizationId, userId)}`
+// 要求 ID ごとに別のキーへ書く。読んで足して書き戻す形にすると、複数タブで同時に書いたとき後の書き込みが
+// 他のタブの要求を消す（Codex 再レビュー a649ec3 の 1）。各タブは自分の要求のキーだけを書き・消す。
+const keyPrefix = (organizationId: string, userId: string) => `mmq:pending-event-create:${scopeKey(organizationId, userId)}:`
 
 function isEntry(value: unknown): value is PendingEventCreate {
   const v = value as Partial<PendingEventCreate> | null
@@ -32,10 +34,17 @@ function isEntry(value: unknown): value is PendingEventCreate {
 
 function readStored(organizationId: string, userId: string): PendingEventCreate[] | null {
   try {
-    const raw = localStorage.getItem(storageKey(organizationId, userId))
-    if (raw === null) return []
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed.filter(isEntry).map(e => ({ ...e, summary: String(e.summary ?? ''), at: String(e.at ?? '') })) : []
+    const prefix = keyPrefix(organizationId, userId)
+    const entries: PendingEventCreate[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key || !key.startsWith(prefix)) continue
+      try {
+        const parsed = JSON.parse(localStorage.getItem(key) ?? 'null')
+        if (isEntry(parsed) && key === prefix + parsed.requestId) entries.push({ ...parsed, summary: String(parsed.summary ?? ''), at: String(parsed.at ?? '') })
+      } catch { /* 壊れた記録は読み飛ばす */ }
+    }
+    return entries.sort((a, b) => a.at.localeCompare(b.at))
   } catch {
     return null
   }
@@ -56,9 +65,7 @@ export function addPendingEventCreate(organizationId: string, userId: string, pe
   const inMemory = (memory.get(key) ?? []).filter(e => e.requestId !== pending.requestId)
   memory.set(key, [...inMemory, pending])
   try {
-    const stored = readStored(organizationId, userId)
-    if (stored === null) return false
-    localStorage.setItem(storageKey(organizationId, userId), JSON.stringify([...stored.filter(e => e.requestId !== pending.requestId), pending]))
+    localStorage.setItem(keyPrefix(organizationId, userId) + pending.requestId, JSON.stringify(pending))
     return true
   } catch {
     return false
@@ -69,13 +76,7 @@ export function addPendingEventCreate(organizationId: string, userId: string, pe
 export function removePendingEventCreate(organizationId: string, userId: string, requestId: string): void {
   const key = scopeKey(organizationId, userId)
   memory.set(key, (memory.get(key) ?? []).filter(e => e.requestId !== requestId))
-  try {
-    const stored = readStored(organizationId, userId)
-    if (stored === null) return
-    const rest = stored.filter(e => e.requestId !== requestId)
-    if (rest.length) localStorage.setItem(storageKey(organizationId, userId), JSON.stringify(rest))
-    else localStorage.removeItem(storageKey(organizationId, userId))
-  } catch { /* 何もしない */ }
+  try { localStorage.removeItem(keyPrefix(organizationId, userId) + requestId) } catch { /* 何もしない */ }
 }
 
 /** 試験用 */

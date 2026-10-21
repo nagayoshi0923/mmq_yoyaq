@@ -2,12 +2,12 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-const mocks = vi.hoisted(() => ({ user: { id: 'user-a' }, findCreated: vi.fn(), history: vi.fn(), snapshot: vi.fn(), create: vi.fn(), sync: vi.fn(), neighbors: vi.fn(), success: vi.fn(), warning: vi.fn(), error: vi.fn(), update: vi.fn(), read: vi.fn(), diff: vi.fn(), notify: vi.fn(), confirm: vi.fn() }))
+const mocks = vi.hoisted(() => ({ user: { id: 'user-a' as string | null }, findCreated: vi.fn(), history: vi.fn(), snapshot: vi.fn(), create: vi.fn(), sync: vi.fn(), neighbors: vi.fn(), success: vi.fn(), warning: vi.fn(), error: vi.fn(), update: vi.fn(), read: vi.fn(), diff: vi.fn(), notify: vi.fn(), confirm: vi.fn() }))
 vi.mock('@/hooks/usePreparationSettings', () => ({ usePreparationSettings: () => ({ fetch: async () => () => 0 }) }))
 vi.mock('@/lib/preparationNeighborEvents', () => ({ loadPreparationNeighborEvents: mocks.neighbors }))
 vi.mock('@/lib/api', () => ({ scheduleApi: { create: mocks.create, update: mocks.update, findCreatedByRequest: mocks.findCreated } }))
 vi.mock('@/lib/reservationApi', () => ({ reservationApi: { syncStaffReservations: mocks.sync } }))
-vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ select() { return this }, eq() { return this }, single: mocks.read }), auth: { getSession: async () => ({ data: { session: { user: { id: mocks.user.id } } } }) } } }))
+vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ select() { return this }, eq() { return this }, single: mocks.read }), auth: { getSession: async () => ({ data: { session: mocks.user.id ? { user: { id: mocks.user.id } } : null } }) } } }))
 vi.mock('@/utils/toast', () => ({ showToast: mocks }))
 vi.mock('@/utils/logger', () => ({ logger: { log: vi.fn(), error: vi.fn() } }))
 vi.mock('@/lib/api/eventHistoryApi', () => ({ fetchEventSnapshot: mocks.snapshot, createEventHistory: mocks.history }))
@@ -411,6 +411,33 @@ describe('未確定の作成は確定するまで捨てない（PR #1210 Codex �
       await act(async () => { expect(await result.current.handleSavePerformance(input)).toBe(true) })
       expect(new Set(requestIds()).size).toBe(1)
     } finally { setItem.mockRestore() }
+  })
+})
+
+describe('利用者を確認できないときは作成しない（PR #1210 Codex 再レビュー a649ec3 の 2）', () => {
+  it('ログイン状態から利用者 ID が取れなければ、作成を始めず案内し、仮の利用者として覚えない', async () => {
+    mocks.user.id = null
+    const { result } = await setup()
+    let saved: boolean | undefined
+    await act(async () => { saved = await result.current.handleSavePerformance({ ...data, gm_roles: { A: 'main' }, staffParticipation: plan }) })
+    expect(saved).toBe(false)
+    expect(mocks.create).not.toHaveBeenCalled()
+    expect(shown).toEqual([])
+    expect(mocks.error).toHaveBeenCalledWith(expect.stringContaining('ログイン状態を確認できなかった'))
+    expect(localStorage.length).toBe(0)
+  })
+  it('結果不明のあと利用者 ID が一時的に取れなくても、取れるようになった次の保存で同じ要求 ID を使う', async () => {
+    mocks.create.mockRejectedValueOnce(new ApiClientError(502, '結果不明', undefined, { outcome: 'unknown' }))
+    const input = { ...data, gm_roles: { A: 'main' }, staffParticipation: plan }
+    const { result } = await setup()
+    await act(async () => { await result.current.handleSavePerformance(input) })
+    mocks.user.id = null
+    await act(async () => { expect(await result.current.handleSavePerformance(input)).toBe(false) })
+    mocks.user.id = 'user-a'
+    await act(async () => { expect(await result.current.handleSavePerformance(input)).toBe(true) })
+    const ids = mocks.create.mock.calls.map(call => (call[0] as { client_request_id: string }).client_request_id)
+    expect(ids).toHaveLength(2)
+    expect(ids[1]).toBe(ids[0])
   })
 })
 
