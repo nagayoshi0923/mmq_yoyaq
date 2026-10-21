@@ -513,6 +513,16 @@
     "language": "plpgsql",
     "security_definer": true
   },
+  "announce_release_2026_10(p_mode text, p_dry_run boolean)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "2c8ecd9c0303f037d4a102ad6adf777d",
+    "language": "plpgsql",
+    "security_definer": true
+  },
   "claim_customer_notice_emails(p_limit integer)": null,
   "claim_customer_notice_emails(p_limit integer, p_only_ids uuid[])": {
     "acl": [
