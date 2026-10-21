@@ -1,3 +1,10 @@
+## 2026-10-21 / 通知の全文を読める詳細ウィンドウ（押しても遷移せず、リンクは別ボタン）（fix/notification-detail-dialog、staging 向け PR・未マージ）
+
+- 背景: ベル（`NotificationDropdown`）の通知は本文が 2 行で省略され、押すと link へ遷移するだけで全文を読む手段が無かった（社長「全文よめない」）。
+- 変更（画面のみ・DB 変更なし）: どの通知も押すと Dialog で題名・本文の全文（改行保持・長文は Dialog 内でスクロール）を出す。押しただけでは遷移しない。link がある通知だけ「開く」ボタン（押すと遷移して閉じる）、無ければ「閉じる」だけ。未読を開いたときだけ既読（`markAsRead` を 1 回）。既読を開いても書き込まない。`metadata.details`（文字列の配列）があれば箇条書きで出す（`src/hooks/notificationDetail.ts`、`Notification.details`）。ブラウザの戻るなどで画面が変わったら閉じる。マイページ側に通知一覧は無いので対象外。
+- 確認: 単体テスト `src/components/layout/NotificationDropdown.test.tsx`（7 件）、vitest 全件、`npm run verify`。手元 DB（架空会員 customer1@mmq.test・架空通知 4 件: 1,584 字の改行つきリンクなし／リンクあり未読／既読リンクなし／項目つきリンクあり）で 375px と 1280px を Playwright で確認（遷移なし・既読の書き込みは未読だけ 1 回・横はみ出しなし・戻るで閉じる・「開く」で遷移）。架空通知は確認後に消した。
+- 保留: リリース告知の配信関数 `announce_release_2026_10`（migration 20261021190000・rollback・SQL 試験つき）は別ブランチ `feat/release-announce-function-2026-10`（f2bf4110）に退避。PR は未作成。
+
 ## 2026-10-21 / リリース統合候補（staging の未反映分 ＋ main の #1202、reconcile migration 付き）（release/2026-10-integration、staging 向け PR・マージしない）
 
 - 目的: staging の未反映分（10/11〜10/21 の 118 コミット）と本番 main（179958be、#1202 = issue #1200 の hotfix）を 1 本の統合候補にし、本番へは統合 PR（staging → main）で出す。#1201（draft）の内容は #1202 経由で入る。#1014・cherry-pick の案は使わない。

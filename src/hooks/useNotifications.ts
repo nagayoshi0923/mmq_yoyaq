@@ -6,6 +6,7 @@ import { logger } from '@/utils/logger'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatJstMonthDay, formatJstTime, formatJstYmd } from '@/utils/jstDate'
 import { userNotificationApi } from '@/lib/api/globalSettingsApi'
+import { notificationDetailsFromMetadata } from './notificationDetail'
 
 export interface Notification {
   id: string
@@ -16,6 +17,8 @@ export interface Notification {
   read: boolean
   link?: string
   data?: Record<string, unknown>
+  /** お知らせの項目（metadata.details の文字列の配列）。あれば詳細ウィンドウに箇条書きで出す */
+  details?: string[]
 }
 
 /**
@@ -90,7 +93,8 @@ export function useNotifications() {
         timestamp: new Date(row.created_at),
         read: row.is_read,
         link: row.link,
-        data: row.metadata
+        data: row.metadata,
+        details: notificationDetailsFromMetadata(row.metadata)
       })) || []
     } catch (error) {
       // DB通知の取得に失敗した場合はフォールバックへ
