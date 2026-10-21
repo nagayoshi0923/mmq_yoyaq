@@ -71,11 +71,17 @@ export async function handleCreate(req: VercelRequest, res: VercelResponse, user
     })
     if (rpcError || typeof createdId !== 'string') {
       const code = rpcError?.code ?? ''
+      // DB が SQLSTATE 付きで失敗を返した = 取引は取り消し済み（公演は作られていない）。
+      // それ以外（通信の失敗・応答の欠落など）は、作成されたかどうかをここでは断定できない（Codex 再レビュー 2e24bbf の 4）。
+      if (!/^[0-9A-Z]{5}$/.test(code)) {
+        console.error('[schedule:create] create_schedule_event_with_staff outcome unknown:', rpcError)
+        return res.status(502).json({ error: CREATE_OUTCOME_UNKNOWN, outcome: 'unknown' })
+      }
       const status = code === '42501' ? 403 : ['40001', '55P03', '23514'].includes(code) ? 409 : ['22023', '22P02'].includes(code) ? 400 : 500
       if (status === 500) console.error('[schedule:create] create_schedule_event_with_staff error:', rpcError)
       return res.status(status).json({ error: status === 500 ? '公演と担当の保存に失敗しました。公演は作成されていません' : `${rpcError?.message ?? '担当を保存できませんでした'}（公演は作成されていません）` })
     }
-    return await respondWithCreatedEvent(res, database, user, createdId)
+    return await respondWithCreatedEvent(res, database, user, createdId, { ...eventFields, organization_id: user.orgId, gms: staffAssignment.gms, gm_roles: staffAssignment.gm_roles })
   }
 
   // INSERT（不明カラムをリトライ削除）
@@ -104,8 +110,10 @@ export async function handleCreate(req: VercelRequest, res: VercelResponse, user
     return res.status(500).json({ error: '公演の作成に失敗しました', detail: lastError?.message })
   }
 
-  return await respondWithCreatedEvent(res, database, user, insertedId)
+  return await respondWithCreatedEvent(res, database, user, insertedId, insertPayload)
 }
+
+const CREATE_OUTCOME_UNKNOWN = '公演が作成されたか確認できませんでした。スケジュールを再読み込みして、公演があるか確かめてから保存し直してください'
 
 type StaffAssignment = { gms: string[]; gm_roles: Record<string, string>; entries: unknown[] }
 
@@ -121,17 +129,19 @@ function parseStaffAssignment(raw: unknown): StaffAssignment | null | 'invalid' 
   return { gms: gms as string[], gm_roles: gm_roles as Record<string, string>, entries: (entries ?? []) as unknown[] }
 }
 
-async function respondWithCreatedEvent(res: VercelResponse, database: NonNullable<typeof db>, user: AuthUser, insertedId: string) {
-  // スタッフ専用ビューから完全レコードを返す
-  const { data: fullEvent, error: fetchError } = await database
-    .from('schedule_events')
-    .select(SCHEDULE_EVENT_FULL_SELECT)
-    .eq('id', insertedId)
-    .eq('organization_id', user.orgId)
-    .single()
-  if (fetchError) {
+async function respondWithCreatedEvent(res: VercelResponse, database: NonNullable<typeof db>, user: AuthUser, insertedId: string, savedFields: Record<string, unknown>) {
+  // スタッフ専用ビューから完全レコードを返す（1 回だけ取り直す）
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { data: fullEvent, error: fetchError } = await database
+      .from('schedule_events')
+      .select(SCHEDULE_EVENT_FULL_SELECT)
+      .eq('id', insertedId)
+      .eq('organization_id', user.orgId)
+      .single()
+    if (!fetchError && fullEvent) return res.status(201).json(fullEvent)
     console.error('[schedule:create] fetch error:', fetchError)
-    return res.status(500).json({ error: '作成後の取得に失敗しました', detail: fetchError.message })
   }
-  return res.status(201).json(fullEvent)
+  // 作成は確定済み（ID 既知）。取得の失敗を「未作成」として返すと、画面が保存し直して二重に作成する
+  // （Codex 再レビュー 2e24bbf の 4）。保存した値と ID で作成済みとして返す（一覧は Realtime の取り直しで揃う）。
+  return res.status(201).json({ current_participants: 0, is_cancelled: false, ...savedFields, id: insertedId, read_back: false })
 }

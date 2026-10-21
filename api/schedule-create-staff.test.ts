@@ -10,6 +10,8 @@ const mock = vi.hoisted(() => ({
   inserts: [] as unknown[],
   rpc: vi.fn(),
   scopedJwt: [] as string[],
+  failCreatedRead: false,
+  reads: 0,
 }))
 vi.mock('./_lib/db.js', () => ({
   getMissingEnvError: () => null,
@@ -25,7 +27,10 @@ vi.mock('./_lib/db.js', () => ({
         if (table === 'schedule_events') return op === 'insert' ? { id: 'plain-event' } : { id: 'atomic-event', gms: ['A'], gm_roles: { A: 'main' } }
         return null
       }
-      q.single = q.maybeSingle = async () => ({ data: data(), error: null })
+      q.single = q.maybeSingle = async () => {
+        if (table === 'schedule_events' && op === 'select') { mock.reads += 1; if (mock.failCreatedRead) return { data: null, error: { message: 'timeout' } } }
+        return { data: data(), error: null }
+      }
       q.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(resolve)
       return q
     },
@@ -44,7 +49,7 @@ async function call(body: Record<string, unknown>) {
   return { status: res.status.mock.calls.at(-1)?.[0], body: res.json.mock.calls.at(-1)?.[0] }
 }
 const createBody = { date: '2026-11-01', store_id: 's1', category: 'open', start_time: '14:00:00', end_time: '17:00:00', gms: [], gm_roles: {}, organization_id: 'foreign' }
-beforeEach(() => { mock.inserts.length = 0; mock.scopedJwt.length = 0; mock.rpc.mockReset() })
+beforeEach(() => { mock.inserts.length = 0; mock.scopedJwt.length = 0; mock.rpc.mockReset(); mock.failCreatedRead = false; mock.reads = 0 })
 
 describe('POST /api/schedule 担当付きの作成', () => {
   it('担当付きは 1 つの取引の RPC を担当者の権限で呼び、直接 INSERT しない。組織と担当の列は公演データから外す', async () => {
@@ -90,3 +95,34 @@ describe('POST /api/schedule 担当付きの作成', () => {
     expect(mock.rpc).not.toHaveBeenCalled()
   })
 })
+
+describe('POST /api/schedule 作成の確定／未確定（PR #1210 Codex 再レビュー 2e24bbf の 4）', () => {
+  const payload = { ...createBody, staff_assignment: { gms: ['A'], gm_roles: { A: 'main' }, entries: [] } }
+  it('確定後の取得だけが失敗しても 500 にせず、作成済み（ID 既知）として返す', async () => {
+    mock.failCreatedRead = true
+    mock.rpc.mockResolvedValue({ data: 'committed-1', error: null })
+    const { status, body } = await call(payload)
+    expect(status).toBe(201)
+    expect(body).toMatchObject({ id: 'committed-1', gms: ['A'], gm_roles: { A: 'main' }, organization_id: 'org-1', date: '2026-11-01', store_id: 's1', read_back: false })
+    expect(mock.reads).toBe(2)
+    expect(mock.rpc).toHaveBeenCalledTimes(1)
+  })
+  it('担当なしの作成も、INSERT 確定後の取得失敗は作成済みとして返す', async () => {
+    mock.failCreatedRead = true
+    const { status, body } = await call(createBody)
+    expect(status).toBe(201)
+    expect(body).toMatchObject({ id: 'plain-event', read_back: false })
+  })
+  it.each([
+    ['通信の失敗（SQLSTATE なし）', { data: null, error: { code: '', message: 'TypeError: fetch failed' } }],
+    ['応答に ID が無い', { data: null, error: null }],
+  ])('%s は「作成されていません」と断定せず 502（作成されたか不明）を返す', async (_label, rpcResult) => {
+    mock.rpc.mockResolvedValue(rpcResult)
+    const { status, body } = await call(payload)
+    expect(status).toBe(502)
+    expect(body).toMatchObject({ outcome: 'unknown' })
+    expect(body.error).toContain('確認できませんでした')
+    expect(body.error).not.toContain('されていません')
+  })
+})
+

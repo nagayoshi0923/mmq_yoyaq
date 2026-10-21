@@ -2,7 +2,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-const mocks = vi.hoisted(() => ({ snapshot: vi.fn(), create: vi.fn(), sync: vi.fn(), neighbors: vi.fn(), success: vi.fn(), warning: vi.fn(), error: vi.fn(), update: vi.fn(), read: vi.fn(), diff: vi.fn(), notify: vi.fn(), confirm: vi.fn() }))
+const mocks = vi.hoisted(() => ({ history: vi.fn(), snapshot: vi.fn(), create: vi.fn(), sync: vi.fn(), neighbors: vi.fn(), success: vi.fn(), warning: vi.fn(), error: vi.fn(), update: vi.fn(), read: vi.fn(), diff: vi.fn(), notify: vi.fn(), confirm: vi.fn() }))
 vi.mock('@/hooks/usePreparationSettings', () => ({ usePreparationSettings: () => ({ fetch: async () => () => 0 }) }))
 vi.mock('@/lib/preparationNeighborEvents', () => ({ loadPreparationNeighborEvents: mocks.neighbors }))
 vi.mock('@/lib/api', () => ({ scheduleApi: { create: mocks.create, update: mocks.update } }))
@@ -10,10 +10,11 @@ vi.mock('@/lib/reservationApi', () => ({ reservationApi: { syncStaffReservations
 vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ select() { return this }, eq() { return this }, single: mocks.read }) } }))
 vi.mock('@/utils/toast', () => ({ showToast: mocks }))
 vi.mock('@/utils/logger', () => ({ logger: { log: vi.fn(), error: vi.fn() } }))
-vi.mock('@/lib/api/eventHistoryApi', () => ({ fetchEventSnapshot: mocks.snapshot, createEventHistory: vi.fn() }))
+vi.mock('@/lib/api/eventHistoryApi', () => ({ fetchEventSnapshot: mocks.snapshot, createEventHistory: mocks.history }))
 vi.mock('@/hooks/eventOperations/eventSyncHelpers', () => ({ confirmSendPrivateBookingChangeEmail: mocks.confirm }))
 vi.mock('@/lib/privateBookingCustomerChangeEmail', () => ({ diffScheduleSnapshotsForCustomerEmail: mocks.diff, sendPrivateBookingCustomerChangeEmail: mocks.notify }))
 import { useEventSave } from './useEventSave'
+import { ApiClientError } from '@/lib/apiClient'
 import type { ScheduleEvent } from '@/types/schedule'
 import { QueryClient } from '@tanstack/react-query'
 import { createScheduleMonthQueryFn, scheduleEventKeys, setScheduleMonthData } from '@/hooks/useScheduleEventsQuery'
@@ -52,7 +53,7 @@ beforeEach(() => {
 })
 describe('公演保存の完了経路', () => {
   it('担当の保存に失敗したら公演も作られず、保存失敗を返して入力を残す（部分成功にしない）', async () => {
-    mocks.create.mockRejectedValue(new Error('定員超過'))
+    mocks.create.mockRejectedValue(new ApiClientError(409, '定員6名に対して7名になるため保存できません（公演は作成されていません）'))
     const { result } = await setup()
     let saved: boolean | undefined
     await act(async () => { saved = await result.current.handleSavePerformance(data) })
@@ -60,7 +61,7 @@ describe('公演保存の完了経路', () => {
     expect(mocks.create).toHaveBeenCalledTimes(1)
     expect(mocks.sync).not.toHaveBeenCalled()
     expect(shown).toEqual([])
-    expect(mocks.error).toHaveBeenCalledWith('公演の追加に失敗しました')
+    expect(mocks.error).toHaveBeenCalledWith('定員6名に対して7名になるため保存できません（公演は作成されていません）')
     expect(mocks.warning).not.toHaveBeenCalled(); expect(mocks.success).not.toHaveBeenCalled()
   })
   it('重複警告の続行は元の保存Promiseへ成功を返す', async () => {
@@ -156,7 +157,7 @@ describe('公演の追加で GM 名を消さない（2026-10-22 hotfix、PR #121
   })
   it('作成が競合で失敗しても、他端末で更新された別の公演の表示は消さない（P2-3）', async () => {
     shown = [{ id: 'other', gms: ['B'], gm_roles: { B: 'main' } } as unknown as ScheduleEvent]
-    mocks.create.mockRejectedValue(new Error('担当スタッフが更新されました'))
+    mocks.create.mockRejectedValue(new ApiClientError(409, '担当スタッフが更新されました'))
     const { result } = await setup()
     await act(async () => { await result.current.handleSavePerformance({ ...data, gm_roles: { A: 'main' }, staffParticipation: plan }) })
     expect(shown).toEqual([{ id: 'other', gms: ['B'], gm_roles: { B: 'main' } }])
@@ -185,3 +186,78 @@ describe('保存中の再取得で GM 名を消さない（実際の React Query
     qc.clear()
   })
 })
+
+describe('応答待ちの確定公演と作成履歴（PR #1210 Codex 再レビュー 2e24bbf）', () => {
+  function bindQueryClient() {
+    const qc = new QueryClient()
+    const key = scheduleEventKeys.month(2026, 11)
+    qc.setQueryData(key, [])
+    setEvents.mockImplementation(u => { setScheduleMonthData(qc, 2026, 11, u); shown = qc.getQueryData<ScheduleEvent[]>(key) ?? [] })
+    return { qc, key }
+  }
+  it('1: 応答待ちの間に確定した実 ID の公演が取得で届いたら、仮の公演を残さない（二重表示しない）', async () => {
+    const { qc, key } = bindQueryClient()
+    const created = deferred<unknown>(); mocks.create.mockReturnValue(created.promise)
+    const { result } = await setup()
+    let pending!: Promise<boolean>
+    await act(async () => { pending = result.current.handleSavePerformance({ ...data, gm_roles: { A: 'main' }, staffParticipation: plan }); await flush() })
+    const real = { ...shown[0], id: 'saved', start_time: '15:30:00' }
+    await qc.fetchQuery({ queryKey: key, queryFn: createScheduleMonthQueryFn(qc, 2026, 11, async () => [real]), staleTime: 0 })
+    expect(qc.getQueryData<ScheduleEvent[]>(key)!.map(e => e.id)).toEqual(['saved'])
+    await act(async () => { created.resolve({ ...data, id: 'saved', gms: ['A'], gm_roles: { A: 'main' }, store_id: 'store' }); await pending })
+    expect(qc.getQueryData<ScheduleEvent[]>(key)!.map(e => e.id)).toEqual(['saved'])
+    qc.clear()
+  })
+  it('1: 同じ枠に前からある別の公演が取得で届いても、保存中の仮の公演は消さない', async () => {
+    const { qc, key } = bindQueryClient()
+    const existing = { ...data, id: 'existing', venue: 'store', gms: ['X'] } as unknown as ScheduleEvent
+    qc.setQueryData(key, [existing]); shown = [existing]
+    const created = deferred<unknown>(); mocks.create.mockReturnValue(created.promise)
+    const { result } = await setup()
+    let pending!: Promise<boolean>
+    await act(async () => { pending = result.current.handleSavePerformance({ ...data, gm_roles: { A: 'main' }, staffParticipation: plan }); await flush() })
+    await qc.fetchQuery({ queryKey: key, queryFn: createScheduleMonthQueryFn(qc, 2026, 11, async () => [existing]), staleTime: 0 })
+    expect(qc.getQueryData<ScheduleEvent[]>(key)!.map(e => e.gms)).toEqual([['X'], ['A']])
+    await act(async () => { created.resolve({ ...data, id: 'saved', gms: ['A'], gm_roles: { A: 'main' }, store_id: 'store' }); await pending })
+    qc.clear()
+  })
+  it('2: 応答より先に同じ実 ID の公演（他端末 B の更新後）を取得していたら、遅い応答 A で上書きしない', async () => {
+    const created = deferred<unknown>(); mocks.create.mockReturnValue(created.promise)
+    const { result } = await setup()
+    let pending!: Promise<boolean>
+    await act(async () => { pending = result.current.handleSavePerformance({ ...data, gm_roles: { A: 'main' }, staffParticipation: plan }); await flush() })
+    shown = [...shown, { ...shown[0], id: 'saved', gms: ['B'], gm_roles: { B: 'main' } }]
+    await act(async () => { created.resolve({ ...data, id: 'saved', gms: ['A'], gm_roles: { A: 'main' }, store_id: 'store' }); await pending })
+    expect(shown).toHaveLength(1)
+    expect(shown[0]).toMatchObject({ id: 'saved', gms: ['B'], gm_roles: { B: 'main' } })
+  })
+  it('3: 担当付きの作成では、画面から遅れて作成履歴を記録しない（DB が同じ取引で記録する）', async () => {
+    const snapshot = deferred<unknown>(); mocks.snapshot.mockReturnValue(snapshot.promise)
+    mocks.create.mockResolvedValue({ ...data, id: 'saved', store_id: 'store', gms: ['A'], gm_roles: { A: 'main' } })
+    const { result } = await setup()
+    await act(async () => { expect(await result.current.handleSavePerformance({ ...data, gm_roles: { A: 'main' }, staffParticipation: plan })).toBe(true) })
+    await act(async () => { snapshot.resolve({ ...data, id: 'saved', gms: ['B'] }); await flush() })
+    expect(mocks.snapshot).not.toHaveBeenCalled()
+    expect(mocks.history).not.toHaveBeenCalled()
+  })
+  it('3: 担当なしの作成は従来どおり画面から作成履歴を記録する', async () => {
+    mocks.create.mockResolvedValue({ ...data, gms: [], gm_roles: {}, id: 'saved', store_id: 'store' })
+    const { result } = await setup()
+    await act(async () => { await result.current.handleSavePerformance({ ...data, gms: [], gm_roles: {}, staffParticipation: plan }); await flush() })
+    expect(mocks.history).toHaveBeenCalledWith('saved', 'org', 'create', null, expect.objectContaining({ date: '2026-11-01' }), expect.any(Object))
+  })
+  it.each([
+    ['通信の失敗', new TypeError('Failed to fetch')],
+    ['作成されたか不明（502）', new ApiClientError(502, 'x', undefined, { outcome: 'unknown' })],
+    ['時間切れ（504）', new ApiClientError(504, 'Gateway Timeout')],
+  ])('4: %s は「失敗」と断定せず、確認してから保存し直すよう伝える', async (_label, error) => {
+    mocks.create.mockRejectedValue(error)
+    const { result } = await setup()
+    let saved: boolean | undefined
+    await act(async () => { saved = await result.current.handleSavePerformance({ ...data, gm_roles: { A: 'main' }, staffParticipation: plan }) })
+    expect(saved).toBe(false)
+    expect(mocks.error).toHaveBeenCalledWith(expect.stringContaining('作成されたか確認できませんでした'))
+    expect(mocks.error).not.toHaveBeenCalledWith(expect.stringContaining('されていません'))
+  })
+})
+

@@ -8,6 +8,8 @@ export const scheduleApi = {
  },
  create: async () => { throw Error('fixture: unexpected create') },
 }
+// useEventSave → useScheduleEventsQuery（PR #1210）が '@/lib/api' から読む。公演更新の試験では呼ばれない。
+export const scenarioApi = { getAll: async () => [] }
 export const reservationApi = { syncStaffReservations: async () => undefined }
 export const usePreparationSettings = () => ({ fetch: async () => () => 0 })
 export const loadPreparationNeighborEvents = async () => []

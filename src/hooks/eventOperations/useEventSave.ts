@@ -351,6 +351,10 @@ export function useEventSave({
           // 楽観的 insert を rollback
           releasePendingScheduleEvent(tempEventId)
           setEvents(prev => prev.filter(e => e.id !== tempEventId))
+          // 応答を受け取れなかった・作成されたか分からない場合は「失敗」と断定せず、確認してから保存し直すよう伝える
+          // （確定したのに保存し直すと二重に作成される。Codex 再レビュー 2e24bbf の 4）
+          const outcomeUnknown = !(saveError instanceof ApiClientError) || saveError.status >= 502 || saveError.body?.outcome === 'unknown'
+          if (outcomeUnknown) throw new ApiClientError(502, '公演が作成されたか確認できませんでした。スケジュールを再読み込みして、公演があるか確かめてから保存し直してください')
           throw saveError
         }
         releasePendingScheduleEvent(tempEventId)
@@ -383,16 +387,18 @@ export function useEventSave({
           max_participants: effectiveMax,
           notes: savedEvent.notes || ''
         }
-        // 取り直しで実 ID の公演が先に届いていても二重に並べない
+        // 取り直しで実 ID の公演が先に届いていたら、そちら（応答より新しい可能性がある確定値。他端末の更新を含み得る）を残し、
+        // 仮の公演だけを外す。応答の内容で上書きしない（Codex 再レビュー 2e24bbf の 2）
         setEvents(prev => {
-          const others = prev.filter(e => e.id !== formattedEvent.id)
-          return others.some(e => e.id === tempEventId) ? others.map(e => e.id === tempEventId ? formattedEvent : e) : [...others, formattedEvent]
+          if (prev.some(e => e.id === formattedEvent.id)) return prev.filter(e => e.id !== tempEventId)
+          return prev.some(e => e.id === tempEventId) ? prev.map(e => e.id === tempEventId ? formattedEvent : e) : [...prev, formattedEvent]
         })
 
-        // 履歴を記録（新規作成）。作成の事実だけを記録する（差分なし）ので、保存の完了を待たせない。
-        // 以前はここでスナップショット取得の往復を待ってから担当を保存していた（2026-10-22 hotfix）
+        // 履歴を記録（新規作成）。担当付きの作成は、DB が作成と同じ取引で確定した内容の作成履歴を記録済み
+        // （create_schedule_event_with_staff。Codex 再レビュー 2e24bbf の 3）なので、ここでは記録しない。
+        // 担当なしの作成は従来どおり画面から記録する（保存の完了は待たない）。
         const createdEventId = savedEvent.id
-        void (async () => {
+        if (!hasStaffToSave) void (async () => {
           try {
             const createdSnapshot = await fetchEventSnapshot(createdEventId, organizationId)
             await createEventHistory(

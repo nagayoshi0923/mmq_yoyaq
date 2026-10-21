@@ -90,6 +90,23 @@ INSERT INTO results SELECT '2_created_with_gm',
   AND EXISTS(SELECT 1 FROM public.schedule_event_history h WHERE h.schedule_event_id=e.id AND h.notes='担当とスタッフ参加人数を一括保存'),
   c.err
  FROM calls c LEFT JOIN public.schedule_events e ON e.id=c.id WHERE c.label='case2';
+-- 作成履歴は同じ取引で、確定した公演（担当込み）の内容で 1 件だけ入り、担当の一括保存の履歴より前に並ぶ。
+-- 作成が成功した＝履歴もある（保存直後に画面を離れても欠けない契約。実際の画面離脱は未試験）。失敗した作成には履歴が無い。
+-- 作成直後の別の編集（B）は作成履歴の値を変えない
+UPDATE public.schedule_events SET notes='B の編集' WHERE id=(SELECT id FROM calls WHERE label='case3');
+INSERT INTO results SELECT '2c_later_edit_not_in_create_history',
+  (SELECT h.new_values->>'notes' FROM public.schedule_event_history h WHERE h.schedule_event_id=c.id AND h.action_type='create')='case3', c.err
+ FROM calls c WHERE c.label='case3';
+INSERT INTO results SELECT '2b_create_history_same_tx',
+  (SELECT count(*) FROM public.schedule_event_history h WHERE h.schedule_event_id=c.id AND h.action_type='create')=1
+  AND (SELECT h.new_values->'gms' FROM public.schedule_event_history h WHERE h.schedule_event_id=c.id AND h.action_type='create')='["架空GM"]'::jsonb
+  AND (SELECT h.changed_by_name FROM public.schedule_event_history h WHERE h.schedule_event_id=c.id AND h.action_type='create')='架空GM'
+  AND (SELECT h.time_slot FROM public.schedule_event_history h WHERE h.schedule_event_id=c.id AND h.action_type='create')='朝'
+  AND (SELECT h.created_at FROM public.schedule_event_history h WHERE h.schedule_event_id=c.id AND h.action_type='create')
+    < (SELECT h.created_at FROM public.schedule_event_history h WHERE h.schedule_event_id=c.id AND h.notes='担当とスタッフ参加人数を一括保存')
+  AND NOT EXISTS(SELECT 1 FROM public.schedule_event_history h JOIN calls f ON f.label IN ('case1','case4b','case5') WHERE h.new_values->>'notes'=f.label),
+  c.err
+ FROM calls c WHERE c.label='case2';
 INSERT INTO results SELECT '3_staff_seat_created_same_tx',
   (SELECT count(*) FROM public.reservations r WHERE r.schedule_event_id=c.id AND r.reservation_source='staff_entry' AND r.participant_count=1 AND r.status='confirmed')=1, c.err
  FROM calls c WHERE label='case3';
@@ -103,6 +120,6 @@ INSERT INTO results SELECT '9_anon_rejected', c.id IS NULL AND c.code='42501' AN
 
 SELECT label, ok, left(coalesce(detail,''), 80) AS detail FROM results ORDER BY label;
 DO $$ BEGIN
- IF EXISTS(SELECT 1 FROM results WHERE NOT ok) OR (SELECT count(*) FROM results) <> 11 THEN RAISE EXCEPTION 'create_schedule_event_with_staff: 失敗あり'; END IF;
+ IF EXISTS(SELECT 1 FROM results WHERE NOT ok) OR (SELECT count(*) FROM results) <> 13 THEN RAISE EXCEPTION 'create_schedule_event_with_staff: 失敗あり'; END IF;
 END $$;
 ROLLBACK;

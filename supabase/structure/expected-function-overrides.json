@@ -1407,7 +1407,7 @@
       "service_role=X/postgres"
     ],
     "returns": "uuid",
-    "body_md5": "f9c6bee5a83d31b790f1969a081ebbad",
+    "body_md5": "11487a3a88db20a880e9f6ec5450a09b",
     "language": "plpgsql",
     "security_definer": true
   }

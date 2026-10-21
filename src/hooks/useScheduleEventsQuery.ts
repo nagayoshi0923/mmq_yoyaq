@@ -348,10 +348,22 @@ const pendingEvents = new Map<string, ScheduleEvent>()
 export function holdPendingScheduleEvent(event: ScheduleEvent): void { pendingEvents.set(event.id, event) }
 export function releasePendingScheduleEvent(eventId: string): void { pendingEvents.delete(eventId) }
 
-/** 取得結果に、いま表示している保存中の公演（入力した GM 名を含む）を残す */
+const sameSlot = (a: ScheduleEvent, b: ScheduleEvent) =>
+  a.date === b.date && a.venue === b.venue && (a.start_time || '').slice(0, 5) === (b.start_time || '').slice(0, 5) && (a.scenario || '') === (b.scenario || '')
+
+/**
+ * 取得結果に、いま表示している保存中の公演（入力した GM 名を含む）を残す。
+ * ただし取得結果に、表示中には無かった同じ枠（日付・店舗・開始時刻・作品）の公演が新しく届いていたら、
+ * それは保存が確定した実 ID の公演なので仮の公演は残さない（仮と実の二重表示を防ぐ。Codex 再レビュー 2e24bbf の 1）。
+ */
 function keepPendingEvents(fetched: ScheduleEvent[], current: ScheduleEvent[] | undefined): ScheduleEvent[] {
   if (!pendingEvents.size || !current) return fetched
-  const kept = current.filter(e => pendingEvents.has(e.id) && !fetched.some(f => f.id === e.id)).map(e => pendingEvents.get(e.id)!)
+  const currentIds = new Set(current.map(e => e.id))
+  const arrived = fetched.filter(f => !currentIds.has(f.id))
+  const kept = current
+    .filter(e => pendingEvents.has(e.id) && !fetched.some(f => f.id === e.id))
+    .map(e => pendingEvents.get(e.id)!)
+    .filter(pending => !arrived.some(f => sameSlot(f, pending)))
   return kept.length ? [...fetched, ...kept] : fetched
 }
 
