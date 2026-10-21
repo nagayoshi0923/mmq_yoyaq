@@ -33,6 +33,11 @@ BEGIN
   DELETE FROM private_group_candidate_dates WHERE group_id=c.grp;
  END IF;
 END $$;
+-- 店舗への申込（試験の主催者・seed のグループ）。R37〜R43 で 4 経路を確かめる（issue #1200、staging の同名の補助と同じ）
+CREATE FUNCTION pg_temp.request(p_stores uuid[], p_candidates jsonb) RETURNS uuid LANGUAGE sql AS $$
+ SELECT create_private_booking_request((SELECT sm FROM _ctx),'00000000-0000-4000-d000-000000000011','試験 主催者','private-test-organizer@mmq.test','09012345678',5,
+  jsonb_build_object('candidates',p_candidates,'requestedStores',(SELECT jsonb_agg(jsonb_build_object('storeId',s)) FROM unnest(p_stores) s)),
+  NULL,'R-'||substr(md5(random()::text),1,8),(SELECT grp FROM _ctx)) $$;
 CREATE FUNCTION pg_temp.ev(p_store uuid, p_date date, p_start text, p_end text) RETURNS void LANGUAGE sql AS $$
  INSERT INTO schedule_events(organization_id,store_id,date,venue,scenario,start_time,end_time,is_cancelled)
  SELECT org,p_store,p_date,'試験','規則の例',p_start::time,p_end::time,false FROM _ctx $$;
@@ -41,7 +46,7 @@ CREATE FUNCTION pg_temp.dur(p_minutes integer) RETURNS void LANGUAGE sql AS $$
  WHERE organization_id=(SELECT org FROM _ctx) AND scenario_master_id=(SELECT sm FROM _ctx) $$;
 
 DO $$
-DECLARE c _ctx; one uuid[]; two uuid[]; hours jsonb:='{}'; dname text; msg text; w date;
+DECLARE c _ctx; one uuid[]; two uuid[]; hours jsonb:='{}'; dname text; msg text; w date; created uuid;
 BEGIN
  SELECT * INTO c FROM _ctx; one:=ARRAY[c.st2]; two:=ARRAY[c.st1,c.st2];
  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub','00000000-0000-4000-b000-000000000011','role','authenticated')::text,true);
@@ -204,6 +209,121 @@ BEGIN
    ELSE v||jsonb_build_object('available_slots','["afternoon","evening","morning"]'::jsonb) END) FROM jsonb_each(opening_hours) e(k,v))
   WHERE organization_id=c.org AND store_id=c.st2;
  PERFORM pg_temp.check_row('R30',w,one,'morning',true,'10:00','13:30',NULL,NULL,false);
+
+ -- R37〜R43 朝枠の可否は店舗の枠設定（I2 available_slots）と作品の時間枠（I10）だけで決め、開店時刻（open_time）では決めない。
+ -- 昼・夜は作品の開始時刻（I11）が開店前（例 平日 昼 12:00、開店 13:00）でも受け付ける（2026-10-21 issue #1200 社長の仕様訂正。
+ -- 旧案「開店前の枠は一律 closed」は取り下げ）。二号店はここで R30 と同じ「平日 開店 13:00・朝も有効（朝の開始 10:00）」= クインズワルツの店舗と同じ。
+ w:=pg_temp.day_of(3,3); PERFORM pg_temp.dur(210);
+ -- R37 東京相当の平日: 朝 10:00・昼 13:00・夜 19:00 とも選べる
+ PERFORM pg_temp.check_row('R37',w,one,'morning',true,'10:00','13:30',NULL,NULL,false);
+ PERFORM pg_temp.check_row('R37',w,one,'afternoon',true,'13:00','16:30',NULL,NULL,false);
+ PERFORM pg_temp.check_row('R37',w,one,'evening',true,'19:00','22:30',NULL,NULL,false);
+ -- R38 東京相当の平日・作品の開始時刻 朝 10:00・昼 12:00（作者不詳相当）: 朝は朝枠として選べ、昼 12:00 も開店前だが選べる
+ UPDATE organization_scenarios SET private_booking_slot_start_times='{"weekday":{"morning":"10:00","afternoon":"12:00"}}'::jsonb
+  WHERE organization_id=c.org AND scenario_master_id=c.sm;
+ PERFORM pg_temp.check_row('R38',w,one,'morning',true,'10:00','13:30',NULL,NULL,false);
+ PERFORM pg_temp.check_row('R38',w,one,'afternoon',true,'12:00','15:30',NULL,NULL,false);
+ -- 4 経路（候補の追加は check_row 内。グループ作成・店舗への申込・希望店舗の変更）でも朝 10:00・昼 12:00 は通る
+ created:=(create_private_group_atomic(c.org,c.sm,'規則の例',one,
+   jsonb_build_array(jsonb_build_object('date',w,'time_slot','午前','start_time','10:00','end_time','13:30'),
+    jsonb_build_object('date',w,'time_slot','午後','start_time','12:00','end_time','15:30')),NULL)->>'id')::uuid;
+ ASSERT (SELECT count(*) FROM private_group_candidate_dates cd WHERE cd.group_id=created)=2, 'R38: 朝 10:00・昼 12:00 でグループを作成できない';
+ DELETE FROM private_group_candidate_dates WHERE group_id=c.grp;
+ UPDATE private_groups SET status='gathering',reservation_id=NULL,preferred_store_ids=two WHERE id=c.grp;
+ PERFORM private_group_add_candidate_dates(c.grp,gen_random_uuid(),c.sm,two,
+  jsonb_build_array(jsonb_build_object('date',w,'time_slot','morning','start_time','10:00','end_time','13:30'),
+   jsonb_build_object('date',w,'time_slot','afternoon','start_time','12:00','end_time','15:30')));
+ ASSERT private_group_set_preferred_stores(c.grp,one,two)=0, 'R38: 希望店舗を二号店だけにすると朝 10:00・昼 12:00 の候補が外れた';
+ ASSERT pg_temp.request(one,jsonb_build_array(jsonb_build_object('date',w,'timeSlot','午前','startTime','10:00','endTime','13:30'),
+   jsonb_build_object('date',w,'timeSlot','午後','startTime','12:00','endTime','15:30'))) IS NOT NULL, 'R38: 二号店への申込が通らない';
+ INSERT INTO _rule_rows VALUES('R38',w,'afternoon',true,'12:00','15:30',NULL,'4 経路とも通る',false);
+ DELETE FROM private_group_candidate_dates WHERE group_id=c.grp;
+ UPDATE private_groups SET status='gathering',reservation_id=NULL,preferred_store_ids=two WHERE id=c.grp;
+
+ -- R39 札幌相当（平日 開店 13:00・朝は無効）: 作品の開始時刻 朝 10:00 は closed、昼 12:00 は開店前でも選べる、夜 19:00 も選べる
+ UPDATE business_hours_settings SET opening_hours=(SELECT jsonb_object_agg(k,CASE WHEN k IN ('saturday','sunday') THEN v
+   ELSE v||jsonb_build_object('available_slots','["afternoon","evening"]'::jsonb) END) FROM jsonb_each(opening_hours) e(k,v))
+  WHERE organization_id=c.org AND store_id=c.st2;
+ PERFORM pg_temp.check_row('R39',w,one,'morning',false,NULL,NULL,'closed',NULL,false);
+ PERFORM pg_temp.check_row('R39',w,one,'afternoon',true,'12:00','15:30',NULL,NULL,false);
+ PERFORM pg_temp.check_row('R39',w,one,'evening',true,'19:00','22:30',NULL,NULL,false);
+ -- 昼 12:00 は 4 経路とも通る
+ created:=(create_private_group_atomic(c.org,c.sm,'規則の例',one,
+   jsonb_build_array(jsonb_build_object('date',w,'time_slot','午後','start_time','12:00','end_time','15:30')),NULL)->>'id')::uuid;
+ ASSERT (SELECT count(*) FROM private_group_candidate_dates cd WHERE cd.group_id=created)=1, 'R39: 札幌相当で昼 12:00 のグループを作成できない';
+ UPDATE private_groups SET status='gathering',reservation_id=NULL,preferred_store_ids=two WHERE id=c.grp;
+ PERFORM private_group_add_candidate_dates(c.grp,gen_random_uuid(),c.sm,two,
+  jsonb_build_array(jsonb_build_object('date',w,'time_slot','afternoon','start_time','12:00','end_time','15:30'),
+   jsonb_build_object('date',w,'time_slot','morning','start_time','10:00','end_time','13:30')));
+ -- 朝 10:00 は本店（3 枠有効）でだけ入る。
+ -- main（本番と同じ DB 関数）では、希望店舗の変更（private_group_set_preferred_stores）は店舗の枠設定（I2）を見ないので朝は外れない。
+ -- staging では外れる（staging の DB 変更。本番に出たらここを staging と同じ「=1・朝が外れる」に戻す）。昼 12:00 は残る
+ ASSERT private_group_set_preferred_stores(c.grp,one,two)=0, 'R39(main): 希望店舗の変更の動きが本番の DB 関数と違う（staging の DB 変更が入った？）';
+ ASSERT EXISTS(SELECT 1 FROM private_group_candidate_dates WHERE group_id=c.grp AND time_slot IN ('morning','午前')), 'R39(main): 朝の候補が外れた（staging の DB 変更が入った？）';
+ DELETE FROM private_group_candidate_dates WHERE group_id=c.grp AND time_slot IN ('morning','午前');
+ ASSERT EXISTS(SELECT 1 FROM private_group_candidate_dates WHERE group_id=c.grp AND start_time::text LIKE '12:00%'), 'R39: 昼 12:00 の候補が外れた';
+ ASSERT pg_temp.request(one,jsonb_build_array(jsonb_build_object('date',w,'timeSlot','午後','startTime','12:00','endTime','15:30'))) IS NOT NULL,
+  'R39: 札幌相当への昼 12:00 の申込が通らない';
+ DELETE FROM private_group_candidate_dates WHERE group_id=c.grp;
+ UPDATE private_groups SET status='gathering',reservation_id=NULL,preferred_store_ids=one WHERE id=c.grp;
+ -- 朝 10:00 は候補の追加・グループ作成・店舗への申込とも弾く
+ msg:=NULL;
+ BEGIN
+  PERFORM private_group_add_candidate_dates(c.grp,gen_random_uuid(),c.sm,one,
+   jsonb_build_array(jsonb_build_object('date',w,'time_slot','morning','start_time','10:00','end_time','13:30')));
+ EXCEPTION WHEN OTHERS THEN msg:=SQLERRM;
+ END;
+ ASSERT msg LIKE '%営業時間外です%', format('R39: 札幌相当の朝 10:00 を候補に追加できた（%s）', msg);
+ msg:=NULL;
+ BEGIN
+  PERFORM create_private_group_atomic(c.org,c.sm,'規則の例',one,
+   jsonb_build_array(jsonb_build_object('date',w,'time_slot','午前','start_time','10:00','end_time','13:30')),NULL);
+ EXCEPTION WHEN OTHERS THEN msg:=SQLERRM;
+ END;
+ -- main（本番と同じ DB 関数）では、グループ作成（create_private_group_atomic）は営業時間を確かめないので通る（staging では弾く）
+ ASSERT msg IS NULL, format('R39(main): グループ作成の動きが本番の DB 関数と違う（%s）', msg);
+ UPDATE private_groups SET preferred_store_ids=two WHERE id=c.grp;
+ PERFORM private_group_add_candidate_dates(c.grp,gen_random_uuid(),c.sm,two,
+  jsonb_build_array(jsonb_build_object('date',w,'time_slot','morning','start_time','10:00','end_time','13:30')));
+ -- main（本番と同じ DB 関数）では、店舗への申込（create_private_booking_request）は営業時間を確かめないので通る（staging では弾く）。
+ -- 本番の申込は希望店舗とグループの希望店舗の一致を求めるので、先に二号店だけにする
+ UPDATE private_groups SET preferred_store_ids=one WHERE id=c.grp;
+ msg:=NULL;
+ BEGIN
+  PERFORM pg_temp.request(one,jsonb_build_array(jsonb_build_object('date',w,'timeSlot','午前','startTime','10:00','endTime','13:30')));
+ EXCEPTION WHEN OTHERS THEN msg:=SQLERRM;
+ END;
+ ASSERT msg IS NULL, format('R39(main): 申込の動きが本番の DB 関数と違う（%s）', msg);
+ INSERT INTO _rule_rows VALUES('R39',w,'morning',false,'10:00','13:30','closed','main: 表示・候補の追加で弾く（グループ作成・申込・希望店舗の変更は本番の DB 関数が営業時間を見ない）',false);
+ DELETE FROM private_group_candidate_dates WHERE group_id=c.grp;
+ UPDATE private_groups SET status='gathering',reservation_id=NULL,preferred_store_ids=one WHERE id=c.grp;
+
+ -- R40 土曜 開店 09:00・3 枠（朝の開始時刻は未設定 → 開店時刻。I3）: 朝 09:00 から選べる（札幌相当の二号店のまま）
+ UPDATE business_hours_settings SET opening_hours=opening_hours||jsonb_build_object('saturday',(opening_hours->'saturday')
+   ||jsonb_build_object('open_time','09:00','slot_start_times',jsonb_build_object('afternoon','14:00','evening','19:00')))
+  WHERE organization_id=c.org AND store_id=c.st2;
+ PERFORM pg_temp.check_row('R40',pg_temp.day_of(6,7),one,'morning',true,'09:00','12:30',NULL,NULL,false);
+ -- R41 特別営業日（平日）は日曜の設定（3 枠・朝 10:00）。札幌相当の平日でも朝を選べる。作品の平日の開始時刻は使わない（土日祝の扱い）
+ UPDATE business_hours_settings SET special_open_days=jsonb_build_array(jsonb_build_object('date',pg_temp.day_of(3,4)))
+  WHERE organization_id=c.org AND store_id=c.st2;
+ PERFORM pg_temp.check_row('R41',pg_temp.day_of(3,4),one,'morning',true,'10:00','13:30',NULL,NULL,false);
+ PERFORM pg_temp.check_row('R41',pg_temp.day_of(3,4),one,'afternoon',true,'14:00','17:30',NULL,NULL,false);
+ UPDATE business_hours_settings SET special_open_days=NULL WHERE organization_id=c.org AND store_id=c.st2;
+ -- R42 営業設定が無い店舗（希望店舗が 1 店だけ）は従来どおり平日も 3 枠で、朝 10:00 を選べる
+ -- （営業設定が無い店舗には作品の開始時刻 I11 を重ねない従来の動き。昼は 13:00 のまま。この PR では変えない）
+ DELETE FROM business_hours_settings WHERE organization_id=c.org AND store_id=c.st2;
+ PERFORM pg_temp.check_row('R42',w,one,'morning',true,'10:00','13:30',NULL,NULL,false);
+ PERFORM pg_temp.check_row('R42',w,one,'evening',true,'19:00','22:30',NULL,NULL,false);
+ INSERT INTO business_hours_settings(organization_id,store_id,opening_hours) VALUES(c.org,c.st2,hours);
+ UPDATE business_hours_settings SET opening_hours=(SELECT jsonb_object_agg(k,CASE WHEN k IN ('saturday','sunday') THEN v
+   ELSE v||jsonb_build_object('open_time','13:00') END) FROM jsonb_each(opening_hours) e(k,v))
+  WHERE organization_id=c.org AND store_id=c.st2;
+ -- R43 東京相当（平日 開店 13:00・朝有効）でも、作品の時間枠（I10）で朝を外した作品は朝を選べない。昼 12:00 は選べる
+ UPDATE organization_scenarios SET private_booking_time_slots=ARRAY['午後','夜'] WHERE organization_id=c.org AND scenario_master_id=c.sm;
+ PERFORM pg_temp.check_row('R43',w,one,'morning',false,NULL,NULL,'slot_not_allowed',NULL,false);
+ PERFORM pg_temp.check_row('R43',w,one,'afternoon',true,'12:00','15:30',NULL,NULL,false);
+ UPDATE organization_scenarios SET private_booking_time_slots='{}',private_booking_slot_start_times=NULL WHERE organization_id=c.org AND scenario_master_id=c.sm;
+
 END $$;
 SELECT no,date,slot,ok,start_time,end_time,reason,detail,adjusted FROM _rule_rows ORDER BY substring(no FROM 2)::integer, date, array_position(ARRAY['morning','afternoon','evening'],slot);
 ROLLBACK;
