@@ -32,15 +32,27 @@ function isEntry(value: unknown): value is PendingEventCreate {
   return !!v && typeof v.requestId === 'string' && typeof v.fingerprint === 'string'
 }
 
+function storageKeySnapshot(): string[] {
+  try {
+    return Object.keys(localStorage)
+  } catch {
+    const keys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) { const key = localStorage.key(i); if (key) keys.push(key) }
+    return keys
+  }
+}
+
 function readStored(organizationId: string, userId: string): PendingEventCreate[] | null {
   try {
     const prefix = keyPrefix(organizationId, userId)
     const entries: PendingEventCreate[] = []
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (!key || !key.startsWith(prefix)) continue
+    // 先にキー名を一度に取り出してから読む。番号（key(i)）で数えながら読むと、途中で別のタブが前のキーを消したとき
+    // 後ろのキーが前に詰まって読み飛ばす（Codex 再レビュー 500877b）。読む時点で消えていたキーは除く
+    for (const key of storageKeySnapshot().filter(k => k.startsWith(prefix))) {
       try {
-        const parsed = JSON.parse(localStorage.getItem(key) ?? 'null')
+        const raw = localStorage.getItem(key)
+        if (raw === null) continue
+        const parsed = JSON.parse(raw)
         if (isEntry(parsed) && key === prefix + parsed.requestId) entries.push({ ...parsed, summary: String(parsed.summary ?? ''), at: String(parsed.at ?? '') })
       } catch { /* 壊れた記録は読み飛ばす */ }
     }
