@@ -235,10 +235,8 @@ export const ListView = memo(function ListView({
           }}
         >
           <div className="flex gap-0.5 sm:gap-2">
-            {/* 左カラム: 画像 */}
-            <div className={`flex-shrink-0 w-[28px] sm:w-[46px] self-stretch overflow-hidden ${
-              imageUrl ? 'bg-gray-200' : 'bg-gray-200'
-            }`}>
+            {/* 左カラム: 画像。作品画像と同じ 3:4 の固定枠（カードの高さに引き伸ばすと、残席の表示が折り返したときに細長く切り抜かれる） */}
+            <div data-testid="list-event-thumb" className="flex-shrink-0 w-8 sm:w-[46px] aspect-[3/4] self-start overflow-hidden bg-gray-200">
               <KeyVisualThumb
                 src={imageUrl}
                 alt={event.scenario || (scenario && scenarioCardTitle(scenario)) || 'シナリオ画像'}
