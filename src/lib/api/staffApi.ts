@@ -10,6 +10,7 @@ import { supabase } from '../supabase'
 import { apiClient } from '@/lib/apiClient'
 import type { Staff } from '@/types'
 import { getAllStaffShared } from './staffShared'
+import { invalidateSharedRequests } from './sharedRequest'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const STAFF_SELECT_FIELDS =
@@ -37,7 +38,11 @@ export const staffApi = {
 
   // スタッフを作成（admin 権限が必要）
   async create(staff: Omit<Staff, 'id' | 'created_at' | 'updated_at'>): Promise<Staff> {
-    return apiClient.post<Staff>('/api/staff', staff)
+    try {
+      return await apiClient.post<Staff>('/api/staff', staff)
+    } finally {
+      invalidateSharedRequests()
+    }
   },
 
   // スタッフを更新（role 変更は admin 権限が必要）
@@ -45,12 +50,21 @@ export const staffApi = {
   // 名前変更時は、サーバー側で schedule_events.gms / reservations.assigned_staff・gm_staff
   // を自動で同期する。
   async update(id: string, updates: Partial<Staff>): Promise<Staff> {
-    return apiClient.patch<Staff>(`/api/staff?id=${encodeURIComponent(id)}`, updates)
+    try {
+      return await apiClient.patch<Staff>(`/api/staff?id=${encodeURIComponent(id)}`, updates)
+    } finally {
+      // 保存より前に始まった一覧の取得に、保存後の呼び出しが相乗りしないようにする
+      invalidateSharedRequests()
+    }
   },
 
   // 既存連携の解除・新規連携・権限同期を一つのDBトランザクションで保存する。
   async linkAccount(id: string, userId: string | null, email?: string): Promise<void> {
-    await apiClient.patch(`/api/staff?id=${encodeURIComponent(id)}&action=linkAccount`, { user_id: userId, email })
+    try {
+      await apiClient.patch(`/api/staff?id=${encodeURIComponent(id)}&action=linkAccount`, { user_id: userId, email })
+    } finally {
+      invalidateSharedRequests()
+    }
   },
 
   // 廃止。担当は assignmentApi（/api/assignments）。サーバーは 410 を返す。
@@ -60,7 +74,11 @@ export const staffApi = {
 
   // スタッフを削除（admin 権限が必要）
   async delete(id: string): Promise<void> {
-    await apiClient.delete<void>(`/api/staff?id=${encodeURIComponent(id)}`)
+    try {
+      await apiClient.delete<void>(`/api/staff?id=${encodeURIComponent(id)}`)
+    } finally {
+      invalidateSharedRequests()
+    }
   },
 
   // IDでスタッフを取得

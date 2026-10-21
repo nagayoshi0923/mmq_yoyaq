@@ -2,6 +2,7 @@
  * 組織（マルチテナント）関連のヘルパー関数
  */
 import { logger } from '@/utils/logger'
+import { shareInFlight } from '@/lib/api/sharedRequest'
 import { supabase } from './supabase'
 import { getOrganizationSlugFromPath } from './publicBookingPath'
 import type { Organization, Staff } from '@/types'
@@ -107,18 +108,11 @@ export async function getCurrentOrganizationId(): Promise<string | null> {
   }
 
   // 画面を開いた直後は複数の部品が同時にここへ来る。キャッシュが入る前の同時呼び出しは
-  // 1 回の問い合わせを共有する（以前は users への同じ問い合わせが 5 回並んでいた）
-  if (orgIdLookupInFlight?.userId !== user.id) {
-    const userId = user.id
-    const promise = lookupOrganizationId(userId).finally(() => {
-      if (orgIdLookupInFlight?.promise === promise) orgIdLookupInFlight = null
-    })
-    orgIdLookupInFlight = { userId, promise }
-  }
-  return orgIdLookupInFlight.promise
+  // 1 回の問い合わせを共有する（以前は users への同じ問い合わせが 5 回並んでいた）。
+  // 利用者ごとに分け、組織の切替・保存の後は相乗りしない（src/lib/api/sharedRequest.ts）
+  const userId = user.id
+  return shareInFlight(`current-organization-id:${userId}`, () => lookupOrganizationId(userId))
 }
-
-let orgIdLookupInFlight: { userId: string; promise: Promise<string | null> } | null = null
 
 async function lookupOrganizationId(userId: string): Promise<string | null> {
   const user = { id: userId }

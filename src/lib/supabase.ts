@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { isVerboseDebug, logger } from '@/utils/logger'
+import { noteAuthUser } from '@/lib/api/sharedRequest'
 
 // 環境変数のバリデーション
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -69,6 +70,11 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     // デフォルトの localStorage を使用
     // （IndexedDB カスタムストレージは mobile Safari で indexedDB.open() がハングする問題があり削除）
   },
+})
+
+// 利用者が替わったら、替わる前に始まった読み取りへの相乗りをやめる（src/lib/api/sharedRequest.ts）
+supabase.auth.onAuthStateChange((_event, session) => {
+  noteAuthUser(session?.user?.id ?? null)
 })
 
 // 認証状態の型定義
