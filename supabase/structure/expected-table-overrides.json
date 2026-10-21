@@ -4794,13 +4794,19 @@
     "name": "event_id",
     "type": "uuid",
     "default": null,
-    "not_null": true
+    "not_null": false
    },
    {
     "name": "created_at",
     "type": "timestamp with time zone",
     "default": "now()",
     "not_null": true
+   },
+   {
+    "name": "cancelled_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
    }
   ],
   "indexes": [
@@ -4816,6 +4822,11 @@
   "policies": [],
   "triggers": [],
   "constraints": [
+   {
+    "def": "CHECK (((event_id IS NULL) = (cancelled_at IS NOT NULL)))",
+    "name": "schedule_event_create_requests_created_or_cancelled",
+    "type": "c"
+   },
    {
     "def": "FOREIGN KEY (event_id) REFERENCES schedule_events(id) ON DELETE CASCADE",
     "name": "schedule_event_create_requests_event_id_fkey",

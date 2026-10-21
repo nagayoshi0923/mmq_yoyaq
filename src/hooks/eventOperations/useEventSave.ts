@@ -27,7 +27,8 @@ import { showToast } from '@/utils/toast'
 import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import { holdPendingScheduleEvent, releasePendingScheduleEvent } from '@/hooks/useScheduleEventsQuery'
-import { readPendingEventCreate, writePendingEventCreate, clearPendingEventCreate } from '@/lib/pendingEventCreate'
+import { listPendingEventCreates, addPendingEventCreate, removePendingEventCreate } from '@/lib/pendingEventCreate'
+import { supabase } from '@/lib/supabase'
 import {
   diffScheduleSnapshotsForCustomerEmail,
   sendPrivateBookingCustomerChangeEmail,
@@ -312,23 +313,29 @@ export function useEventSave({
           is_reservation_name_overwritten: !!performanceData.reservation_name // 手動入力は上書きとみなす
         }
 
-        // 作成の要求 ID。前回の作成の結果が分からなかった（応答が届かなかった等）ときは、再読み込みをまたいでも
-        // それを照合してから進む（Codex 再レビュー 2fa19ac の P2-①、7658a64 の 1）。
-        // - 同じ入力: 同じ要求 ID で送る。DB が既に作った公演を返すので二重に作らない（未作成なら作る）
-        // - 違う入力: 前回の要求が作成済みかを DB に照合する。作成済みなら新しく作らずに知らせる。未作成と確定したら通常の新規作成へ
+        // 作成の要求 ID。結果が分からなかった前回の作成（この利用者・組織の分）は、確定するまで捨てない
+        // （src/lib/pendingEventCreate.ts の不変条件。Codex 再レビュー 2fa19ac・7658a64・929c857）。
+        // - 同じ入力の未確定の要求: その要求 ID で送る。DB が既に作った公演を返すので二重に作らない（未作成なら作る）
+        // - 違う入力の未確定の要求: 先に DB で照合する。作成済みなら新しく作らずに知らせる。未作成なら DB がその要求を
+        //   取消済みにする（遅れて届いても作らない）ので、確定として消してから通常の新規作成へ進む。照合できなければ作らない
         const requestFingerprint = JSON.stringify(eventData)
-        const pendingCreate = readPendingEventCreate(organizationId)
+        const { data: sessionData } = await supabase.auth.getSession()
+        const pendingUserId = sessionData?.session?.user?.id ?? 'unknown-user'
+        let reusedPending = false
         let clientRequestId: string = crypto.randomUUID()
-        if (pendingCreate?.fingerprint === requestFingerprint) {
-          clientRequestId = pendingCreate.requestId
-        } else if (pendingCreate) {
+        for (const pendingCreate of listPendingEventCreates(organizationId, pendingUserId)) {
+          if (pendingCreate.fingerprint === requestFingerprint) {
+            clientRequestId = pendingCreate.requestId
+            reusedPending = true
+            continue
+          }
           let previousEventId: string | null
           try {
             previousEventId = await scheduleApi.findCreatedByRequest(pendingCreate.requestId)
           } catch {
             throw new ApiClientError(502, `前回の保存（${pendingCreate.summary}）が作成されたか確認できませんでした。通信を確かめてから、もう一度保存してください`)
           }
-          clearPendingEventCreate(organizationId)
+          removePendingEventCreate(organizationId, pendingUserId, pendingCreate.requestId)
           if (previousEventId) {
             throw new ApiClientError(409, `前回の保存（${pendingCreate.summary}）は作成されていました。スケジュールを再読み込みして確かめてから、必要なら保存してください`)
           }
@@ -376,19 +383,28 @@ export function useEventSave({
           // （確定したのに保存し直すと二重に作成される。Codex 再レビュー 2e24bbf の 4）
           const outcomeUnknown = !(saveError instanceof ApiClientError) || saveError.status >= 502 || saveError.body?.outcome === 'unknown'
           if (outcomeUnknown) {
-            writePendingEventCreate(organizationId, {
+            const persisted = addPendingEventCreate(organizationId, pendingUserId, {
               requestId: clientRequestId,
               fingerprint: requestFingerprint,
               summary: `${eventData.date} ${eventData.start_time.slice(0, 5)}${eventData.scenario ? ` ${eventData.scenario}` : ''}`,
               at: new Date().toISOString(),
             })
-            throw new ApiClientError(502, '公演が作成されたか確認できませんでした。スケジュールを再読み込みして確かめてください。この端末で次に保存するとき、前回の保存が作成済みかを先に照合し、二重には作成しません')
+            throw new ApiClientError(502, persisted
+              ? '公演が作成されたか確認できませんでした。スケジュールを再読み込みして確かめてください。この端末のこのブラウザで次に保存するとき、前回の保存が作成済みかを先に照合し、二重には作成しません'
+              : '公演が作成されたか確認できませんでした。このブラウザに記録を残せなかったため、再読み込みや画面を閉じた後は照合できません。この画面のまま、同じ内容でもう一度保存してください（二重には作成しません）')
           }
-          clearPendingEventCreate(organizationId)
+          // DB がこの要求 ID を取消済み（別のタブ等の照合で未作成と確定）と答えた: 作成されないことが確定したので消す
+          if (saveError instanceof ApiClientError && saveError.body?.outcome === 'cancelled') {
+            removePendingEventCreate(organizationId, pendingUserId, clientRequestId)
+            throw saveError
+          }
+          // 未確定の要求を同じ要求 ID で送り直したときの失敗（店舗確認などの前処理の失敗を含む）は、前回の要求が
+          // 未作成である証拠にならないので、覚えたままにする（次の保存も同じ要求 ID で送る）
+          if (reusedPending) throw new ApiClientError(saveError instanceof ApiClientError ? saveError.status : 502, `${saveError instanceof ApiClientError ? saveError.message : '保存できませんでした'}。前回の保存（同じ内容）が作成されたかはまだ確認できていません。もう一度保存すると、同じ保存として送り直します（二重には作成しません）`)
           throw saveError
         }
         releasePendingScheduleEvent(tempEventId)
-        clearPendingEventCreate(organizationId)
+        removePendingEventCreate(organizationId, pendingUserId, clientRequestId)
 
         // 楽観的 insert の temp event を即座に real event へ置き換える。
         // ここを後続処理（履歴記録・スタッフ予約同期＝ネットワーク往復）の後に

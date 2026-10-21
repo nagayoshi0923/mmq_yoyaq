@@ -25,20 +25,24 @@ DO $preflight$ BEGIN
 END $preflight$;
 
 -- 作成要求 ID と作られた公演の対応。公演が消えれば対応も消える（同じ要求 ID で作り直せる）。
+-- 照合（find_schedule_event_create_request）で「未作成」と答えた要求 ID は、取消済み（event_id なし・cancelled_at あり）として残し、
+-- 後から届いた同じ要求 ID の作成を受け付けない（照合のあとに元の要求が遅れて届いて二重に作るのを防ぐ。Codex 再レビュー 929c857）。
 -- 画面・API から直接は読み書きしない（下の関数だけが使う）。
 CREATE TABLE public.schedule_event_create_requests (
  request_id uuid PRIMARY KEY,
  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
  user_id uuid NOT NULL,
- event_id uuid NOT NULL REFERENCES public.schedule_events(id) ON DELETE CASCADE,
- created_at timestamptz NOT NULL DEFAULT now()
+ event_id uuid REFERENCES public.schedule_events(id) ON DELETE CASCADE,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ cancelled_at timestamptz,
+ CONSTRAINT schedule_event_create_requests_created_or_cancelled CHECK ((event_id IS NULL) = (cancelled_at IS NOT NULL))
 );
 CREATE INDEX schedule_event_create_requests_event_id_idx ON public.schedule_event_create_requests(event_id);
 ALTER TABLE public.schedule_event_create_requests ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.schedule_event_create_requests FROM PUBLIC, anon, authenticated;
 
 -- 巻き戻し（rollbacks/ の同名ファイル）で rollback_backup へ退避した対応を、当て直しのときに書き戻す。
--- 書き戻すのは公演がまだある行だけ（消えた公演の要求 ID は、同じ ID で作り直せてよい）。退避が無ければ何もしない。
+-- 書き戻すのは公演がまだある行と取消済みの行（消えた公演の要求 ID は、同じ ID で作り直せてよい）。退避が無ければ何もしない。
 -- 書き戻した後、退避のうち公演が残っている行がすべて同じ対応で入ったことを確かめ、違えば取引ごと止める。
 DO $restore$
 DECLARE v_src text; v_backup bigint; v_restored bigint; v_total_restored bigint := 0; v_gone bigint; v_missing bigint;
@@ -48,14 +52,15 @@ BEGIN
   WHERE n.nspname='rollback_backup' AND c.relkind='r' AND c.relname LIKE 'schedule\_event\_create\_requests\_backup\_%' ORDER BY c.relname DESC
  LOOP
   EXECUTE format('SELECT count(*) FROM %s', v_src) INTO v_backup;
-  EXECUTE format('INSERT INTO public.schedule_event_create_requests(request_id, organization_id, user_id, event_id, created_at)
-   SELECT b.request_id, b.organization_id, b.user_id, b.event_id, b.created_at FROM %s b
-   WHERE EXISTS (SELECT 1 FROM public.schedule_events e WHERE e.id=b.event_id AND e.organization_id=b.organization_id)
+  EXECUTE format('INSERT INTO public.schedule_event_create_requests(request_id, organization_id, user_id, event_id, created_at, cancelled_at)
+   SELECT b.request_id, b.organization_id, b.user_id, b.event_id, b.created_at, b.cancelled_at FROM %s b
+   WHERE b.event_id IS NULL OR EXISTS (SELECT 1 FROM public.schedule_events e WHERE e.id=b.event_id AND e.organization_id=b.organization_id)
    ON CONFLICT (request_id) DO NOTHING', v_src);
   GET DIAGNOSTICS v_restored = ROW_COUNT;
-  EXECUTE format('SELECT count(*) FROM %s b WHERE NOT EXISTS (SELECT 1 FROM public.schedule_events e WHERE e.id=b.event_id AND e.organization_id=b.organization_id)', v_src) INTO v_gone;
-  EXECUTE format('SELECT count(*) FROM %s b WHERE EXISTS (SELECT 1 FROM public.schedule_events e WHERE e.id=b.event_id AND e.organization_id=b.organization_id)
-   AND NOT EXISTS (SELECT 1 FROM public.schedule_event_create_requests r WHERE r.request_id=b.request_id AND r.event_id=b.event_id AND r.organization_id=b.organization_id AND r.user_id=b.user_id)', v_src) INTO v_missing;
+  EXECUTE format('SELECT count(*) FROM %s b WHERE b.event_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.schedule_events e WHERE e.id=b.event_id AND e.organization_id=b.organization_id)', v_src) INTO v_gone;
+  EXECUTE format('SELECT count(*) FROM %s b WHERE (b.event_id IS NULL OR EXISTS (SELECT 1 FROM public.schedule_events e WHERE e.id=b.event_id AND e.organization_id=b.organization_id))
+   AND NOT EXISTS (SELECT 1 FROM public.schedule_event_create_requests r WHERE r.request_id=b.request_id AND r.event_id IS NOT DISTINCT FROM b.event_id
+    AND r.organization_id=b.organization_id AND r.user_id=b.user_id)', v_src) INTO v_missing;
   IF v_missing > 0 THEN
    RAISE EXCEPTION '退避 % の書き戻しが一致しません（公演が残っているのに戻らなかった対応 % 行）', v_src, v_missing;
   END IF;
@@ -98,6 +103,11 @@ BEGIN
   IF v_prior.organization_id IS DISTINCT FROM v_org OR v_prior.user_id IS DISTINCT FROM auth.uid() THEN
    RAISE EXCEPTION '要求 ID が別の利用者の作成と重なっています。画面を開き直してください' USING ERRCODE='22023';
   END IF;
+  IF v_prior.event_id IS NULL THEN
+   -- 照合で「未作成」と答えて閉じた要求。遅れて届いても作らない
+   -- 独自の SQLSTATE（MMQC1）で返し、API は「取消済み（作成していない）」と区別して画面へ伝える
+   RAISE EXCEPTION 'この保存は、後の保存で未作成と確認して取り消したため作成していません。スケジュールを再読み込みして確かめてください' USING ERRCODE='MMQC1';
+  END IF;
   RETURN v_prior.event_id;
  END IF;
  IF NOT EXISTS(SELECT 1 FROM public.stores WHERE id=nullif(p_event->>'store_id','')::uuid AND organization_id=v_org) THEN
@@ -134,23 +144,31 @@ REVOKE ALL ON FUNCTION public.create_schedule_event_with_staff(uuid, jsonb, text
 GRANT EXECUTE ON FUNCTION public.create_schedule_event_with_staff(uuid, jsonb, text[], jsonb, jsonb) TO authenticated, service_role;
 
 -- 作成の結果が分からなかった要求 ID が、自分の作成として確定しているかを調べる（Codex 再レビュー 7658a64 の 1）。
--- 同じ要求 ID の作成が処理中なら、その取引が終わるまで待ってから答える（「未作成」を早まって返さない）。
--- 確定していれば公演 ID、無ければ NULL（その要求では公演は作られていない）。
+-- 同じ要求 ID の作成が処理中なら、その取引が終わるまで待ってから答える。
+-- 確定していれば公演 ID。無ければその要求 ID を取消済みとして記録してから NULL を返す（Codex 再レビュー 929c857）。
+-- 以後、同じ要求 ID の作成が遅れて届いても作らないので、「未作成」の答えは確定になる。
 CREATE FUNCTION public.find_schedule_event_create_request(p_request_id uuid)
  RETURNS uuid
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'pg_catalog', 'public'
 AS $function$
-DECLARE v_org uuid := public.get_user_organization_id();
+DECLARE v_org uuid := public.get_user_organization_id(); v_prior public.schedule_event_create_requests;
 BEGIN
  IF auth.uid() IS NULL OR v_org IS NULL OR NOT EXISTS(SELECT 1 FROM public.users WHERE id=auth.uid() AND role::text IN ('admin','staff','license_admin')) THEN
   RAISE EXCEPTION '公演を確認する権限がありません' USING ERRCODE='42501';
  END IF;
  IF p_request_id IS NULL THEN RAISE EXCEPTION '要求 ID が必要です' USING ERRCODE='22023'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('mmq-event-create:'||p_request_id::text, 0));
- RETURN (SELECT r.event_id FROM public.schedule_event_create_requests r
-  WHERE r.request_id=p_request_id AND r.organization_id=v_org AND r.user_id=auth.uid());
+ SELECT * INTO v_prior FROM public.schedule_event_create_requests r WHERE r.request_id=p_request_id;
+ IF FOUND THEN
+  -- 他人の要求 ID なら何も教えない（取消もしない）
+  IF v_prior.organization_id IS DISTINCT FROM v_org OR v_prior.user_id IS DISTINCT FROM auth.uid() THEN RETURN NULL; END IF;
+  RETURN v_prior.event_id;
+ END IF;
+ INSERT INTO public.schedule_event_create_requests(request_id, organization_id, user_id, event_id, cancelled_at)
+  VALUES (p_request_id, v_org, auth.uid(), NULL, now());
+ RETURN NULL;
 END $function$;
 
 REVOKE ALL ON FUNCTION public.find_schedule_event_create_request(uuid) FROM PUBLIC, anon;

@@ -27,6 +27,7 @@ export const supabase = {
   }
   return query
  },
+ auth: { getSession: async () => ({ data: { session: { user: { id: 'fixture-user' } } }, error: null }) },
  rpc: async () => { if(fixtureState.mode==='save_error')return {error:{message:'fixture save error'}};fixtureState.saved++;return {data:true,error:null} },
  functions: { invoke: async () => {
   fixtureState.sent++

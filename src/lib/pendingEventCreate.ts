@@ -1,9 +1,15 @@
 /**
- * 結果が分からなかった公演の作成（応答が届かなかった等）を、画面の再読み込みをまたいで覚えておく（PR #1210、Codex 再レビュー 7658a64 の 1）。
+ * 結果が分からなかった公演の作成（応答が届かなかった等）を覚えておく（PR #1210、Codex 再レビュー 7658a64・929c857）。
  *
  * 作成には要求 ID（UUID）を付けており、DB は同じ利用者・組織の同じ要求 ID の公演があればそれを返す（二重に作らない）。
- * 結果不明のまま再読み込みすると画面のメモリが消え、次の保存が新しい ID になって二重作成になり得たため、
- * この端末のブラウザ（localStorage）に組織ごとに 1 件だけ残す。使えないとき（非公開ウィンドウ等）は画面のメモリだけで覚える。
+ * 覚えた要求は、次のどちらかで「確定」するまで消さない:
+ *   (a) 同じ要求 ID の作成が成功した（既にある公演が返った場合を含む）
+ *   (b) DB の照合（find_schedule_event_create_request）が答えた。作成済みなら公演 ID、未作成なら DB がその要求 ID を
+ *       取消済みにしたうえで NULL を返す（以後、遅れて届いても作らない）
+ * 同じ要求 ID で送り直したときの失敗（店舗確認などの前処理の失敗を含む）は、前回の要求が未作成である証拠にならないので消さない。
+ *
+ * 保存先: この端末のブラウザの localStorage（組織＋利用者ごと、要求 ID ごとに複数件。複数タブでの別々の結果不明も上書きしない）。
+ * localStorage に書けない（非公開ウィンドウ・容量超過等）ときは、この画面のメモリだけで覚える。その場合、再読み込みや画面を閉じた後は照合できない。
  * 別の端末・別のブラウザとは共有しない。
  */
 export type PendingEventCreate = {
@@ -15,28 +21,62 @@ export type PendingEventCreate = {
   at: string
 }
 
-const memory = new Map<string, PendingEventCreate>()
-const storageKey = (organizationId: string) => `mmq:pending-event-create:${organizationId}`
+const memory = new Map<string, PendingEventCreate[]>()
+const scopeKey = (organizationId: string, userId: string) => `${organizationId}:${userId}`
+const storageKey = (organizationId: string, userId: string) => `mmq:pending-event-create:${scopeKey(organizationId, userId)}`
 
-export function readPendingEventCreate(organizationId: string): PendingEventCreate | null {
+function isEntry(value: unknown): value is PendingEventCreate {
+  const v = value as Partial<PendingEventCreate> | null
+  return !!v && typeof v.requestId === 'string' && typeof v.fingerprint === 'string'
+}
+
+function readStored(organizationId: string, userId: string): PendingEventCreate[] | null {
   try {
-    const raw = localStorage.getItem(storageKey(organizationId))
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<PendingEventCreate>
-      if (typeof parsed.requestId === 'string' && typeof parsed.fingerprint === 'string') {
-        return { requestId: parsed.requestId, fingerprint: parsed.fingerprint, summary: String(parsed.summary ?? ''), at: String(parsed.at ?? '') }
-      }
-    }
-  } catch { /* 読めなければメモリの値を使う */ }
-  return memory.get(organizationId) ?? null
+    const raw = localStorage.getItem(storageKey(organizationId, userId))
+    if (raw === null) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter(isEntry).map(e => ({ ...e, summary: String(e.summary ?? ''), at: String(e.at ?? '') })) : []
+  } catch {
+    return null
+  }
 }
 
-export function writePendingEventCreate(organizationId: string, pending: PendingEventCreate): void {
-  memory.set(organizationId, pending)
-  try { localStorage.setItem(storageKey(organizationId), JSON.stringify(pending)) } catch { /* メモリだけで覚える */ }
+/** 覚えている未確定の要求（この利用者・組織の分だけ。古い順） */
+export function listPendingEventCreates(organizationId: string, userId: string): PendingEventCreate[] {
+  const stored = readStored(organizationId, userId) ?? []
+  const inMemory = memory.get(scopeKey(organizationId, userId)) ?? []
+  const merged = [...stored]
+  for (const entry of inMemory) if (!merged.some(e => e.requestId === entry.requestId)) merged.push(entry)
+  return merged
 }
 
-export function clearPendingEventCreate(organizationId: string): void {
-  memory.delete(organizationId)
-  try { localStorage.removeItem(storageKey(organizationId)) } catch { /* 何もしない */ }
+/** 未確定の要求を覚える。localStorage に残せたら true（再読み込み後も照合できる）、メモリだけなら false */
+export function addPendingEventCreate(organizationId: string, userId: string, pending: PendingEventCreate): boolean {
+  const key = scopeKey(organizationId, userId)
+  const inMemory = (memory.get(key) ?? []).filter(e => e.requestId !== pending.requestId)
+  memory.set(key, [...inMemory, pending])
+  try {
+    const stored = readStored(organizationId, userId)
+    if (stored === null) return false
+    localStorage.setItem(storageKey(organizationId, userId), JSON.stringify([...stored.filter(e => e.requestId !== pending.requestId), pending]))
+    return true
+  } catch {
+    return false
+  }
 }
+
+/** 確定した要求だけを消す（他の要求・他の利用者の要求には触れない） */
+export function removePendingEventCreate(organizationId: string, userId: string, requestId: string): void {
+  const key = scopeKey(organizationId, userId)
+  memory.set(key, (memory.get(key) ?? []).filter(e => e.requestId !== requestId))
+  try {
+    const stored = readStored(organizationId, userId)
+    if (stored === null) return
+    const rest = stored.filter(e => e.requestId !== requestId)
+    if (rest.length) localStorage.setItem(storageKey(organizationId, userId), JSON.stringify(rest))
+    else localStorage.removeItem(storageKey(organizationId, userId))
+  } catch { /* 何もしない */ }
+}
+
+/** 試験用 */
+export function resetPendingEventCreateMemory(): void { memory.clear() }

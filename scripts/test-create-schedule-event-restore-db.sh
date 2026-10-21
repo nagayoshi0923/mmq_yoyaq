@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 公演作成の要求 ID（migration 20261022010000）の「巻き戻し → 当て直し」で、残っていた対応が書き戻されることを確かめる（PR #1210）。
 # 対応の行を残したまま rollback → 当て直し → 退避から書き戻し → 同じ要求 ID の再送で元の公演が返る（新しく作らない）。
-# 巻き戻し中に公演が消えた要求 ID は書き戻さない（同じ ID で作り直せる）。
+# 巻き戻し中に公演が消えた要求 ID は書き戻さない（同じ ID で作り直せる）。照合で取り消した要求 ID は取消済みのまま書き戻す。
 # 使い方: DB_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres bash scripts/test-create-schedule-event-restore-db.sh
 #   この migration を当てていない手元の DB を使う。全体を 1 つの取引で流し、最後に ROLLBACK する（何も残らない）。架空データのみ。
 set -euo pipefail
@@ -34,9 +34,11 @@ INSERT INTO got SELECT 'x1', public.create_schedule_event_with_staff('eeeeeeee-0
 INSERT INTO got SELECT 'y1', public.create_schedule_event_with_staff('eeeeeeee-0000-4000-8000-0000000000bb',
  '{"date":"2031-03-02","store_id":"eeeeeeee-0000-4000-8000-0000000000b1","venue":"書き戻し店","scenario":"","category":"open","start_time":"10:00","end_time":"14:00","capacity":6,"notes":"restore-y"}',
  ARRAY[]::text[], '{}', '[]');
+-- 照合で未作成と答えて取消済みにした要求 Z
+INSERT INTO got SELECT 'find_z_before', public.find_schedule_event_create_request('eeeeeeee-0000-4000-8000-0000000000cc');
 SET LOCAL ROLE postgres;
 DO \$\$ BEGIN
- ASSERT (SELECT count(*) FROM public.schedule_event_create_requests WHERE organization_id='eeeeeeee-0000-4000-8000-000000000001')=2, '巻き戻し前の対応は X・Y の 2 行';
+ ASSERT (SELECT count(*) FROM public.schedule_event_create_requests WHERE organization_id='eeeeeeee-0000-4000-8000-000000000001')=3, '巻き戻し前の対応は X・Y と取消済みの Z の 3 行';
 END \$\$;
 \echo == 巻き戻し（行を残したまま）
 \i $RB
@@ -50,7 +52,8 @@ DELETE FROM public.schedule_events WHERE id=(SELECT id FROM got WHERE label='y1'
 \echo == 当て直し（退避から書き戻し）
 \i $MIG
 DO \$\$ BEGIN
- ASSERT (SELECT count(*) FROM public.schedule_event_create_requests WHERE organization_id='eeeeeeee-0000-4000-8000-000000000001')=1, '公演が残る X だけ書き戻す';
+ ASSERT (SELECT count(*) FROM public.schedule_event_create_requests WHERE organization_id='eeeeeeee-0000-4000-8000-000000000001' AND event_id IS NOT NULL)=1, '公演が残る X だけ書き戻す';
+ ASSERT EXISTS (SELECT 1 FROM public.schedule_event_create_requests WHERE request_id='eeeeeeee-0000-4000-8000-0000000000cc' AND event_id IS NULL AND cancelled_at IS NOT NULL), '取消済みの Z も書き戻す';
  ASSERT (SELECT event_id FROM public.schedule_event_create_requests WHERE request_id='eeeeeeee-0000-4000-8000-0000000000aa')=(SELECT id FROM got WHERE label='x1'), 'X の対応が元の公演';
  ASSERT NOT EXISTS (SELECT 1 FROM public.schedule_event_create_requests WHERE request_id='eeeeeeee-0000-4000-8000-0000000000bb'), '公演が消えた Y は戻さない';
 END \$\$;
@@ -60,6 +63,14 @@ INSERT INTO got SELECT 'x2', public.create_schedule_event_with_staff('eeeeeeee-0
  ARRAY['書き戻しGM'], '{"書き戻しGM":"main"}', '[]');
 INSERT INTO got SELECT 'find_x', public.find_schedule_event_create_request('eeeeeeee-0000-4000-8000-0000000000aa');
 INSERT INTO got SELECT 'find_y', public.find_schedule_event_create_request('eeeeeeee-0000-4000-8000-0000000000bb');
+-- 取消済みの Z の作成が当て直しの後に遅れて届いても作らない
+DO \$\$ BEGIN
+ PERFORM public.create_schedule_event_with_staff('eeeeeeee-0000-4000-8000-0000000000cc',
+  '{"date":"2031-03-03","store_id":"eeeeeeee-0000-4000-8000-0000000000b1","venue":"書き戻し店","scenario":"","category":"open","start_time":"10:00","end_time":"14:00","capacity":6,"notes":"restore-z"}',
+  ARRAY[]::text[], '{}', '[]');
+ RAISE EXCEPTION '取消済みの Z が作成された';
+EXCEPTION WHEN SQLSTATE 'MMQC1' THEN NULL;
+END \$\$;
 SET LOCAL ROLE postgres;
 SELECT label, id FROM got ORDER BY label;
 DO \$\$ BEGIN
@@ -67,6 +78,7 @@ DO \$\$ BEGIN
  ASSERT (SELECT count(*) FROM public.schedule_events WHERE notes='restore-x')=1, '公演は 1 件のまま';
  ASSERT (SELECT id FROM got WHERE label='find_x')=(SELECT id FROM got WHERE label='x1'), '照合で作成済みと分かる';
  ASSERT (SELECT id FROM got WHERE label='find_y') IS NULL, '公演が消えた要求は未作成と答える';
+ ASSERT NOT EXISTS (SELECT 1 FROM public.schedule_events WHERE notes='restore-z'), '取消済みの Z は作られない';
 END \$\$;
 \echo OK: 行を残した巻き戻し → 当て直し → 書き戻し → 同じ要求 ID の再送で元の公演
 ROLLBACK;

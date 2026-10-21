@@ -80,6 +80,8 @@ export async function handleCreate(req: VercelRequest, res: VercelResponse, user
         console.error('[schedule:create] create_schedule_event_with_staff outcome unknown:', rpcError)
         return res.status(502).json({ error: CREATE_OUTCOME_UNKNOWN, outcome: 'unknown' })
       }
+      // MMQC1: 照合で未作成と確認して取り消した要求 ID（遅れて届いた作成）。作成していないことが確定している
+      if (code === 'MMQC1') return res.status(409).json({ error: rpcError?.message ?? 'この保存は取り消し済みのため作成していません', outcome: 'cancelled' })
       const status = code === '42501' ? 403 : ['40001', '55P03', '23514'].includes(code) ? 409 : ['22023', '22P02'].includes(code) ? 400 : 500
       if (status === 500) console.error('[schedule:create] create_schedule_event_with_staff error:', rpcError)
       return res.status(status).json({ error: status === 500 ? '公演と担当の保存に失敗しました。公演は作成されていません' : `${rpcError?.message ?? '担当を保存できませんでした'}（公演は作成されていません）` })

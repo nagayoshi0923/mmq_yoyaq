@@ -93,6 +93,16 @@ DO $$ BEGIN
  INSERT INTO calls VALUES ('case14_other', public.find_schedule_event_create_request('dddddddd-0000-4000-8000-0000000010aa'), NULL, NULL);
 END $$;
 SELECT set_config('request.jwt.claims','{"sub":"dddddddd-0000-4000-8000-0000000000a1","role":"authenticated"}',true);
+-- 15) 照合で「未作成」と答えた要求 ID（R）は取消済みになり、入力を変えた新しい保存（S）は作られ、
+--     その後に元の R の作成が遅れて届いても作らない（公演は S の 1 件だけ。Codex 再レビュー 929c857）
+DO $$ BEGIN
+ INSERT INTO calls VALUES ('case15_find', public.find_schedule_event_create_request('dddddddd-0000-4000-8000-0000000015aa'), NULL, NULL);
+END $$;
+SELECT pg_temp.try_create('case15_new', pg_temp.ev('case15-new'), ARRAY['架空GM'], '{"架空GM":"main"}', '[]', 'dddddddd-0000-4000-8000-0000000015bb');
+SELECT pg_temp.try_create('case15_late', pg_temp.ev('case15-late'), ARRAY['架空GM'], '{"架空GM":"main"}', '[]', 'dddddddd-0000-4000-8000-0000000015aa');
+DO $$ BEGIN
+ INSERT INTO calls VALUES ('case15_find_again', public.find_schedule_event_create_request('dddddddd-0000-4000-8000-0000000015aa'), NULL, NULL);
+END $$;
 DO $$ BEGIN
  INSERT INTO calls VALUES ('case14_own', public.find_schedule_event_create_request('dddddddd-0000-4000-8000-0000000010aa'), NULL, NULL);
  INSERT INTO calls VALUES ('case14_none', public.find_schedule_event_create_request('dddddddd-0000-4000-8000-00000000dead'), NULL, NULL);
@@ -155,11 +165,19 @@ INSERT INTO results SELECT '14_find_create_request',
   (SELECT id FROM calls WHERE label='case14_own')=(SELECT id FROM calls WHERE label='case10a')
   AND (SELECT id FROM calls WHERE label='case14_none') IS NULL AND (SELECT id FROM calls WHERE label='case14_other') IS NULL
   AND NOT has_function_privilege('anon','public.find_schedule_event_create_request(uuid)','EXECUTE'), NULL;
+INSERT INTO results SELECT '15_late_original_after_null_lookup_not_created',
+  (SELECT id FROM calls WHERE label='case15_find') IS NULL
+  AND (SELECT id FROM calls WHERE label='case15_new') IS NOT NULL
+  AND (SELECT id FROM calls WHERE label='case15_late') IS NULL AND (SELECT code FROM calls WHERE label='case15_late')='MMQC1'
+  AND (SELECT id FROM calls WHERE label='case15_find_again') IS NULL
+  AND (SELECT count(*) FROM public.schedule_events WHERE notes IN ('case15-new','case15-late'))=1
+  AND (SELECT cancelled_at IS NOT NULL AND event_id IS NULL FROM public.schedule_event_create_requests WHERE request_id='dddddddd-0000-4000-8000-0000000015aa'),
+  (SELECT err FROM calls WHERE label='case15_late');
 INSERT INTO results SELECT '9_anon_rejected', NOT has_function_privilege('anon','public.create_schedule_event_with_staff(uuid,jsonb,text[],jsonb,jsonb)','EXECUTE')
   AND NOT has_function_privilege('anon','public.find_schedule_event_create_request(uuid)','EXECUTE'), NULL;
 
 SELECT label, ok, left(coalesce(detail,''), 80) AS detail FROM results ORDER BY label;
 DO $$ BEGIN
- IF EXISTS(SELECT 1 FROM results WHERE NOT ok) OR (SELECT count(*) FROM results) <> 18 THEN RAISE EXCEPTION 'create_schedule_event_with_staff: 失敗あり'; END IF;
+ IF EXISTS(SELECT 1 FROM results WHERE NOT ok) OR (SELECT count(*) FROM results) <> 19 THEN RAISE EXCEPTION 'create_schedule_event_with_staff: 失敗あり'; END IF;
 END $$;
 ROLLBACK;

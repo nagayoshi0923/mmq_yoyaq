@@ -2,12 +2,12 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-const mocks = vi.hoisted(() => ({ findCreated: vi.fn(), history: vi.fn(), snapshot: vi.fn(), create: vi.fn(), sync: vi.fn(), neighbors: vi.fn(), success: vi.fn(), warning: vi.fn(), error: vi.fn(), update: vi.fn(), read: vi.fn(), diff: vi.fn(), notify: vi.fn(), confirm: vi.fn() }))
+const mocks = vi.hoisted(() => ({ user: { id: 'user-a' }, findCreated: vi.fn(), history: vi.fn(), snapshot: vi.fn(), create: vi.fn(), sync: vi.fn(), neighbors: vi.fn(), success: vi.fn(), warning: vi.fn(), error: vi.fn(), update: vi.fn(), read: vi.fn(), diff: vi.fn(), notify: vi.fn(), confirm: vi.fn() }))
 vi.mock('@/hooks/usePreparationSettings', () => ({ usePreparationSettings: () => ({ fetch: async () => () => 0 }) }))
 vi.mock('@/lib/preparationNeighborEvents', () => ({ loadPreparationNeighborEvents: mocks.neighbors }))
 vi.mock('@/lib/api', () => ({ scheduleApi: { create: mocks.create, update: mocks.update, findCreatedByRequest: mocks.findCreated } }))
 vi.mock('@/lib/reservationApi', () => ({ reservationApi: { syncStaffReservations: mocks.sync } }))
-vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ select() { return this }, eq() { return this }, single: mocks.read }) } }))
+vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ select() { return this }, eq() { return this }, single: mocks.read }), auth: { getSession: async () => ({ data: { session: { user: { id: mocks.user.id } } } }) } } }))
 vi.mock('@/utils/toast', () => ({ showToast: mocks }))
 vi.mock('@/utils/logger', () => ({ logger: { log: vi.fn(), error: vi.fn() } }))
 vi.mock('@/lib/api/eventHistoryApi', () => ({ fetchEventSnapshot: mocks.snapshot, createEventHistory: mocks.history }))
@@ -15,7 +15,7 @@ vi.mock('@/hooks/eventOperations/eventSyncHelpers', () => ({ confirmSendPrivateB
 vi.mock('@/lib/privateBookingCustomerChangeEmail', () => ({ diffScheduleSnapshotsForCustomerEmail: mocks.diff, sendPrivateBookingCustomerChangeEmail: mocks.notify }))
 import { useEventSave } from './useEventSave'
 import { ApiClientError } from '@/lib/apiClient'
-import { clearPendingEventCreate } from '@/lib/pendingEventCreate'
+import { resetPendingEventCreateMemory } from '@/lib/pendingEventCreate'
 import type { ScheduleEvent } from '@/types/schedule'
 import { QueryClient } from '@tanstack/react-query'
 import { createScheduleMonthQueryFn, scheduleEventKeys, setScheduleMonthData } from '@/hooks/useScheduleEventsQuery'
@@ -42,7 +42,8 @@ beforeEach(() => {
   mode = 'add'
   shown = []
   localStorage.clear()
-  clearPendingEventCreate('org')
+  resetPendingEventCreateMemory()
+  mocks.user.id = 'user-a'
   mocks.findCreated.mockResolvedValue(null)
   setEvents.mockImplementation(localSetEvents)
   mocks.snapshot.mockResolvedValue(null)
@@ -348,6 +349,68 @@ describe('結果不明の作成を再読み込みのあとも照合する（PR #
     await act(async () => { expect(await result.current.handleSavePerformance({ ...input, notes: '別' })).toBe(false) })
     expect(mocks.create).toHaveBeenCalledTimes(1)
     expect(localStorage.length).toBe(1)
+  })
+})
+
+describe('未確定の作成は確定するまで捨てない（PR #1210 Codex 再レビュー 929c857）', () => {
+  const unknown = () => new ApiClientError(502, '結果不明', undefined, { outcome: 'unknown' })
+  const input = { ...data, gm_roles: { A: 'main' }, staffParticipation: plan }
+  const requestIds = () => mocks.create.mock.calls.map(call => (call[0] as { client_request_id: string }).client_request_id)
+  async function reload() { await act(async () => root.unmount()); root = createRoot(document.createElement('div')); return setup() }
+  it('利用者ごとに分ける: 同じ組織の別の利用者の保存は、前の利用者の未確定の要求を照合も削除もしない', async () => {
+    mocks.create.mockRejectedValueOnce(unknown())
+    let { result } = await setup()
+    await act(async () => { await result.current.handleSavePerformance(input) })
+    mocks.user.id = 'user-b'
+    ;({ result } = await reload())
+    await act(async () => { expect(await result.current.handleSavePerformance({ ...input, notes: 'B の公演' })).toBe(true) })
+    expect(mocks.findCreated).not.toHaveBeenCalled()
+    mocks.user.id = 'user-a'
+    ;({ result } = await reload())
+    await act(async () => { expect(await result.current.handleSavePerformance(input)).toBe(true) })
+    const [aFirst, b, aAgain] = requestIds()
+    expect(aAgain).toBe(aFirst)
+    expect(b).not.toBe(aFirst)
+  })
+  it('複数タブで別々の結果不明が出ても上書きせず、次の違う入力の保存は両方を照合してから作る', async () => {
+    mocks.create.mockRejectedValueOnce(unknown()).mockRejectedValueOnce(unknown())
+    const { result } = await setup()
+    await act(async () => { await result.current.handleSavePerformance(input) })
+    await act(async () => { await result.current.handleSavePerformance({ ...input, notes: '別タブ' }) })
+    const [first, second] = requestIds()
+    await act(async () => { expect(await result.current.handleSavePerformance({ ...input, notes: '三つめ' })).toBe(true) })
+    expect(mocks.findCreated.mock.calls.map(c => c[0]).sort()).toEqual([first, second].sort())
+    expect(localStorage.length).toBe(0)
+  })
+  it('同じ要求 ID で送り直した前処理の失敗（例: 店舗確認の 500）では未確定の要求を消さず、次も同じ要求 ID', async () => {
+    mocks.create.mockRejectedValueOnce(unknown()).mockRejectedValueOnce(new ApiClientError(500, '店舗確認に失敗しました'))
+    const { result } = await setup()
+    await act(async () => { await result.current.handleSavePerformance(input) })
+    await act(async () => { expect(await result.current.handleSavePerformance(input)).toBe(false) })
+    expect(mocks.error).toHaveBeenLastCalledWith(expect.stringContaining('まだ確認できていません'))
+    await act(async () => { expect(await result.current.handleSavePerformance(input)).toBe(true) })
+    expect(new Set(requestIds()).size).toBe(1)
+  })
+  it('DB が「取消済み」と答えた要求 ID は確定として消し、次の保存は新しい要求 ID', async () => {
+    mocks.create.mockRejectedValueOnce(unknown()).mockRejectedValueOnce(new ApiClientError(409, '取り消したため作成していません', undefined, { outcome: 'cancelled' }))
+    const { result } = await setup()
+    await act(async () => { await result.current.handleSavePerformance(input) })
+    await act(async () => { await result.current.handleSavePerformance(input) })
+    await act(async () => { expect(await result.current.handleSavePerformance(input)).toBe(true) })
+    const [first, second, third] = requestIds()
+    expect(second).toBe(first)
+    expect(third).not.toBe(first)
+  })
+  it('localStorage に書けない（容量超過）ときは、その旨と「この画面のまま」を案内し、同じ画面での保存し直しは同じ要求 ID', async () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('quota', 'QuotaExceededError') })
+    try {
+      mocks.create.mockRejectedValueOnce(unknown())
+      const { result } = await setup()
+      await act(async () => { await result.current.handleSavePerformance(input) })
+      expect(mocks.error).toHaveBeenLastCalledWith(expect.stringContaining('再読み込みや画面を閉じた後は照合できません'))
+      await act(async () => { expect(await result.current.handleSavePerformance(input)).toBe(true) })
+      expect(new Set(requestIds()).size).toBe(1)
+    } finally { setItem.mockRestore() }
   })
 })
 

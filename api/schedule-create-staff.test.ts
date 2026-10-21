@@ -137,3 +137,13 @@ describe('POST /api/schedule 作成の確定／未確定（PR #1210 Codex 再レ
   })
 })
 
+describe('POST /api/schedule 取消済みの要求 ID（PR #1210 Codex 再レビュー 929c857）', () => {
+  it('照合で取り消した要求 ID の作成が遅れて届いたら、409・outcome: cancelled で「作成していない」と返す', async () => {
+    mock.rpc.mockResolvedValue({ data: null, error: { code: 'MMQC1', message: 'この保存は、後の保存で未作成と確認して取り消したため作成していません' } })
+    const { status, body } = await call({ ...createBody, client_request_id: '11111111-1111-4111-8111-111111111111', staff_assignment: { gms: [], gm_roles: {}, entries: [] } })
+    expect(status).toBe(409)
+    expect(body).toMatchObject({ outcome: 'cancelled' })
+    expect(mock.inserts).toEqual([])
+  })
+})
+
