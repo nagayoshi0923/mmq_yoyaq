@@ -7,9 +7,10 @@ import { usePrefetch } from './usePrefetch'
 import { staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import type { Staff } from '@/types'
+import { createScheduleMonthQueryFn } from './useScheduleEventsQuery'
 vi.mock('@/lib/api', () => ({ staffApi: { getAll: vi.fn() }, scenarioApi: { getAll: vi.fn() }, storeApi: { getAll: vi.fn() } }))
 vi.mock('@/lib/assignmentApi', () => ({ assignmentApi: { getBatchStaffAssignments: vi.fn() } }))
-vi.mock('./useScheduleEventsQuery', () => ({ scheduleEventKeys: {}, fetchScheduleEventsForMonth: vi.fn() }))
+vi.mock('./useScheduleEventsQuery', () => ({ scheduleEventKeys: { month: (y: number, m: number) => ['scheduleEvents', y, m] }, createScheduleMonthQueryFn: vi.fn() }))
 let root: Root
 let client: QueryClient
 let prefetch: ReturnType<typeof usePrefetch>
@@ -45,5 +46,14 @@ describe('staff prefetch canonical assignments', () => {
     vi.mocked(assignmentApi.getBatchStaffAssignments).mockResolvedValue(new Map([['staff', { gmScenarios: ['canonical'], experiencedScenarios: ['played'], gm_scenario_modes: { canonical: 'sub_only' } }]]))
     await load()
     expect(client.getQueryData(['staff'])).toEqual([{ id: 'staff', special_scenarios: ['canonical'], experienced_scenarios: ['played'], gm_scenario_modes: { canonical: 'sub_only' } }])
+  })
+})
+describe('schedule prefetch', () => {
+  it('月の公演の先読みも、古い取得結果を捨てる保護付きの取得を使う（PR #1210 Codex レビュー P2-2）', async () => {
+    const guarded = vi.fn().mockResolvedValue([])
+    vi.mocked(createScheduleMonthQueryFn).mockReturnValue(guarded)
+    await act(async () => { prefetch.prefetchSchedule(new Date(2026, 10, 5)); await new Promise(resolve => setTimeout(resolve, 0)) })
+    expect(createScheduleMonthQueryFn).toHaveBeenCalledWith(client, 2026, 11)
+    expect(guarded).toHaveBeenCalledTimes(1)
   })
 })

@@ -5,6 +5,7 @@
  * すべてバックエンド API (/api/schedule) 経由で、organization_id は
  * サーバ側で JWT から強制される。
  */
+import type { StaffParticipationPlan } from '@/types/schedule'
 import { apiClient } from '@/lib/apiClient'
 import { supabase } from '@/lib/supabase'
 import type { ScheduleEvent } from '@/types/schedule'
@@ -87,6 +88,16 @@ export const scheduleApi = {
 
   // 公演を作成
   // バックエンド API (POST /api/schedule) 経由。organization_id はサーバ側で JWT から強制。
+  /**
+   * 結果が分からなかった作成の要求 ID が、自分の作成として確定しているかを調べる（PR #1210）。
+   * 確定していれば公演 ID、無ければ null（その要求では公演は作られていない）。処理中の同じ要求があれば終わるまで待つ。
+   */
+  async findCreatedByRequest(requestId: string): Promise<string | null> {
+    const { data, error } = await supabase.rpc('find_schedule_event_create_request', { p_request_id: requestId })
+    if (error) throw new Error(error.message)
+    return typeof data === 'string' ? data : null
+  },
+
   async create(eventData: {
     date: string
     store_id: string
@@ -100,6 +111,10 @@ export const scheduleApi = {
     capacity?: number
     gms?: string[]
     gm_roles?: Record<string, string>
+    /** 作成と同じ取引で保存する担当（GM・スタッフ参加）。省略時は担当なしで作成 */
+    staff_assignment?: { gms: string[]; gm_roles: Record<string, string>; entries: StaffParticipationPlan['entries'] }
+    /** 作成の要求 ID（UUID）。同じ ID の作成はサーバーで 1 回だけ行う（staff_assignment と一緒に送る） */
+    client_request_id?: string
     notes?: string
     time_slot?: string | null
     is_reservation_enabled?: boolean
