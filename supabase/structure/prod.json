@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "prod",
-  "captured_at": "2026-10-21T06:05:50.730Z",
-  "table_count": 149,
-  "function_count": 406,
-  "digest": "b8697eb23af2afad756d014e9f595acb944d86157c1225fdb28ef475fcfeaa87"
+  "captured_at": "2026-10-21T08:15:14.965Z",
+  "table_count": 156,
+  "function_count": 441,
+  "digest": "036798880c9c59b8afe7e2356be2710bffd6633705817d43668c25b7cc8031fa"
  },
  "tables": {
   "staff": {
@@ -665,6 +665,12 @@
     {
      "name": "franchise_fee_percent",
      "type": "numeric(5,2)",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "public_name",
+     "type": "text",
      "default": null,
      "not_null": false
     }
@@ -3927,6 +3933,24 @@
      "type": "timestamp with time zone",
      "default": "now()",
      "not_null": true
+    },
+    {
+     "name": "redeemed_at",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "redeemed_by_member",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "redeemed_source",
+     "type": "text",
+     "default": null,
+     "not_null": false
     }
    ],
    "indexes": [
@@ -4030,6 +4054,16 @@
      "def": "PRIMARY KEY (id)",
      "name": "coupon_usages_pkey",
      "type": "p"
+    },
+    {
+     "def": "FOREIGN KEY (redeemed_by_member) REFERENCES customers(id) ON DELETE SET NULL",
+     "name": "coupon_usages_redeemed_by_member_fkey",
+     "type": "f"
+    },
+    {
+     "def": "CHECK (((redeemed_source IS NULL) OR (redeemed_source = ANY (ARRAY['customer_present'::text, 'venue_use'::text]))))",
+     "name": "coupon_usages_redeemed_source_check",
+     "type": "c"
     },
     {
      "def": "FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE",
@@ -6764,6 +6798,242 @@
     }
    ]
   },
+  "web_push_outbox": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "default": "gen_random_uuid()",
+     "not_null": true
+    },
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "group_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "member_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "kind",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "dedupe_key",
+     "type": "text",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "message_count",
+     "type": "integer",
+     "default": "1",
+     "not_null": true
+    },
+    {
+     "name": "last_message_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "last_message_at",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "notification_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "title",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "body",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "url",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "tag",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "default": "'pending'::text",
+     "not_null": true
+    },
+    {
+     "name": "send_after",
+     "type": "timestamp with time zone",
+     "default": "clock_timestamp()",
+     "not_null": true
+    },
+    {
+     "name": "claimed_until",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "attempt_count",
+     "type": "integer",
+     "default": "0",
+     "not_null": true
+    },
+    {
+     "name": "delivered_count",
+     "type": "integer",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "skip_reason",
+     "type": "text",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "last_error",
+     "type": "text",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "default": "clock_timestamp()",
+     "not_null": true
+    },
+    {
+     "name": "sent_at",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": false
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE INDEX idx_web_push_outbox_created ON public.web_push_outbox USING btree (created_at)",
+     "name": "idx_web_push_outbox_created"
+    },
+    {
+     "def": "CREATE INDEX idx_web_push_outbox_due ON public.web_push_outbox USING btree (send_after) WHERE (status = 'pending'::text)",
+     "name": "idx_web_push_outbox_due"
+    },
+    {
+     "def": "CREATE INDEX idx_web_push_outbox_group ON public.web_push_outbox USING btree (group_id)",
+     "name": "idx_web_push_outbox_group"
+    },
+    {
+     "def": "CREATE INDEX idx_web_push_outbox_member ON public.web_push_outbox USING btree (member_id)",
+     "name": "idx_web_push_outbox_member"
+    },
+    {
+     "def": "CREATE INDEX idx_web_push_outbox_notification ON public.web_push_outbox USING btree (notification_id)",
+     "name": "idx_web_push_outbox_notification"
+    },
+    {
+     "def": "CREATE INDEX idx_web_push_outbox_recipient ON public.web_push_outbox USING btree (user_id, group_id, kind, status)",
+     "name": "idx_web_push_outbox_recipient"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX web_push_outbox_dedupe_key_key ON public.web_push_outbox USING btree (dedupe_key)",
+     "name": "web_push_outbox_dedupe_key_key"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX web_push_outbox_pkey ON public.web_push_outbox USING btree (id)",
+     "name": "web_push_outbox_pkey"
+    }
+   ],
+   "policies": [],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "CHECK ((attempt_count >= 0))",
+     "name": "web_push_outbox_attempt_count_check",
+     "type": "c"
+    },
+    {
+     "def": "UNIQUE (dedupe_key)",
+     "name": "web_push_outbox_dedupe_key_key",
+     "type": "u"
+    },
+    {
+     "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+     "name": "web_push_outbox_group_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "CHECK ((kind = ANY (ARRAY['chat'::text, 'reply'::text, 'notice'::text])))",
+     "name": "web_push_outbox_kind_check",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+     "name": "web_push_outbox_member_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "CHECK ((message_count >= 1))",
+     "name": "web_push_outbox_message_count_check",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (notification_id) REFERENCES user_notifications(id) ON DELETE SET NULL",
+     "name": "web_push_outbox_notification_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (id)",
+     "name": "web_push_outbox_pkey",
+     "type": "p"
+    },
+    {
+     "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'skipped'::text, 'failed'::text])))",
+     "name": "web_push_outbox_status_check",
+     "type": "c"
+    },
+    {
+     "def": "CHECK ((url ~ '^/'::text))",
+     "name": "web_push_outbox_url_check",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+     "name": "web_push_outbox_user_id_fkey",
+     "type": "f"
+    }
+   ]
+  },
   "coupon_campaigns": {
    "rls": true,
    "columns": [
@@ -8980,6 +9250,10 @@
     {
      "def": "CREATE TRIGGER customer_notice_on_handover_bell AFTER INSERT ON public.user_notifications FOR EACH ROW WHEN (((new.metadata ->> 'kind'::text) = 'private_group_handover'::text)) EXECUTE FUNCTION customer_notice_on_handover_bell()",
      "name": "customer_notice_on_handover_bell"
+    },
+    {
+     "def": "CREATE TRIGGER web_push_on_user_notification AFTER INSERT ON public.user_notifications FOR EACH ROW WHEN (((new.metadata ->> 'kind'::text) = ANY (ARRAY['private_confirmed'::text, 'private_rejected'::text, 'private_group_handover'::text, 'private_dates_aligned'::text, 'private_group_memories'::text]))) EXECUTE FUNCTION web_push_on_user_notification()",
+     "name": "web_push_on_user_notification"
     }
    ],
    "constraints": [
@@ -13495,6 +13769,123 @@
     }
    ]
   },
+  "private_group_feedback": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "default": "gen_random_uuid()",
+     "not_null": true
+    },
+    {
+     "name": "group_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "organization_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "member_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "reservation_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "rating",
+     "type": "smallint",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "comment",
+     "type": "text",
+     "default": "''::text",
+     "not_null": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE INDEX idx_private_group_feedback_org ON public.private_group_feedback USING btree (organization_id, created_at DESC)",
+     "name": "idx_private_group_feedback_org"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_feedback_group_id_member_id_key ON public.private_group_feedback USING btree (group_id, member_id)",
+     "name": "private_group_feedback_group_id_member_id_key"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_feedback_pkey ON public.private_group_feedback USING btree (id)",
+     "name": "private_group_feedback_pkey"
+    }
+   ],
+   "policies": [],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "CHECK ((char_length(comment) <= 2000))",
+     "name": "private_group_feedback_comment_check",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+     "name": "private_group_feedback_group_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "UNIQUE (group_id, member_id)",
+     "name": "private_group_feedback_group_id_member_id_key",
+     "type": "u"
+    },
+    {
+     "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+     "name": "private_group_feedback_member_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+     "name": "private_group_feedback_organization_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (id)",
+     "name": "private_group_feedback_pkey",
+     "type": "p"
+    },
+    {
+     "def": "CHECK (((rating >= 1) AND (rating <= 5)))",
+     "name": "private_group_feedback_rating_check",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE SET NULL",
+     "name": "private_group_feedback_reservation_id_fkey",
+     "type": "f"
+    }
+   ]
+  },
   "private_group_messages": {
    "rls": true,
    "columns": [
@@ -13533,6 +13924,30 @@
      "type": "text",
      "default": null,
      "not_null": false
+    },
+    {
+     "name": "reply_to_message_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "deleted_at",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "pinned_at",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "pinned_by_member_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
     }
    ],
    "indexes": [
@@ -13547,6 +13962,10 @@
     {
      "def": "CREATE INDEX idx_private_group_messages_member_id ON public.private_group_messages USING btree (member_id)",
      "name": "idx_private_group_messages_member_id"
+    },
+    {
+     "def": "CREATE INDEX idx_private_group_messages_pinned ON public.private_group_messages USING btree (group_id, pinned_at DESC) WHERE (pinned_at IS NOT NULL)",
+     "name": "idx_private_group_messages_pinned"
     },
     {
      "def": "CREATE UNIQUE INDEX private_group_messages_pkey ON public.private_group_messages USING btree (id)",
@@ -13603,6 +14022,10 @@
     {
      "def": "CREATE TRIGGER guard_private_group_browser_write BEFORE INSERT OR DELETE OR UPDATE ON public.private_group_messages FOR EACH ROW EXECUTE FUNCTION guard_private_group_browser_write()",
      "name": "guard_private_group_browser_write"
+    },
+    {
+     "def": "CREATE CONSTRAINT TRIGGER web_push_on_group_message AFTER INSERT ON public.private_group_messages DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (((new.member_id IS NOT NULL) AND (new.deleted_at IS NULL))) EXECUTE FUNCTION web_push_on_group_message()",
+     "name": "web_push_on_group_message"
     }
    ],
    "constraints": [
@@ -13622,9 +14045,24 @@
      "type": "f"
     },
     {
+     "def": "FOREIGN KEY (pinned_by_member_id) REFERENCES private_group_members(id) ON DELETE SET NULL",
+     "name": "private_group_messages_pinned_by_member_id_fkey",
+     "type": "f"
+    },
+    {
      "def": "PRIMARY KEY (id)",
      "name": "private_group_messages_pkey",
      "type": "p"
+    },
+    {
+     "def": "FOREIGN KEY (reply_to_message_id) REFERENCES private_group_messages(id) ON DELETE SET NULL",
+     "name": "private_group_messages_reply_to_message_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "TRIGGER DEFERRABLE INITIALLY DEFERRED",
+     "name": "web_push_on_group_message",
+     "type": "t"
     }
    ]
   },
@@ -14336,6 +14774,112 @@
     {
      "def": "FOREIGN KEY (schedule_event_id) REFERENCES schedule_events(id) ON DELETE CASCADE",
      "name": "waitlist_notice_events_schedule_event_id_fkey",
+     "type": "f"
+    }
+   ]
+  },
+  "web_push_subscriptions": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "default": "gen_random_uuid()",
+     "not_null": true
+    },
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "endpoint",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "p256dh",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "auth",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "user_agent",
+     "type": "text",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    },
+    {
+     "name": "last_used_at",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": false
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE INDEX idx_web_push_subscriptions_user ON public.web_push_subscriptions USING btree (user_id)",
+     "name": "idx_web_push_subscriptions_user"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX web_push_subscriptions_endpoint_key ON public.web_push_subscriptions USING btree (endpoint)",
+     "name": "web_push_subscriptions_endpoint_key"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX web_push_subscriptions_pkey ON public.web_push_subscriptions USING btree (id)",
+     "name": "web_push_subscriptions_pkey"
+    }
+   ],
+   "policies": [],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "CHECK ((auth ~ '^[A-Za-z0-9_-]{16,32}$'::text))",
+     "name": "web_push_subscriptions_auth_check",
+     "type": "c"
+    },
+    {
+     "def": "CHECK (((char_length(endpoint) <= 1024) AND (endpoint ~ '^https://(fcm\\.googleapis\\.com|android\\.googleapis\\.com|updates\\.push\\.services\\.mozilla\\.com|push\\.services\\.mozilla\\.com|web\\.push\\.apple\\.com|[a-z0-9-]+\\.push\\.apple\\.com|[a-z0-9.-]+\\.notify\\.windows\\.com)/'::text)))",
+     "name": "web_push_subscriptions_endpoint_check",
+     "type": "c"
+    },
+    {
+     "def": "UNIQUE (endpoint)",
+     "name": "web_push_subscriptions_endpoint_key",
+     "type": "u"
+    },
+    {
+     "def": "CHECK ((p256dh ~ '^[A-Za-z0-9_-]{80,100}$'::text))",
+     "name": "web_push_subscriptions_p256dh_check",
+     "type": "c"
+    },
+    {
+     "def": "PRIMARY KEY (id)",
+     "name": "web_push_subscriptions_pkey",
+     "type": "p"
+    },
+    {
+     "def": "CHECK (((user_agent IS NULL) OR (char_length(user_agent) <= 300)))",
+     "name": "web_push_subscriptions_user_agent_check",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+     "name": "web_push_subscriptions_user_id_fkey",
      "type": "f"
     }
    ]
@@ -17016,6 +17560,64 @@
     {
      "def": "PRIMARY KEY (member_id)",
      "name": "private_group_members_pii_pkey",
+     "type": "p"
+    }
+   ]
+  },
+  "private_group_read_states": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "group_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "member_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "last_read_at",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE INDEX idx_private_group_read_states_member ON public.private_group_read_states USING btree (member_id)",
+     "name": "idx_private_group_read_states_member"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_read_states_pkey ON public.private_group_read_states USING btree (group_id, member_id)",
+     "name": "private_group_read_states_pkey"
+    }
+   ],
+   "policies": [],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+     "name": "private_group_read_states_group_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+     "name": "private_group_read_states_member_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (group_id, member_id)",
+     "name": "private_group_read_states_pkey",
      "type": "p"
     }
    ]
@@ -19858,6 +20460,10 @@
      "name": "guard_withdrawn_private_group_response"
     },
     {
+     "def": "CREATE CONSTRAINT TRIGGER private_group_on_date_response AFTER INSERT OR UPDATE OF response ON public.private_group_date_responses DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION private_group_on_date_response()",
+     "name": "private_group_on_date_response"
+    },
+    {
      "def": "CREATE TRIGGER trigger_update_private_group_date_responses_updated_at BEFORE UPDATE ON public.private_group_date_responses FOR EACH ROW EXECUTE FUNCTION update_private_group_date_responses_updated_at()",
      "name": "trigger_update_private_group_date_responses_updated_at"
     }
@@ -19892,6 +20498,11 @@
      "def": "CHECK ((response = ANY (ARRAY['ok'::text, 'ng'::text, 'maybe'::text])))",
      "name": "private_group_date_responses_response_check",
      "type": "c"
+    },
+    {
+     "def": "TRIGGER DEFERRABLE INITIALLY DEFERRED",
+     "name": "private_group_on_date_response",
+     "type": "t"
     }
    ]
   },
@@ -19945,6 +20556,147 @@
      "def": "PRIMARY KEY (token_hash)",
      "name": "private_group_guest_sessions_pkey",
      "type": "p"
+    }
+   ]
+  },
+  "private_group_message_photos": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "message_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "position",
+     "type": "smallint",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "group_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "organization_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "storage_path",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "width",
+     "type": "integer",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "height",
+     "type": "integer",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    },
+    {
+     "name": "thumb_path",
+     "type": "text",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "byte_size",
+     "type": "bigint",
+     "default": null,
+     "not_null": false
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE INDEX idx_private_group_message_photos_group ON public.private_group_message_photos USING btree (group_id, created_at DESC)",
+     "name": "idx_private_group_message_photos_group"
+    },
+    {
+     "def": "CREATE INDEX idx_private_group_message_photos_org ON public.private_group_message_photos USING btree (organization_id)",
+     "name": "idx_private_group_message_photos_org"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_message_photos_pkey ON public.private_group_message_photos USING btree (message_id, \"position\")",
+     "name": "private_group_message_photos_pkey"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_message_photos_storage_path_key ON public.private_group_message_photos USING btree (storage_path)",
+     "name": "private_group_message_photos_storage_path_key"
+    }
+   ],
+   "policies": [],
+   "triggers": [
+    {
+     "def": "CREATE TRIGGER private_group_message_photo_enforce_limit BEFORE INSERT ON public.private_group_message_photos FOR EACH ROW EXECUTE FUNCTION private_group_message_photo_enforce_limit()",
+     "name": "private_group_message_photo_enforce_limit"
+    },
+    {
+     "def": "CREATE TRIGGER private_group_message_photo_set_size BEFORE INSERT ON public.private_group_message_photos FOR EACH ROW EXECUTE FUNCTION private_group_message_photo_set_size()",
+     "name": "private_group_message_photo_set_size"
+    }
+   ],
+   "constraints": [
+    {
+     "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+     "name": "private_group_message_photos_group_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "CHECK (((height IS NULL) OR ((height >= 1) AND (height <= 10000))))",
+     "name": "private_group_message_photos_height_check",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (message_id) REFERENCES private_group_messages(id) ON DELETE CASCADE",
+     "name": "private_group_message_photos_message_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+     "name": "private_group_message_photos_organization_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (message_id, \"position\")",
+     "name": "private_group_message_photos_pkey",
+     "type": "p"
+    },
+    {
+     "def": "CHECK (((\"position\" >= 1) AND (\"position\" <= 10)))",
+     "name": "private_group_message_photos_position_check",
+     "type": "c"
+    },
+    {
+     "def": "UNIQUE (storage_path)",
+     "name": "private_group_message_photos_storage_path_key",
+     "type": "u"
+    },
+    {
+     "def": "CHECK (((thumb_path IS NULL) OR (thumb_path = regexp_replace(storage_path, '\\.jpg$'::text, '_thumb.jpg'::text))))",
+     "name": "private_group_message_photos_thumb_path_check",
+     "type": "c"
+    },
+    {
+     "def": "CHECK (((width IS NULL) OR ((width >= 1) AND (width <= 10000))))",
+     "name": "private_group_message_photos_width_check",
+     "type": "c"
     }
    ]
   },
@@ -21916,6 +22668,84 @@
     }
    ]
   },
+  "private_group_message_reactions": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "message_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "member_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "group_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "emoji",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE INDEX idx_private_group_message_reactions_group ON public.private_group_message_reactions USING btree (group_id)",
+     "name": "idx_private_group_message_reactions_group"
+    },
+    {
+     "def": "CREATE INDEX idx_private_group_message_reactions_member ON public.private_group_message_reactions USING btree (member_id)",
+     "name": "idx_private_group_message_reactions_member"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_message_reactions_pkey ON public.private_group_message_reactions USING btree (message_id, member_id)",
+     "name": "private_group_message_reactions_pkey"
+    }
+   ],
+   "policies": [],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "CHECK (((char_length(emoji) >= 1) AND (char_length(emoji) <= 16)))",
+     "name": "private_group_message_reactions_emoji_check",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+     "name": "private_group_message_reactions_group_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+     "name": "private_group_message_reactions_member_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (message_id) REFERENCES private_group_messages(id) ON DELETE CASCADE",
+     "name": "private_group_message_reactions_message_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (message_id, member_id)",
+     "name": "private_group_message_reactions_pkey",
+     "type": "p"
+    }
+   ]
+  },
   "private_group_survey_deliveries": {
    "rls": true,
    "columns": [
@@ -23564,6 +24394,64 @@
     }
    ]
   },
+  "private_group_notification_settings": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "group_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "member_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "push_enabled",
+     "type": "boolean",
+     "default": "true",
+     "not_null": true
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE INDEX idx_private_group_notification_settings_member ON public.private_group_notification_settings USING btree (member_id)",
+     "name": "idx_private_group_notification_settings_member"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_notification_settings_pkey ON public.private_group_notification_settings USING btree (group_id, member_id)",
+     "name": "private_group_notification_settings_pkey"
+    }
+   ],
+   "policies": [],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+     "name": "private_group_notification_settings_group_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+     "name": "private_group_notification_settings_member_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (group_id, member_id)",
+     "name": "private_group_notification_settings_pkey",
+     "type": "p"
+    }
+   ]
+  },
   "cancellation_billing_reconciliations": {
    "rls": true,
    "columns": [
@@ -24124,7 +25012,7 @@
    "kind": "v"
   },
   "stores_public": {
-   "def": " SELECT id,\n    name,\n    short_name,\n    address,\n    opening_date,\n    status,\n    capacity,\n    rooms,\n    color,\n    is_temporary,\n    temporary_date,\n    temporary_dates,\n    organization_id,\n    display_order,\n    region,\n    temporary_venue_names,\n    kit_group_id,\n    access_info,\n    created_at,\n    updated_at,\n    ownership_type\n   FROM stores\n  WHERE ownership_type IS NULL OR ownership_type <> 'office'::text;",
+   "def": " SELECT id,\n    name,\n    short_name,\n    address,\n    opening_date,\n    status,\n    capacity,\n    rooms,\n    color,\n    is_temporary,\n    temporary_date,\n    temporary_dates,\n    organization_id,\n    display_order,\n    region,\n    temporary_venue_names,\n    kit_group_id,\n    access_info,\n    created_at,\n    updated_at,\n    ownership_type,\n    public_name\n   FROM stores\n  WHERE ownership_type IS NULL OR ownership_type <> 'office'::text;",
    "kind": "v"
   },
   "public_scenarios": {
@@ -24208,6 +25096,16 @@
    "language": "sql",
    "security_definer": true
   },
+  "web_push_kick()": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "void",
+   "body_md5": "4dcf2356b720a42c8389b37146c0dd59",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "get_all_authors()": {
    "acl": [
     "=X/postgres",
@@ -24255,6 +25153,16 @@
    ],
    "returns": "boolean",
    "body_md5": "74d363b4e3e41a692f6a7e2b12146686",
+   "language": "sql",
+   "security_definer": true
+  },
+  "web_push_next_due()": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "timestamp with time zone",
+   "body_md5": "1c8875366cfe27b4d3a74dedb735f9f9",
    "language": "sql",
    "security_definer": true
   },
@@ -24655,6 +25563,16 @@
    "language": "plpgsql",
    "security_definer": false
   },
+  "web_push_on_group_message()": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "60633fb2b93dc32542adb517ce794723",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "alert_recruitment_x_result()": {
    "acl": [
     "postgres=X/postgres",
@@ -24706,6 +25624,17 @@
    ],
    "returns": "trigger",
    "body_md5": "a7fcb8027ea90f204da63ebd03776446",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_album_covers()": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "61d618aa0b708e806949c12ed192a3a4",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -24892,7 +25821,7 @@
     "service_role=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "abd667f7a801e4d10c7ff797706aaa96",
+   "body_md5": "f002e455d2fc626161544ed4adc80f5a",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -24995,6 +25924,26 @@
    "language": "plpgsql",
    "security_definer": false
   },
+  "web_push_claim(p_limit integer)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "TABLE(id uuid, user_id uuid, group_id uuid, member_id uuid, kind text, title text, body text, url text, tag text, last_message_at timestamp with time zone, invite_code text, attempt_count integer)",
+   "body_md5": "53a956f37a8d9c3bc6d1d83949afb098",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "web_push_on_user_notification()": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "d04ab87fd5b641202a70651f68f9d7ea",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "announce_mypage_update_2026_10()": {
    "acl": [
     "postgres=X/postgres",
@@ -25035,6 +25984,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_on_date_response()": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "a2b2b86d21fb8b38cafc758c4ddb92ba",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "redirect_legacy_waitlist_retry()": {
    "acl": [
     "postgres=X/postgres"
@@ -25060,7 +26019,7 @@
     "service_role=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "fb16c1fa8ffbd39da8c8fe588b690243",
+   "body_md5": "e2dcb7b9fa886d195ae1aea401fd4369",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -25119,7 +26078,7 @@
     "service_role=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "8010ddc070729beb896bea7659104702",
+   "body_md5": "1a089ce43f17103ea16351f32c0f5748",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -25139,7 +26098,7 @@
     "service_role=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "57555f6ded9f2dd2960a69f4310aa707",
+   "body_md5": "01c889c2b661875ef6cacb5825cc0386",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -25151,7 +26110,7 @@
     "service_role=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "a66ab4a356386376292a6efe534aefc5",
+   "body_md5": "4f8b4df8b32b4034ad2d10d6dd0697cf",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -25204,6 +26163,16 @@
    "body_md5": "b112f5c9ac2e0085b8ced5ebe2691426",
    "language": "plpgsql",
    "security_definer": false
+  },
+  "web_push_group_title(p_group uuid)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "text",
+   "body_md5": "66eaf7a3e2c3a9d6a7cd9b30ee812f0b",
+   "language": "sql",
+   "security_definer": true
   },
   "approve_booking_site(p_org_id uuid)": {
    "acl": [
@@ -25261,6 +26230,17 @@
    "body_md5": "63e800054a39ac943a2e4d19f00c479b",
    "language": "plpgsql",
    "security_definer": false
+  },
+  "private_group_photo_storage_usage()": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "cf042124e640f236252ff2ea64253721",
+   "language": "plpgsql",
+   "security_definer": true
   },
   "update_global_settings_updated_at()": {
    "acl": [
@@ -25326,7 +26306,7 @@
     "service_role=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "54c5fa54a3f84b600a352f5081256df9",
+   "body_md5": "d304ef8ec95726c827018d977c2c8e38",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -25413,6 +26393,16 @@
    "body_md5": "301a884953d37769916294bb60562e05",
    "language": "plpgsql",
    "security_definer": false
+  },
+  "add_manual_reservations(p_rows jsonb)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres"
+   ],
+   "returns": "SETOF reservations",
+   "body_md5": "0852f86b9d4890e32c80d4e7c1251e3d",
+   "language": "plpgsql",
+   "security_definer": true
   },
   "audit_organization_settings_changes()": {
    "acl": [
@@ -25550,6 +26540,16 @@
    "body_md5": "1acf514bea436ceb3a4cf20cae61affc",
    "language": "plpgsql",
    "security_definer": false
+  },
+  "private_group_message_photo_set_size()": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "e14affb050e8d787508475ee22c40c95",
+   "language": "plpgsql",
+   "security_definer": true
   },
   "update_store_travel_times_updated_at()": {
    "acl": [
@@ -25865,7 +26865,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "adaa6cfc058edef4d3f212315a61820a",
+   "body_md5": "646b25666f6013a03f21b20df40dc37f",
    "language": "sql",
    "security_definer": false
   },
@@ -25942,7 +26942,7 @@
     "service_role=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "81c3618b663c355612831244fe2a4152",
+   "body_md5": "33cef1b8c42cd5b6cb674eab48b2bd91",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -25966,6 +26966,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_photo_quota(p_group_id uuid)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "8ee703f0b8bae6de392553572cbda16d",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "update_scenario_kit_locations_updated_at()": {
    "acl": [
     "=X/postgres",
@@ -25978,6 +26988,16 @@
    "body_md5": "301a884953d37769916294bb60562e05",
    "language": "plpgsql",
    "security_definer": false
+  },
+  "private_group_message_photo_enforce_limit()": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "e002cb2e5e0580a32690f10a29b778ed",
+   "language": "plpgsql",
+   "security_definer": true
   },
   "rollback_orphan_organization(p_org_id uuid)": {
    "acl": [
@@ -26004,6 +27024,16 @@
    "language": "plpgsql",
    "security_definer": false
   },
+  "web_push_snippet(p_text text, p_len integer)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "text",
+   "body_md5": "b6afa2cbcba5627973a76d8dc5e1b0f3",
+   "language": "sql",
+   "security_definer": false
+  },
   "check_email_registration_status(p_email text)": {
    "acl": [
     "=X/postgres",
@@ -26014,16 +27044,6 @@
    ],
    "returns": "text",
    "body_md5": "0f63ebb43819a34965940f1967122344",
-   "language": "plpgsql",
-   "security_definer": true
-  },
-  "claim_customer_notice_emails(p_limit integer)": {
-   "acl": [
-    "postgres=X/postgres",
-    "service_role=X/postgres"
-   ],
-   "returns": "TABLE(id uuid, organization_id uuid, kind text, email_type text, to_email text, to_name text, subject text, body_text text, reply_to text, sender_name text)",
-   "body_md5": "5e3ed9675ff8f4f198fea5a4b800a3b5",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26058,6 +27078,17 @@
    ],
    "returns": "trigger",
    "body_md5": "ffa8d3b54587c06102d1f4de243c5395",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "web_push_subscription_delete(p_endpoint text)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "660c70bc9273cd142093c759c251be74",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26192,7 +27223,7 @@
     "service_role=X/postgres"
    ],
    "returns": "TABLE(group_id uuid, requested_datetime text, store_id uuid, store_name text)",
-   "body_md5": "8cf53e10f4a6126f871cd8fc24a5f167",
+   "body_md5": "70d10e62aa76ee9cd0d99b7c12a768d6",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26203,6 +27234,16 @@
    ],
    "returns": "text",
    "body_md5": "81a0e1459da73f270d02a04674021b9a",
+   "language": "sql",
+   "security_definer": false
+  },
+  "private_group_message_is_system(p_message text)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "boolean",
+   "body_md5": "7d4a763d29549cf7f6ee4febc5d0f8d5",
    "language": "sql",
    "security_definer": false
   },
@@ -26224,7 +27265,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "6138443f5aabdbdce1cf74860f592803",
+   "body_md5": "458cadc26f0ef86d2fb5c00e824f60b2",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26236,6 +27277,16 @@
    ],
    "returns": "jsonb",
    "body_md5": "5747dc7a437b0082fa51f8ae363aca51",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_notice_dates_aligned(p_group uuid)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "boolean",
+   "body_md5": "fe190658afa23f25785c9d454b411ec7",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26251,16 +27302,6 @@
    "body_md5": "301a884953d37769916294bb60562e05",
    "language": "plpgsql",
    "security_definer": false
-  },
-  "calculate_cancellation_fee(p_reservation_id uuid)": {
-   "acl": [
-    "postgres=X/postgres",
-    "service_role=X/postgres"
-   ],
-   "returns": "TABLE(fee_amount integer, fee_percentage integer, hours_until_event numeric, is_private_booking boolean, policy_description text)",
-   "body_md5": "a77280c463733e81ce51e6bcd4d0b0ae",
-   "language": "plpgsql",
-   "security_definer": true
   },
   "cancel_unrequested_private_group(p_group_id uuid)": {
    "acl": [
@@ -26366,6 +27407,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_member_display_name(p_member_id uuid)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "text",
+   "body_md5": "8f2d75aa95fded898fcf4388c9de3087",
+   "language": "sql",
+   "security_definer": true
+  },
   "save_guest_access_pin(p_member_id uuid, p_pin text)": {
    "acl": [
     "postgres=X/postgres",
@@ -26384,6 +27435,16 @@
    "returns": "jsonb",
    "body_md5": "35c4ea4b7d047512293c16022df906ef",
    "language": "plpgsql",
+   "security_definer": true
+  },
+  "web_push_group_enabled(p_group uuid, p_member uuid)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "boolean",
+   "body_md5": "6453a1187093bb97437db70bb1a58f21",
+   "language": "sql",
    "security_definer": true
   },
   "check_reservation_deadline(p_schedule_event_id uuid)": {
@@ -26482,7 +27543,7 @@
     "service_role=X/postgres"
    ],
    "returns": "TABLE(id uuid, organization_id uuid, kind text, to_email text, to_name text, scenario_title text, performance_date date, start_time time without time zone, venue text, deadline_at timestamp with time zone, invite_code text, company_name text, reply_to text)",
-   "body_md5": "3a2e61cf2ee843c9393d40683e91bb84",
+   "body_md5": "6c85354c526db061c6495213559b5818",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26591,7 +27652,7 @@
     "postgres=X/postgres"
    ],
    "returns": "integer",
-   "body_md5": "7072a307c05c25fd65e6694d9da9ed8c",
+   "body_md5": "665ee7a8c8a7ded2253abefe00c6add1",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26683,7 +27744,7 @@
     "service_role=X/postgres"
    ],
    "returns": "void",
-   "body_md5": "a2933a5af38103a5a00ea40b969d3cdb",
+   "body_md5": "12fe5111bbe614ed10e7deba05c4a6dc",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26764,13 +27825,14 @@
    "language": "sql",
    "security_definer": true
   },
-  "admin_recalculate_reservation_prices(p_reservation_id uuid)": {
+  "withdraw_private_request_keep_group(p_reservation_id uuid)": {
    "acl": [
+    "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
-   "returns": "jsonb",
-   "body_md5": "54f601b03e54ca9a517955fc7475dff2",
+   "returns": "boolean",
+   "body_md5": "abd0079c694bc3b10022aa619285c90e",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26869,6 +27931,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_memories_notice(p_now timestamp with time zone)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "integer",
+   "body_md5": "363445cf00e6ff7f5d57cad1ee9235c0",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "admin_delete_reservations_by_source(p_reservation_source text)": {
    "acl": [
     "postgres=X/postgres",
@@ -26910,6 +27982,17 @@
    ],
    "returns": "boolean",
    "body_md5": "d62e2ec61b71578c4a3283b8fc30ed15",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_push_setting(p_group_id uuid, p_enabled boolean)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "78c1b2194b711bdd51df043c73415c38",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26966,6 +28049,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_guest_chat_digest(p_now timestamp with time zone)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "integer",
+   "body_md5": "e08713d9209d6474cca382d05878805f",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "reset_private_group_guest_pin(p_invite_code text, p_email text)": {
    "acl": [
     "postgres=X/postgres",
@@ -27000,6 +28093,16 @@
    "language": "plpgsql",
    "security_definer": false
   },
+  "claim_customer_notice_emails(p_limit integer, p_only_ids uuid[])": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "TABLE(id uuid, organization_id uuid, kind text, email_type text, to_email text, to_name text, subject text, body_text text, reply_to text, sender_name text)",
+   "body_md5": "2c937de7f542dca58c1c560c26acd77a",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "customer_notice_when(p_date date, p_time time without time zone)": {
    "acl": [
     "=X/postgres",
@@ -27012,6 +28115,16 @@
    "body_md5": "6ffe3a0f1067d9c11b15addca6e33d92",
    "language": "sql",
    "security_definer": false
+  },
+  "redeem_coupon_usage(p_user uuid, p_usage_id uuid, p_source text)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "b3e2236054aa3ff2662a633cef642f3f",
+   "language": "plpgsql",
+   "security_definer": true
   },
   "private_group_handover_user_name(p_user_id uuid, p_group_id uuid)": {
    "acl": [
@@ -27033,6 +28146,39 @@
    ],
    "returns": "json",
    "body_md5": "7f00e7de54f9feff3c35b820699584f1",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "customer_store_name(p_store_id uuid, p_date date, p_fallback text)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "text",
+   "body_md5": "b458930dfe6d8f72667d1fec8f0a25de",
+   "language": "sql",
+   "security_definer": true
+  },
+  "private_group_feedback_staff(p_group_ids uuid[], p_detail boolean)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "2aad5b7ecbd9057894c080788be5cc4f",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_photo_check_limit(p_group_id uuid, p_adding integer)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "void",
+   "body_md5": "ec414a4be0e18776efcad3e7f9032878",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27067,7 +28213,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "594779c55d762b7ea016d2dd573c032d",
+   "body_md5": "78fc42309474e4d064466bdb8f94ac48",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27342,6 +28488,16 @@
    "language": "sql",
    "security_definer": true
   },
+  "private_group_performance_info(p_group uuid, p_now timestamp with time zone)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "eeb0dc2719910e21265ce1ad65ac1a9f",
+   "language": "sql",
+   "security_definer": true
+  },
   "upsert_character_assignments_to_survey(p_group_id uuid, p_assignments jsonb)": {
    "acl": [
     "=X/postgres",
@@ -27426,7 +28582,7 @@
     "service_role=X/postgres"
    ],
    "returns": "void",
-   "body_md5": "d55c6d90a0fc574a894eda7d14292a27",
+   "body_md5": "02498dd102c3d6f8305d76bf24dc1433",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27451,6 +28607,18 @@
    ],
    "returns": "jsonb",
    "body_md5": "a12b433673464dc9d6b3243e64c6be3f",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_chat_state(p_group_id uuid, p_member_id uuid, p_guest_token text)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "4a702e2ef5e328b8f1d69e8288b2d231",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27537,6 +28705,18 @@
    "returns": "integer",
    "body_md5": "75ac03a1ce55f35bd90f42d345a95e6a",
    "language": "sql",
+   "security_definer": true
+  },
+  "private_group_casting_status(p_group_id uuid, p_member_id uuid, p_guest_token text)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "5f9dd800bff67329056c153a05fb0e65",
+   "language": "plpgsql",
    "security_definer": true
   },
   "require_private_group_member(p_group_id uuid, p_member_id uuid, p_guest_token text)": {
@@ -27682,6 +28862,17 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "web_push_subscription_save(p_endpoint text, p_p256dh text, p_auth text, p_user_agent text)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "4e24bec188503d64c838822b89cd0ae6",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "consume_organization_signup_claim(p_org_id uuid, p_token text, p_user_id uuid, p_email text)": {
    "acl": [
     "postgres=X/postgres"
@@ -27723,6 +28914,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "coupon_performance_day(p_schedule_event_id uuid, p_requested_datetime timestamp with time zone)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "date",
+   "body_md5": "6f310d8517d6461d9f6a1929092bcf24",
+   "language": "sql",
+   "security_definer": false
+  },
   "update_reservation_participants(p_reservation_id uuid, p_new_count integer, p_customer_id uuid)": {
    "acl": [
     "authenticated=X/postgres",
@@ -27730,7 +28931,7 @@
     "service_role=X/postgres"
    ],
    "returns": "boolean",
-   "body_md5": "222fa971a543f1379456498a64fa6d8e",
+   "body_md5": "fe0272026eca95df14c882cbc9abad69",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27742,6 +28943,18 @@
    "returns": "TABLE(id uuid, organization_id uuid, user_id uuid, name text, nickname character varying, email text, email_verified boolean, phone text, address text, line_id text, avatar_url text, birth_date date, prefecture text, preferences text[], notification_settings jsonb, created_at timestamp with time zone, updated_at timestamp with time zone, reservation_count bigint, total_paid bigint, reservation_amount bigint, last_visit timestamp with time zone, visit_count bigint, total_coupons bigint, used_coupons bigint, remaining_coupons bigint, total_count bigint)",
    "body_md5": "4bfbd7ef81530fa114499cc01d711659",
    "language": "sql",
+   "security_definer": true
+  },
+  "private_booking_scenario_date_reasons(p_organization_id uuid, p_date date, p_scenario_ids uuid[])": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "TABLE(scenario_id uuid, reason text)",
+   "body_md5": "b6c0a8785f20123a5212cfb11b8c21ac",
+   "language": "plpgsql",
    "security_definer": true
   },
   "finish_waitlist_notice(p_notice uuid, p_waitlist uuid, p_lease uuid, p_sent boolean, p_error text)": {
@@ -27795,7 +29008,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "b4bf65546a22028397eb630ecd6509c3",
+   "body_md5": "b907842af055730354bad2a156a04b89",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27806,7 +29019,7 @@
     "service_role=X/postgres"
    ],
    "returns": "integer",
-   "body_md5": "40c5130066af552342bb3bfabf628eb5",
+   "body_md5": "7789faef2c22581c7a7dbdcb0313342a",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27874,7 +29087,29 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "af5e0e83b16558e7e248523b90dc09ef",
+   "body_md5": "75fa17202ae53158d211c8a7806a0555",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "web_push_finish(p_id uuid, p_status text, p_delivered integer, p_reason text, p_retry_seconds integer)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "void",
+   "body_md5": "49630250bfa67023754a261ae08be249",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "get_effective_private_booking_horizon_days(p_organization_id uuid, p_scenario_id uuid, p_event_id uuid)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "integer",
+   "body_md5": "b5378ebc934fd610e8739faef214ed8a",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27895,7 +29130,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "ab6beaff501ec1d6a8045c52260d4620",
+   "body_md5": "f33ca40fdf6760266007c82576baa998",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27962,6 +29197,18 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_chat_action(p_group_id uuid, p_member_id uuid, p_action text, p_payload jsonb, p_guest_token text)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "c16154625cddad0c4cbd809639204740",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "replace_staff_assignments_atomic(p_organization_id uuid, p_staff_id uuid, p_assignments jsonb, p_expected jsonb)": {
    "acl": [
     "postgres=X/postgres",
@@ -27991,6 +29238,18 @@
    ],
    "returns": "integer",
    "body_md5": "7bac591f882ee26ed00bbd8fad321f86",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_after_action(p_group_id uuid, p_member_id uuid, p_action text, p_payload jsonb, p_guest_token text)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "482afdb3deea42a1d0313afc10568812",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28118,16 +29377,6 @@
    "language": "sql",
    "security_definer": false
   },
-  "private_booking_store_slot_rule(p_org uuid, p_scenario_id uuid, p_store_id uuid, p_date date, p_slot text, p_single boolean)": {
-   "acl": [
-    "postgres=X/postgres",
-    "service_role=X/postgres"
-   ],
-   "returns": "text",
-   "body_md5": "5bb140c7086928097e37d4f4243a2c0a",
-   "language": "plpgsql",
-   "security_definer": false
-  },
   "claim_cancellation_billing_notice(p_organization_id uuid, p_claim_id uuid, p_revision integer, p_notice_key text, p_kind text)": {
    "acl": [
     "postgres=X/postgres",
@@ -28176,7 +29425,7 @@
     "service_role=X/postgres"
    ],
    "returns": "TABLE(organization_id uuid, organization_slug text, organization_name text, store_id uuid, store_name text, store_short_name text, is_configured boolean, cancellation_policy text, cancellation_policy_items jsonb, cancellation_deadline_hours integer, cancellation_fees jsonb, cancellation_fee_basis text, private_cancellation_policy text, private_cancellation_policy_items jsonb, private_cancellation_deadline_hours integer, private_cancellation_fees jsonb, private_cancellation_fee_basis text, organizer_cancel_reasons jsonb, organizer_cancel_refund_note text, cancellation_judgment_rules jsonb, cancellation_notice_note text, reservation_change_deadline_hours integer, reservation_change_note text, private_reservation_change_deadline_hours integer, private_reservation_change_note text, refund_method_note text, policy_updated_at date)",
-   "body_md5": "b8e46e119fd66c880f09b983c3552b49",
+   "body_md5": "678267721afc0166d86a3c7eea85cb3e",
    "language": "sql",
    "security_definer": true
   },
@@ -28228,7 +29477,7 @@
     "service_role=X/postgres"
    ],
    "returns": "TABLE(date date, time_slot text, available boolean, reason text, start_time text, end_time text, detail text, adjusted boolean)",
-   "body_md5": "da5d93ad10249c8779011827d7e63f42",
+   "body_md5": "e753e1fd5cbd9adaaf2e73d35669dda8",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28248,7 +29497,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "32c58e852f1407bd69c590268b4acd1e",
+   "body_md5": "21c0e5d9af1940b9379f8cff3705e443",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28311,6 +29560,16 @@
    "body_md5": "6f8d68b2d452357bff6242c20fe77044",
    "language": "plpgsql",
    "security_definer": true
+  },
+  "private_booking_assert_candidate(p_org uuid, p_scenario_id uuid, p_store_ids uuid[], p_date date, p_slot text, p_start text, p_end text)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "void",
+   "body_md5": "e1cdfc7a87c883496e24f81d420c4722",
+   "language": "plpgsql",
+   "security_definer": false
   },
   "private_group_handover_accept(p_request_id uuid, p_customer_id uuid, p_contact_name text, p_contact_phone text, p_displayed_policy jsonb)": {
    "acl": [
@@ -28393,7 +29652,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "d280f4c867d41e407413ac53bedc4c16",
+   "body_md5": "51a7bb06ed19431007775848e234d3ad",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28439,7 +29698,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "c8704b6826f8f621bad8557782af2e87",
+   "body_md5": "ee6f42bfc6f950f6b77e00f6bd24e90d",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28462,7 +29721,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "b377251d3f19197c7208a3d614fd3749",
+   "body_md5": "a1e3853820a4a4dcd754b43640ba02be",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28475,6 +29734,16 @@
    "body_md5": "1283318ea5cf16558e8f539673d7e3a6",
    "language": "plpgsql",
    "security_definer": true
+  },
+  "private_booking_slot_store_fit(p_org uuid, p_scenario_id uuid, p_scenario jsonb, p_store_ids uuid[], p_date date, p_holiday boolean, p_slot text, p_start_min integer)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "TABLE(store_id uuid, start_min integer, standard_min integer, fits boolean, why text, gap_minutes integer, fixed boolean, minutes integer)",
+   "body_md5": "92d6516a85fc622250bcc462c921f957",
+   "language": "plpgsql",
+   "security_definer": false
   },
   "calculate_booking_participation_fee(p_base_fee integer, p_costs jsonb, p_date date, p_start_time time without time zone, p_custom_holiday boolean, p_pricing_date date)": {
    "acl": [
@@ -28576,16 +29845,6 @@
    "language": "plpgsql",
    "security_definer": true
   },
-  "private_booking_slot_store_fit(p_org uuid, p_scenario_id uuid, p_title text, p_available_stores text[], p_slot_start_times jsonb, p_store_ids uuid[], p_date date, p_holiday boolean, p_minutes integer, p_slot text, p_start_min integer)": {
-   "acl": [
-    "postgres=X/postgres",
-    "service_role=X/postgres"
-   ],
-   "returns": "TABLE(store_id uuid, start_min integer, standard_min integer, fits boolean, why text, gap_minutes integer, fixed boolean)",
-   "body_md5": "59d1c52d212e80f7eac677069387a8f4",
-   "language": "plpgsql",
-   "security_definer": false
-  },
   "save_scenario_recruitment_settings_v2(p_organization_id uuid, p_master_id uuid, p_actor_id uuid, p_enabled boolean, p_source text, p_mode text, p_value integer, p_deadline_minutes integer, p_expected_updated_at timestamp with time zone)": {
    "acl": [
     "postgres=X/postgres",
@@ -28644,7 +29903,7 @@
     "service_role=X/postgres"
    ],
    "returns": "uuid",
-   "body_md5": "f5ebfb22dc6bd56276a9297252670d86",
+   "body_md5": "e9a9b7734feef48aaaa861502d7df13c",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28685,7 +29944,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "d0d7fe907479a59eb4d41462fa29c91c",
+   "body_md5": "d2cbee31066b17e6ea6b97d33a4f55b8",
    "language": "plpgsql",
    "security_definer": true
   },
