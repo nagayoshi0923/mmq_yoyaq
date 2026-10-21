@@ -145,13 +145,13 @@ describe('公演の追加で GM 名を消さない（2026-10-22 hotfix、PR #121
     expect(saved).toBe(true)
     await act(async () => { snapshot.resolve(null); await flush() })
   })
-  it('GM 未指定の追加は担当を送らず、担当の同期も呼ばない', async () => {
+  it('GM 未指定の追加は担当を空で送り（作成履歴を DB で確定するため）、担当の同期は呼ばない', async () => {
     mocks.create.mockResolvedValue({ ...data, gms: [], gm_roles: {}, id: 'saved', store_id: 'store', current_participants: 0 })
     const { result } = await setup()
     let saved: boolean | undefined
     await act(async () => { saved = await result.current.handleSavePerformance({ ...data, gms: [], gm_roles: {}, staffParticipation: plan }) })
     expect(saved).toBe(true)
-    expect(mocks.create.mock.calls[0][0]).not.toHaveProperty('staff_assignment')
+    expect(mocks.create.mock.calls[0][0]).toMatchObject({ staff_assignment: { gms: [], gm_roles: {}, entries: [] } })
     expect(mocks.sync).not.toHaveBeenCalled()
     expect(shown).toMatchObject([{ id: 'saved', gms: [] }])
   })
@@ -240,11 +240,14 @@ describe('応答待ちの確定公演と作成履歴（PR #1210 Codex 再レビ�
     expect(mocks.snapshot).not.toHaveBeenCalled()
     expect(mocks.history).not.toHaveBeenCalled()
   })
-  it('3: 担当なしの作成は従来どおり画面から作成履歴を記録する', async () => {
+  it('3: GM 未指定の作成も、画面から遅れて作成履歴を記録しない（DB が同じ取引で記録する。Codex 再レビュー 2fa19ac の P2-②）', async () => {
+    const snapshot = deferred<unknown>(); mocks.snapshot.mockReturnValue(snapshot.promise)
     mocks.create.mockResolvedValue({ ...data, gms: [], gm_roles: {}, id: 'saved', store_id: 'store' })
     const { result } = await setup()
-    await act(async () => { await result.current.handleSavePerformance({ ...data, gms: [], gm_roles: {}, staffParticipation: plan }); await flush() })
-    expect(mocks.history).toHaveBeenCalledWith('saved', 'org', 'create', null, expect.objectContaining({ date: '2026-11-01' }), expect.any(Object))
+    await act(async () => { expect(await result.current.handleSavePerformance({ ...data, gms: [], gm_roles: {}, staffParticipation: plan })).toBe(true) })
+    await act(async () => { snapshot.resolve({ ...data, id: 'saved', gms: ['B'] }); await flush() })
+    expect(mocks.snapshot).not.toHaveBeenCalled()
+    expect(mocks.history).not.toHaveBeenCalled()
   })
   it.each([
     ['通信の失敗', new TypeError('Failed to fetch')],
@@ -258,6 +261,38 @@ describe('応答待ちの確定公演と作成履歴（PR #1210 Codex 再レビ�
     expect(saved).toBe(false)
     expect(mocks.error).toHaveBeenCalledWith(expect.stringContaining('作成されたか確認できませんでした'))
     expect(mocks.error).not.toHaveBeenCalledWith(expect.stringContaining('されていません'))
+  })
+})
+
+describe('結果が分からなかった作成の保存し直し（PR #1210 Codex 再レビュー 2fa19ac の P2-①）', () => {
+  const unknown = () => new ApiClientError(502, '結果不明', undefined, { outcome: 'unknown' })
+  const input = { ...data, gm_roles: { A: 'main' }, staffParticipation: plan }
+  const requestIds = () => mocks.create.mock.calls.map(call => (call[0] as { client_request_id: string }).client_request_id)
+  it('同じ入力で保存し直すと、前回と同じ要求 ID で送る（サーバーが既に作った公演を返し、二重に作らない）', async () => {
+    mocks.create.mockRejectedValueOnce(unknown()).mockResolvedValueOnce({ ...data, id: 'created-once', store_id: 'store', gms: ['A'], gm_roles: { A: 'main' } })
+    const { result } = await setup()
+    await act(async () => { expect(await result.current.handleSavePerformance(input)).toBe(false) })
+    await act(async () => { expect(await result.current.handleSavePerformance(input)).toBe(true) })
+    const [first, second] = requestIds()
+    expect(first).toMatch(/^[0-9a-f-]{36}$/)
+    expect(second).toBe(first)
+    expect(shown).toMatchObject([{ id: 'created-once' }])
+  })
+  it('通信の失敗のあとも同じ入力なら同じ要求 ID', async () => {
+    mocks.create.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    const { result } = await setup()
+    await act(async () => { await result.current.handleSavePerformance(input) })
+    await act(async () => { await result.current.handleSavePerformance(input) })
+    expect(new Set(requestIds()).size).toBe(1)
+  })
+  it('入力を変えた保存、確定した失敗のあと、成功のあとは新しい要求 ID', async () => {
+    mocks.create.mockRejectedValueOnce(unknown()).mockRejectedValueOnce(new ApiClientError(409, '定員超過（公演は作成されていません）'))
+    const { result } = await setup()
+    await act(async () => { await result.current.handleSavePerformance(input) })
+    await act(async () => { await result.current.handleSavePerformance({ ...input, notes: '変更' }) })
+    await act(async () => { await result.current.handleSavePerformance({ ...input, notes: '変更' }) })
+    await act(async () => { await result.current.handleSavePerformance({ ...input, notes: '変更' }) })
+    expect(new Set(requestIds()).size).toBe(4)
   })
 })
 

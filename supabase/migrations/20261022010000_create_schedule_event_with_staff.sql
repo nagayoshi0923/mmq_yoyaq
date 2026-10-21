@@ -1,12 +1,14 @@
--- 公演の作成と担当（GM・スタッフ参加・追加席）を 1 つの取引で保存する（2026-10-22 hotfix、PR #1210）。
+-- 公演の作成（担当・作成履歴を含む）を 1 つの取引で確定する（2026-10-22 hotfix、PR #1210）。
 -- これまでは公演を担当空で作成し、別の取引で sync_event_staff_participations を呼んでいたため、
 -- 担当の保存が失敗すると「GM 空の公演」だけが残った。この関数は作成と担当保存の両方が成功したときだけ確定し、
 -- どちらかが失敗すれば公演ごと取り消す。担当の保存は既存の sync_event_staff_participations をそのまま使う
--- （権限・二重保存の防止・expectedStaff の競合検知・定員・席予約の規則は変えない）。
--- 担当もスタッフ参加も無い作成（GM 未指定）は従来どおり API の通常の作成を使い、この関数を通らない。
--- 作成履歴（schedule_event_history の create）も同じ取引で、確定した公演の内容で記録する。
+-- （権限・二重保存の防止・expectedStaff の競合検知・定員・席予約の規則は変えない）。GM 未指定（担当もスタッフ参加も無い）の
+-- 作成もこの関数で行い、その場合は担当の同期を呼ばない。
+-- 作成履歴（schedule_event_history の create）も同じ取引で、確定した公演の内容で記録する（GM の有無によらない）。
 -- 以前は画面が保存後に非同期で記録していたため、保存直後の別の編集の内容が作成値として残ったり、
--- 保存直後に画面を離れると作成履歴が欠けたりし得た（Codex 再レビュー 2e24bbf の 3）。
+-- 保存直後に画面を離れると作成履歴が欠けたりし得た（Codex 再レビュー 2e24bbf の 3、2fa19ac の P2-②）。
+-- 作成要求には画面が作る要求 ID（UUID）を付け、同じ利用者・組織の同じ要求 ID の公演が既にあればそれを返す（作り直さない）。
+-- 応答が届かず結果が分からなかった保存を同じ入力で保存し直しても、二重に作成しない（Codex 再レビュー 2fa19ac の P2-①）。
 DO $preflight$ BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='sync_event_staff_participations' AND md5(p.prosrc)='560ca354cb5989fe0bae21630753cc7d') THEN
   RAISE EXCEPTION '現行定義が変更されています: sync_event_staff_participations';
@@ -14,9 +16,25 @@ DO $preflight$ BEGIN
  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='create_schedule_event_with_staff') THEN
   RAISE EXCEPTION '同名の関数が既にあります: create_schedule_event_with_staff';
  END IF;
+ IF to_regclass('public.schedule_event_create_requests') IS NOT NULL THEN
+  RAISE EXCEPTION '同名の表が既にあります: schedule_event_create_requests';
+ END IF;
 END $preflight$;
 
-CREATE FUNCTION public.create_schedule_event_with_staff(p_event jsonb, p_gms text[], p_gm_roles jsonb, p_entries jsonb)
+-- 作成要求 ID と作られた公演の対応。公演が消えれば対応も消える（同じ要求 ID で作り直せる）。
+-- 画面・API から直接は読み書きしない（下の関数だけが使う）。
+CREATE TABLE public.schedule_event_create_requests (
+ request_id uuid PRIMARY KEY,
+ organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+ user_id uuid NOT NULL,
+ event_id uuid NOT NULL REFERENCES public.schedule_events(id) ON DELETE CASCADE,
+ created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX schedule_event_create_requests_event_id_idx ON public.schedule_event_create_requests(event_id);
+ALTER TABLE public.schedule_event_create_requests ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.schedule_event_create_requests FROM PUBLIC, anon, authenticated;
+
+CREATE FUNCTION public.create_schedule_event_with_staff(p_request_id uuid, p_event jsonb, p_gms text[], p_gm_roles jsonb, p_entries jsonb)
  RETURNS uuid
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -30,6 +48,7 @@ DECLARE
  v_event public.schedule_events;
  v_actor_staff uuid;
  v_actor_name text;
+ v_prior public.schedule_event_create_requests;
  -- api/_lib/schedule/writeHelpers.ts の SCHEDULE_CREATABLE_FIELDS から担当（gms・gm_roles）を除いたもの
  c_allowed CONSTANT text[] := ARRAY['date','store_id','venue','scenario','scenario_master_id','organization_scenario_id',
   'category','start_time','end_time','capacity','notes','time_slot','is_reservation_enabled','is_tentative','venue_rental_fee',
@@ -38,9 +57,18 @@ BEGIN
  IF auth.uid() IS NULL OR v_org IS NULL OR NOT EXISTS(SELECT 1 FROM public.users WHERE id=auth.uid() AND role::text IN ('admin','staff','license_admin')) THEN
   RAISE EXCEPTION '公演を作成する権限がありません' USING ERRCODE='42501';
  END IF;
- IF jsonb_typeof(p_event) IS DISTINCT FROM 'object' OR p_gms IS NULL OR jsonb_typeof(p_gm_roles) IS DISTINCT FROM 'object'
+ IF p_request_id IS NULL OR jsonb_typeof(p_event) IS DISTINCT FROM 'object' OR p_gms IS NULL OR jsonb_typeof(p_gm_roles) IS DISTINCT FROM 'object'
   OR jsonb_typeof(coalesce(p_entries,'[]'::jsonb)) IS DISTINCT FROM 'array' THEN
   RAISE EXCEPTION '公演または担当の形式が不正です' USING ERRCODE='22023';
+ END IF;
+ -- 同じ要求 ID の同時の送信は順番に処理し、先に確定した公演を返す
+ PERFORM pg_advisory_xact_lock(hashtextextended('mmq-event-create:'||p_request_id::text, 0));
+ SELECT * INTO v_prior FROM public.schedule_event_create_requests WHERE request_id=p_request_id;
+ IF FOUND THEN
+  IF v_prior.organization_id IS DISTINCT FROM v_org OR v_prior.user_id IS DISTINCT FROM auth.uid() THEN
+   RAISE EXCEPTION '要求 ID が別の利用者の作成と重なっています。画面を開き直してください' USING ERRCODE='22023';
+  END IF;
+  RETURN v_prior.event_id;
  END IF;
  IF NOT EXISTS(SELECT 1 FROM public.stores WHERE id=nullif(p_event->>'store_id','')::uuid AND organization_id=v_org) THEN
   RAISE EXCEPTION '他組織の店舗は使用できません' USING ERRCODE='42501';
@@ -49,10 +77,12 @@ BEGIN
  -- 組織はログイン中の組織に固定し、担当は空で作ってから下の同期で入れる（同期の競合検知の前提をそろえる）
  EXECUTE format('INSERT INTO public.schedule_events (organization_id, gms, gm_roles, %1$s) SELECT $1, ARRAY[]::text[], ''{}''::jsonb, %1$s FROM jsonb_populate_record(NULL::public.schedule_events, $2) RETURNING id', v_cols)
   INTO v_id USING v_org, p_event;
- v_result := public.sync_event_staff_participations(v_id, coalesce(p_entries,'[]'::jsonb), '[]'::jsonb, p_gms, p_gm_roles,
-  jsonb_build_object('gms','[]'::jsonb,'gm_roles','{}'::jsonb));
- IF (v_result->>'success') = 'false' THEN
-  RAISE EXCEPTION '%', coalesce(v_result->>'error','担当を保存できませんでした') USING ERRCODE='40001';
+ IF cardinality(p_gms) > 0 OR jsonb_array_length(coalesce(p_entries,'[]'::jsonb)) > 0 THEN
+  v_result := public.sync_event_staff_participations(v_id, coalesce(p_entries,'[]'::jsonb), '[]'::jsonb, p_gms, p_gm_roles,
+   jsonb_build_object('gms','[]'::jsonb,'gm_roles','{}'::jsonb));
+  IF (v_result->>'success') = 'false' THEN
+   RAISE EXCEPTION '%', coalesce(v_result->>'error','担当を保存できませんでした') USING ERRCODE='40001';
+  END IF;
  END IF;
  -- 作成履歴: 画面の履歴（src/lib/api/eventHistoryApi.ts の作成記録）と同じ形。値は担当まで確定した後の公演。
  -- 担当の一括保存の履歴（同じ取引・now()）より前に並ぶよう、時刻を 1 マイクロ秒だけ前にする。
@@ -66,8 +96,9 @@ BEGIN
     'scenario','scenario_master_id','gms','gm_roles','start_time','end_time','category','capacity','max_participants','current_participants','notes',
     'is_cancelled','is_tentative','is_reservation_enabled','is_private_request','reservation_name','time_slot','venue_rental_fee'])),
   v_event.date, v_event.store_id, v_event.time_slot, now() - interval '1 microsecond';
+ INSERT INTO public.schedule_event_create_requests(request_id, organization_id, user_id, event_id) VALUES (p_request_id, v_org, auth.uid(), v_id);
  RETURN v_id;
 END $function$;
 
-REVOKE ALL ON FUNCTION public.create_schedule_event_with_staff(jsonb, text[], jsonb, jsonb) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.create_schedule_event_with_staff(jsonb, text[], jsonb, jsonb) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.create_schedule_event_with_staff(uuid, jsonb, text[], jsonb, jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.create_schedule_event_with_staff(uuid, jsonb, text[], jsonb, jsonb) TO authenticated, service_role;

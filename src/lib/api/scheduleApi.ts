@@ -103,6 +103,8 @@ export const scheduleApi = {
     gm_roles?: Record<string, string>
     /** 作成と同じ取引で保存する担当（GM・スタッフ参加）。省略時は担当なしで作成 */
     staff_assignment?: { gms: string[]; gm_roles: Record<string, string>; entries: StaffParticipationPlan['entries'] }
+    /** 作成の要求 ID（UUID）。同じ ID の作成はサーバーで 1 回だけ行う（staff_assignment と一緒に送る） */
+    client_request_id?: string
     notes?: string
     time_slot?: string | null
     is_reservation_enabled?: boolean

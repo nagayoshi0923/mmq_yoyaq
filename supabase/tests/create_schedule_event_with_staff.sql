@@ -9,10 +9,12 @@ INSERT INTO public.organizations(id, name, slug, is_active) VALUES
  ('dddddddd-0000-4000-8000-000000000002', 'GM原子作成テスト別組織', 'gm-atomic-create-test-other', true);
 INSERT INTO auth.users(id, email) VALUES
  ('dddddddd-0000-4000-8000-0000000000a1', 'gm-atomic-admin@example.invalid'),
- ('dddddddd-0000-4000-8000-0000000000a2', 'gm-atomic-customer@example.invalid');
+ ('dddddddd-0000-4000-8000-0000000000a2', 'gm-atomic-customer@example.invalid'),
+ ('dddddddd-0000-4000-8000-0000000000a3', 'gm-atomic-admin2@example.invalid');
 INSERT INTO public.users(id, email, role, organization_id) VALUES
  ('dddddddd-0000-4000-8000-0000000000a1', 'gm-atomic-admin@example.invalid', 'admin', 'dddddddd-0000-4000-8000-000000000001'),
- ('dddddddd-0000-4000-8000-0000000000a2', 'gm-atomic-customer@example.invalid', 'customer', 'dddddddd-0000-4000-8000-000000000001')
+ ('dddddddd-0000-4000-8000-0000000000a2', 'gm-atomic-customer@example.invalid', 'customer', 'dddddddd-0000-4000-8000-000000000001'),
+ ('dddddddd-0000-4000-8000-0000000000a3', 'gm-atomic-admin2@example.invalid', 'admin', 'dddddddd-0000-4000-8000-000000000001')
  ON CONFLICT (id) DO UPDATE SET role=excluded.role, organization_id=excluded.organization_id;
 INSERT INTO public.staff(id, organization_id, name, user_id) VALUES
  ('dddddddd-0000-4000-8000-0000000000c1', 'dddddddd-0000-4000-8000-000000000001', '架空GM', 'dddddddd-0000-4000-8000-0000000000a1'),
@@ -36,15 +38,15 @@ SET LOCAL ROLE authenticated;
 -- 呼び出しは担当者（authenticated）として行い、結果の確認は postgres で行う（RLS で見えないことを「無い」と誤認しないため）
 CREATE TEMP TABLE calls(label text, id uuid, err text, code text);
 GRANT ALL ON calls TO authenticated, anon;
-CREATE FUNCTION pg_temp.try_create(p_label text, p_event jsonb, p_gms text[], p_roles jsonb, p_entries jsonb) RETURNS void LANGUAGE plpgsql AS $$
+CREATE FUNCTION pg_temp.try_create(p_label text, p_event jsonb, p_gms text[], p_roles jsonb, p_entries jsonb, p_request uuid DEFAULT gen_random_uuid()) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
  BEGIN
-  INSERT INTO calls VALUES (p_label, public.create_schedule_event_with_staff(p_event, p_gms, p_roles, p_entries), NULL, NULL);
+  INSERT INTO calls VALUES (p_label, public.create_schedule_event_with_staff(p_request, p_event, p_gms, p_roles, p_entries), NULL, NULL);
  EXCEPTION WHEN OTHERS THEN
   INSERT INTO calls VALUES (p_label, NULL, SQLERRM, SQLSTATE);
  END;
 END $$;
-GRANT EXECUTE ON FUNCTION pg_temp.try_create(text, jsonb, text[], jsonb, jsonb) TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION pg_temp.try_create(text, jsonb, text[], jsonb, jsonb, uuid) TO authenticated, anon;
 
 -- 0) 修正前の 2 段: 公演は作成（確定）→ 別取引の担当同期が失敗 → GM 空の公演が残る
 SET LOCAL ROLE postgres;
@@ -68,6 +70,13 @@ SELECT pg_temp.try_create('case4', pg_temp.ev('case4', p_capacity => 1), ARRAY['
 SELECT pg_temp.try_create('case4b', pg_temp.ev('case4b', p_capacity => 0), ARRAY['架空参加'], '{"架空参加":"staff"}',
  '[{"staff_id":"dddddddd-0000-4000-8000-0000000000c2","mode":"additional","reservation_id":null}]');
 SELECT pg_temp.try_create('case5', pg_temp.ev('case5'), ARRAY['架空参加'], '{"架空参加":"staff"}', '[]');
+-- 10) 結果が分からなかった保存を同じ要求 ID で保存し直しても、公演は 1 件（同じ ID を返す）
+SELECT pg_temp.try_create('case10a', pg_temp.ev('case10'), ARRAY['架空GM'], '{"架空GM":"main"}', '[]', 'dddddddd-0000-4000-8000-0000000010aa');
+SELECT pg_temp.try_create('case10b', pg_temp.ev('case10'), ARRAY['架空GM'], '{"架空GM":"main"}', '[]', 'dddddddd-0000-4000-8000-0000000010aa');
+-- 10c) 要求 ID が違えば（別の保存）、同じ入力でも別に作る（従来の同じ枠への複数公演を妨げない）
+SELECT pg_temp.try_create('case10c', pg_temp.ev('case10'), ARRAY['架空GM'], '{"架空GM":"main"}', '[]');
+-- 11) GM 未指定もこの関数で作成でき、担当の同期は走らず、作成履歴は同じ取引で記録される
+SELECT pg_temp.try_create('case11', pg_temp.ev('case11'), ARRAY[]::text[], '{}', '[]');
 SELECT pg_temp.try_create('case6', pg_temp.ev('case6', 'dddddddd-0000-4000-8000-0000000000b2'), ARRAY['架空GM'], '{}', '[]');
 -- 7) 作成後に古い expectedStaff（空）で同期 → 拒否（競合検知は維持）
 DO $$ DECLARE r jsonb; BEGIN
@@ -76,6 +85,9 @@ DO $$ DECLARE r jsonb; BEGIN
 END $$;
 SELECT set_config('request.jwt.claims','{"sub":"dddddddd-0000-4000-8000-0000000000a2","role":"authenticated"}',true);
 SELECT pg_temp.try_create('case8', pg_temp.ev('case8'), ARRAY['架空GM'], '{}', '[]');
+-- 12) 別の利用者（同じ組織の管理者）が同じ要求 ID を使っても、他人の公演は返さない
+SELECT set_config('request.jwt.claims','{"sub":"dddddddd-0000-4000-8000-0000000000a3","role":"authenticated"}',true);
+SELECT pg_temp.try_create('case12', pg_temp.ev('case12'), ARRAY[]::text[], '{}', '[]', 'dddddddd-0000-4000-8000-0000000010aa');
 SET LOCAL ROLE anon;
 SELECT pg_temp.try_create('case9', '{}', ARRAY[]::text[], '{}', '[]');
 SET LOCAL ROLE postgres;
@@ -116,10 +128,24 @@ INSERT INTO results SELECT '5_missing_entry_rolls_back_event', c.id IS NULL AND 
 INSERT INTO results SELECT '6_other_org_store_rejected', c.id IS NULL AND c.code='42501' AND NOT EXISTS(SELECT 1 FROM public.schedule_events WHERE notes='case6'), c.err FROM calls c WHERE label='case6';
 INSERT INTO results SELECT '7_stale_expected_staff_rejected', c.code='40001' AND (SELECT gms FROM public.schedule_events WHERE notes='case2')=ARRAY['架空GM'], c.err FROM calls c WHERE label='case7';
 INSERT INTO results SELECT '8_customer_rejected', c.id IS NULL AND c.code='42501' AND NOT EXISTS(SELECT 1 FROM public.schedule_events WHERE notes='case8'), c.err FROM calls c WHERE label='case8';
-INSERT INTO results SELECT '9_anon_rejected', c.id IS NULL AND c.code='42501' AND NOT has_function_privilege('anon','public.create_schedule_event_with_staff(jsonb,text[],jsonb,jsonb)','EXECUTE'), c.err FROM calls c WHERE label='case9';
+INSERT INTO results SELECT '10_same_request_id_creates_once',
+  (SELECT count(*) FROM public.schedule_events WHERE notes='case10')=2
+  AND (SELECT id FROM calls WHERE label='case10a') = (SELECT id FROM calls WHERE label='case10b')
+  AND (SELECT id FROM calls WHERE label='case10c') <> (SELECT id FROM calls WHERE label='case10a')
+  AND (SELECT count(*) FROM public.schedule_event_history h JOIN calls c ON c.id=h.schedule_event_id AND c.label='case10a' WHERE h.action_type='create')=1,
+  (SELECT string_agg(coalesce(err,'ok'),' / ') FROM calls WHERE label LIKE 'case10%');
+INSERT INTO results SELECT '11_no_gm_created_with_create_history_same_tx',
+  e.id IS NOT NULL AND cardinality(e.gms)=0
+  AND (SELECT count(*) FROM public.schedule_event_history h WHERE h.schedule_event_id=e.id AND h.action_type='create' AND h.new_values->>'notes'='case11')=1
+  AND NOT EXISTS(SELECT 1 FROM public.schedule_event_history h WHERE h.schedule_event_id=e.id AND h.notes='担当とスタッフ参加人数を一括保存'),
+  c.err
+ FROM calls c LEFT JOIN public.schedule_events e ON e.id=c.id WHERE c.label='case11';
+INSERT INTO results SELECT '12_request_id_of_other_user_rejected', c.id IS NULL AND c.code='22023' AND NOT EXISTS(SELECT 1 FROM public.schedule_events WHERE notes='case12'), c.err FROM calls c WHERE label='case12';
+INSERT INTO results SELECT '13_request_table_not_readable_by_browser', NOT has_table_privilege('authenticated','public.schedule_event_create_requests','SELECT') AND NOT has_table_privilege('anon','public.schedule_event_create_requests','SELECT'), NULL;
+INSERT INTO results SELECT '9_anon_rejected', c.id IS NULL AND c.code='42501' AND NOT has_function_privilege('anon','public.create_schedule_event_with_staff(uuid,jsonb,text[],jsonb,jsonb)','EXECUTE'), c.err FROM calls c WHERE label='case9';
 
 SELECT label, ok, left(coalesce(detail,''), 80) AS detail FROM results ORDER BY label;
 DO $$ BEGIN
- IF EXISTS(SELECT 1 FROM results WHERE NOT ok) OR (SELECT count(*) FROM results) <> 13 THEN RAISE EXCEPTION 'create_schedule_event_with_staff: 失敗あり'; END IF;
+ IF EXISTS(SELECT 1 FROM results WHERE NOT ok) OR (SELECT count(*) FROM results) <> 17 THEN RAISE EXCEPTION 'create_schedule_event_with_staff: 失敗あり'; END IF;
 END $$;
 ROLLBACK;

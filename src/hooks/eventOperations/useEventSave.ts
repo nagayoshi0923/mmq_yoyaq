@@ -130,6 +130,8 @@ export function useEventSave({
   }, [])
   const [conflictInfo, setConflictInfo] = useState<any>(null)
   const [pendingPerformanceData, setPendingPerformanceData] = useState<any>(null)
+  // 結果が分からなかった作成（同じ入力で保存し直すときに同じ要求 ID を使う）
+  const unknownCreateRef = useRef<{ fingerprint: string; requestId: string } | null>(null)
 
   // 🚨 CRITICAL: 公演保存時の重複チェック機能（タイムスロット + 実時間 + 準備時間）
   const handleSavePerformance = useCallback(async (performanceData: PerformanceData): Promise<boolean> => {
@@ -283,14 +285,12 @@ export function useEventSave({
           throw new Error('組織情報が取得できません。再ログインしてください。')
         }
         
-        // 担当（GM・スタッフ参加・追加席）は公演の作成と同じ取引で保存する（create_schedule_event_with_staff）。
+        // 担当（GM・スタッフ参加・追加席）と作成履歴は、公演の作成と同じ取引で確定する（create_schedule_event_with_staff）。
         // 以前は担当空で作成してから別の取引で保存していたため、担当の保存に失敗すると GM 空の公演が残り、
-        // それでも「保存成功」扱いになっていた（2026-10-22 hotfix、PR #1210 の Codex レビュー P1）。
-        // GM もスタッフ参加も無い作成（GM 未指定）は担当を送らず、従来の作成のまま。
+        // それでも「保存成功」扱いになっていた（2026-10-22 hotfix、PR #1210 の Codex レビュー P1）。GM 未指定は担当を空で送る。
         const pendingGms = performanceData.gms || []
         const pendingGmRoles = performanceData.gm_roles || {}
         const staffEntries = performanceData.staffParticipation?.entries ?? []
-        const hasStaffToSave = pendingGms.length > 0 || staffEntries.length > 0
         const eventData = {
           date: performanceData.date,
           store_id: storeData.id,
@@ -303,7 +303,7 @@ export function useEventSave({
           capacity: performanceData.max_participants,
           gms: [] as string[],
           gm_roles: {} as Record<string,string>,
-          ...(hasStaffToSave ? { staff_assignment: { gms: pendingGms, gm_roles: pendingGmRoles, entries: staffEntries } } : {}),
+          staff_assignment: { gms: pendingGms, gm_roles: pendingGmRoles, entries: staffEntries },
           notes: performanceData.notes || undefined,
           time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
           venue_rental_fee: performanceData.venue_rental_fee, // 場所貸し公演料金
@@ -312,6 +312,14 @@ export function useEventSave({
           reservation_name: performanceData.reservation_name || null, // 予約者名（貸切用）
           is_reservation_name_overwritten: !!performanceData.reservation_name // 手動入力は上書きとみなす
         }
+
+        // 作成の要求 ID。前回の作成の結果が分からなかった（応答が届かなかった等）ときは、同じ入力なら同じ ID で送り、
+        // サーバーが既に作った公演を返すようにする（二重に作成しない。Codex 再レビュー 2fa19ac の P2-①）。
+        const requestFingerprint = JSON.stringify(eventData)
+        const clientRequestId = unknownCreateRef.current?.fingerprint === requestFingerprint
+          ? unknownCreateRef.current.requestId
+          : crypto.randomUUID()
+        unknownCreateRef.current = null
 
         // 楽観的 insert: 保存完了前にセルへ表示し、ユーザの不安感を解消する
         // 失敗時は finally ブロックで除外、成功時は real id に置き換える
@@ -346,7 +354,7 @@ export function useEventSave({
         // Supabaseに保存（担当があれば同じ取引で保存。失敗したら公演も作られない）
         let savedEvent
         try {
-          savedEvent = await scheduleApi.create(eventData)
+          savedEvent = await scheduleApi.create({ ...eventData, client_request_id: clientRequestId })
         } catch (saveError) {
           // 楽観的 insert を rollback
           releasePendingScheduleEvent(tempEventId)
@@ -354,7 +362,10 @@ export function useEventSave({
           // 応答を受け取れなかった・作成されたか分からない場合は「失敗」と断定せず、確認してから保存し直すよう伝える
           // （確定したのに保存し直すと二重に作成される。Codex 再レビュー 2e24bbf の 4）
           const outcomeUnknown = !(saveError instanceof ApiClientError) || saveError.status >= 502 || saveError.body?.outcome === 'unknown'
-          if (outcomeUnknown) throw new ApiClientError(502, '公演が作成されたか確認できませんでした。スケジュールを再読み込みして、公演があるか確かめてから保存し直してください')
+          if (outcomeUnknown) {
+            unknownCreateRef.current = { fingerprint: requestFingerprint, requestId: clientRequestId }
+            throw new ApiClientError(502, '公演が作成されたか確認できませんでした。スケジュールを再読み込みして、公演があるか確かめてから保存し直してください。同じ内容で保存し直した場合は、二重には作成されません')
+          }
           throw saveError
         }
         releasePendingScheduleEvent(tempEventId)
@@ -394,32 +405,9 @@ export function useEventSave({
           return prev.some(e => e.id === tempEventId) ? prev.map(e => e.id === tempEventId ? formattedEvent : e) : [...prev, formattedEvent]
         })
 
-        // 履歴を記録（新規作成）。担当付きの作成は、DB が作成と同じ取引で確定した内容の作成履歴を記録済み
-        // （create_schedule_event_with_staff。Codex 再レビュー 2e24bbf の 3）なので、ここでは記録しない。
-        // 担当なしの作成は従来どおり画面から記録する（保存の完了は待たない）。
-        const createdEventId = savedEvent.id
-        if (!hasStaffToSave) void (async () => {
-          try {
-            const createdSnapshot = await fetchEventSnapshot(createdEventId, organizationId)
-            await createEventHistory(
-              createdEventId,
-              organizationId,
-              'create',
-              null,
-              createdSnapshot ?? eventData,
-              {
-                date: eventData.date,
-                storeId: eventData.store_id,
-                timeSlot: eventData.time_slot || null
-              }
-            )
-          } catch (historyError) {
-            logger.error('履歴記録エラー（新規作成）:', historyError)
-            // 履歴記録の失敗は保存処理に影響させない
-          }
-        })()
+        // 作成履歴は DB が作成と同じ取引で、確定した内容で記録済み（GM の有無によらない。Codex 再レビュー 2fa19ac の P2-②）。
+        // 画面からは記録しない（保存直後の別の編集が作成値に混ざる・画面を離れると欠ける、を防ぐ）。
 
-        
       } else {
         // 編集更新
         

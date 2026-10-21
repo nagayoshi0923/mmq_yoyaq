@@ -60,14 +60,17 @@ export async function handleCreate(req: VercelRequest, res: VercelResponse, user
     insertRow.category = 'open'
   }
 
-  // 担当（GM・スタッフ参加）付きの作成は、公演と担当を 1 つの取引で保存する（2026-10-22 hotfix、PR #1210）。
-  // 担当の保存に失敗したら公演も作らない（GM 空の公演を残さない）。担当なしの作成は従来の INSERT のまま。
+  // 公演ダイアログからの作成（staff_assignment 付き。GM 未指定なら担当は空）は、公演・担当・作成履歴を 1 つの取引で確定する
+  // （2026-10-22 hotfix、PR #1210）。担当の保存に失敗したら公演も作らない。要求 ID が同じ作成は 1 回だけ作る
+  // （結果が分からなかった保存を保存し直しても二重に作らない）。staff_assignment の無い作成（他の画面）は従来の INSERT のまま。
   const staffAssignment = parseStaffAssignment(body.staff_assignment)
   if (staffAssignment === 'invalid') return res.status(400).json({ error: '担当の形式が不正です' })
-  if (staffAssignment) {
+  const requestId = typeof body.client_request_id === 'string' && UUID_RE.test(body.client_request_id) ? body.client_request_id : null
+  if (staffAssignment && !requestId) return res.status(400).json({ error: '作成の要求 ID が必要です。画面を再読み込みしてください' })
+  if (staffAssignment && requestId) {
     const { gms: _gms, gm_roles: _roles, organization_id: _org, ...eventFields } = insertRow
     const { data: createdId, error: rpcError } = await createUserScopedClient(user.jwt).rpc('create_schedule_event_with_staff', {
-      p_event: eventFields, p_gms: staffAssignment.gms, p_gm_roles: staffAssignment.gm_roles, p_entries: staffAssignment.entries,
+      p_request_id: requestId, p_event: eventFields, p_gms: staffAssignment.gms, p_gm_roles: staffAssignment.gm_roles, p_entries: staffAssignment.entries,
     })
     if (rpcError || typeof createdId !== 'string') {
       const code = rpcError?.code ?? ''
@@ -113,11 +116,12 @@ export async function handleCreate(req: VercelRequest, res: VercelResponse, user
   return await respondWithCreatedEvent(res, database, user, insertedId, insertPayload)
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const CREATE_OUTCOME_UNKNOWN = '公演が作成されたか確認できませんでした。スケジュールを再読み込みして、公演があるか確かめてから保存し直してください'
 
 type StaffAssignment = { gms: string[]; gm_roles: Record<string, string>; entries: unknown[] }
 
-/** 作成と同時に保存する担当。無ければ null（担当なしの作成）。gms が空なら担当なし扱い。 */
+/** 作成と同時に保存する担当。staff_assignment が無ければ null（従来の作成）。gms が空なら GM 未指定の作成。 */
 function parseStaffAssignment(raw: unknown): StaffAssignment | null | 'invalid' {
   if (raw === undefined || raw === null) return null
   if (typeof raw !== 'object' || Array.isArray(raw)) return 'invalid'
@@ -125,7 +129,7 @@ function parseStaffAssignment(raw: unknown): StaffAssignment | null | 'invalid' 
   if (!Array.isArray(gms) || gms.some(name => typeof name !== 'string')) return 'invalid'
   if (gm_roles === null || typeof gm_roles !== 'object' || Array.isArray(gm_roles)) return 'invalid'
   if (entries !== undefined && !Array.isArray(entries)) return 'invalid'
-  if (gms.length === 0) return (entries ?? []).length === 0 ? null : 'invalid'
+  if (gms.length === 0 && (entries ?? []).length > 0) return 'invalid'
   return { gms: gms as string[], gm_roles: gm_roles as Record<string, string>, entries: (entries ?? []) as unknown[] }
 }
 

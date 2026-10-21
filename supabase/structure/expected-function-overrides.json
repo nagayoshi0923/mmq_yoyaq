@@ -1400,14 +1400,14 @@
     "security_definer": false
   },
   "private_booking_store_slot_rule(p_org uuid, p_scenario_id uuid, p_store_id uuid, p_date date, p_slot text, p_single boolean)": null,
-  "create_schedule_event_with_staff(p_event jsonb, p_gms text[], p_gm_roles jsonb, p_entries jsonb)": {
+  "create_schedule_event_with_staff(p_request_id uuid, p_event jsonb, p_gms text[], p_gm_roles jsonb, p_entries jsonb)": {
     "acl": [
       "authenticated=X/postgres",
       "postgres=X/postgres",
       "service_role=X/postgres"
     ],
     "returns": "uuid",
-    "body_md5": "11487a3a88db20a880e9f6ec5450a09b",
+    "body_md5": "e329f0dcdbbfc4e35650491f17bb8b5d",
     "language": "plpgsql",
     "security_definer": true
   }
