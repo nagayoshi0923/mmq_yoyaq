@@ -124,3 +124,75 @@ describe('作品一覧の共有（公演の月データ取得）', () => {
     expect(result[0]).toMatchObject({ id: 'event-B', scenarios: { id: 'scenario-B', player_count_max: 8 } })
   })
 })
+
+describe('範囲の世代（Codex 先行再検査 f225eef の残件）', () => {
+  it('認証の初めての確定（未確定 → 利用者）でも、確定前に始まった取得には相乗りしない', async () => {
+    const old = deferred<unknown[]>()
+    mocks.get.mockReturnValueOnce(old.promise).mockResolvedValueOnce([{ id: 'B' }])
+    const { getAllStaffShared } = await import('@/lib/api/staffShared')
+    const { noteAuthUser } = await import('@/lib/api/sharedRequest')
+    const first = getAllStaffShared()
+    noteAuthUser('B')
+    const second = getAllStaffShared()
+    old.resolve([{ id: 'unknown-scope' }])
+    await first
+    expect(await second).toEqual([{ id: 'B' }])
+    expect(mocks.get).toHaveBeenCalledTimes(2)
+  })
+
+  it('切替前の組織の遅い作品取得は、切替後の次の月の照合（作品一覧のキャッシュ）に使われない', async () => {
+    const m = { month: vi.fn(), scenarios: vi.fn(), scope: 'A' }
+    vi.doMock('@/lib/api', () => ({ scheduleApi: { getByMonth: m.month }, scenarioApi: { getAll: m.scenarios } }))
+    vi.doMock('@/lib/organization', () => ({ getCurrentOrganizationId: async () => m.scope }))
+    vi.doMock('@/lib/api/scenarioAliasApi', () => ({ getScenarioAliases: async () => ({}) }))
+    vi.doMock('@/lib/api/scheduleHookReadApi', () => ({
+      scheduleEventsQueryReadApi: {
+        listConfirmedPrivateWithoutEvent: async () => ({ data: [], error: null }),
+        listNicknamesByReservationIds: async () => ({ data: [], error: null }),
+        listStatusesByEventIds: async () => ({ data: [], error: null }),
+      },
+    }))
+    const a = deferred<unknown[]>()
+    const b = deferred<unknown[]>()
+    m.scenarios.mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise)
+    m.month.mockImplementation(async () => [{
+      id: 'event-' + m.scope, date: '2026-11-01', store_id: 'store', scenario: 'Work',
+      gms: [], gm_roles: {}, category: 'open', start_time: '10:00', end_time: '14:00', capacity: 8,
+    }])
+    const { fetchScheduleEventsForMonth } = await import('@/hooks/useScheduleEventsQuery')
+    const { invalidateSharedRequests } = await import('@/lib/api/sharedRequest')
+    const first = fetchScheduleEventsForMonth(2026, 11)
+    m.scope = 'B'
+    invalidateSharedRequests()
+    const second = fetchScheduleEventsForMonth(2026, 12)
+    a.resolve([{ id: 'scenario-A', title: 'Work', player_count_max: 6 }])
+    await first
+    b.resolve([{ id: 'scenario-B', title: 'Work', player_count_max: 8 }])
+    expect((await second)[0].scenarios?.id).toBe('scenario-B')
+    const third = await fetchScheduleEventsForMonth(2027, 1)
+    expect(third[0].scenarios?.id).toBe('scenario-B')
+    expect(m.scenarios).toHaveBeenCalledTimes(2)
+  })
+
+  it('同じ利用者で組織を切り替えたあと、切替前の組織 ID の問い合わせが遅れて終わっても、次の呼び出しは新しい組織を返す', async () => {
+    const single = vi.fn()
+    vi.doUnmock('@/lib/organization') // 前の試験の差し替えを外して本物を使う
+    vi.doMock('@/lib/supabase', () => ({
+      supabase: {
+        auth: { getUser: async () => ({ data: { user: { id: 'same-user' } } }) },
+        from: () => ({ select: () => ({ eq: () => ({ maybeSingle: single }) }) }),
+      },
+    }))
+    const old = deferred<unknown>()
+    single.mockReturnValueOnce(old.promise).mockResolvedValueOnce({ data: { organization_id: 'B' } })
+    const { getCurrentOrganizationId } = await import('@/lib/organization')
+    const { invalidateSharedRequests } = await import('@/lib/api/sharedRequest')
+    const first = getCurrentOrganizationId()
+    await vi.waitFor(() => expect(single).toHaveBeenCalledTimes(1))
+    invalidateSharedRequests()
+    expect(await getCurrentOrganizationId()).toBe('B')
+    old.resolve({ data: { organization_id: 'A' } })
+    expect(await first).toBe('A')
+    expect(await getCurrentOrganizationId()).toBe('B')
+  })
+})

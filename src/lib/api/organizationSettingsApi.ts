@@ -14,7 +14,7 @@
  *   サーバー側で 400 エラーになる（無音で落とさない）
  */
 import { apiClient } from '@/lib/apiClient'
-import { invalidateSharedRequests, shareInFlight } from './sharedRequest'
+import { invalidateAfterWrite, shareInFlight } from './sharedRequest'
 
 // 時間帯設定の型
 export interface TimeSlotSetting {
@@ -134,7 +134,7 @@ export const organizationSettingsApi = {
       return await apiClient.patch<OrganizationSettings>(path, { updates })
     } finally {
       // 保存より前に始まった取得に、保存後の呼び出しが相乗りしないようにする
-      invalidateSharedRequests()
+      invalidateAfterWrite()
     }
   },
 

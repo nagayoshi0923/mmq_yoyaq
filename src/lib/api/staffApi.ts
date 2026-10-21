@@ -10,7 +10,7 @@ import { supabase } from '../supabase'
 import { apiClient } from '@/lib/apiClient'
 import type { Staff } from '@/types'
 import { getAllStaffShared } from './staffShared'
-import { invalidateSharedRequests } from './sharedRequest'
+import { invalidateAfterWrite } from './sharedRequest'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const STAFF_SELECT_FIELDS =
@@ -41,7 +41,7 @@ export const staffApi = {
     try {
       return await apiClient.post<Staff>('/api/staff', staff)
     } finally {
-      invalidateSharedRequests()
+      invalidateAfterWrite()
     }
   },
 
@@ -54,7 +54,7 @@ export const staffApi = {
       return await apiClient.patch<Staff>(`/api/staff?id=${encodeURIComponent(id)}`, updates)
     } finally {
       // 保存より前に始まった一覧の取得に、保存後の呼び出しが相乗りしないようにする
-      invalidateSharedRequests()
+      invalidateAfterWrite()
     }
   },
 
@@ -63,7 +63,7 @@ export const staffApi = {
     try {
       await apiClient.patch(`/api/staff?id=${encodeURIComponent(id)}&action=linkAccount`, { user_id: userId, email })
     } finally {
-      invalidateSharedRequests()
+      invalidateAfterWrite()
     }
   },
 
@@ -77,7 +77,7 @@ export const staffApi = {
     try {
       await apiClient.delete<void>(`/api/staff?id=${encodeURIComponent(id)}`)
     } finally {
-      invalidateSharedRequests()
+      invalidateAfterWrite()
     }
   },
 
