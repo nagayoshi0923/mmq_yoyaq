@@ -7,6 +7,7 @@
  */
 import { supabase } from './supabase'
 import { requestKey, withRepeatFailureBackoff } from './repeatFailureBackoff'
+import { invalidateAfterWrite } from './api/sharedRequest'
 
 export class ApiClientError extends Error {
   constructor(
@@ -107,6 +108,11 @@ async function apiFetch<T>(path: string, options?: ApiFetchOptions): Promise<T> 
  * 失敗する保存を画面が即座に再送し続け、DB が混んだ（2026-10-13）ための歯止め。読み込み（GET）は対象外。
  */
 function writeWithBackoff<T>(method: string, path: string, options: ApiFetchOptions): Promise<T> {
+  // どの書き込みの後も、書き込み前に始まった読み取りへの相乗りをやめる（sharedRequest.ts）
+  return writeWithBackoffInner<T>(method, path, options).finally(invalidateAfterWrite)
+}
+
+function writeWithBackoffInner<T>(method: string, path: string, options: ApiFetchOptions): Promise<T> {
   return withRepeatFailureBackoff<{ ok: true; value: T } | { ok: false; error: unknown }>(
     requestKey(`${method} ${path}`, options.body ?? ''),
     () => apiFetch<T>(path, options).then(value => ({ ok: true as const, value }), error => ({ ok: false as const, error })),

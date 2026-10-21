@@ -14,6 +14,7 @@
  *   サーバー側で 400 エラーになる（無音で落とさない）
  */
 import { apiClient } from '@/lib/apiClient'
+import { invalidateAfterWrite, shareInFlight } from './sharedRequest'
 
 // 時間帯設定の型
 export interface TimeSlotSetting {
@@ -99,8 +100,10 @@ function hasSecretField(payload: Record<string, unknown>): boolean {
 export const organizationSettingsApi = {
   // 現在の組織の設定を取得
   // バックエンド API (/api/org-settings) 経由で org_id をサーバー側で強制フィルタする
+  // スケジュール画面では時間帯設定・休日などの部品が同時に呼ぶので、同時の呼び出しは 1 回の通信を共有する
+  // （以前は同じ /api/org-settings が 4 回並んでいた）。利用者・組織の切替や保存の後は相乗りしない（sharedRequest.ts）。
   async get(): Promise<OrganizationSettings | null> {
-    return apiClient.get<OrganizationSettings | null>('/api/org-settings')
+    return shareInFlight('GET /api/org-settings', () => apiClient.get<OrganizationSettings | null>('/api/org-settings'))
   },
 
   // 機密トークン含む全設定を取得（設定編集画面専用）
@@ -127,7 +130,12 @@ export const organizationSettingsApi = {
     const path = hasSecretField(updates)
       ? '/api/org-settings?with_secrets=true'
       : '/api/org-settings'
-    return apiClient.patch<OrganizationSettings>(path, { updates })
+    try {
+      return await apiClient.patch<OrganizationSettings>(path, { updates })
+    } finally {
+      // 保存より前に始まった取得に、保存後の呼び出しが相乗りしないようにする
+      invalidateAfterWrite()
+    }
   },
 
   // Discord設定のみ更新

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { invalidateSharedRequests } from '@/lib/api/sharedRequest'
 import { platformMasterApi, type MasterOrganization } from '@/lib/api/platformMasterApi'
 import { clearPersistedQueryCache } from '@/lib/persistedQueryCache'
 
@@ -30,6 +31,8 @@ export function MasterOrgSwitcher({ navigateTo = (path: string) => window.locati
     setSwitching(true); setError(null)
     const { data, error: switchError } = await platformMasterApi.switchOrganization(id)
     if (switchError || typeof data !== 'string') { setSwitching(false); setError('切り替えられませんでした'); return }
+    // 切替前の組織の読み取りに、切替後の呼び出しが相乗りしないようにする
+    invalidateSharedRequests()
     await clearPersistedQueryCache()
     navigateTo(`/${data}/dashboard`)
   }

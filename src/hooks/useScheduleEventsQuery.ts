@@ -11,6 +11,7 @@ import { useCallback } from 'react'
 import { scheduleApi, scenarioApi } from '@/lib/api'
 import { getScenarioAliases } from '@/lib/api/scenarioAliasApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { currentScopeGeneration, shareInFlight } from '@/lib/api/sharedRequest'
 import { scheduleEventsQueryReadApi } from '@/lib/api/scheduleHookReadApi'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { logger } from '@/utils/logger'
@@ -87,7 +88,10 @@ interface PrivateRequestData {
 // シナリオモジュールキャッシュ（同セッション内で月をまたいで再利用）
 // ---------------------------------------------------------------------------
 
-let _scenarioModuleCache: any[] = []
+// 作品一覧のモジュールキャッシュ。書いたときの範囲の世代（利用者・組織）を持ち、世代が進んだら使わない
+let _scenarioModuleCache: { scope: number; list: any[] } = { scope: -1, list: [] }
+const readScenarioModuleCache = (): any[] =>
+  _scenarioModuleCache.scope === currentScopeGeneration() ? _scenarioModuleCache.list : []
 
 // ---------------------------------------------------------------------------
 // 純粋なデータ取得関数（queryFn として使用）
@@ -107,17 +111,43 @@ export async function fetchScheduleEventsForMonth(
     }
   })()
 
-  // スケジュール取得とエイリアスマッピングを並列で実行
-  const [data, SCENARIO_ALIAS] = await Promise.all([
+  // 公演・エイリアス・作品一覧（初回のみ）・組織 ID と、組織 ID だけで引ける「公演の無い確定貸切」は
+  // 互いに依存しないので同時に始める（以前は 公演 → 作品一覧 → 組織 ID → 予約 の順番待ちだった）
+  // 作品一覧は月をまたいで共有する。先読みで数か月分が同時に来ても取得は 1 回にする
+  // 組織の切替・保存の後は相乗りしない（src/lib/api/sharedRequest.ts）。さらに、相乗りした取得を始めた側の組織 ID と
+  // 自分の組織 ID が違えば（切替の合図より先に組織が変わっていた場合）、相乗りした結果は使わずに自分で取り直す。
+  // 組織 ID を待ってから作品一覧を取り始めると順番待ちが 1 段増えるので、取得は待たずに始め、照合だけ後で行う。
+  const scopeAtStart = currentScopeGeneration()
+  const orgIdPromise = getCurrentOrganizationId()
+  const cachedScenarios = readScenarioModuleCache()
+  const scenarioListPromise: Promise<any[]> = cachedScenarios.length
+    ? Promise.resolve(cachedScenarios)
+    : (async () => {
+        const shared = shareInFlight('schedule:scenario-list', () => {
+          const startedForOrg = orgIdPromise
+          return scenarioApi.getAll().then((list: any[]) => ({ startedForOrg, list }))
+        })
+        const [{ startedForOrg, list }, myOrg] = await Promise.all([shared, orgIdPromise])
+        if ((await startedForOrg) === myOrg) return list
+        return scenarioApi.getAll()
+      })()
+  scenarioListPromise.catch(() => undefined)
+  const privatePromise = orgIdPromise.then((id) => scheduleEventsQueryReadApi.listConfirmedPrivateWithoutEvent(id))
+  // 先に公演の取得が失敗したとき、待たれないまま失敗した側が未処理の拒否にならないようにする
+  privatePromise.catch(() => undefined)
+  const [data, SCENARIO_ALIAS, fetchedScenarioList, orgId] = await Promise.all([
     scheduleApi.getByMonth(year, month),
     getScenarioAliases(),
-  ]) as [RawEventData[], Record<string, string>]
+    scenarioListPromise,
+    orgIdPromise,
+  ]) as [RawEventData[], Record<string, string>, any[], string | null]
 
-  // シナリオリスト（モジュールキャッシュを優先）
-  let scenarioList = _scenarioModuleCache
-  if (!scenarioList.length) {
-    scenarioList = await scenarioApi.getAll()
-    _scenarioModuleCache = scenarioList
+  // シナリオリスト（開始時にモジュールキャッシュがあればそれ、なければこの取得で得た一覧を使う。
+  // 待っている間に別の取得がキャッシュを書いても、この月の照合には自分が待った一覧を使う）
+  const scenarioList = fetchedScenarioList
+  // 取得の間に利用者・組織が替わっていたら（範囲の世代が進んでいたら）キャッシュに書かない
+  if (!readScenarioModuleCache().length && scopeAtStart === currentScopeGeneration()) {
+    _scenarioModuleCache = { scope: scopeAtStart, list: scenarioList }
   }
   const scenarioByTitle = new Map<string, any>()
   scenarioList.forEach((s) => scenarioByTitle.set(s.title, s))
@@ -204,13 +234,11 @@ export async function fetchScheduleEventsForMonth(
     .filter(e => e.category === 'private')
     .map(e => e.id)
 
-  const orgId = await getCurrentOrganizationId()
-
   const [nicknameResult, privateResult, cancelCheckResult] = await Promise.all([
     reservationIdsForNickname.length > 0
       ? scheduleEventsQueryReadApi.listNicknamesByReservationIds(reservationIdsForNickname)
       : Promise.resolve({ data: null, error: null }),
-    scheduleEventsQueryReadApi.listConfirmedPrivateWithoutEvent(orgId),
+    privatePromise,
     privateEventIdsForCancelCheck.length > 0
       ? scheduleEventsQueryReadApi.listStatusesByEventIds(privateEventIdsForCancelCheck, orgId)
       : Promise.resolve({ data: null, error: null }),
@@ -442,5 +470,5 @@ export function setScheduleMonthData(
 
 /** シナリオモジュールキャッシュを外部から更新する（シナリオ追加後など） */
 export function updateScenarioModuleCache(scenarios: any[]): void {
-  _scenarioModuleCache = scenarios
+  _scenarioModuleCache = { scope: currentScopeGeneration(), list: scenarios }
 }

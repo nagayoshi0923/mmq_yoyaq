@@ -9,8 +9,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const PORT = Number(process.env.LOCAL_REPRO_API_PORT ?? 5189)
 const API_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../api')
 
-// ローカル Supabase 以外へ接続させない
-process.env.SUPABASE_URL = 'http://127.0.0.1:55321'
+// ローカル Supabase 以外へ接続させない（性能計測で遅延を足す中継を挟むときだけ、手元 127.0.0.1 の別ポートを許す）
+const localOverride = process.env.LOCAL_REPRO_SUPABASE_URL
+process.env.SUPABASE_URL = localOverride && /^http:\/\/127\.0\.0\.1:\d+$/.test(localOverride) ? localOverride : 'http://127.0.0.1:55321'
 process.env.VITE_SUPABASE_URL = process.env.SUPABASE_URL
 process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.LOCAL_REPRO_SERVICE_ROLE_KEY ?? ''
 process.env.SUPABASE_ANON_KEY = process.env.LOCAL_REPRO_PUBLISHABLE_KEY ?? ''
