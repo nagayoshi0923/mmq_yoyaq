@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-20T14:44:27.489Z",
+  "captured_at": "2026-10-21T00:10:15.586Z",
   "table_count": 156,
   "function_count": 441,
-  "digest": "e3595dfd37c152e7161c9b7f25048a6514ccb19e42a4093ebb2f41fef438adbc"
+  "digest": "4c58989137b142862acd2d75a98c4907315df267725a576baa6f2030bfb3f8e3"
  },
  "tables": {
   "staff": {
@@ -26997,16 +26997,6 @@
    "language": "plpgsql",
    "security_definer": true
   },
-  "claim_customer_notice_emails(p_limit integer)": {
-   "acl": [
-    "postgres=X/postgres",
-    "service_role=X/postgres"
-   ],
-   "returns": "TABLE(id uuid, organization_id uuid, kind text, email_type text, to_email text, to_name text, subject text, body_text text, reply_to text, sender_name text)",
-   "body_md5": "5e3ed9675ff8f4f198fea5a4b800a3b5",
-   "language": "plpgsql",
-   "security_definer": true
-  },
   "private_group_message_payload(p_message text)": {
    "acl": [
     "postgres=X/postgres",
@@ -28050,6 +28040,16 @@
    "body_md5": "7ee9a2399d66989fb01d7a9ce76c42be",
    "language": "plpgsql",
    "security_definer": false
+  },
+  "claim_customer_notice_emails(p_limit integer, p_only_ids uuid[])": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "TABLE(id uuid, organization_id uuid, kind text, email_type text, to_email text, to_name text, subject text, body_text text, reply_to text, sender_name text)",
+   "body_md5": "2c937de7f542dca58c1c560c26acd77a",
+   "language": "plpgsql",
+   "security_definer": true
   },
   "customer_notice_when(p_date date, p_time time without time zone)": {
    "acl": null,
