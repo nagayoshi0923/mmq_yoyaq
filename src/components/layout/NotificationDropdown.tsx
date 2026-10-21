@@ -245,24 +245,33 @@ export function NotificationDropdown({ className }: NotificationDropdownProps) {
       {/* 通知の詳細ウィンドウ（題名・本文の全文・項目・「開く」） */}
       <Dialog open={detail !== null} onOpenChange={(open) => { if (!open) setDetail(null) }}>
         {detail && (
-          <DialogContent size="md" className="sm:max-w-lg p-4 sm:p-6 gap-3">
+          <DialogContent
+            size="md"
+            // 中身の最小幅で横に広がらないよう列を 0 まで縮められるようにし、長い URL や英数字も折り返す（ボタンを画面内に保つ）
+            className="sm:max-w-lg p-4 sm:p-6 gap-3 grid-cols-[minmax(0,1fr)] [&>*]:min-w-0 [overflow-wrap:anywhere]"
+            // 閉じたらベルのボタンへフォーカスを戻す（キーボード・読み上げで元の位置に戻れるように）
+            onCloseAutoFocus={(e) => {
+              e.preventDefault()
+              buttonRef.current?.focus()
+            }}
+          >
             <DialogHeader className="text-left pr-6">
-              <DialogTitle className="text-base leading-snug break-words">{detail.title}</DialogTitle>
-              <p className="text-[11px] text-gray-400">
+              <DialogTitle className="text-base leading-snug [overflow-wrap:anywhere]">{detail.title}</DialogTitle>
+              <p className="text-xs text-muted-foreground">
                 {formatDistanceToNow(detail.timestamp, { addSuffix: true, locale: ja })}
               </p>
             </DialogHeader>
-            <DialogDescription className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words">
+            <DialogDescription className="text-sm text-foreground leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">
               {detail.message}
             </DialogDescription>
             {detail.details && detail.details.length > 0 && (
-              <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700 leading-relaxed break-words" aria-label="お知らせの項目">
+              <ul className="list-disc pl-5 space-y-2 text-sm text-foreground leading-relaxed [overflow-wrap:anywhere]" aria-label="お知らせの項目">
                 {detail.details.map((item, i) => (
                   <li key={i}>{item}</li>
                 ))}
               </ul>
             )}
-            <DialogFooter className="sticky -bottom-4 sm:-bottom-6 -mb-4 sm:-mb-6 pb-4 sm:pb-6 pt-2 bg-background border-t border-gray-100 gap-2 sm:gap-2 sm:space-x-0">
+            <DialogFooter className="sticky -bottom-4 sm:-bottom-6 -mb-4 sm:-mb-6 pb-4 sm:pb-6 pt-2 bg-background border-t border-border gap-2 sm:gap-2 sm:space-x-0">
               <Button type="button" variant="outline" onClick={() => setDetail(null)}>
                 閉じる
               </Button>

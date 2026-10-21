@@ -3,6 +3,7 @@
 - 背景: ベル（`NotificationDropdown`）の通知は本文が 2 行で省略され、押すと link へ遷移するだけで全文を読む手段が無かった（社長「全文よめない」）。
 - 変更（画面のみ・DB 変更なし）: どの通知も押すと Dialog で題名・本文の全文（改行保持・長文は Dialog 内でスクロール）を出す。押しただけでは遷移しない。link がある通知だけ「開く」ボタン（押すと遷移して閉じる）、無ければ「閉じる」だけ。未読を開いたときだけ既読（`markAsRead` を 1 回）。既読を開いても書き込まない。`metadata.details`（文字列の配列）があれば箇条書きで出す（`src/hooks/notificationDetail.ts`、`Notification.details`）。ブラウザの戻るなどで画面が変わったら閉じる。マイページ側に通知一覧は無いので対象外。
 - 確認: 単体テスト `src/components/layout/NotificationDropdown.test.tsx`（7 件）、vitest 全件、`npm run verify`。手元 DB（架空会員 customer1@mmq.test・架空通知 4 件: 1,584 字の改行つきリンクなし／リンクあり未読／既読リンクなし／項目つきリンクあり）で 375px と 1280px を Playwright で確認（遷移なし・既読の書き込みは未読だけ 1 回・横はみ出しなし・戻るで閉じる・「開く」で遷移）。架空通知は確認後に消した。
+- 追記（Codex 先行指摘 P2 2 件・CI のデザインガード）: (1) 改行できない長い URL・英数字で Dialog が横に広がりボタンが画面外に出ていた（grid 子の min-width:auto）→ `grid-cols-[minmax(0,1fr)]`・子に `min-w-0`・本文／題名／項目に `overflow-wrap:anywhere`。手元で 375px の旧コードは scrollWidth 2089／clientWidth 354、修正後は 375px 354/354・1280px 510/510、ボタンは画面内。(2) 閉じたあとフォーカスが BODY に落ちていた → `onCloseAutoFocus` でベルのボタンへ戻す（閉じる・Esc とも単体テストと手元で確認）。(3) CI の `check:design-tokens` で `text-gray-`・`text-[` が増えていた → `text-muted-foreground`・`text-foreground`・`text-xs`・`border-border` に置き換え（`npm run verify` には含まれないので個別に実行する）。
 - 保留: リリース告知の配信関数 `announce_release_2026_10`（migration 20261021190000・rollback・SQL 試験つき）は別ブランチ `feat/release-announce-function-2026-10`（f2bf4110）に退避。PR は未作成。
 
 ## 2026-10-21 / リリース統合候補（staging の未反映分 ＋ main の #1202、reconcile migration 付き）（release/2026-10-integration、staging 向け PR・マージしない）

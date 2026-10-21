@@ -137,3 +137,32 @@ it('ブラウザの戻るなどで画面が変わったら詳細ウィンドウ�
   await act(async () => root.render(<NotificationDropdown />))
   expect(dialog()).toBeNull()
 })
+
+it('閉じたらベルのボタンへフォーカスが戻る（閉じるボタン・Esc とも）', async () => {
+  await openBellAndClick('予約が確定しました')
+  const bell = host.querySelector('button[title="通知"]') as HTMLButtonElement
+  expect(dialog()!.contains(document.activeElement)).toBe(true)
+  await act(async () => { buttonIn(dialog()!, '閉じる')!.click() })
+  await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+  expect(dialog()).toBeNull()
+  expect(document.activeElement).toBe(bell)
+  // もう一度開いて Esc で閉じる
+  await act(async () => { bell.click() })
+  const item = [...document.body.querySelectorAll('p')].find((p) => p.textContent === '予約が確定しました')!.closest('div.cursor-pointer') as HTMLElement
+  await act(async () => { item.click() })
+  expect(dialog()).not.toBeNull()
+  await act(async () => { document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+  await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+  expect(dialog()).toBeNull()
+  expect(document.activeElement).toBe(bell)
+})
+
+it('長い URL や英数字でも横に広がらないよう、列を縮められて折り返す指定がある', async () => {
+  hook.notifications = [{ ...normal, message: 'https://example.invalid/' + 'a'.repeat(240) }]
+  await openBellAndClick('予約が確定しました')
+  const d = dialog()!
+  expect(d.className).toContain('grid-cols-[minmax(0,1fr)]')
+  expect(d.className).toContain('[&>*]:min-w-0')
+  const body = [...d.querySelectorAll('p')].find((p) => p.textContent?.startsWith('https://'))!
+  expect(body.className).toContain('[overflow-wrap:anywhere]')
+})
