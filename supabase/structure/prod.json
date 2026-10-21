@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "prod",
-  "captured_at": "2026-10-20T21:38:38.083Z",
+  "captured_at": "2026-10-21T06:05:50.730Z",
   "table_count": 149,
-  "function_count": 405,
-  "digest": "945a843de05bb8c2adfe2d436d67d1b1c3bc5b0491469af5d472550a89b8d2f7"
+  "function_count": 406,
+  "digest": "b8697eb23af2afad756d014e9f595acb944d86157c1225fdb28ef475fcfeaa87"
  },
  "tables": {
   "staff": {
@@ -27806,7 +27806,7 @@
     "service_role=X/postgres"
    ],
    "returns": "integer",
-   "body_md5": "028e31406df967c188bdc0a291683693",
+   "body_md5": "40c5130066af552342bb3bfabf628eb5",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28116,6 +28116,16 @@
    "returns": "integer",
    "body_md5": "04b7add4603b3904fb635461f89e9b0a",
    "language": "sql",
+   "security_definer": false
+  },
+  "private_booking_store_slot_rule(p_org uuid, p_scenario_id uuid, p_store_id uuid, p_date date, p_slot text, p_single boolean)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "text",
+   "body_md5": "5bb140c7086928097e37d4f4243a2c0a",
+   "language": "plpgsql",
    "security_definer": false
   },
   "claim_cancellation_billing_notice(p_organization_id uuid, p_claim_id uuid, p_revision integer, p_notice_key text, p_kind text)": {
@@ -28429,7 +28439,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "56db9932cc103fb01b3183da781f07b8",
+   "body_md5": "c8704b6826f8f621bad8557782af2e87",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -28634,7 +28644,7 @@
     "service_role=X/postgres"
    ],
    "returns": "uuid",
-   "body_md5": "76b0659312bc5fe30f3a485b6d281e0b",
+   "body_md5": "f5ebfb22dc6bd56276a9297252670d86",
    "language": "plpgsql",
    "security_definer": true
   },
