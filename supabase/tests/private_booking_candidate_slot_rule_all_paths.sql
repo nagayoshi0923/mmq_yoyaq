@@ -14,6 +14,7 @@
 --  既存の候補・申込の行は変わらない。
 --  reconcile の rollback（本番の公開手順で reconcile の直前 = 29 本の後）でも同じ結果（3 関数の本文は同じ）で、#1202 の検査の関数だけが戻る。
 --  staging の順（144000 → reconcile）で当て直しても同じ結果。
+--  issue #1203: 希望店舗の変更でも貸切の募集停止で候補が外れる。候補の時間帯が別の枠（夜）の受付停止にかかればグループ作成は拒否・店舗変更で外れる。
 \set ON_ERROR_STOP on
 BEGIN;
 \ir fixtures/private_test_group.sql
@@ -161,6 +162,22 @@ BEGIN
   (p_step,'普通の平日 申込 開店10時の店 火曜 朝 10:00',pg_temp.request(ARRAY[c.st1],sp,'午前','10:00','12:30')),
   (p_step,'普通の平日 店舗変更 朝止めた店→開店10時の店 火曜 朝 10:00',pg_temp.change(one,ARRAY[c.st1],sp,'午前','10:00','12:30'));
  UPDATE organization_scenarios SET private_booking_time_slots='{}',private_booking_time_slots_weekend=NULL WHERE organization_id=c.org AND scenario_master_id=c.sm;
+ -- issue #1203 P2: 希望店舗の変更でも貸切の募集停止を見る（開店10時の店 st1 を w の日だけ募集停止）
+ INSERT INTO store_recruitment_pauses(organization_id,store_id,pause_type,starts_on,ends_on) VALUES(c.org,c.st1,'private',w,w);
+ INSERT INTO _log VALUES
+  (p_step,'募集停止 店舗変更 朝止めた店→開店10時の店 平日 昼 13:00',pg_temp.change(one,ARRAY[c.st1],w,'午後','13:00','15:30')),
+  (p_step,'募集停止 申込 開店10時の店 平日 昼 13:00',pg_temp.request(ARRAY[c.st1],w,'午後','13:00','15:30'));
+ DELETE FROM store_recruitment_pauses WHERE organization_id=c.org AND store_id=c.st1;
+ -- issue #1203 P1: 候補の時間帯が別の枠にかかる受付停止も見る（昼 13:00〜20:00 の候補、st1 の w の夜が受付停止）
+ UPDATE organization_scenarios SET duration=420 WHERE organization_id=c.org AND scenario_master_id=c.sm;
+ INSERT INTO schedule_blocked_slots(organization_id,store_id,date,time_slot) VALUES(c.org,c.st1::text,w,'evening');
+ INSERT INTO _log VALUES
+  (p_step,'別枠の停止 作成 開店10時の店 平日 昼 13:00〜20:00',pg_temp.create(ARRAY[c.st1],w,'午後','13:00','20:00')),
+  (p_step,'別枠の停止 店舗変更 朝止めた店→開店10時の店 平日 昼 13:00〜20:00',pg_temp.change(one,ARRAY[c.st1],w,'午後','13:00','20:00'));
+ DELETE FROM schedule_blocked_slots WHERE organization_id=c.org AND store_id=c.st1::text AND date=w;
+ INSERT INTO _log VALUES
+  (p_step,'別枠の停止なし 作成 開店10時の店 平日 昼 13:00〜20:00',pg_temp.create(ARRAY[c.st1],w,'午後','13:00','20:00'));
+ UPDATE organization_scenarios SET duration=150 WHERE organization_id=c.org AND scenario_master_id=c.sm;
 END $$;
 
 -- 1. reconcile 適用後（この DB には適用済み。改めて当てても同じ = 冪等）
@@ -221,13 +238,18 @@ BEGIN
   ('特別営業日 申込 朝止めた店 火曜 朝 10:00','ok'),
   ('特別営業日 店舗変更 開店10時の店→朝止めた店 火曜 朝 10:00','removed 0'),
   ('普通の平日 申込 開店10時の店 火曜 朝 10:00',rej10),
-  ('普通の平日 店舗変更 朝止めた店→開店10時の店 火曜 朝 10:00','removed 1')) e(item,want)
+  ('普通の平日 店舗変更 朝止めた店→開店10時の店 火曜 朝 10:00','removed 1'),
+  ('募集停止 店舗変更 朝止めた店→開店10時の店 平日 昼 13:00','removed 1'),
+  ('募集停止 申込 開店10時の店 平日 昼 13:00','P0040 %'),
+  ('別枠の停止 作成 開店10時の店 平日 昼 13:00〜20:00',blk),
+  ('別枠の停止 店舗変更 朝止めた店→開店10時の店 平日 昼 13:00〜20:00','removed 1'),
+  ('別枠の停止なし 作成 開店10時の店 平日 昼 13:00〜20:00','ok')) e(item,want)
  LOOP
   ASSERT (SELECT result FROM _log WHERE step='適用後' AND item=r.item) LIKE r.want, format('適用後 %s: 期待 %s / 実際 %s', r.item, r.want, (SELECT result FROM _log WHERE step='適用後' AND item=r.item));
   ASSERT (SELECT result FROM _log WHERE step='rollback 後' AND item=r.item) IS NOT DISTINCT FROM (SELECT result FROM _log WHERE step='適用後' AND item=r.item), format('rollback 後 %s', r.item);
   ASSERT (SELECT result FROM _log WHERE step='当て直し' AND item=r.item) IS NOT DISTINCT FROM (SELECT result FROM _log WHERE step='適用後' AND item=r.item), format('当て直し %s', r.item);
  END LOOP;
- ASSERT (SELECT count(DISTINCT item) FROM _log)=36, '試験の件数が 36 ではない';
+ ASSERT (SELECT count(DISTINCT item) FROM _log)=41, '試験の件数が 41 ではない';
  RAISE NOTICE '20261021144000 ＋ reconcile 20261021170000 の試験: すべて合格';
 END $$;
 ROLLBACK;
