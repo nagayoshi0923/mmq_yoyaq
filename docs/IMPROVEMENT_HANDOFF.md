@@ -1,3 +1,14 @@
+## 2026-10-21 / リリース統合候補（staging の未反映分 ＋ main の #1202、reconcile migration 付き）（release/2026-10-integration、staging 向け PR・マージしない）
+
+- 目的: staging の未反映分（10/11〜10/21 の 118 コミット）と本番 main（179958be、#1202 = issue #1200 の hotfix）を 1 本の統合候補にし、本番へは統合 PR（staging → main）で出す。#1201（draft）の内容は #1202 経由で入る。#1014・cherry-pick の案は使わない。
+- 二重の migration: staging の `20261020210000`（＋ `20261015110000`・`20261020120000`）と main の `20261021144000` が同じ 3 関数（`create_private_group_atomic`・`create_private_booking_request`・`private_group_set_preferred_stores`）を書き換える。reconcile `20261021170000_private_booking_candidate_rule_reconcile`（rollback 同名）で本文を staging の `private_booking_assert_candidate` 経路に決め、#1202 の `private_booking_store_slot_rule` を消す。根拠: assert_candidate（→ `private_booking_slot_store_fit`）が店舗ごとに I10（店舗の平日／土日祝、特別営業日）・I2・営業時間・別枠にかかる受付停止・募集停止・公演・固定開始・所要時間を同じ 1 店舗で全部満たすかを見るので、#1202 の要件を含む（issue #1203 の P1・P2 もこれで解消）。
+- 2 起点の隔離試験（手元の使い捨て DB 2 つ。基準 ＋ 本番 / staging の実際の適用済み一覧を本番・staging の `schema_migrations` の読み取りで確認して再現。再現した 3 関数の md5 は本番・staging の実物と一致）: (a) 本番相当 → 29 本 → reconcile、(b) staging 相当 → 144000 → reconcile。3 関数の md5（`e9a9b773…`・`ee6f42bf…`・`7789faef…`）と権限、DB 構造全体（表 156・ビュー 12・関数 441）が一致。`test:rpcs` 15 本（R1〜R43、#1202 の回帰を reconcile 用に直した `private_booking_candidate_slot_rule_all_paths.sql`、データ修正、クーポン系、写真上限、`customer_notice_claim_only_ids` ほか）と yoyaq_004 が両方で合格。
+- 戻し: `scripts/test-release-rollback-scope.sh` を統合に合わせた（1 章 31 行・当てる 30 本・戻した後に 144000 を当て直す・DB 構造全体で公開前と一致を確認）。合格。staging では 144000 の rollback を単独で流さない（3 関数が本番の旧本文に戻る）。
+- 公開入口の未設定店舗（issue #1203 P2）: `getPublicPrivateBookingSlotOptions` が未設定の店を何店でも合成して渡していた → 渡す店舗が 1 店のときだけ合成（DB の `p_allow_missing` と同じ）。試験を追加（修正前で失敗を確認）。仕様同期の一覧に `publicPrivateBookingSlots.ts`・`privateGroupCandidateSlots.ts`・申込と店舗変更の RPC 正本を追加。
+- 手順書: `docs/ops/本番公開の戻し方_2026-10.md` を統合用に改訂（既存の通知は止めない・試験送信はしない・新しい定期実行 3 本と引き金 2 本は同じ取引で無効にして作る・鍵は名前と用途だけで登録は承認待ち・戻した後に 144000 を当て直す）。`docs/ops/平日朝枠の停止_2026-10.md` の cherry-pick 案を廃止。
+- 確認: `npm run verify`、vitest 全件（345 ファイル・2448 件）、`check:private-booking-rules`、`check:migration-rollbacks`、`scripts/check-db-baseline.sh`（基準 ＋ 80 本で期待構造を再現）、上の隔離試験。staging・本番の DB・Edge・secrets・Vercel には書き込んでいない（両 DB は読み取りだけ）。
+- 残り: Codex の独立レビュー → staging への取り込み（staging DB に 144000 と reconcile を続けて当て、staging.json を取り直す）→ 本番（別 GO）。CI の Drift（staging.json）は staging 適用後に取り直す。
+
 ## 2026-10-21 / 貸切の朝枠は店舗の枠設定で判定し、昼・夜は開店前の固定時刻でも受け付ける（issue #1200「平日に午前枠が出る」、fix/issue1200-slot-start-open-time、PR #1201・未マージ）
 
 - 旧案の取り下げ: #1201 の最初の案「どの枠も開始を開店時刻より前にしない（作品の開始時刻が開店前なら closed）」は、社長の仕様訂正（「午前」は時刻ではなく朝枠のこと／昼枠は普通に受け付けてよい）で取り下げた。migration `20261021150000_slot_start_not_before_open_time`・rollback は削除（staging・本番には未適用）。

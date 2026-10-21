@@ -10,6 +10,9 @@
 #   4. 手順書 (c) の 3 のとおり、基準ファイルに無い版だけを新しい順に戻す（29 本。20261020100000 は戻さない）
 #   5. 適用済みの一覧が基準ファイルと同じ、private_booking_store_day_slots の md5 が hotfix 後のまま
 #   6. 対照: 古い手順（30 本）なら 20261020100000 の rollback も流れ、md5 が変わる（取引の中で確かめて巻き戻す）
+# 2026-10-21 リリース統合: 本番には #1202 の 20261021144000 も当て済み（1 章の一覧の外。公開前の状態に入る）。1 章に reconcile 20261021170000 を
+#   足して 31 行、当てるのは 29 本＋reconcile の 30 本。戻した後に 144000 を当て直し（手順書 (c) の 3）、公開前の DB 構造全体（public の表・ビュー・関数・型）と
+#   比べる（以前は private_booking_store_day_slots の md5 だけを見ていた）。
 # 本番・staging には接続しない（使い捨ての DB を別の番号で起動する）。メール・通知は送らない。
 # 使い方: bash scripts/test-release-rollback-scope.sh   （KEEP=1 で終わっても DB を止めない）
 set -euo pipefail
@@ -51,7 +54,8 @@ mark() { "${P[@]}" -c "INSERT INTO supabase_migrations.schema_migrations(version
 
 # 1 章の公開分（手順書の表から読む）
 grep -oE '^\| [0-9]+ \| `[0-9]{14}_[^`]+\.sql`' "$DOC" | grep -oE '[0-9]{14}_[^`]+' | sed 's/\.sql$//' > "$OUT/release.txt"
-[ "$(wc -l < "$OUT/release.txt")" -eq 30 ] || { echo "1 章の一覧が 30 本ではない"; cat "$OUT/release.txt"; exit 1; }
+[ "$(wc -l < "$OUT/release.txt")" -eq 31 ] || { echo "1 章の一覧が 31 行ではない"; cat "$OUT/release.txt"; exit 1; }
+RECONCILE_FIX=20261021144000
 cut -d_ -f1 "$OUT/release.txt" > "$OUT/release_versions.txt"
 
 echo "== 1. 本番の今の状態を作る（基準 $BASELINE_VERSION ＋ 公開分以外 ＋ hotfix $HOTFIX）"
@@ -67,6 +71,7 @@ for f in $(ls supabase/migrations/*.sql | sort); do
 done
 echo "   公開前に当たっている分: $pre 本（$HOTFIX を含む）"
 [ "$(md5_fn)" = "$HOTFIX_MD5" ] || { echo "NG: 公開前の $FN が hotfix 後の md5 ではない: $(md5_fn)"; exit 1; }
+DB_URL="$DB_URL" node scripts/db-structure-snapshot.mjs custom > "$OUT/before.json"
 
 echo "== 2. 手順書 2 章の 0: 適用済みの一覧を基準ファイルに保存"
 "${P[@]}" -At -c "SELECT version FROM supabase_migrations.schema_migrations ORDER BY 1" > "$OUT/release-baseline.txt"
@@ -84,14 +89,15 @@ while read -r b; do
   "${P[@]}" -1 -f "supabase/migrations/$b.sql" >/dev/null; mark "$v" "${b#*_}"; n=$((n + 1))
 done < "$OUT/release.txt"
 echo "   当てた分: $n 本"
-[ "$n" -eq 29 ] || { echo "NG: 当てる分が 29 本ではない"; exit 1; }
+[ "$n" -eq 30 ] || { echo "NG: 当てる分が 30 本（29 本＋reconcile）ではない"; exit 1; }
 DB_URL="$DB_URL" node scripts/db-structure-snapshot.mjs custom > "$OUT/B_actual.json"
 echo "   構造照合 B（#1196、実 DB）: $(node scripts/check-function-overrides.mjs "$OUT/B_actual.json" supabase/structure/expected-function-overrides.json)"
 
 echo "== 4. 手順書 (c) の 3: 基準ファイルに無い版だけを新しい順に戻す"
 "${P[@]}" -At -c "SELECT version FROM supabase_migrations.schema_migrations ORDER BY 1 DESC" > "$OUT/now.txt"
 grep -vxFf "$OUT/release-baseline.txt" "$OUT/now.txt" > "$OUT/to-rollback.txt" || true
-[ "$(wc -l < "$OUT/to-rollback.txt")" -eq 29 ] || { echo "NG: 戻す分が 29 本ではない"; cat "$OUT/to-rollback.txt"; exit 1; }
+[ "$(wc -l < "$OUT/to-rollback.txt")" -eq 30 ] || { echo "NG: 戻す分が 30 本ではない"; cat "$OUT/to-rollback.txt"; exit 1; }
+! grep -qx "$RECONCILE_FIX" "$OUT/to-rollback.txt" || { echo "NG: #1202 の $RECONCILE_FIX が戻す対象に入った"; exit 1; }
 ! grep -qx "$HOTFIX" "$OUT/to-rollback.txt" || { echo "NG: hotfix $HOTFIX が戻す対象に入った"; exit 1; }
 while read -r v; do
   f="$(ls supabase/rollbacks/${v}_*.sql)"
@@ -99,12 +105,26 @@ while read -r v; do
   "${P[@]}" -c "DELETE FROM supabase_migrations.schema_migrations WHERE version = '$v'" >/dev/null
 done < "$OUT/to-rollback.txt"
 echo "   戻した分: $(wc -l < "$OUT/to-rollback.txt" | tr -d ' ') 本（$HOTFIX は含まない）"
+# 手順書 (c) の 3: 29 本の rollback は 3 関数を 144000 より前に戻すので、最後に 144000 を当て直す（履歴は既にある）
+"${P[@]}" -1 -f "$(ls supabase/migrations/${RECONCILE_FIX}_*.sql)" >/dev/null
+echo "   $RECONCILE_FIX を当て直した"
 
 echo "== 5. 公開前の状態に戻ったか"
 "${P[@]}" -At -c "SELECT version FROM supabase_migrations.schema_migrations ORDER BY 1" > "$OUT/after.txt"
 diff -q "$OUT/release-baseline.txt" "$OUT/after.txt" >/dev/null || { echo "NG: 適用済みの一覧が基準と違う"; diff "$OUT/release-baseline.txt" "$OUT/after.txt"; exit 1; }
 [ "$(md5_fn)" = "$HOTFIX_MD5" ] || { echo "NG: 戻した後の $FN が hotfix 後の md5 ではない: $(md5_fn)"; exit 1; }
 echo "   適用済みの一覧 = 基準ファイル、$FN の md5 = $HOTFIX_MD5（hotfix 後のまま）"
+DB_URL="$DB_URL" node scripts/db-structure-snapshot.mjs custom > "$OUT/after.json"
+python3 - "$OUT/before.json" "$OUT/after.json" <<'PY_CMP' || exit 1
+import json, sys
+a = json.load(open(sys.argv[1])); b = json.load(open(sys.argv[2])); ng = []
+for k in ("tables", "views", "functions", "enums"):
+    for name in sorted(set(a.get(k, {})) | set(b.get(k, {}))):
+        if a.get(k, {}).get(name) != b.get(k, {}).get(name): ng.append(f"{k}.{name}")
+if ng:
+    print("NG: 戻した後の DB 構造が公開前と違う:"); print("\n".join("  " + x for x in ng)); sys.exit(1)
+print(f"   DB 構造（表 {len(b['tables'])}・ビュー {len(b['views'])}・関数 {len(b['functions'])}）が公開前と一致")
+PY_CMP
 
 echo "== 6. 対照: 古い手順（30 本）なら hotfix も戻ってしまう"
 old_md5="$("${P[@]}" -At <<SQL | tail -1
