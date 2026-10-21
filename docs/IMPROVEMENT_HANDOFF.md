@@ -8,6 +8,14 @@
 - 手順書: `docs/ops/本番公開の戻し方_2026-10.md` を統合用に改訂（既存の通知は止めない・試験送信はしない・新しい定期実行 3 本と引き金 2 本は同じ取引で無効にして作る・鍵は名前と用途だけで登録は承認待ち・戻した後に 144000 を当て直す）。`docs/ops/平日朝枠の停止_2026-10.md` の cherry-pick 案を廃止。
 - 確認: `npm run verify`、vitest 全件（345 ファイル・2448 件）、`check:private-booking-rules`、`check:migration-rollbacks`、`scripts/check-db-baseline.sh`（基準 ＋ 80 本で期待構造を再現）、上の隔離試験。staging・本番の DB・Edge・secrets・Vercel には書き込んでいない（両 DB は読み取りだけ）。
 - 残り: Codex の独立レビュー → staging への取り込み（staging DB に 144000 と reconcile を続けて当て、staging.json を取り直す）→ 本番（別 GO）。CI の Drift（staging.json）は staging 適用後に取り直す。
+- 追記（Codex 先行レビュー 1b9b0417 の P1「保護が消える窓」）: 30 本を 1 本ずつ当てると `20261011200000`〜`20261020210000` の間（約 30 分）申込が I2 を見ない本文になる。
+  1 つの取引で当てる・戻す実行用スクリプトを追加: `scripts/release-bundle-2026-10.mjs`（最上位の BEGIN/COMMIT だけを外して 1 取引にまとめる。文字列・`$$`・コメントを読み飛ばす。前後の md5・履歴・新しい通知の無効を同じ取引で確かめる）、
+  `scripts/release-apply-2026-10.sh`（全体を 1 回の問い合わせで送る。前後の照合つき）、`scripts/release-state-snapshot.sql`・`scripts/release-state-compare.mjs`（定期実行・app_config・引き金・バケット・storage のポリシーの前後照合）。
+  隔離試験 `scripts/test-release-bundle-2026-10.sh`（本番相当）: 途中失敗・鍵待ち（5.1 秒で全体取り消し）で照合も構造も変わらない／当てる・戻す間に外から 0.1 秒ごとに 86〜88 回観測して公開前・公開後以外 0 回／
+  既存の定期実行 20 本・app_config・既存の引き金は不変、新しい定期実行 3 本は無効、web_push の 2 本は D／戻した後は構造・照合とも公開前と同じ（空のバケット private-group-photos だけ残る。SQL から消せない）／
+  本番と同じ SQL で取引 0.13 秒、別の接続の読み書きの待ちは最長 49 ms。
+  staging のミラー（`scripts/mirror-prod-to-staging.sh`）が引き金を一律 ENABLE にしていたのを、ミラー前の状態（tgenabled）に戻すように直した（同じ試験の 4 で確認）。
+  要判断: 「日程がそろいました」の引き金 `private_group_on_date_response` は本番に無く新しく有効で作られる（止めて作るなら `--date-aligned-off`）。
 
 ## 2026-10-21 / 貸切の朝枠は店舗の枠設定で判定し、昼・夜は開店前の固定時刻でも受け付ける（issue #1200「平日に午前枠が出る」、fix/issue1200-slot-start-open-time、PR #1201・未マージ）
 
