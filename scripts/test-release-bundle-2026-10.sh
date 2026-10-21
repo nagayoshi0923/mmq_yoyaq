@@ -129,12 +129,14 @@ gen TRIGGERS_DISABLE > "$LOG/mirror-disable.sql"; gen TRIGGERS_ENABLE > "$LOG/mi
 [ -s "$LOG/mirror-disable.sql" ] && [ -s "$LOG/mirror-enable.sql" ] || { echo "NG: ミラーの文を取り出せない"; exit 1; }
 TG="SELECT string_agg(c.relname || '.' || t.tgname || '=' || t.tgenabled::text, ' ' ORDER BY c.relname, t.tgname) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid WHERE NOT t.tgisinternal AND c.relnamespace = 'public'::regnamespace"
 before_tg="$("${P[@]}" -Atc "$TG")"
-echo "$before_tg" | grep -q 'private_group_messages.web_push_on_group_message=D' || { echo "NG: 前提（web_push の引き金が D）になっていない"; exit 1; }
+for t in private_group_messages.web_push_on_group_message user_notifications.web_push_on_user_notification private_group_date_responses.private_group_on_date_response; do
+  echo "$before_tg" | grep -q "${t}=D" || { echo "NG: 前提（新しい通知の引き金 ${t} が D）になっていない"; exit 1; }
+done
 dis="$("${P[@]}" -At -f "$LOG/mirror-disable.sql")"; ena="$("${P[@]}" -At -f "$LOG/mirror-enable.sql")"
 printf 'BEGIN;\n%s\n%s\nCOMMIT;\n' "$dis" "$ena" | "${P[@]}" >/dev/null
 after_tg="$("${P[@]}" -Atc "$TG")"
 [ "$before_tg" = "$after_tg" ] || { echo "NG: ミラーの後で引き金の状態が変わった"; diff <(tr ' ' '\n' <<<"$before_tg") <(tr ' ' '\n' <<<"$after_tg") | head; exit 1; }
-echo "   引き金 $(tr ' ' '\n' <<<"$after_tg" | grep -c .) 本の状態がミラーの前後で同じ（web_push の 2 本は D のまま）"
+echo "   引き金 $(tr ' ' '\n' <<<"$after_tg" | grep -c .) 本の状態がミラーの前後で同じ（新しい通知の引き金 3 本は D のまま）"
 
 echo "== 5. 戻す（同じく 0.2 秒ずつ。外から観測）"
 start_poll "$LOG/poll-rollback.txt"; sleep 1
@@ -162,4 +164,4 @@ print(f"   {sys.argv[2]}: 別の接続の読み書き {len(ms)} 回、最長 {ma
 PY
 done
 check_same_as_s0 after-final "bucket private-group-photos"
-echo "OK: test-release-bundle-2026-10（記録: $LOG）"
+echo "OK: test-release-bundle-2026-10（記録: ${LOG}）"

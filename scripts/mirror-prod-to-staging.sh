@@ -225,7 +225,7 @@ resume_cron_jobs() {
       echo "  定期ジョブを再開しました"
       PAUSED_CRON_JOBS=""
     else
-      echo "  ⚠️ 定期ジョブの再開に失敗しました。cron.job を確認してください（jobid: $PAUSED_CRON_JOBS）"
+      echo "  ⚠️ 定期ジョブの再開に失敗しました。cron.job を確認してください（jobid: ${PAUSED_CRON_JOBS}）"
       return 1
     fi
   fi
@@ -235,7 +235,7 @@ resume_cron_jobs_or_fail() {
     resume_cron_jobs && return 0
     sleep 10
   done
-  echo "  ❌ 定期ジョブを再開できませんでした。手動で再開してください（jobid: $PAUSED_CRON_JOBS）"
+  echo "  ❌ 定期ジョブを再開できませんでした。手動で再開してください（jobid: ${PAUSED_CRON_JOBS}）"
   exit 1
 }
 trap resume_cron_jobs_or_fail EXIT

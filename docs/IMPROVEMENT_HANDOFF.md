@@ -15,7 +15,10 @@
   既存の定期実行 20 本・app_config・既存の引き金は不変、新しい定期実行 3 本は無効、web_push の 2 本は D／戻した後は構造・照合とも公開前と同じ（空のバケット private-group-photos だけ残る。SQL から消せない）／
   本番と同じ SQL で取引 0.13 秒、別の接続の読み書きの待ちは最長 49 ms。
   staging のミラー（`scripts/mirror-prod-to-staging.sh`）が引き金を一律 ENABLE にしていたのを、ミラー前の状態（tgenabled）に戻すように直した（同じ試験の 4 で確認）。
-  要判断: 「日程がそろいました」の引き金 `private_group_on_date_response` は本番に無く新しく有効で作られる（止めて作るなら `--date-aligned-off`）。
+- 追記（Codex 独立試験 8fe2360b の P1 2 件）: (1) 「日程がそろいました」の引き金 `private_group_on_date_response`（本番に無い新しい通知。鍵が無くても既存のお知らせメールで実際に送られる）を、
+  ほかの新しい通知と同じく必ず無効で作るようにした（20261010130000・作り直す 20261020110000 の直後。SQL の最後の確認と前後照合で D 必須。`--date-aligned-off` は廃止、有効化は手順書 3 章の 4 の別承認）。
+  (2) Mac の既定の bash 3.2 と日本語ロケールでは `$rc）` の全角記号が変数名の一部と読まれ、`set -u` で止まっていた（取消後の照合・成功後の表示に届かない）。
+  全角記号に接する変数を `${…}` に直した（release-apply・test-release-bundle・mirror・test-release-rollback-scope）。`LANG=ja_JP.UTF-8 /bin/bash` で隔離試験を通し、成功・途中失敗・鍵待ちとも after.tsv と照合まで到達。
 
 ## 2026-10-21 / 貸切の朝枠は店舗の枠設定で判定し、昼・夜は開店前の固定時刻でも受け付ける（issue #1200「平日に午前枠が出る」、fix/issue1200-slot-start-open-time、PR #1201・未マージ）
 

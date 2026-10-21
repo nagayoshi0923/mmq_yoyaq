@@ -10,8 +10,9 @@
 // 使い方:
 //   node scripts/release-bundle-2026-10.mjs forward  <出力.sql>   # 公開前（本番: 144000 済み）→ 29 本＋reconcile
 //   node scripts/release-bundle-2026-10.mjs rollback <出力.sql>   # 公開後 → reconcile と 29 本を戻し、144000 を当て直す
-//   --date-aligned-off: 「日程がそろいました」のベル・メールの引き金 private_group_on_date_response（本番に無い。20261010130000 で新設、
-//     20261020110000 で作り直し）も無効で作る。既定は有効（手順書のとおり）。社長の判断で使う（2026-10-21 統合の要判断）
+//   「日程がそろいました」のベル・メールの引き金 private_group_on_date_response（本番に無い。20261010130000 で新設、20261020110000 で作り直し）も、
+//   新しい通知として必ず無効で作る（2026-10-21 Codex 独立試験 P1-1。既存のお知らせメールの仕組みで、鍵が無くても実際にメールが送られるため）。
+//   有効にするのは別承認の操作（手順書 3 章の 4 の SQL）。この SQL を作る指定では有効にできない。
 //   試験だけ: --test-sleep 0.2（1 本ごとに待つ。取引の途中を外から覗く試験用）／--test-fail-after <版>（その版の後でわざと失敗）
 //   試験の印がある SQL は scripts/release-apply-2026-10.sh が手元の DB 以外では流さない。
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs'
@@ -39,17 +40,20 @@ export const MD5 = {
 }
 // 新しく作られる通知（同じ取引の中で無効にする。3 章の 1）
 const NEW_CRONS = ['process-web-push', 'private-group-guest-chat-digest', 'private-group-memories-notice']
-const NEW_TRIGGERS = [['private_group_messages', 'web_push_on_group_message'], ['user_notifications', 'web_push_on_user_notification']]
+const NEW_TRIGGERS = [['private_group_messages', 'web_push_on_group_message'], ['user_notifications', 'web_push_on_user_notification'], ['private_group_date_responses', 'private_group_on_date_response']]
 const DISABLE_AFTER = {
   '20261010130000': [
     `SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobname IN ('process-web-push', 'private-group-guest-chat-digest');`,
     'ALTER TABLE public.private_group_messages DISABLE TRIGGER web_push_on_group_message;',
     'ALTER TABLE public.user_notifications DISABLE TRIGGER web_push_on_user_notification;',
+    'ALTER TABLE public.private_group_date_responses DISABLE TRIGGER private_group_on_date_response;',
   ],
   '20261010160000': [
     `SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobname = 'private-group-memories-notice';`,
     'ALTER TABLE public.user_notifications DISABLE TRIGGER web_push_on_user_notification;',
   ],
+  // 引き金を作り直す（DROP → CREATE で有効に戻る）ので、もう一度無効にする
+  '20261020110000': ['ALTER TABLE public.private_group_date_responses DISABLE TRIGGER private_group_on_date_response;'],
 }
 
 /** SQL を最上位の文に分ける。文字列（'…'・E'…'）・引用識別子・$tag$…$tag$・-- とブロックコメントの中の ; では分けない */
@@ -150,10 +154,8 @@ function settings(opts) {
   return `SET LOCAL lock_timeout = ${q(opts.lockTimeout)};\nSET LOCAL statement_timeout = ${q(opts.statementTimeout)};\nSET LOCAL idle_in_transaction_session_timeout = '0';\n`
 }
 
-const DATE_ALIGNED_OFF = 'ALTER TABLE public.private_group_date_responses DISABLE TRIGGER private_group_on_date_response;'
-
 export function build(mode, opts = {}) {
-  opts = { lockTimeout: '5s', statementTimeout: '120s', testSleep: null, testFailAfter: null, dateAlignedOff: false, ...opts }
+  opts = { lockTimeout: '5s', statementTimeout: '120s', testSleep: null, testFailAfter: null, ...opts }
   const list = releaseList()
   const versions = list.map(b => b.slice(0, 14))
   const test = opts.testSleep || opts.testFailAfter
@@ -171,7 +173,6 @@ export function build(mode, opts = {}) {
   if (mode === 'forward') {
     pre = `DO $release_pre$\nBEGIN\n  IF (SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version IN (${HOTFIX_APPLIED.map(q).join(', ')})) <> ${HOTFIX_APPLIED.length} THEN RAISE EXCEPTION '公開前の確認: hotfix（20261020100000・20261021144000）が当たっていない'; END IF;\n  IF EXISTS (SELECT 1 FROM supabase_migrations.schema_migrations WHERE version IN (${vlist})) THEN RAISE EXCEPTION '公開前の確認: 公開分のどれかが既に当たっている'; END IF;\nEND $release_pre$;\n${md5Check('公開前の確認', MD5.pre)}`
     for (const b of list) add('migrations', b, [...(DISABLE_AFTER[b.slice(0, 14)] ?? []),
-      ...(opts.dateAlignedOff && ['20261010130000', '20261020110000'].includes(b.slice(0, 14)) ? [DATE_ALIGNED_OFF] : []),
       `INSERT INTO supabase_migrations.schema_migrations(version, name) VALUES (${q(b.slice(0, 14))}, ${q(b.slice(15))});`])
     post = `${md5Check('公開後の確認', MD5.post)}DO $release_post$\nBEGIN\n  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname IN (${NEW_CRONS.map(q).join(', ')}) AND active) THEN RAISE EXCEPTION '公開後の確認: 新しい定期実行が有効になっている'; END IF;\n${NEW_TRIGGERS.map(([t, g]) => `  IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = ${q(g)} AND tgrelid = 'public.${t}'::regclass AND tgenabled <> 'D') THEN RAISE EXCEPTION '公開後の確認: % が有効', ${q(g)}; END IF;`).join('\n')}\n  IF (SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version IN (${vlist})) <> ${versions.length} THEN RAISE EXCEPTION '公開後の確認: 履歴が ${versions.length} 本ではない'; END IF;\nEND $release_post$;\n`
   } else if (mode === 'rollback') {
@@ -182,7 +183,7 @@ export function build(mode, opts = {}) {
     post = `${md5Check('戻した後の確認', MD5.pre)}DO $release_post$\nBEGIN\n  IF EXISTS (SELECT 1 FROM supabase_migrations.schema_migrations WHERE version IN (${vlist})) THEN RAISE EXCEPTION '戻した後の確認: 履歴が残っている'; END IF;\n  IF (SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version IN (${HOTFIX_APPLIED.map(q).join(', ')})) <> ${HOTFIX_APPLIED.length} THEN RAISE EXCEPTION '戻した後の確認: hotfix の履歴が無い'; END IF;\nEND $release_post$;\n`
   } else throw new Error('forward か rollback を指定してください')
   const body = `${parts.join('')}`
-  return `-- release-bundle-2026-10 ${mode}${test ? ' TEST-BUNDLE（試験用。本番では流さない）' : ''}${opts.dateAlignedOff ? ' date-aligned-off' : ''}
+  return `-- release-bundle-2026-10 ${mode}${test ? ' TEST-BUNDLE（試験用。本番では流さない）' : ''}
 -- 生成: node scripts/release-bundle-2026-10.mjs ${mode}。手で直さない。流し方は scripts/release-apply-2026-10.sh
 -- 1 つの取引で当てる（途中で失敗すれば全部取り消され、ほかの接続からは前か後の状態しか見えない）。
 -- lock_timeout=${opts.lockTimeout}（ほかの接続の鍵を待つのはここまで。超えたら全体を取り消す）、statement_timeout=${opts.statementTimeout}
@@ -200,7 +201,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   for (let i = 0; i < rest.length; i += 2) {
     if (rest[i] === '--test-sleep') opts.testSleep = rest[i + 1]
     else if (rest[i] === '--test-fail-after') opts.testFailAfter = rest[i + 1]
-    else if (rest[i] === '--date-aligned-off') { opts.dateAlignedOff = true; i-- }
     else if (rest[i] === '--lock-timeout') opts.lockTimeout = rest[i + 1]
     else if (rest[i] === '--statement-timeout') opts.statementTimeout = rest[i + 1]
     else throw new Error(`知らない指定: ${rest[i]}`)

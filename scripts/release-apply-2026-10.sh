@@ -30,7 +30,7 @@ psql ${CONN[@]+"${CONN[@]}"} -X -q -v ON_ERROR_STOP=1 -c "$(cat "$BUNDLE")" > "$
 rc=$?
 set -e
 end=$(python3 -c 'import time; print(time.time())')
-echo "所要 $(python3 -c "print(round($end-$start,2))") 秒（終了コード $rc）"
+echo "所要 $(python3 -c "print(round($end-$start,2))") 秒（終了コード ${rc}）"
 snap "$OUT/after.tsv"
 if [ "$rc" -ne 0 ]; then
   grep -E 'ERROR|FATAL' "$OUT/apply.log" | head -5
@@ -39,4 +39,4 @@ if [ "$rc" -ne 0 ]; then
   exit 1
 fi
 node "$ROOT/scripts/release-state-compare.mjs" "$MODE" "$OUT/before.tsv" "$OUT/after.tsv"
-echo "記録: $OUT（SQL・照合の前後・ログ）"
+echo "記録: ${OUT}（SQL・照合の前後・ログ）"

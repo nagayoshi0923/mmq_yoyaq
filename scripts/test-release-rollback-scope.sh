@@ -58,7 +58,7 @@ grep -oE '^\| [0-9]+ \| `[0-9]{14}_[^`]+\.sql`' "$DOC" | grep -oE '[0-9]{14}_[^`
 RECONCILE_FIX=20261021144000
 cut -d_ -f1 "$OUT/release.txt" > "$OUT/release_versions.txt"
 
-echo "== 1. 本番の今の状態を作る（基準 $BASELINE_VERSION ＋ 公開分以外 ＋ hotfix $HOTFIX）"
+echo "== 1. 本番の今の状態を作る（基準 $BASELINE_VERSION ＋ 公開分以外 ＋ hotfix ${HOTFIX}）"
 "${P[@]}" -f "$BASELINE" >/dev/null
 "${P[@]}" -c "CREATE SCHEMA IF NOT EXISTS supabase_migrations; CREATE TABLE IF NOT EXISTS supabase_migrations.schema_migrations(version text PRIMARY KEY, name text, statements text[])" >/dev/null
 "${P[@]}" -c "INSERT INTO supabase_migrations.schema_migrations(version, name) VALUES ('$BASELINE_VERSION', 'baseline') ON CONFLICT DO NOTHING" >/dev/null
@@ -113,7 +113,7 @@ echo "== 5. 公開前の状態に戻ったか"
 "${P[@]}" -At -c "SELECT version FROM supabase_migrations.schema_migrations ORDER BY 1" > "$OUT/after.txt"
 diff -q "$OUT/release-baseline.txt" "$OUT/after.txt" >/dev/null || { echo "NG: 適用済みの一覧が基準と違う"; diff "$OUT/release-baseline.txt" "$OUT/after.txt"; exit 1; }
 [ "$(md5_fn)" = "$HOTFIX_MD5" ] || { echo "NG: 戻した後の $FN が hotfix 後の md5 ではない: $(md5_fn)"; exit 1; }
-echo "   適用済みの一覧 = 基準ファイル、$FN の md5 = $HOTFIX_MD5（hotfix 後のまま）"
+echo "   適用済みの一覧 = 基準ファイル、$FN の md5 = ${HOTFIX_MD5}（hotfix 後のまま）"
 DB_URL="$DB_URL" node scripts/db-structure-snapshot.mjs custom > "$OUT/after.json"
 python3 - "$OUT/before.json" "$OUT/after.json" <<'PY_CMP' || exit 1
 import json, sys
@@ -134,7 +134,7 @@ SELECT md5(prosrc) FROM pg_proc WHERE proname = '$FN' AND pronamespace = 'public
 ROLLBACK;
 SQL
 )"
-echo "   $HOTFIX の rollback を流すと $FN の md5 は $old_md5（hotfix 前に戻る）。今回の手順では流さない"
+echo "   $HOTFIX の rollback を流すと $FN の md5 は ${old_md5}（hotfix 前に戻る）。今回の手順では流さない"
 [ "$old_md5" != "$HOTFIX_MD5" ] || { echo "NG: 対照で md5 が変わらなかった"; exit 1; }
 [ "$(md5_fn)" = "$HOTFIX_MD5" ] || { echo "NG: 対照の巻き戻しが効いていない"; exit 1; }
 echo "OK: test-release-rollback-scope"
