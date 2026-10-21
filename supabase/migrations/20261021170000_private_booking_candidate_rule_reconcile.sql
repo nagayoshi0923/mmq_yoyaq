@@ -1,0 +1,874 @@
+-- リリース統合（release/2026-10-integration）: 貸切の候補の検査を 1 つの本文にそろえる（reconcile）。
+-- 背景: 同じ 3 関数（create_private_group_atomic / create_private_booking_request / private_group_set_preferred_stores）を
+--   staging の 20261020210000（＋ 20261015110000・20261020120000）と、main の hotfix 20261021144000（issue #1200、#1202）が
+--   別々に書き換えている。適用の順番で最後の本文が変わる:
+--     本番  = 144000 済み → 公開分 29 本（210000 を含む）を当てると staging の本文になる
+--     staging = 210000 済み → 144000 を当てると本番の旧本文＋店舗ごとの検査に戻ってしまう（固定開始・所要時間・募集期間・
+--               店舗の部分選択の検査が抜ける。issue #1203 の P1）
+--   この migration は、どちらから当てても同じ本文（staging の private_booking_assert_candidate 経路）にする。
+-- 最終本文を staging の assert_candidate 経路にした根拠（2026-10-21 Codex 先行結論・隔離 DB の 2 起点試験）:
+--   - private_booking_assert_candidate → private_booking_slot_store_fit は希望店舗・送る店舗ごとに
+--     作品の時間枠（I10）・店舗の曜日の枠（I2、private_booking_store_day_slots）・営業時間・受付停止（候補の時間帯にかかる別枠も）・
+--     募集停止・公演・固定開始時刻・所要時間を「同じ 1 店舗で」全部満たすかを見る（他店の条件を混ぜない）
+--     → #1202 の「同一店舗で 枠が有効 AND 空き」を含む。
+--   - 平日／土日祝は店舗ごと（その店舗の特別営業日は土日祝。I5）で読む → #1202 の「I10 は店舗ごとの土日祝」を含む。
+--   - 開店時刻では枠の可否を決めない（営業中の範囲は有効な枠の最初の開始から。昼 12:00・夜 16:00 の固定は開店前でも通る）。
+--   - グループ作成も保存時の空きを見る。希望店舗が空のグループ作成は候補があれば「希望店舗を選択してください」で拒否（staging の挙動）。
+--   - 店舗変更の「募集停止」「別枠にまたがる受付停止」は assert 版で外れる（issue #1203 の P2・P1）。
+-- 本文は supabase/rpcs/ の正本（staging の 20261020120000・20261020210000 と同じ）。md5 は supabase/structure/expected-function-overrides.json。
+-- #1202 の店舗ごとの検査 private_booking_store_slot_rule は、どの関数からも呼ばれなくなるので消す（rollback で同じ本文に戻す）。
+-- データ（候補・申込・グループ）は変えない（関数の入れ替えだけ）。
+-- 巻き戻し: supabase/rollbacks/20261021170000_private_booking_candidate_rule_reconcile.sql
+--   （本番の公開前まで戻すときは、29 本の rollback の後に 20261021144000 の migration を当て直す。docs/ops/本番公開の戻し方_2026-10.md）
+-- 仕様: docs/product-spec/貸切受付ルール.md（手順 7・例 R34〜R43）。試験: supabase/tests/private_booking_candidate_slot_rule_all_paths.sql ほか
+
+-- QW-20260917-001 A04: either the complete invitation group is created, or nothing is.
+-- 候補日時は候補追加（private_group_add_candidate_dates）と同じ private_booking_assert_candidate で、保存時の最新の空き状況を確かめる。
+-- 仕様の正本: docs/product-spec/貸切受付ルール.md（判定の手順 7）。
+-- 作品は公開中（org_status='available'）・貸切受付 ON・出張限定でないものだけ（監査 C3 2026-10-20。公開停止の作品でもグループを作れていた）。
+CREATE OR REPLACE FUNCTION public.create_private_group_atomic(p_organization_id uuid, p_scenario_master_id uuid, p_name text DEFAULT NULL::text, p_preferred_store_ids uuid[] DEFAULT '{}'::uuid[], p_candidate_dates jsonb DEFAULT '[]'::jsonb, p_notes text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'extensions'
+AS $function$
+DECLARE
+ v_user uuid:=auth.uid(); v_group public.private_groups; v_member uuid;
+ v_name text; v_settings public.global_settings; v_date jsonb; v_order bigint;
+ v_seen text[]:='{}'; v_slot text; v_key text;
+BEGIN
+ IF v_user IS NULL THEN RAISE EXCEPTION 'ログインが必要です' USING ERRCODE='42501'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM organizations WHERE id=p_organization_id AND is_active IS TRUE) THEN
+  RAISE EXCEPTION '組織情報が取得できません' USING ERRCODE='22023';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM organization_scenarios_with_master
+   WHERE organization_id=p_organization_id AND scenario_master_id=p_scenario_master_id
+   AND player_count_min>=1 AND player_count_max>=player_count_min AND accepts_private_booking IS TRUE
+   AND org_status='available' AND scenario_kind IS DISTINCT FROM 'offsite_only') THEN
+  RAISE EXCEPTION 'この作品はいま貸切を受け付けていません' USING ERRCODE='22023';
+ END IF;
+ IF EXISTS(SELECT 1 FROM unnest(coalesce(p_preferred_store_ids,'{}')) s(id)
+   WHERE NOT EXISTS(SELECT 1 FROM stores WHERE stores.id=s.id AND organization_id=p_organization_id AND status='active')) THEN
+  RAISE EXCEPTION '選択した店舗はこの組織で利用できません' USING ERRCODE='22023';
+ END IF;
+ IF p_candidate_dates IS NULL OR jsonb_typeof(p_candidate_dates)<>'array' THEN
+  RAISE EXCEPTION '候補日時の形式が不正です' USING ERRCODE='22023';
+ END IF;
+ IF jsonb_array_length(p_candidate_dates)>100 OR length(coalesce(p_name,''))>200 OR length(coalesce(p_notes,''))>10000 THEN
+  RAISE EXCEPTION '入力が長すぎます' USING ERRCODE='22023';
+ END IF;
+ -- 候補日時は保存前に、候補追加（private_group_add_candidate_dates）と同じ判定で最新の空き状況を確かめる。
+ -- 画面で選んだあとに公演・受付停止・作品の設定が変わっていれば理由付きで弾く（Codex staging 点検 2026-10-15）。
+ FOR v_date IN SELECT value FROM jsonb_array_elements(p_candidate_dates) LOOP
+  IF jsonb_typeof(v_date)<>'object' OR coalesce(v_date->>'time_slot','') NOT IN ('午前','午後','夜間')
+    OR coalesce(v_date->>'date','') !~ '^\d{4}-\d{2}-\d{2}$'
+    OR coalesce(v_date->>'start_time','') !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+    OR coalesce(v_date->>'end_time','') !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' THEN
+   RAISE EXCEPTION '候補日時の形式が不正です' USING ERRCODE='22023';
+  END IF;
+  v_slot:=CASE v_date->>'time_slot' WHEN '午前' THEN 'morning' WHEN '午後' THEN 'afternoon' ELSE 'evening' END;
+  v_key:=(v_date->>'date')||'/'||v_slot;
+  IF v_key=ANY(v_seen) THEN RAISE EXCEPTION '同じ日付・時間帯の候補は既に追加されています' USING ERRCODE='23505'; END IF;
+  v_seen:=v_seen||v_key;
+  PERFORM public.private_booking_assert_candidate(p_organization_id,p_scenario_master_id,coalesce(p_preferred_store_ids,'{}'),
+   (v_date->>'date')::date,v_slot,v_date->>'start_time',v_date->>'end_time');
+ END LOOP;
+ SELECT coalesce(nullif(nickname,''),nullif(name,'')) INTO v_name FROM customers WHERE user_id=v_user ORDER BY id LIMIT 1;
+ SELECT * INTO v_settings FROM global_settings WHERE organization_id=p_organization_id LIMIT 1;
+ INSERT INTO private_groups(organization_id,scenario_master_id,organizer_id,name,invite_code,status,preferred_store_ids,notes)
+ VALUES(p_organization_id,p_scenario_master_id,v_user,nullif(trim(p_name),''),encode(extensions.gen_random_bytes(16),'hex'),'gathering',coalesce(p_preferred_store_ids,'{}'),p_notes)
+ RETURNING * INTO v_group;
+ INSERT INTO private_group_members(group_id,user_id,guest_name,is_organizer,status,joined_at)
+ VALUES(v_group.id,v_user,coalesce(v_name,'主催者'),true,'joined',clock_timestamp()) RETURNING id INTO v_member;
+ FOR v_date,v_order IN SELECT value,ordinality FROM jsonb_array_elements(p_candidate_dates) WITH ORDINALITY LOOP
+  INSERT INTO private_group_candidate_dates(group_id,date,time_slot,start_time,end_time,order_num)
+  VALUES(v_group.id,(v_date->>'date')::date,v_date->>'time_slot',v_date->>'start_time',v_date->>'end_time',coalesce((v_date->>'order_num')::integer,v_order::integer));
+ END LOOP;
+ INSERT INTO private_group_messages(group_id,member_id,message) VALUES(v_group.id,v_member,jsonb_build_object(
+  'type','system','action','group_created','organizerName',coalesce(v_name,'主催者'),
+  'title',coalesce(nullif(v_settings.system_msg_group_created_title,''),'貸切リクエストグループを作成しました'),
+  'body',coalesce(nullif(v_settings.system_msg_group_created_body,''),'招待リンクを共有して、参加メンバーを招待してください。'),
+  'note',coalesce(nullif(v_settings.system_msg_group_created_note,''),'※ 全員を招待していなくても日程確定は可能ですが、当日は参加人数全員でお越しください。'))::text);
+ RETURN to_jsonb(v_group);
+END $function$;
+REVOKE ALL ON FUNCTION public.create_private_group_atomic(uuid,uuid,text,uuid[],jsonb,text) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.create_private_group_atomic(uuid,uuid,text,uuid[],jsonb,text) TO authenticated,service_role;
+
+-- 正本: 顧客QA回帰修正（本番取得定義から最小変更）＋ 20261011200000（候補日の order＝送られた優先順・希望店舗は部分集合で可）
+-- ＋ 20261020210000（送る店舗で private_booking_assert_candidate を通す）
+CREATE OR REPLACE FUNCTION public.create_private_booking_request(p_scenario_id uuid, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_participant_count integer, p_candidate_datetimes jsonb, p_notes text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_private_group_id uuid DEFAULT NULL::uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_scenario_title TEXT;
+  v_duration INTEGER;
+  v_participation_fee NUMERIC;
+  v_total_price NUMERIC;
+  v_participation_costs JSONB;
+  v_custom_holidays JSONB;
+  v_unit_price INTEGER;
+  v_pricing_date DATE := (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tokyo')::DATE;
+  v_reservation_id UUID;
+  v_gm_id UUID;
+  v_org_id UUID;
+  v_row_org_id UUID;
+  v_scenario_org_count INTEGER;
+  v_first_candidate JSONB;
+  v_requested_datetime TIMESTAMPTZ;
+  v_scenario_master_id UUID;
+  -- 空き判定用
+  v_cand JSONB;
+  v_cand_date DATE;
+  v_cand_start TIME;
+  v_cand_end TIME;
+  v_store_id_text TEXT;
+  v_store_uuid UUID;
+  v_store_available BOOLEAN;
+  v_blocked_store_count INTEGER;
+  v_requested_store_count INTEGER;
+  v_candidate_count INTEGER;
+  v_candidate_time_slot TEXT;
+  v_caller_user_id UUID;
+  v_customer_org_id UUID;
+  v_group RECORD;
+  v_group_candidate_id UUID;
+  v_group_candidate_date DATE;
+  v_group_candidate_time_slot TEXT;
+  v_group_candidate_start TIME;
+  v_group_candidate_end TIME;
+  v_group_candidate_order INTEGER;
+  v_store_name TEXT;
+  v_store_short_name TEXT;
+  v_seen_store_ids UUID[] := '{}'::UUID[];
+  v_seen_group_candidate_ids UUID[] := '{}'::UUID[];
+  v_trusted_candidates JSONB := '[]'::JSONB;
+  v_trusted_requested_stores JSONB := '[]'::JSONB;
+  v_trusted_candidate_datetimes JSONB;
+  v_candidate_order INTEGER := 0;
+  v_updated_count INTEGER;
+  v_accepts_private_booking BOOLEAN;
+  v_player_count_min INTEGER;
+  v_player_count_max INTEGER;
+  v_scenario_kind TEXT;
+BEGIN
+  -- 20260414150000 の認可境界を維持する。SECURITY DEFINERでもanon/なりすましを許可しない。
+  v_caller_user_id := auth.uid();
+  IF v_caller_user_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required' USING ERRCODE = 'P0401';
+  END IF;
+
+  IF p_customer_id IS NULL THEN
+    RAISE EXCEPTION 'Authenticated customer is required' USING ERRCODE = 'P0401';
+  END IF;
+
+  SELECT customer.organization_id
+  INTO v_customer_org_id
+  FROM customers customer
+  WHERE customer.id = p_customer_id
+    AND customer.user_id = v_caller_user_id
+  FOR SHARE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Unauthorized: customer does not belong to authenticated user'
+      USING ERRCODE = 'P0401';
+  END IF;
+
+  IF p_customer_email IS NULL OR btrim(p_customer_email) !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' OR length(btrim(p_customer_email))>254 THEN
+    RAISE EXCEPTION '有効なメールアドレスを入力してください' USING ERRCODE='P0021';
+  END IF;
+  IF p_customer_phone IS NULL OR regexp_replace(p_customer_phone,'[-[:space:]]','','g') !~ '^[0-9]{10,11}$' THEN
+    RAISE EXCEPTION '電話番号は10〜11桁で入力してください' USING ERRCODE='P0022';
+  END IF;
+
+  -- 貸切リクエストは必ずグループから申し込む（画面は送信前にグループを作る）。#834 #842
+  -- 本人確認（P0401）の後に判定する。店舗の誤りと区別できるよう専用のコード P0047 を使う。
+  IF p_private_group_id IS NULL THEN
+    RAISE EXCEPTION '貸切リクエストはグループから申し込んでください' USING ERRCODE = 'P0047';
+  END IF;
+
+  -- ===========================================================================
+  -- 組織の決定（最優先: グループの組織 = 申込ページの組織コンテキスト）
+  -- ===========================================================================
+  IF p_private_group_id IS NOT NULL THEN
+    SELECT *
+    INTO v_group
+    FROM private_groups
+    WHERE id = p_private_group_id
+    FOR UPDATE;
+
+    IF NOT FOUND
+       OR v_group.organizer_id IS DISTINCT FROM v_caller_user_id
+       OR (
+         v_customer_org_id IS NOT NULL
+         AND v_group.organization_id IS DISTINCT FROM v_customer_org_id
+       )
+    THEN
+      RAISE EXCEPTION 'Unauthorized private group'
+        USING ERRCODE = 'P0401';
+    END IF;
+
+    v_org_id := v_group.organization_id;
+  END IF;
+
+  -- ===========================================================================
+  -- シナリオ情報の取得
+  -- 1) p_scenario_id を organization_scenarios.id（org固有ID）として検索。
+  --    組織が確定済みの場合はその組織の行に限定する。
+  -- ===========================================================================
+  SELECT
+    COALESCE(os.override_title, sm.title),
+    COALESCE(os.duration, sm.official_duration),
+    os.participation_fee, os.participation_costs,
+    os.organization_id,
+    os.scenario_master_id
+  INTO
+    v_scenario_title, v_duration, v_participation_fee, v_participation_costs, v_row_org_id, v_scenario_master_id
+  FROM organization_scenarios os
+  JOIN scenario_masters sm ON os.scenario_master_id = sm.id
+  WHERE os.id = p_scenario_id
+    AND (v_org_id IS NULL OR os.organization_id = v_org_id);
+
+  IF FOUND THEN
+    v_org_id := COALESCE(v_org_id, v_row_org_id);
+  END IF;
+
+  -- 2) 見つからない場合、p_scenario_id を scenario_master_id として検索（組織確定済み）
+  IF v_scenario_title IS NULL AND v_org_id IS NOT NULL THEN
+    SELECT
+      COALESCE(os.override_title, sm.title),
+      COALESCE(os.duration, sm.official_duration),
+      os.participation_fee, os.participation_costs,
+      os.scenario_master_id
+    INTO
+      v_scenario_title, v_duration, v_participation_fee, v_participation_costs, v_scenario_master_id
+    FROM organization_scenarios os
+    JOIN scenario_masters sm ON os.scenario_master_id = sm.id
+    WHERE os.scenario_master_id = p_scenario_id
+      AND os.organization_id = v_org_id
+    ORDER BY os.created_at
+    LIMIT 1;
+  END IF;
+
+  -- 3) 組織未確定で master_id 検索: 登録が1組織のみの場合に限り採用。
+  --    複数組織に登録されている場合は不定な選択をせずエラーにする。
+  IF v_scenario_title IS NULL AND v_org_id IS NULL THEN
+    SELECT COUNT(DISTINCT os.organization_id) INTO v_scenario_org_count
+    FROM organization_scenarios os
+    WHERE os.scenario_master_id = p_scenario_id;
+
+    IF v_scenario_org_count > 1 THEN
+      RAISE EXCEPTION 'Scenario % is registered in multiple organizations; organization context (private group) is required', p_scenario_id
+        USING ERRCODE = 'P0031';
+    ELSIF v_scenario_org_count = 1 THEN
+      SELECT
+        COALESCE(os.override_title, sm.title),
+        COALESCE(os.duration, sm.official_duration),
+        os.participation_fee, os.participation_costs,
+        os.organization_id,
+        os.scenario_master_id
+      INTO
+        v_scenario_title, v_duration, v_participation_fee, v_participation_costs, v_row_org_id, v_scenario_master_id
+      FROM organization_scenarios os
+      JOIN scenario_masters sm ON os.scenario_master_id = sm.id
+      WHERE os.scenario_master_id = p_scenario_id
+      ORDER BY os.created_at
+      LIMIT 1;
+
+      IF FOUND THEN
+        v_org_id := v_row_org_id;
+      END IF;
+    END IF;
+  END IF;
+
+  -- 4) organization_scenarios で見つからない場合は scenarios_v2 ビューから取得
+  --    （組織はここでは確定しない — グループ由来の v_org_id のみ有効）
+  IF v_scenario_title IS NULL THEN
+    SELECT title, duration, participation_fee, participation_costs
+    INTO v_scenario_title, v_duration, v_participation_fee, v_participation_costs
+    FROM scenarios_v2
+    WHERE id = p_scenario_id;
+
+    v_scenario_master_id := p_scenario_id;
+  END IF;
+
+  -- 5) scenarios_v2 でも見つからない場合は scenario_masters のタイトルだけ取得
+  IF v_scenario_title IS NULL THEN
+    SELECT title, official_duration
+    INTO v_scenario_title, v_duration
+    FROM scenario_masters
+    WHERE id = p_scenario_id;
+
+    v_scenario_master_id := p_scenario_id;
+  END IF;
+
+  IF v_scenario_title IS NULL THEN
+    RAISE EXCEPTION 'Scenario not found: %', p_scenario_id USING ERRCODE = 'P0001';
+  END IF;
+
+  -- platform customerはorganization_id=NULLを正規形とする。org固定customerだけ不一致を拒否する。
+  IF v_customer_org_id IS NOT NULL
+     AND v_org_id IS DISTINCT FROM v_customer_org_id
+  THEN
+    RAISE EXCEPTION 'Customer organization does not match booking organization'
+      USING ERRCODE = 'P0401';
+  END IF;
+
+  IF p_private_group_id IS NOT NULL
+     AND v_group.scenario_master_id IS NOT NULL
+     AND v_group.scenario_master_id IS DISTINCT FROM v_scenario_master_id
+  THEN
+    RAISE EXCEPTION 'Private group scenario does not match booking scenario'
+      USING ERRCODE = 'P0043';
+  END IF;
+
+  -- デフォルト値の設定
+  v_duration := COALESCE(v_duration, 240);
+  v_participation_fee := COALESCE(v_participation_fee, 4000);
+
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Organization not found for scenario' USING ERRCODE = 'P0026';
+  END IF;
+
+  SELECT COALESCE(os.custom_holidays, '[]'::JSONB) INTO v_custom_holidays
+  FROM organization_settings os WHERE os.organization_id = v_org_id;
+  v_custom_holidays := COALESCE(v_custom_holidays, '[]'::JSONB);
+
+  -- 貸切受付OFF / 出張限定（offsite_only）は顧客リクエストを拒否する
+  SELECT
+    COALESCE(os.accepts_private_booking, true),
+    COALESCE(os.scenario_kind, 'regular')
+  INTO
+    v_accepts_private_booking,
+    v_scenario_kind
+  FROM organization_scenarios os
+  WHERE os.organization_id = v_org_id
+    AND (
+      os.id = p_scenario_id
+      OR os.scenario_master_id = COALESCE(v_scenario_master_id, p_scenario_id)
+    )
+  ORDER BY
+    CASE WHEN os.id = p_scenario_id THEN 0 ELSE 1 END,
+    os.created_at
+  LIMIT 1;
+
+  IF FOUND AND (
+    v_accepts_private_booking IS FALSE
+    OR v_scenario_kind = 'offsite_only'
+  ) THEN
+    RAISE EXCEPTION 'PRIVATE_BOOKING_NOT_ACCEPTED' USING ERRCODE = 'P0044';
+  END IF;
+
+  -- 店舗側の不要な人数制限ではなく、導入作品の実効プレイ人数を検証する。
+  SELECT COALESCE(os.override_player_count_min,sm.player_count_min),
+         COALESCE(os.override_player_count_max,sm.player_count_max)
+    INTO v_player_count_min,v_player_count_max
+  FROM public.organization_scenarios os
+  JOIN public.scenario_masters sm ON sm.id=os.scenario_master_id
+  WHERE os.organization_id=v_org_id AND os.scenario_master_id=v_scenario_master_id;
+  IF NOT FOUND OR v_player_count_min IS NULL OR v_player_count_max IS NULL
+     OR v_player_count_min<1 OR v_player_count_max<v_player_count_min THEN
+    RAISE EXCEPTION 'PRIVATE_BOOKING_PLAYER_COUNT_NOT_CONFIGURED' USING ERRCODE='P0051';
+  END IF;
+  IF p_participant_count IS NULL OR p_participant_count<v_player_count_min OR p_participant_count>v_player_count_max THEN
+    RAISE EXCEPTION 'Participant count must be between % and %',v_player_count_min,v_player_count_max USING ERRCODE='P0025';
+  END IF;
+
+  IF jsonb_typeof(p_candidate_datetimes) IS DISTINCT FROM 'object'
+     OR jsonb_typeof(p_candidate_datetimes->'requestedStores') IS DISTINCT FROM 'array'
+     OR jsonb_typeof(p_candidate_datetimes->'candidates') IS DISTINCT FROM 'array'
+  THEN
+    RAISE EXCEPTION 'INVALID_CANDIDATE_PAYLOAD' USING ERRCODE = 'P0041';
+  END IF;
+
+  v_requested_store_count := jsonb_array_length(p_candidate_datetimes->'requestedStores');
+  v_candidate_count := jsonb_array_length(p_candidate_datetimes->'candidates');
+  IF v_requested_store_count = 0 OR v_candidate_count = 0 THEN
+    RAISE EXCEPTION 'CANDIDATES_AND_REQUESTED_STORES_REQUIRED' USING ERRCODE = 'P0023';
+  END IF;
+
+  -- store名を含む保存payloadはDBから再構築する。group経路ではpreferred_store_idsの中から1店舗以上（重複なし）を必須化。
+  -- 2026-10-11: 申込シートで希望店舗の一部だけを送れるようにした（完全一致 → 部分集合）。
+  IF p_private_group_id IS NOT NULL
+     AND v_requested_store_count > cardinality(
+       COALESCE(v_group.preferred_store_ids, '{}'::UUID[])
+     )
+  THEN
+    RAISE EXCEPTION 'REQUESTED_STORES_DO_NOT_MATCH_PRIVATE_GROUP' USING ERRCODE = 'P0042';
+  END IF;
+
+  FOR v_store_id_text IN
+    SELECT value->>'storeId'
+    FROM jsonb_array_elements(p_candidate_datetimes->'requestedStores')
+  LOOP
+    BEGIN
+      v_store_uuid := v_store_id_text::UUID;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE EXCEPTION 'INVALID_REQUESTED_STORE' USING ERRCODE = 'P0042';
+    END;
+
+    IF v_store_uuid = ANY(v_seen_store_ids) THEN
+      RAISE EXCEPTION 'DUPLICATE_REQUESTED_STORE' USING ERRCODE = 'P0042';
+    END IF;
+
+    IF p_private_group_id IS NOT NULL
+       AND NOT (
+         v_store_uuid = ANY(COALESCE(v_group.preferred_store_ids, '{}'::UUID[]))
+       )
+    THEN
+      RAISE EXCEPTION 'REQUESTED_STORE_NOT_IN_PRIVATE_GROUP' USING ERRCODE = 'P0042';
+    END IF;
+
+    SELECT store.name, store.short_name
+    INTO v_store_name, v_store_short_name
+    FROM stores store
+    WHERE store.id = v_store_uuid
+      AND store.organization_id = v_org_id
+      AND store.status = 'active';
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'INVALID_REQUESTED_STORE' USING ERRCODE = 'P0042';
+    END IF;
+
+    v_seen_store_ids := array_append(v_seen_store_ids, v_store_uuid);
+    v_trusted_requested_stores := v_trusted_requested_stores || jsonb_build_array(
+      jsonb_build_object(
+        'storeId', v_store_uuid::TEXT,
+        'storeName', v_store_name,
+        'storeShortName', COALESCE(v_store_short_name, v_store_name)
+      )
+    );
+  END LOOP;
+
+  -- group経路はclient値をselectorとしてのみ使い、locked DB候補から全フィールドを復元する。
+  FOR v_cand IN
+    SELECT value FROM jsonb_array_elements(p_candidate_datetimes->'candidates')
+  LOOP
+    v_candidate_order := v_candidate_order + 1;
+    BEGIN
+      v_cand_date  := (v_cand->>'date')::DATE;
+      v_cand_start := (v_cand->>'startTime')::TIME;
+      v_cand_end   := (v_cand->>'endTime')::TIME;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE EXCEPTION 'INVALID_CANDIDATE_DATETIME' USING ERRCODE = 'P0041';
+    END;
+
+    IF v_cand_date IS NULL
+       OR v_cand_start IS NULL
+       OR v_cand_end IS NULL
+       OR v_cand_start >= v_cand_end
+    THEN
+      RAISE EXCEPTION 'INVALID_CANDIDATE_DATETIME' USING ERRCODE = 'P0041';
+    END IF;
+
+    v_candidate_time_slot := CASE v_cand->>'timeSlot'
+      WHEN 'morning' THEN 'morning'
+      WHEN '朝' THEN 'morning'
+      WHEN '午前' THEN 'morning'
+      WHEN 'afternoon' THEN 'afternoon'
+      WHEN '昼' THEN 'afternoon'
+      WHEN '午後' THEN 'afternoon'
+      WHEN 'evening' THEN 'evening'
+      WHEN '夜' THEN 'evening'
+      WHEN '夜間' THEN 'evening'
+      ELSE NULL
+    END;
+    IF v_candidate_time_slot IS NULL THEN
+      RAISE EXCEPTION 'INVALID_CANDIDATE_TIME_SLOT' USING ERRCODE = 'P0041';
+    END IF;
+
+    IF p_private_group_id IS NOT NULL THEN
+      SELECT
+        candidate.id,
+        candidate.date,
+        candidate.time_slot,
+        candidate.start_time::TIME,
+        candidate.end_time::TIME,
+        candidate.order_num
+      INTO
+        v_group_candidate_id,
+        v_group_candidate_date,
+        v_group_candidate_time_slot,
+        v_group_candidate_start,
+        v_group_candidate_end,
+        v_group_candidate_order
+      FROM private_group_candidate_dates candidate
+      WHERE candidate.group_id = p_private_group_id
+        AND candidate.status IS DISTINCT FROM 'rejected'
+        AND candidate.date = v_cand_date
+        AND candidate.start_time::TIME = v_cand_start
+        AND CASE candidate.time_slot
+          WHEN 'morning' THEN 'morning'
+          WHEN '朝' THEN 'morning'
+          WHEN '午前' THEN 'morning'
+          WHEN 'afternoon' THEN 'afternoon'
+          WHEN '昼' THEN 'afternoon'
+          WHEN '午後' THEN 'afternoon'
+          WHEN 'evening' THEN 'evening'
+          WHEN '夜' THEN 'evening'
+          WHEN '夜間' THEN 'evening'
+          ELSE NULL
+        END = v_candidate_time_slot
+      ORDER BY candidate.order_num, candidate.id
+      LIMIT 1
+      FOR SHARE;
+
+      IF NOT FOUND OR v_group_candidate_id = ANY(v_seen_group_candidate_ids) THEN
+        RAISE EXCEPTION 'CANDIDATE_NOT_IN_PRIVATE_GROUP' USING ERRCODE = 'P0041';
+      END IF;
+
+      v_seen_group_candidate_ids := array_append(
+        v_seen_group_candidate_ids,
+        v_group_candidate_id
+      );
+      v_cand_date := v_group_candidate_date;
+      v_cand_start := v_group_candidate_start;
+      v_cand_end := v_group_candidate_end;
+      v_candidate_time_slot := CASE v_group_candidate_time_slot
+        WHEN 'morning' THEN 'morning'
+        WHEN '朝' THEN 'morning'
+        WHEN '午前' THEN 'morning'
+        WHEN 'afternoon' THEN 'afternoon'
+        WHEN '昼' THEN 'afternoon'
+        WHEN '午後' THEN 'afternoon'
+        WHEN 'evening' THEN 'evening'
+        WHEN '夜' THEN 'evening'
+        WHEN '夜間' THEN 'evening'
+        ELSE NULL
+      END;
+      -- 2026-10-11: order は送られた並び（主催者が付けた優先順、1 から）。グループの候補日の order_num は使わない。
+    END IF;
+
+    v_unit_price := public.calculate_booking_participation_fee(
+      v_participation_fee::INTEGER, v_participation_costs, v_cand_date, v_cand_start,
+      v_custom_holidays ? v_cand_date::TEXT, v_pricing_date
+    );
+
+    v_trusted_candidates := v_trusted_candidates || jsonb_build_array(
+      jsonb_build_object(
+        'order', v_candidate_order,
+        'date', v_cand_date::TEXT,
+        'timeSlot', CASE v_candidate_time_slot
+          WHEN 'morning' THEN '午前'
+          WHEN 'afternoon' THEN '午後'
+          ELSE '夜間'
+        END,
+        'startTime', to_char(v_cand_start, 'HH24:MI'),
+        'endTime', to_char(v_cand_end, 'HH24:MI'),
+        'status', 'pending',
+        'unitPrice', v_unit_price,
+        'totalPrice', v_unit_price * p_participant_count
+      )
+    );
+  END LOOP;
+
+  v_trusted_candidate_datetimes := jsonb_build_object(
+    'candidates', v_trusted_candidates,
+    'requestedStores', v_trusted_requested_stores
+  );
+
+  -- block/unblock・公演追加との競合を直列化し、同一transactionの最新状態で判定する。
+  LOCK TABLE schedule_blocked_slots IN SHARE MODE;
+  -- 店舗の募集停止期間の追加・削除とも直列化する（#696）。保存側は単発の書き込みなので行き詰まりは起きない。
+  LOCK TABLE public.store_recruitment_pauses IN SHARE MODE;
+  LOCK TABLE schedule_events IN SHARE MODE;
+
+  -- =========================================================================
+  -- サーバー側空き判定: 全候補がそれぞれ1店舗以上で受付可能であることを強制する。
+  -- =========================================================================
+  v_requested_store_count := jsonb_array_length(
+    v_trusted_candidate_datetimes->'requestedStores'
+  );
+  v_candidate_count := jsonb_array_length(
+    v_trusted_candidate_datetimes->'candidates'
+  );
+
+  FOR v_cand IN
+    SELECT value FROM jsonb_array_elements(v_trusted_candidate_datetimes->'candidates')
+  LOOP
+    BEGIN
+      v_cand_date  := (v_cand->>'date')::DATE;
+      v_cand_start := (v_cand->>'startTime')::TIME;
+      v_cand_end   := (v_cand->>'endTime')::TIME;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE EXCEPTION 'INVALID_CANDIDATE_DATETIME' USING ERRCODE = 'P0041';
+    END;
+
+    IF v_cand_date IS NULL
+       OR v_cand_start IS NULL
+       OR v_cand_end IS NULL
+       OR v_cand_start >= v_cand_end
+    THEN
+      RAISE EXCEPTION 'INVALID_CANDIDATE_DATETIME' USING ERRCODE = 'P0041';
+    END IF;
+
+    v_candidate_time_slot := CASE v_cand->>'timeSlot'
+      WHEN 'morning' THEN 'morning'
+      WHEN '朝' THEN 'morning'
+      WHEN '午前' THEN 'morning'
+      WHEN 'afternoon' THEN 'afternoon'
+      WHEN '昼' THEN 'afternoon'
+      WHEN '午後' THEN 'afternoon'
+      WHEN 'evening' THEN 'evening'
+      WHEN '夜' THEN 'evening'
+      WHEN '夜間' THEN 'evening'
+      ELSE NULL
+    END;
+    IF v_candidate_time_slot IS NULL THEN
+      RAISE EXCEPTION 'INVALID_CANDIDATE_TIME_SLOT' USING ERRCODE = 'P0041';
+    END IF;
+
+    v_store_available := false;
+    v_blocked_store_count := 0;
+
+    FOR v_store_id_text IN
+      SELECT value->>'storeId'
+      FROM jsonb_array_elements(v_trusted_candidate_datetimes->'requestedStores')
+    LOOP
+      v_store_uuid := v_store_id_text::UUID;
+
+      IF EXISTS (
+        SELECT 1
+        FROM schedule_blocked_slots blocked
+        WHERE blocked.organization_id = v_org_id
+          AND blocked.store_id = v_store_uuid::TEXT
+          AND blocked.date = v_cand_date
+          AND blocked.time_slot = v_candidate_time_slot
+      ) OR public.is_store_recruitment_paused(v_store_uuid, 'private', v_cand_date) THEN
+        v_blocked_store_count := v_blocked_store_count + 1;
+        CONTINUE;
+      END IF;
+
+      IF EXISTS (
+        SELECT 1
+        FROM schedule_events event
+        WHERE event.organization_id = v_org_id
+          AND event.store_id = v_store_uuid
+          AND event.date BETWEEN v_cand_date - 2 AND v_cand_date + 2
+          AND event.is_cancelled = false
+          AND event.date + event.start_time < v_cand_date + v_cand_end + CASE WHEN v_cand_end < v_cand_start THEN interval '1 day' ELSE interval '0 days' END + make_interval(mins => public.resolve_preparation_minutes(v_org_id,NULL,NULL,event.id))
+          AND event.date + event.end_time + CASE WHEN event.end_time < event.start_time THEN interval '1 day' ELSE interval '0 days' END > v_cand_date + v_cand_start - make_interval(mins => public.resolve_preparation_minutes(v_org_id,v_store_uuid,COALESCE(v_scenario_master_id,p_scenario_id),NULL))
+      ) THEN
+        CONTINUE;
+      END IF;
+
+      v_store_available := true;
+      EXIT;
+    END LOOP;
+
+    IF NOT v_store_available THEN
+      IF v_blocked_store_count = v_requested_store_count THEN
+        RAISE EXCEPTION 'PRIVATE_BOOKING_SLOT_BLOCKED:%:%', v_cand_date, v_candidate_time_slot
+          USING ERRCODE = 'P0040';
+      END IF;
+      RAISE EXCEPTION 'PRIVATE_BOOKING_CANDIDATE_CONFLICT:%:%', v_cand_date, v_candidate_time_slot
+        USING ERRCODE = 'P0030';
+    END IF;
+
+    -- 2026-10-20: 候補の追加・グループ作成と同じ検査（private_booking_assert_candidate）を、送る店舗だけで通す。
+    -- 上の公演・受付停止だけでは、店舗の曜日の枠（available_slots）・休業日・営業時間・作品の固定開始時刻・
+    -- 作品の時間枠・上演店舗・所要時間を見ておらず、候補を追加した後の設定変更や、希望店舗の一部だけに送る申込で
+    -- 受け付けない枠が通っていた（docs/product-spec/貸切受付ルール.md 手順 7・例 R34〜R35）。
+    PERFORM public.private_booking_assert_candidate(
+      v_org_id, COALESCE(v_scenario_master_id, p_scenario_id), v_seen_store_ids, v_cand_date,
+      v_candidate_time_slot, to_char(v_cand_start, 'HH24:MI'), to_char(v_cand_end, 'HH24:MI')
+    );
+  END LOOP;
+  -- =========================================================================
+
+  -- 料金計算
+  v_unit_price := (v_trusted_candidate_datetimes->'candidates'->0->>'unitPrice')::INTEGER;
+  v_total_price := p_participant_count * v_unit_price;
+
+  -- 最初の候補日時を取得
+  v_first_candidate := v_trusted_candidate_datetimes->'candidates'->0;
+  v_requested_datetime := (
+    (v_first_candidate->>'date') || 'T' ||
+    COALESCE(v_first_candidate->>'startTime', '10:00') ||
+    '+09:00'
+  )::TIMESTAMPTZ;
+
+  IF v_scenario_master_id IS NULL THEN
+    RAISE EXCEPTION 'Scenario master not resolved: %', p_scenario_id USING ERRCODE = 'P0001';
+  END IF;
+
+  -- 予約を作成
+  INSERT INTO reservations (
+    title,
+    reservation_number,
+    scenario_id,
+    scenario_master_id,
+    customer_id,
+    requested_datetime,
+    duration,
+    participant_count,
+    total_price, base_price, final_price, unit_price,
+    status,
+    customer_notes,
+    organization_id,
+    customer_name,
+    customer_email,
+    customer_phone,
+    candidate_datetimes,
+    priority,
+    reservation_type,
+    reservation_source,
+    private_group_id
+  ) VALUES (
+    '【貸切希望】' || v_scenario_title,
+    COALESCE(p_reservation_number, 'PB-' || to_char(NOW(), 'YYYYMMDD') || '-' || substr(gen_random_uuid()::text, 1, 8)),
+    v_scenario_master_id,
+    v_scenario_master_id,
+    p_customer_id,
+    v_requested_datetime,
+    v_duration,
+    p_participant_count,
+    v_total_price, v_total_price, v_total_price, v_unit_price,
+    'pending',
+    p_notes,
+    v_org_id,
+    p_customer_name,
+    p_customer_email,
+    p_customer_phone,
+    v_trusted_candidate_datetimes,
+    0,
+    'private_booking',
+    'web_private',
+    p_private_group_id
+  )
+  RETURNING id INTO v_reservation_id;
+
+  INSERT INTO public.private_booking_pricing_snapshots(
+    reservation_id, organization_id, base_fee, participation_costs, custom_holidays, pricing_date
+  ) VALUES (
+    v_reservation_id, v_org_id, v_participation_fee::INTEGER,
+    COALESCE(v_participation_costs, '[]'::JSONB), v_custom_holidays, v_pricing_date
+  );
+
+  -- private_group_id が指定されている場合、private_groups.reservation_id を更新
+  IF p_private_group_id IS NOT NULL THEN
+    UPDATE private_groups
+    SET reservation_id = v_reservation_id,
+        status = 'booking_requested',
+        updated_at = NOW()
+    WHERE id = p_private_group_id
+      AND organization_id = v_org_id
+      AND organizer_id = v_caller_user_id;
+
+    GET DIAGNOSTICS v_updated_count = ROW_COUNT;
+    IF v_updated_count <> 1 THEN
+      RAISE EXCEPTION 'PRIVATE_GROUP_UPDATE_FAILED' USING ERRCODE = 'P0043';
+    END IF;
+  END IF;
+
+  -- GM確認レコードを作成（担当GMがいる場合のみ）
+  -- staff_scenario_assignments から担当GMを取得
+  -- ✅ v_org_id 所属のスタッフに限定（他組織GMへの pending 行生成を防ぐ）
+  FOR v_gm_id IN
+    SELECT ssa.staff_id
+    FROM staff_scenario_assignments ssa
+    JOIN staff s ON s.id = ssa.staff_id
+    WHERE ssa.scenario_master_id = v_scenario_master_id
+      AND ssa.organization_id = v_org_id
+      AND (ssa.can_main_gm = true OR ssa.can_sub_gm = true)
+      AND s.organization_id = v_org_id
+      AND s.status = 'active'
+  LOOP
+    INSERT INTO gm_availability_responses (
+      organization_id,
+      reservation_id,
+      staff_id,
+      response_status,
+      available_candidates
+    ) VALUES (
+      v_org_id,
+      v_reservation_id,
+      v_gm_id,
+      'pending',
+      NULL
+    )
+    ON CONFLICT (reservation_id, staff_id) DO NOTHING;
+  END LOOP;
+
+  RETURN v_reservation_id;
+END;
+$function$;
+
+-- 予約画面は通知付き入口へ統一。旧本体の直接呼び出しを許可しない。
+REVOKE EXECUTE ON FUNCTION public.create_private_booking_request(uuid,uuid,text,text,text,integer,jsonb,text,text,uuid) FROM PUBLIC,anon,authenticated;
+
+CREATE OR REPLACE FUNCTION public.private_group_set_preferred_stores(p_group_id uuid, p_store_ids uuid[], p_expected_store_ids uuid[])
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE g public.private_groups%ROWTYPE; allowed text[]; selected uuid[]; cd record; store uuid;
+ slot text; v_candidate_start_at timestamp; v_candidate_end_at timestamp; available boolean; removed integer:=0; res_status text;
+BEGIN
+ IF public.private_group_actor_role(p_group_id) IS NULL THEN RAISE EXCEPTION '希望店舗を変更する権限がありません' USING ERRCODE='42501'; END IF;
+ SELECT * INTO g FROM public.private_groups WHERE id=p_group_id FOR UPDATE;
+ IF g.status NOT IN ('gathering','date_adjusting') THEN RAISE EXCEPTION '店舗の返答待ち、確定後、取消後は希望店舗を変更できません' USING ERRCODE='22023'; END IF;
+ IF g.reservation_id IS NOT NULL THEN
+  SELECT status INTO res_status FROM public.reservations WHERE id=g.reservation_id AND organization_id=g.organization_id FOR SHARE;
+  IF res_status IS DISTINCT FROM 'cancelled' THEN RAISE EXCEPTION '予約申請中は希望店舗を変更できません' USING ERRCODE='22023'; END IF;
+ END IF;
+ IF p_expected_store_ids IS NULL OR coalesce(g.preferred_store_ids,'{}'::uuid[]) IS DISTINCT FROM p_expected_store_ids THEN
+  RAISE EXCEPTION '希望店舗が変更されています。画面を更新して選び直してください' USING ERRCODE='40001';
+ END IF;
+ IF coalesce(cardinality(p_store_ids),0)=0 OR array_position(p_store_ids,NULL) IS NOT NULL THEN RAISE EXCEPTION '店舗を1つ以上選択してください' USING ERRCODE='22023'; END IF;
+ SELECT array_agg(DISTINCT s ORDER BY s) INTO selected FROM unnest(p_store_ids) s;
+ SELECT s.available_stores INTO allowed FROM public.organization_scenarios s WHERE s.organization_id=g.organization_id
+  AND (s.scenario_master_id=g.scenario_master_id OR s.id=g.scenario_master_id)
+  ORDER BY (s.id=g.scenario_master_id) DESC LIMIT 1 FOR SHARE;
+ IF NOT FOUND THEN RAISE EXCEPTION '組織内の作品設定を確認できません' USING ERRCODE='22023'; END IF;
+ FOREACH store IN ARRAY selected LOOP
+  PERFORM 1 FROM public.stores s WHERE s.id=store AND s.organization_id=g.organization_id AND s.status='active'
+   AND s.ownership_type IS DISTINCT FROM 'office'
+   AND (CASE WHEN coalesce(cardinality(allowed),0)>0 THEN store::text=ANY(allowed) ELSE NOT coalesce(s.is_temporary,false) END) FOR SHARE;
+  IF NOT FOUND THEN RAISE EXCEPTION '選択できない店舗が含まれています。店舗一覧を再読み込みしてください' USING ERRCODE='22023'; END IF;
+ END LOOP;
+ FOR cd IN SELECT * FROM public.private_group_candidate_dates WHERE group_id=g.id AND status IS DISTINCT FROM 'rejected' ORDER BY id FOR UPDATE LOOP
+  slot:=CASE cd.time_slot WHEN 'morning' THEN 'morning' WHEN '朝' THEN 'morning' WHEN '午前' THEN 'morning' WHEN 'afternoon' THEN 'afternoon' WHEN '昼' THEN 'afternoon' WHEN '午後' THEN 'afternoon' WHEN 'evening' THEN 'evening' WHEN '夜' THEN 'evening' WHEN '夜間' THEN 'evening' END;
+  IF slot IS NULL OR cd.start_time IS NULL OR cd.end_time IS NULL THEN RAISE EXCEPTION '候補日時を確認できません' USING ERRCODE='22023'; END IF;
+  v_candidate_start_at:=cd.date+cd.start_time::time;
+  v_candidate_end_at:=cd.date+cd.end_time::time+CASE WHEN cd.end_time::time<cd.start_time::time THEN interval '1 day' ELSE interval '0 days' END;
+  IF v_candidate_start_at=v_candidate_end_at THEN RAISE EXCEPTION '候補日時を確認できません' USING ERRCODE='22023'; END IF;
+  -- 全店舗を1つのSELECTの同じスナップショットで確認する。
+  -- 店舗間の公演移動の前後を混ぜて「全店満席」と誤認しない。
+  SELECT EXISTS(
+   SELECT 1 FROM unnest(selected) AS choice(store_id)
+   WHERE NOT EXISTS(SELECT 1 FROM public.schedule_blocked_slots b WHERE b.organization_id=g.organization_id AND b.store_id=choice.store_id::text AND b.date=cd.date AND b.time_slot=slot)
+   AND NOT EXISTS(SELECT 1 FROM public.schedule_events e WHERE e.organization_id=g.organization_id AND e.store_id=choice.store_id AND e.is_cancelled=false
+    AND e.date BETWEEN cd.date-2 AND cd.date+2
+    AND e.date+e.start_time < v_candidate_end_at+make_interval(mins=>public.resolve_preparation_minutes(g.organization_id,NULL,NULL,e.id))
+    AND e.date+e.end_time+CASE WHEN e.end_time<e.start_time THEN interval '1 day' ELSE interval '0 days' END > v_candidate_start_at-make_interval(mins=>public.resolve_preparation_minutes(g.organization_id,choice.store_id,g.scenario_master_id,NULL)))
+  ) INTO available;
+  -- 2026-10-20: 候補の追加と同じ検査（店舗の曜日の枠・休業日・営業時間・募集停止・作品の固定開始時刻・時間枠・上演店舗・所要時間）を
+  -- 新しい希望店舗で通し、どの店舗でも受け付けない候補は外す（例 R36）。日付だけの理由（締切・範囲・募集期間・公演期間）は
+  -- 店舗を変えても変わらないので、ここでは外さない（申込の送信で弾く）。
+  IF available THEN
+   BEGIN
+    PERFORM public.private_booking_assert_candidate(g.organization_id,coalesce(g.scenario_master_id,g.scenario_id),selected,cd.date,slot,
+     to_char(cd.start_time::time,'HH24:MI'),to_char(cd.end_time::time,'HH24:MI'));
+   EXCEPTION WHEN SQLSTATE '22023' OR SQLSTATE '40001' THEN available:=false;
+    WHEN SQLSTATE 'P0045' OR SQLSTATE 'P0058' OR SQLSTATE 'P0044' OR SQLSTATE 'P0054' THEN NULL;
+   END;
+  END IF;
+  IF NOT available THEN
+   DELETE FROM public.private_group_candidate_dates WHERE id=cd.id AND group_id=g.id;
+   removed:=removed+1;
+  END IF;
+ END LOOP;
+ UPDATE public.private_groups SET preferred_store_ids=selected,updated_at=now() WHERE id=g.id;
+ RETURN removed;
+END $function$
+;
+
+REVOKE ALL ON FUNCTION public.private_group_set_preferred_stores(uuid,uuid[],uuid[]) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.private_group_set_preferred_stores(uuid,uuid[],uuid[]) TO authenticated,service_role;
+
+-- #1202 の店舗ごとの検査（20261021144000）は上の 3 関数から呼ばれなくなったので消す
+DROP FUNCTION IF EXISTS public.private_booking_store_slot_rule(uuid,uuid,uuid,date,text,boolean);

@@ -1398,5 +1398,6 @@
     "body_md5": "c0bec3c1cd17722fe446b23745ce89b8",
     "language": "plpgsql",
     "security_definer": false
-  }
+  },
+  "private_booking_store_slot_rule(p_org uuid, p_scenario_id uuid, p_store_id uuid, p_date date, p_slot text, p_single boolean)": null
 }

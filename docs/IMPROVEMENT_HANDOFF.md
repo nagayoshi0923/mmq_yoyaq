@@ -1,3 +1,35 @@
+## 2026-10-21 / リリース統合候補（staging の未反映分 ＋ main の #1202、reconcile migration 付き）（release/2026-10-integration、staging 向け PR・マージしない）
+
+- 目的: staging の未反映分（10/11〜10/21 の 118 コミット）と本番 main（179958be、#1202 = issue #1200 の hotfix）を 1 本の統合候補にし、本番へは統合 PR（staging → main）で出す。#1201（draft）の内容は #1202 経由で入る。#1014・cherry-pick の案は使わない。
+- 二重の migration: staging の `20261020210000`（＋ `20261015110000`・`20261020120000`）と main の `20261021144000` が同じ 3 関数（`create_private_group_atomic`・`create_private_booking_request`・`private_group_set_preferred_stores`）を書き換える。reconcile `20261021170000_private_booking_candidate_rule_reconcile`（rollback 同名）で本文を staging の `private_booking_assert_candidate` 経路に決め、#1202 の `private_booking_store_slot_rule` を消す。根拠: assert_candidate（→ `private_booking_slot_store_fit`）が店舗ごとに I10（店舗の平日／土日祝、特別営業日）・I2・営業時間・別枠にかかる受付停止・募集停止・公演・固定開始・所要時間を同じ 1 店舗で全部満たすかを見るので、#1202 の要件を含む（issue #1203 の P1・P2 もこれで解消）。
+- 2 起点の隔離試験（手元の使い捨て DB 2 つ。基準 ＋ 本番 / staging の実際の適用済み一覧を本番・staging の `schema_migrations` の読み取りで確認して再現。再現した 3 関数の md5 は本番・staging の実物と一致）: (a) 本番相当 → 29 本 → reconcile、(b) staging 相当 → 144000 → reconcile。3 関数の md5（`e9a9b773…`・`ee6f42bf…`・`7789faef…`）と権限、DB 構造全体（表 156・ビュー 12・関数 441）が一致。`test:rpcs` 15 本（R1〜R43、#1202 の回帰を reconcile 用に直した `private_booking_candidate_slot_rule_all_paths.sql`、データ修正、クーポン系、写真上限、`customer_notice_claim_only_ids` ほか）と yoyaq_004 が両方で合格。
+- 戻し: `scripts/test-release-rollback-scope.sh` を統合に合わせた（1 章 31 行・当てる 30 本・戻した後に 144000 を当て直す・DB 構造全体で公開前と一致を確認）。合格。staging では 144000 の rollback を単独で流さない（3 関数が本番の旧本文に戻る）。
+- 公開入口の未設定店舗（issue #1203 P2）: `getPublicPrivateBookingSlotOptions` が未設定の店を何店でも合成して渡していた → 渡す店舗が 1 店のときだけ合成（DB の `p_allow_missing` と同じ）。試験を追加（修正前で失敗を確認）。仕様同期の一覧に `publicPrivateBookingSlots.ts`・`privateGroupCandidateSlots.ts`・申込と店舗変更の RPC 正本を追加。
+- 手順書: `docs/ops/本番公開の戻し方_2026-10.md` を統合用に改訂（既存の通知は止めない・試験送信はしない・新しい定期実行 3 本と引き金 2 本は同じ取引で無効にして作る・鍵は名前と用途だけで登録は承認待ち・戻した後に 144000 を当て直す）。`docs/ops/平日朝枠の停止_2026-10.md` の cherry-pick 案を廃止。
+- 確認: `npm run verify`、vitest 全件（345 ファイル・2448 件）、`check:private-booking-rules`、`check:migration-rollbacks`、`scripts/check-db-baseline.sh`（基準 ＋ 80 本で期待構造を再現）、上の隔離試験。staging・本番の DB・Edge・secrets・Vercel には書き込んでいない（両 DB は読み取りだけ）。
+- 残り: Codex の独立レビュー → staging への取り込み（staging DB に 144000 と reconcile を続けて当て、staging.json を取り直す）→ 本番（別 GO）。CI の Drift（staging.json）は staging 適用後に取り直す。
+- 追記（Codex 先行レビュー 1b9b0417 の P1「保護が消える窓」）: 30 本を 1 本ずつ当てると `20261011200000`〜`20261020210000` の間（約 30 分）申込が I2 を見ない本文になる。
+  1 つの取引で当てる・戻す実行用スクリプトを追加: `scripts/release-bundle-2026-10.mjs`（最上位の BEGIN/COMMIT だけを外して 1 取引にまとめる。文字列・`$$`・コメントを読み飛ばす。前後の md5・履歴・新しい通知の無効を同じ取引で確かめる）、
+  `scripts/release-apply-2026-10.sh`（全体を 1 回の問い合わせで送る。前後の照合つき）、`scripts/release-state-snapshot.sql`・`scripts/release-state-compare.mjs`（定期実行・app_config・引き金・バケット・storage のポリシーの前後照合）。
+  隔離試験 `scripts/test-release-bundle-2026-10.sh`（本番相当）: 途中失敗・鍵待ち（5.1 秒で全体取り消し）で照合も構造も変わらない／当てる・戻す間に外から 0.1 秒ごとに 86〜88 回観測して公開前・公開後以外 0 回／
+  既存の定期実行 20 本・app_config・既存の引き金は不変、新しい定期実行 3 本は無効、web_push の 2 本は D／戻した後は構造・照合とも公開前と同じ（空のバケット private-group-photos だけ残る。SQL から消せない）／
+  本番と同じ SQL で取引 0.13 秒、別の接続の読み書きの待ちは最長 49 ms。
+  staging のミラー（`scripts/mirror-prod-to-staging.sh`）が引き金を一律 ENABLE にしていたのを、ミラー前の状態（tgenabled）に戻すように直した（同じ試験の 4 で確認）。
+- 追記（Codex 独立試験 8fe2360b の P1 2 件）: (1) 「日程がそろいました」の引き金 `private_group_on_date_response`（本番に無い新しい通知。鍵が無くても既存のお知らせメールで実際に送られる）を、
+  ほかの新しい通知と同じく必ず無効で作るようにした（20261010130000・作り直す 20261020110000 の直後。SQL の最後の確認と前後照合で D 必須。`--date-aligned-off` は廃止、有効化は手順書 3 章の 4 の別承認）。
+  (2) Mac の既定の bash 3.2 と日本語ロケールでは `$rc）` の全角記号が変数名の一部と読まれ、`set -u` で止まっていた（取消後の照合・成功後の表示に届かない）。
+  全角記号に接する変数を `${…}` に直した（release-apply・test-release-bundle・mirror・test-release-rollback-scope）。`LANG=ja_JP.UTF-8 /bin/bash` で隔離試験を通し、成功・途中失敗・鍵待ちとも after.tsv と照合まで到達。
+
+## 2026-10-21 / 貸切の朝枠は店舗の枠設定で判定し、昼・夜は開店前の固定時刻でも受け付ける（issue #1200「平日に午前枠が出る」、fix/issue1200-slot-start-open-time、PR #1201・未マージ）
+
+- 旧案の取り下げ: #1201 の最初の案「どの枠も開始を開店時刻より前にしない（作品の開始時刻が開店前なら closed）」は、社長の仕様訂正（「午前」は時刻ではなく朝枠のこと／昼枠は普通に受け付けてよい）で取り下げた。migration `20261021150000_slot_start_not_before_open_time`・rollback は削除（staging・本番には未適用）。
+- 正本: 朝枠の可否は店舗×曜日の `business_hours_settings.opening_hours.<曜日>.available_slots`（I2、設定 › 店舗別 › 営業時間の 朝/昼/夜）と作品の `private_booking_time_slots`（I10）。組織共通の `organization_settings.time_slot_settings` は公演スケジュール設定で貸切の判定には使わない。開店時刻は枠の可否を決めない。
+- DB は変更なし（現行の関数がすでにこの解釈）。手元の使い捨て DB で、札幌相当（平日 開店 13:00・朝は無効）でも作品の昼 12:00 固定は営業中の範囲が 12:00 から始まるので選べることを確認（例 R39）。
+- 画面: 公開トップのリスト・カレンダーの入口（`respectConfiguredHours`）だけが開店時刻を下限にして平日朝を落としていた（#1073）→ 下限を外し、営業設定が無い店舗の既定も DB の合成（3 枠）にそろえた。入口と DB で残る違いは、空の `available_slots`（入口は枠なし・DB は 3 枠）と、営業設定が無い店舗に作品の開始時刻を重ねない従来の動き（R42）。
+- 影響: クインズワルツ 7 店の平日朝（設定で有効・10:00）は今までどおり作品ページで選べ、入口にも出るようになる。札幌店の平日朝は不変（出ない）。作者不詳などの平日 昼 12:00 固定は選べる。報告元の店舗・作品・URL・環境は不明のまま。
+- 残り: 社長の確認後マージ。コードの反映に DB 操作は不要。
+- 追加（同日）: 平日朝を出さない社長の意図は設定（データ）で反映する。データ修正 `supabase/data-fixes/20261021_queens_waltz_weekday_morning_off.sql`（7 店 × 月〜金 = 35 か所の `available_slots` から朝だけを外す。退避表 `archive.business_hours_settings_backup_20261021`（public に置かないので DB 構造の記録・定期 Drift に差が出ない）・照合 `_check.sql`・比較条件付きの復旧 `_rollback.sql`）と試験 `supabase/tests/data_fix_queens_waltz_weekday_morning_off.sql`（(a)〜(i) 合格、`npm run test:rpcs` に追加）。手順書 `docs/ops/平日朝枠の停止_2026-10.md`。**マージでは適用されない。本番で手動適用するまで東京 7 店の平日朝は選べるまま。** 順序: Codex レビュー → staging で確認 → 本番に設定を先に当てて読み取り確認 → main 起点で #1201 だけを cherry-pick した hotfix PR でコードを出す。staging・本番には書き込んでいない（読み取りのみ。両環境の 7 店の値は一致）。
+
 ## 2026-10-21 / 公開前再チェック 2 の R1〜R3（限定メール試験の取り出し限定・来店確認の rollback の排他・店舗公開名の書き戻し）（fix/recheck2-r1-r3、staging 向け PR）
 
 - Codex 第 2 回再レビュー（`.runtime/MMQ_公開前再チェック2_結果_2026-10-21.md`）の R1〜R3。
