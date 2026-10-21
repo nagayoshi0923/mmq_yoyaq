@@ -1,7 +1,7 @@
 // スタッフシフトデータの管理
 
 import { useMemo, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { shiftApi } from '@/lib/shiftApi'
 import type { Staff } from '@/types'
 import { logger } from '@/utils/logger'
@@ -26,7 +26,8 @@ export function useShiftData(
 
   // 生シフトデータを React Query で取得・キャッシュ
   // staff の準備を待たずに並列でフェッチ開始
-  const { data: rawShifts = [] } = useQuery({
+  const queryClient = useQueryClient()
+  const { data: rawShifts = [], isFetching } = useQuery({
     queryKey: shiftKeys.month(year, month),
     queryFn: () => shiftApi.getAllStaffShifts(year, month),
     staleTime: 5 * 60 * 1000,  // 5分間は再フェッチしない
@@ -49,6 +50,22 @@ export function useShiftData(
       }
     },
   })
+
+  // 表示中の月を取り終えたら前後 1 か月も先読みする（公演データと同じ）。
+  // 月移動のあとにシフトだけ遅れて届くと、表の全セル（availableStaff）をもう一度描き直していた。
+  useEffect(() => {
+    if (isFetching) return
+    for (const offset of [-1, 1]) {
+      const d = new Date(year, month - 1 + offset, 1)
+      const y = d.getFullYear()
+      const m = d.getMonth() + 1
+      void queryClient.prefetchQuery({
+        queryKey: shiftKeys.month(y, m),
+        queryFn: () => shiftApi.getAllStaffShifts(y, m),
+        staleTime: 5 * 60 * 1000,
+      })
+    }
+  }, [isFetching, year, month, queryClient])
 
   // フェッチ完了後に sessionStorage に保存
   useEffect(() => {

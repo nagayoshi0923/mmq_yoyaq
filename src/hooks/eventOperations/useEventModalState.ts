@@ -3,7 +3,7 @@
  *
  * 保存・移動・削除などの業務処理は持たず、画面状態と URL 復元だけを扱う。
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { logger } from '@/utils/logger'
 import { getTimeSlot } from '@/utils/scheduleUtils'
@@ -26,6 +26,13 @@ interface UseEventModalStateProps {
 export function useEventModalState({ events }: UseEventModalStateProps) {
   const [searchParams, setSearchParams] = useSearchParams()
   const initializedRef = useRef(false)
+  // setSearchParams は URL の検索部分が変わるたびに別の関数になる（react-router）。
+  // それを依存にすると、公演を開く／閉じる（?event= の付け外し）たびに handleEditPerformance が作り直され、
+  // 表の全セル（TimeSlotCell / PerformanceCard の React.memo）が描き直されていた。最新の関数を ref で持つ。
+  const setSearchParamsRef = useRef(setSearchParams)
+  useLayoutEffect(() => {
+    setSearchParamsRef.current = setSearchParams
+  }, [setSearchParams])
 
   const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
@@ -120,24 +127,24 @@ export function useEventModalState({ events }: UseEventModalStateProps) {
     setModalInitialData(undefined)
     setIsPerformanceModalOpen(true)
 
-    setSearchParams(prev => {
+    setSearchParamsRef.current(prev => {
       const newParams = new URLSearchParams(prev)
       newParams.set('event', event.id)
       return newParams
     }, { replace: true })
-  }, [setSearchParams])
+  }, [])
 
   const handleCloseModal = useCallback(async () => {
     setIsPerformanceModalOpen(false)
     setModalInitialData(undefined)
     setEditingEvent(null)
 
-    setSearchParams(prev => {
+    setSearchParamsRef.current(prev => {
       const newParams = new URLSearchParams(prev)
       newParams.delete('event')
       return newParams
     }, { replace: true })
-  }, [setSearchParams])
+  }, [])
 
   const handleDrop = useCallback((
     droppedEvent: ScheduleEvent,
