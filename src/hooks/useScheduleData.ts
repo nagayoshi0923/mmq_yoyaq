@@ -13,7 +13,8 @@ import type { Staff } from '@/types'
 import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 import { useStaffQuery } from '@/pages/StaffManagement/hooks/useStaffQuery'
 import { RESERVATION_SOURCE } from '@/lib/constants'
-import { useScheduleEventsQuery, invalidateScheduleMonth, setScheduleMonthData, updateScenarioModuleCache, scheduleEventKeys, fetchScheduleEventsForMonth } from './useScheduleEventsQuery'
+import { createRealtimeRefetcher } from './scheduleRealtimeRefetch'
+import { useScheduleEventsQuery, invalidateScheduleMonth, setScheduleMonthData, updateScenarioModuleCache, scheduleEventKeys, createScheduleMonthQueryFn } from './useScheduleEventsQuery'
 
 interface Store {
   id: string
@@ -65,7 +66,7 @@ export function useScheduleData(currentDate: Date) {
       const m = d.getMonth() + 1
       queryClient.prefetchQuery({
         queryKey: scheduleEventKeys.month(y, m),
-        queryFn: () => fetchScheduleEventsForMonth(y, m),
+        queryFn: createScheduleMonthQueryFn(queryClient, y, m),
         staleTime: Infinity,
       })
     }
@@ -81,7 +82,7 @@ export function useScheduleData(currentDate: Date) {
         const m = d.getMonth() + 1
         queryClient.prefetchQuery({
           queryKey: scheduleEventKeys.month(y, m),
-          queryFn: () => fetchScheduleEventsForMonth(y, m),
+          queryFn: createScheduleMonthQueryFn(queryClient, y, m),
           staleTime: Infinity,
         })
       }
@@ -282,36 +283,21 @@ export function useScheduleData(currentDate: Date) {
   }, [queryClient, year, month])
 
   // リアルタイム購読（複数ユーザー対応）
-  // デバウンス用のタイマーref（バッチ更新時の大量通知を防ぐ）
-  const realtimeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pendingFetchRef = useRef(false)
-  
   useEffect(() => {
     const yearLocal = currentDate.getFullYear()
     const monthLocal = currentDate.getMonth() + 1
     const monthStart = `${yearLocal}-${String(monthLocal).padStart(2, '0')}-01`
     const monthEnd = `${yearLocal}-${String(monthLocal).padStart(2, '0')}-31`
 
-    // デバウンス付きfetchSchedule（500ms以内の連続イベントをまとめる）
-    const debouncedFetchSchedule = () => {
-      pendingFetchRef.current = true
-      if (realtimeDebounceRef.current) {
-        clearTimeout(realtimeDebounceRef.current)
-      }
-      realtimeDebounceRef.current = setTimeout(() => {
-        if (pendingFetchRef.current) {
-          pendingFetchRef.current = false
-          // 自分の mutation 直後の invalidate が既に走っている場合は二重フェッチになるだけ
-          // （その fetch は mutation コミット後に開始しているので変更を含む）
-          if (queryClient.isFetching({ queryKey: scheduleEventKeys.month(yearLocal, monthLocal) }) > 0) {
-            logger.log('⏭️ Realtime: フェッチ進行中のためスキップ')
-            return
-          }
-          logger.log('🔄 Realtime: デバウンス後にデータ再取得')
-          invalidateScheduleMonth(queryClient, yearLocal, monthLocal)
-        }
-      }, 500)
-    }
+    // 500ms以内の連続イベントをまとめて取り直す。取得中に来た通知は、取得の完了後に取り直す
+    const refetcher = createRealtimeRefetcher({
+      isFetching: () => queryClient.isFetching({ queryKey: scheduleEventKeys.month(yearLocal, monthLocal) }) > 0,
+      invalidate: () => {
+        logger.log('🔄 Realtime: デバウンス後にデータ再取得')
+        invalidateScheduleMonth(queryClient, yearLocal, monthLocal)
+      },
+    })
+    const debouncedFetchSchedule = () => refetcher.notify()
     
     // schedule_events テーブルの変更を購読
     const scheduleChannel = supabase
@@ -378,9 +364,7 @@ export function useScheduleData(currentDate: Date) {
 
     // クリーンアップ
     return () => {
-      if (realtimeDebounceRef.current) {
-        clearTimeout(realtimeDebounceRef.current)
-      }
+      refetcher.dispose()
       supabase.removeChannel(scheduleChannel)
       supabase.removeChannel(reservationsChannel)
       logger.log('🔌 Realtime: 購読解除')

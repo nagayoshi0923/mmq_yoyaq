@@ -26,6 +26,9 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
+import { holdPendingScheduleEvent, releasePendingScheduleEvent } from '@/hooks/useScheduleEventsQuery'
+import { listPendingEventCreates, addPendingEventCreate, removePendingEventCreate } from '@/lib/pendingEventCreate'
+import { supabase } from '@/lib/supabase'
 import {
   diffScheduleSnapshotsForCustomerEmail,
   sendPrivateBookingCustomerChangeEmail,
@@ -282,6 +285,12 @@ export function useEventSave({
           throw new Error('組織情報が取得できません。再ログインしてください。')
         }
         
+        // 担当（GM・スタッフ参加・追加席）と作成履歴は、公演の作成と同じ取引で確定する（create_schedule_event_with_staff）。
+        // 以前は担当空で作成してから別の取引で保存していたため、担当の保存に失敗すると GM 空の公演が残り、
+        // それでも「保存成功」扱いになっていた（2026-10-22 hotfix、PR #1210 の Codex レビュー P1）。GM 未指定は担当を空で送る。
+        const pendingGms = performanceData.gms || []
+        const pendingGmRoles = performanceData.gm_roles || {}
+        const staffEntries = performanceData.staffParticipation?.entries ?? []
         const eventData = {
           date: performanceData.date,
           store_id: storeData.id,
@@ -292,9 +301,9 @@ export function useEventSave({
           start_time: performanceData.start_time,
           end_time: performanceData.end_time,
           capacity: performanceData.max_participants,
-          // 担当と席予約は後段のRPCで一括保存する。
           gms: [] as string[],
           gm_roles: {} as Record<string,string>,
+          staff_assignment: { gms: pendingGms, gm_roles: pendingGmRoles, entries: staffEntries },
           notes: performanceData.notes || undefined,
           time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
           venue_rental_fee: performanceData.venue_rental_fee, // 場所貸し公演料金
@@ -302,6 +311,42 @@ export function useEventSave({
           organization_id: organizationId, // マルチテナント対応
           reservation_name: performanceData.reservation_name || null, // 予約者名（貸切用）
           is_reservation_name_overwritten: !!performanceData.reservation_name // 手動入力は上書きとみなす
+        }
+
+        // 作成の要求 ID。結果が分からなかった前回の作成（この利用者・組織の分）は、確定するまで捨てない
+        // （src/lib/pendingEventCreate.ts の不変条件。Codex 再レビュー 2fa19ac・7658a64・929c857）。
+        // - 同じ入力の未確定の要求: その要求 ID で送る。DB が既に作った公演を返すので二重に作らない（未作成なら作る）
+        // - 違う入力の未確定の要求: 先に DB で照合する。作成済みなら新しく作らずに知らせる。未作成なら DB がその要求を
+        //   取消済みにする（遅れて届いても作らない）ので、確定として消してから通常の新規作成へ進む。照合できなければ作らない
+        const requestFingerprint = JSON.stringify(eventData)
+        // 未確定の要求は利用者ごとに覚えるので、利用者を確認できないときは作成を始めない
+        // （仮の利用者として覚えると、ログイン状態が戻った後に照合できない。Codex 再レビュー a649ec3 の 2）
+        let pendingUserId: string | undefined
+        try {
+          const { data: sessionData } = await supabase.auth.getSession()
+          pendingUserId = sessionData?.session?.user?.id
+        } catch { pendingUserId = undefined }
+        if (!pendingUserId) {
+          throw new ApiClientError(401, 'ログイン状態を確認できなかったため、保存していません。画面を再読み込みしてから、もう一度保存してください')
+        }
+        let reusedPending = false
+        let clientRequestId: string = crypto.randomUUID()
+        for (const pendingCreate of listPendingEventCreates(organizationId, pendingUserId)) {
+          if (pendingCreate.fingerprint === requestFingerprint) {
+            clientRequestId = pendingCreate.requestId
+            reusedPending = true
+            continue
+          }
+          let previousEventId: string | null
+          try {
+            previousEventId = await scheduleApi.findCreatedByRequest(pendingCreate.requestId)
+          } catch {
+            throw new ApiClientError(502, `前回の保存（${pendingCreate.summary}）が作成されたか確認できませんでした。通信を確かめてから、もう一度保存してください`)
+          }
+          removePendingEventCreate(organizationId, pendingUserId, pendingCreate.requestId)
+          if (previousEventId) {
+            throw new ApiClientError(409, `前回の保存（${pendingCreate.summary}）は作成されていました。スケジュールを再読み込みして確かめてから、必要なら保存してください`)
+          }
         }
 
         // 楽観的 insert: 保存完了前にセルへ表示し、ユーザの不安感を解消する
@@ -331,16 +376,43 @@ export function useEventSave({
           notes: performanceData.notes || ''
         }
         setEvents(prev => [...prev, optimisticEvent])
+        // 保存中は、月の一覧を取り直しても入力した公演（GM 名を含む）を表示し続ける（Codex レビュー P2-1）
+        holdPendingScheduleEvent(optimisticEvent)
 
-        // Supabaseに保存
+        // Supabaseに保存（担当があれば同じ取引で保存。失敗したら公演も作られない）
         let savedEvent
         try {
-          savedEvent = await scheduleApi.create(eventData)
+          savedEvent = await scheduleApi.create({ ...eventData, client_request_id: clientRequestId })
         } catch (saveError) {
           // 楽観的 insert を rollback
+          releasePendingScheduleEvent(tempEventId)
           setEvents(prev => prev.filter(e => e.id !== tempEventId))
+          // 応答を受け取れなかった・作成されたか分からない場合は「失敗」と断定せず、確認してから保存し直すよう伝える
+          // （確定したのに保存し直すと二重に作成される。Codex 再レビュー 2e24bbf の 4）
+          const outcomeUnknown = !(saveError instanceof ApiClientError) || saveError.status >= 502 || saveError.body?.outcome === 'unknown'
+          if (outcomeUnknown) {
+            const persisted = addPendingEventCreate(organizationId, pendingUserId, {
+              requestId: clientRequestId,
+              fingerprint: requestFingerprint,
+              summary: `${eventData.date} ${eventData.start_time.slice(0, 5)}${eventData.scenario ? ` ${eventData.scenario}` : ''}`,
+              at: new Date().toISOString(),
+            })
+            throw new ApiClientError(502, persisted
+              ? '公演が作成されたか確認できませんでした。スケジュールを再読み込みして確かめてください。この端末のこのブラウザで次に保存するとき、前回の保存が作成済みかを先に照合し、二重には作成しません'
+              : '公演が作成されたか確認できませんでした。このブラウザに記録を残せなかったため、再読み込みや画面を閉じた後は照合できません。この画面のまま、同じ内容でもう一度保存してください（二重には作成しません）')
+          }
+          // DB がこの要求 ID を取消済み（別のタブ等の照合で未作成と確定）と答えた: 作成されないことが確定したので消す
+          if (saveError instanceof ApiClientError && saveError.body?.outcome === 'cancelled') {
+            removePendingEventCreate(organizationId, pendingUserId, clientRequestId)
+            throw saveError
+          }
+          // 未確定の要求を同じ要求 ID で送り直したときの失敗（店舗確認などの前処理の失敗を含む）は、前回の要求が
+          // 未作成である証拠にならないので、覚えたままにする（次の保存も同じ要求 ID で送る）
+          if (reusedPending) throw new ApiClientError(saveError instanceof ApiClientError ? saveError.status : 502, `${saveError instanceof ApiClientError ? saveError.message : '保存できませんでした'}。前回の保存（同じ内容）が作成されたかはまだ確認できていません。もう一度保存すると、同じ保存として送り直します（二重には作成しません）`)
           throw saveError
         }
+        releasePendingScheduleEvent(tempEventId)
+        removePendingEventCreate(organizationId, pendingUserId, clientRequestId)
 
         // 楽観的 insert の temp event を即座に real event へ置き換える。
         // ここを後続処理（履歴記録・スタッフ予約同期＝ネットワーク往復）の後に
@@ -359,8 +431,9 @@ export function useEventSave({
             title: savedEvent.scenario || performanceData.scenario || matchedScenario.title,
             player_count_max: matchedScenario.player_count_max ?? 8
           } : undefined,
+          // 担当は作成と同じ取引で保存済み。保存結果（DB の確定値）を表示する
           gms: savedEvent.gms || [],
-          gm_roles: performanceData.gm_roles || {},
+          gm_roles: savedEvent.gm_roles || {},
           start_time: savedEvent.start_time,
           end_time: savedEvent.end_time,
           category: savedEvent.category,
@@ -369,45 +442,16 @@ export function useEventSave({
           max_participants: effectiveMax,
           notes: savedEvent.notes || ''
         }
-        setEvents(prev => prev.map(e => e.id === tempEventId ? formattedEvent : e))
+        // 取り直しで実 ID の公演が先に届いていたら、そちら（応答より新しい可能性がある確定値。他端末の更新を含み得る）を残し、
+        // 仮の公演だけを外す。応答の内容で上書きしない（Codex 再レビュー 2e24bbf の 2）
+        setEvents(prev => {
+          if (prev.some(e => e.id === formattedEvent.id)) return prev.filter(e => e.id !== tempEventId)
+          return prev.some(e => e.id === tempEventId) ? prev.map(e => e.id === tempEventId ? formattedEvent : e) : [...prev, formattedEvent]
+        })
 
-        // 履歴を記録（新規作成）
-        try {
-          const createdSnapshot = await fetchEventSnapshot(savedEvent.id, organizationId)
-          void createEventHistory(
-            savedEvent.id,
-            organizationId,
-            'create',
-            null,
-            createdSnapshot ?? eventData,
-            {
-              date: eventData.date,
-              storeId: eventData.store_id,
-              timeSlot: eventData.time_slot || null
-            }
-          )
-        } catch (historyError) {
-          logger.error('履歴記録エラー（新規作成）:', historyError)
-          // 履歴記録の失敗は保存処理に影響させない
-        }
+        // 作成履歴は DB が作成と同じ取引で、確定した内容で記録済み（GM の有無によらない。Codex 再レビュー 2fa19ac の P2-②）。
+        // 画面からは記録しない（保存直後の別の編集が作成値に混ざる・画面を離れると欠ける、を防ぐ）。
 
-        // GM欄で「スタッフ参加」を選択した場合、予約も作成する
-        if (performanceData.gm_roles) {
-          await syncStaff(
-            savedEvent.id,
-            performanceData.gms || [],
-            performanceData.gm_roles,
-            {
-              date: performanceData.date,
-              start_time: performanceData.start_time,
-              scenario_master_id: scenarioId || undefined,
-              scenario_title: performanceData.scenario,
-              store_id: storeData.id
-            },
-            performanceData.staffParticipation
-          )
-        }
-        
       } else {
         // 編集更新
         

@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-21T07:41:14.835Z",
-  "table_count": 156,
-  "function_count": 441,
-  "digest": "4c58989137b142862acd2d75a98c4907315df267725a576baa6f2030bfb3f8e3"
+  "captured_at": "2026-10-21T17:51:08.702Z",
+  "table_count": 157,
+  "function_count": 443,
+  "digest": "680641995aba8a2076fb15357f054f733683c84c0c8fd63fb565e49101019035"
  },
  "tables": {
   "staff": {
@@ -22093,6 +22093,81 @@
     }
    ]
   },
+  "schedule_event_create_requests": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "request_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "organization_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "event_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    },
+    {
+     "name": "cancelled_at",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": false
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE INDEX schedule_event_create_requests_event_id_idx ON public.schedule_event_create_requests USING btree (event_id)",
+     "name": "schedule_event_create_requests_event_id_idx"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX schedule_event_create_requests_pkey ON public.schedule_event_create_requests USING btree (request_id)",
+     "name": "schedule_event_create_requests_pkey"
+    }
+   ],
+   "policies": [],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "CHECK (((event_id IS NULL) = (cancelled_at IS NOT NULL)))",
+     "name": "schedule_event_create_requests_created_or_cancelled",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (event_id) REFERENCES schedule_events(id) ON DELETE CASCADE",
+     "name": "schedule_event_create_requests_event_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+     "name": "schedule_event_create_requests_organization_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (request_id)",
+     "name": "schedule_event_create_requests_pkey",
+     "type": "p"
+    }
+   ]
+  },
   "license_partner_monthly_reports": {
    "rls": true,
    "columns": [
@@ -27506,6 +27581,17 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "find_schedule_event_create_request(p_request_id uuid)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "uuid",
+   "body_md5": "03ee56ad1f7081915394e663b17ef6a3",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "get_performance_recruitment_deadline(p_event_id uuid)": {
    "acl": [
     "anon=X/postgres",
@@ -29205,6 +29291,17 @@
    ],
    "returns": "jsonb",
    "body_md5": "9ecaf51d74ab7cfca5d2f4583049dbaf",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "create_schedule_event_with_staff(p_request_id uuid, p_event jsonb, p_gms text[], p_gm_roles jsonb, p_entries jsonb)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "uuid",
+   "body_md5": "5020cbdbf21cc0d6182d434c82815185",
    "language": "plpgsql",
    "security_definer": true
   },
