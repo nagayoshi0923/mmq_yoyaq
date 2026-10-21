@@ -10,6 +10,7 @@
 --   create_private_booking_request: 成り立たない候補があれば申込全体を拒否。どの店も枠が無効なら 22023「選択した候補日時は現在受付できません…」、
 --     それ以外は従来どおり受付停止（P0040）／公演と重なる（P0030）
 --   create_private_group_atomic: 成り立たない候補があれば 22023（同じ文面。理由は 受付停止中／他の公演と重なります／営業時間外／作品の時間帯）で拒否。
+--     作品の時間枠（I10）は希望店舗があれば店舗ごとの平日／土日祝で読む（組織の平日／土日祝での事前検査は希望店舗が空のときだけ）。
 --     希望店舗が空なら店舗は見ない（従来どおり）
 --   private_group_set_preferred_stores: 新しい希望店舗で成り立たない候補を外す（外した件数を返す既存の動き）
 -- 既存の候補・申請中・確定済みの行は変えない（関数の差し替えだけ）。
@@ -115,10 +116,12 @@ BEGIN
    RAISE EXCEPTION '候補日時の形式が不正です' USING ERRCODE='22023';
   END IF;
   -- 作品の貸切受付枠（平日・土日祝は別々。未設定は全枠受付）。候補追加時の判定と同じ。
+  -- 希望店舗があるときは、店舗ごとの平日／土日祝（特別営業日を含む）で下の private_booking_store_slot_rule が判定する（issue #1200）。
+  -- ここ（組織の平日／土日祝）で判定するのは希望店舗が空のときだけ（従来どおり）。
   v_cand:=(v_date->>'date')::date;
   v_holiday:=extract(dow FROM v_cand) IN (0,6) OR public.is_booking_calendar_holiday(v_cand) OR coalesce(v_custom_holidays ? v_cand::text,false);
   v_allowed:=CASE WHEN v_holiday THEN v_weekend_slots ELSE v_weekday_slots END;
-  IF coalesce(cardinality(v_allowed),0)>0 AND NOT EXISTS(
+  IF coalesce(cardinality(p_preferred_store_ids),0)=0 AND coalesce(cardinality(v_allowed),0)>0 AND NOT EXISTS(
    SELECT 1 FROM unnest(v_allowed) value WHERE value=ANY(CASE v_date->>'time_slot'
     WHEN '午前' THEN ARRAY['午前','朝公演','朝'] WHEN '午後' THEN ARRAY['午後','昼公演','昼'] ELSE ARRAY['夜','夜公演'] END)
   ) THEN RAISE EXCEPTION 'この作品では選択できない時間帯です' USING ERRCODE='22023'; END IF;
