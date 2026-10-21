@@ -88,6 +88,16 @@ export const scheduleApi = {
 
   // 公演を作成
   // バックエンド API (POST /api/schedule) 経由。organization_id はサーバ側で JWT から強制。
+  /**
+   * 結果が分からなかった作成の要求 ID が、自分の作成として確定しているかを調べる（PR #1210）。
+   * 確定していれば公演 ID、無ければ null（その要求では公演は作られていない）。処理中の同じ要求があれば終わるまで待つ。
+   */
+  async findCreatedByRequest(requestId: string): Promise<string | null> {
+    const { data, error } = await supabase.rpc('find_schedule_event_create_request', { p_request_id: requestId })
+    if (error) throw new Error(error.message)
+    return typeof data === 'string' ? data : null
+  },
+
   async create(eventData: {
     date: string
     store_id: string

@@ -27,6 +27,13 @@
   P2-② GM 未指定の作成履歴 → 公演ダイアログからの作成は GM の有無によらず DB 関数を通し、作成履歴を同じ取引で記録。画面からの作成履歴の記録は外した。ダイアログ以外の作成（staff_assignment の無い要求）は従来の INSERT のまま。
   関数の引数に要求 ID を追加（本文 md5 `e329f0dcdbbfc4e35650491f17bb8b5d`）。rollback は表を rollback_backup へ退避してから関数と表を消す。DB 試験 17 項目（同じ要求 ID で 1 件・別 ID なら別に作る・GM 未指定の作成履歴・他人の要求 ID は拒否・表はブラウザから読めない を追加）と rollback → 再適用 → 再試験が合格。前回の 13 項目と既存の DB 試験 13 本の結果は再利用（関数の中身の変更は要求 ID と GM 未指定の分岐のみ）。
   前後比較: 単体・API 試験 7 件が補修前に失敗し補修後に合格。vitest 全件 348 ファイル・2488 件、`npm run verify`、通知受け入れ E2E 21 件合格。
+- 追記（Codex 再レビュー 7658a64 の残り 3 件）:
+  1 要求 ID の回復: 結果不明の作成（要求 ID・送った入力・要点・時刻）を localStorage に組織ごとに 1 件残す（`src/lib/pendingEventCreate.ts`。使えなければ画面のメモリ）。次の保存で、同じ入力なら同じ要求 ID で送る。違う入力なら先に `find_schedule_event_create_request` で照合し、作成済みなら作らずに知らせ、未作成と確定したら通常の作成へ。照合が通信で失敗したら作らず残す。別の端末・ブラウザとは共有しない。
+  2 rollback の復元: 当て直しの migration が rollback_backup の退避から書き戻し、公演が残る行がすべて同じ対応で入ったかを照合（違えば止める。公演が消えた行は戻さない）。`scripts/test-create-schedule-event-restore-db.sh`（行を残した巻き戻し → 当て直し → 書き戻し → 同じ要求 ID の再送で元の公演）を追加。補修前の migration ではこの試験が失敗。
+  3 Baseline CI: `expected-table-overrides.json` に新しい表、`expected-function-overrides.json` に照合関数を追加。手元で `scripts/check-db-baseline.sh` 合格。
+  2 接続の同時送信: `scripts/test-create-schedule-event-concurrency-db.sh` を追加し、使い捨て DB（基準の再現、PostgreSQL 17.6）で同じ要求 ID の同時送信が 1 件・同じ ID になることを確認。
+  気づき: PostgreSQL 17.6（本番と同じ版）で、anon が pg_temp の関数の中から実行権限の無い関数を例外処理つきで呼ぶとサーバーが落ちる（既存の関数でも同じ。17.11 では落ちない）。試験の anon の確認は権限表で行うよう変えた。
+  vitest 全件 348 ファイル・2492 件、`npm run verify`、通知受け入れ E2E 21 件合格。DB 試験 18 項目。
 
 ## 2026-10-21 / リリース統合候補（staging の未反映分 ＋ main の #1202、reconcile migration 付き）（release/2026-10-integration、staging 向け PR・マージしない）
 

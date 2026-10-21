@@ -2,10 +2,10 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-const mocks = vi.hoisted(() => ({ history: vi.fn(), snapshot: vi.fn(), create: vi.fn(), sync: vi.fn(), neighbors: vi.fn(), success: vi.fn(), warning: vi.fn(), error: vi.fn(), update: vi.fn(), read: vi.fn(), diff: vi.fn(), notify: vi.fn(), confirm: vi.fn() }))
+const mocks = vi.hoisted(() => ({ findCreated: vi.fn(), history: vi.fn(), snapshot: vi.fn(), create: vi.fn(), sync: vi.fn(), neighbors: vi.fn(), success: vi.fn(), warning: vi.fn(), error: vi.fn(), update: vi.fn(), read: vi.fn(), diff: vi.fn(), notify: vi.fn(), confirm: vi.fn() }))
 vi.mock('@/hooks/usePreparationSettings', () => ({ usePreparationSettings: () => ({ fetch: async () => () => 0 }) }))
 vi.mock('@/lib/preparationNeighborEvents', () => ({ loadPreparationNeighborEvents: mocks.neighbors }))
-vi.mock('@/lib/api', () => ({ scheduleApi: { create: mocks.create, update: mocks.update } }))
+vi.mock('@/lib/api', () => ({ scheduleApi: { create: mocks.create, update: mocks.update, findCreatedByRequest: mocks.findCreated } }))
 vi.mock('@/lib/reservationApi', () => ({ reservationApi: { syncStaffReservations: mocks.sync } }))
 vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ select() { return this }, eq() { return this }, single: mocks.read }) } }))
 vi.mock('@/utils/toast', () => ({ showToast: mocks }))
@@ -15,6 +15,7 @@ vi.mock('@/hooks/eventOperations/eventSyncHelpers', () => ({ confirmSendPrivateB
 vi.mock('@/lib/privateBookingCustomerChangeEmail', () => ({ diffScheduleSnapshotsForCustomerEmail: mocks.diff, sendPrivateBookingCustomerChangeEmail: mocks.notify }))
 import { useEventSave } from './useEventSave'
 import { ApiClientError } from '@/lib/apiClient'
+import { clearPendingEventCreate } from '@/lib/pendingEventCreate'
 import type { ScheduleEvent } from '@/types/schedule'
 import { QueryClient } from '@tanstack/react-query'
 import { createScheduleMonthQueryFn, scheduleEventKeys, setScheduleMonthData } from '@/hooks/useScheduleEventsQuery'
@@ -40,6 +41,9 @@ beforeEach(() => {
   vi.clearAllMocks()
   mode = 'add'
   shown = []
+  localStorage.clear()
+  clearPendingEventCreate('org')
+  mocks.findCreated.mockResolvedValue(null)
   setEvents.mockImplementation(localSetEvents)
   mocks.snapshot.mockResolvedValue(null)
   mocks.read.mockResolvedValue({ data: { id: 'store', name: '店舗', date: '2026-10-01', category: 'private' } })
@@ -293,6 +297,57 @@ describe('結果が分からなかった作成の保存し直し（PR #1210 Code
     await act(async () => { await result.current.handleSavePerformance({ ...input, notes: '変更' }) })
     await act(async () => { await result.current.handleSavePerformance({ ...input, notes: '変更' }) })
     expect(new Set(requestIds()).size).toBe(4)
+  })
+})
+
+describe('結果不明の作成を再読み込みのあとも照合する（PR #1210 Codex 再レビュー 7658a64 の 1）', () => {
+  const unknown = () => new ApiClientError(502, '結果不明', undefined, { outcome: 'unknown' })
+  const input = { ...data, gm_roles: { A: 'main' }, staffParticipation: plan }
+  const requestIds = () => mocks.create.mock.calls.map(call => (call[0] as { client_request_id: string }).client_request_id)
+  async function reload() { await act(async () => root.unmount()); root = createRoot(document.createElement('div')); return setup() }
+  it('結果不明 → 画面の再読み込み → 同じ入力で保存: 前回と同じ要求 ID で送る（DB が既にある公演を返す）', async () => {
+    mocks.create.mockRejectedValueOnce(unknown()).mockResolvedValueOnce({ ...data, id: 'created-once', store_id: 'store', gms: ['A'], gm_roles: { A: 'main' } })
+    let { result } = await setup()
+    await act(async () => { expect(await result.current.handleSavePerformance(input)).toBe(false) })
+    ;({ result } = await reload())
+    await act(async () => { expect(await result.current.handleSavePerformance(input)).toBe(true) })
+    const [first, second] = requestIds()
+    expect(second).toBe(first)
+    expect(localStorage.length).toBe(0)
+  })
+  it('結果不明 → 再読み込み → 入力を変えて保存: 前回が作成済みなら新しく作らず知らせる', async () => {
+    mocks.create.mockRejectedValueOnce(unknown())
+    let { result } = await setup()
+    await act(async () => { await result.current.handleSavePerformance(input) })
+    ;({ result } = await reload())
+    mocks.findCreated.mockResolvedValueOnce('created-before')
+    let saved: boolean | undefined
+    await act(async () => { saved = await result.current.handleSavePerformance({ ...input, notes: '直した' }) })
+    expect(saved).toBe(false)
+    expect(mocks.findCreated).toHaveBeenCalledWith(requestIds()[0])
+    expect(mocks.create).toHaveBeenCalledTimes(1)
+    expect(mocks.error).toHaveBeenCalledWith(expect.stringContaining('作成されていました'))
+    // 照合が済んだので、次の保存は通常の新規作成
+    await act(async () => { expect(await result.current.handleSavePerformance({ ...input, notes: '直した' })).toBe(true) })
+    expect(mocks.create).toHaveBeenCalledTimes(2)
+    expect(requestIds()[1]).not.toBe(requestIds()[0])
+  })
+  it('結果不明 → 入力を変えて保存: 前回が未作成と確定したら新しい要求 ID で作成する', async () => {
+    mocks.create.mockRejectedValueOnce(unknown())
+    const { result } = await setup()
+    await act(async () => { await result.current.handleSavePerformance(input) })
+    await act(async () => { expect(await result.current.handleSavePerformance({ ...input, notes: '別の公演' })).toBe(true) })
+    expect(mocks.findCreated).toHaveBeenCalledTimes(1)
+    expect(new Set(requestIds()).size).toBe(2)
+  })
+  it('照合そのものが通信で失敗したら作成せず、未解決の要求を残す', async () => {
+    mocks.create.mockRejectedValueOnce(unknown())
+    const { result } = await setup()
+    await act(async () => { await result.current.handleSavePerformance(input) })
+    mocks.findCreated.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    await act(async () => { expect(await result.current.handleSavePerformance({ ...input, notes: '別' })).toBe(false) })
+    expect(mocks.create).toHaveBeenCalledTimes(1)
+    expect(localStorage.length).toBe(1)
   })
 })
 

@@ -27,6 +27,7 @@ import { showToast } from '@/utils/toast'
 import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import { holdPendingScheduleEvent, releasePendingScheduleEvent } from '@/hooks/useScheduleEventsQuery'
+import { readPendingEventCreate, writePendingEventCreate, clearPendingEventCreate } from '@/lib/pendingEventCreate'
 import {
   diffScheduleSnapshotsForCustomerEmail,
   sendPrivateBookingCustomerChangeEmail,
@@ -130,8 +131,6 @@ export function useEventSave({
   }, [])
   const [conflictInfo, setConflictInfo] = useState<any>(null)
   const [pendingPerformanceData, setPendingPerformanceData] = useState<any>(null)
-  // 結果が分からなかった作成（同じ入力で保存し直すときに同じ要求 ID を使う）
-  const unknownCreateRef = useRef<{ fingerprint: string; requestId: string } | null>(null)
 
   // 🚨 CRITICAL: 公演保存時の重複チェック機能（タイムスロット + 実時間 + 準備時間）
   const handleSavePerformance = useCallback(async (performanceData: PerformanceData): Promise<boolean> => {
@@ -313,13 +312,27 @@ export function useEventSave({
           is_reservation_name_overwritten: !!performanceData.reservation_name // 手動入力は上書きとみなす
         }
 
-        // 作成の要求 ID。前回の作成の結果が分からなかった（応答が届かなかった等）ときは、同じ入力なら同じ ID で送り、
-        // サーバーが既に作った公演を返すようにする（二重に作成しない。Codex 再レビュー 2fa19ac の P2-①）。
+        // 作成の要求 ID。前回の作成の結果が分からなかった（応答が届かなかった等）ときは、再読み込みをまたいでも
+        // それを照合してから進む（Codex 再レビュー 2fa19ac の P2-①、7658a64 の 1）。
+        // - 同じ入力: 同じ要求 ID で送る。DB が既に作った公演を返すので二重に作らない（未作成なら作る）
+        // - 違う入力: 前回の要求が作成済みかを DB に照合する。作成済みなら新しく作らずに知らせる。未作成と確定したら通常の新規作成へ
         const requestFingerprint = JSON.stringify(eventData)
-        const clientRequestId = unknownCreateRef.current?.fingerprint === requestFingerprint
-          ? unknownCreateRef.current.requestId
-          : crypto.randomUUID()
-        unknownCreateRef.current = null
+        const pendingCreate = readPendingEventCreate(organizationId)
+        let clientRequestId: string = crypto.randomUUID()
+        if (pendingCreate?.fingerprint === requestFingerprint) {
+          clientRequestId = pendingCreate.requestId
+        } else if (pendingCreate) {
+          let previousEventId: string | null
+          try {
+            previousEventId = await scheduleApi.findCreatedByRequest(pendingCreate.requestId)
+          } catch {
+            throw new ApiClientError(502, `前回の保存（${pendingCreate.summary}）が作成されたか確認できませんでした。通信を確かめてから、もう一度保存してください`)
+          }
+          clearPendingEventCreate(organizationId)
+          if (previousEventId) {
+            throw new ApiClientError(409, `前回の保存（${pendingCreate.summary}）は作成されていました。スケジュールを再読み込みして確かめてから、必要なら保存してください`)
+          }
+        }
 
         // 楽観的 insert: 保存完了前にセルへ表示し、ユーザの不安感を解消する
         // 失敗時は finally ブロックで除外、成功時は real id に置き換える
@@ -363,12 +376,19 @@ export function useEventSave({
           // （確定したのに保存し直すと二重に作成される。Codex 再レビュー 2e24bbf の 4）
           const outcomeUnknown = !(saveError instanceof ApiClientError) || saveError.status >= 502 || saveError.body?.outcome === 'unknown'
           if (outcomeUnknown) {
-            unknownCreateRef.current = { fingerprint: requestFingerprint, requestId: clientRequestId }
-            throw new ApiClientError(502, '公演が作成されたか確認できませんでした。スケジュールを再読み込みして、公演があるか確かめてから保存し直してください。同じ内容で保存し直した場合は、二重には作成されません')
+            writePendingEventCreate(organizationId, {
+              requestId: clientRequestId,
+              fingerprint: requestFingerprint,
+              summary: `${eventData.date} ${eventData.start_time.slice(0, 5)}${eventData.scenario ? ` ${eventData.scenario}` : ''}`,
+              at: new Date().toISOString(),
+            })
+            throw new ApiClientError(502, '公演が作成されたか確認できませんでした。スケジュールを再読み込みして確かめてください。この端末で次に保存するとき、前回の保存が作成済みかを先に照合し、二重には作成しません')
           }
+          clearPendingEventCreate(organizationId)
           throw saveError
         }
         releasePendingScheduleEvent(tempEventId)
+        clearPendingEventCreate(organizationId)
 
         // 楽観的 insert の temp event を即座に real event へ置き換える。
         // ここを後続処理（履歴記録・スタッフ予約同期＝ネットワーク往復）の後に

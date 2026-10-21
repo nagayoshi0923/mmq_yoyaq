@@ -16,6 +16,9 @@ DO $preflight$ BEGIN
  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='create_schedule_event_with_staff') THEN
   RAISE EXCEPTION '同名の関数が既にあります: create_schedule_event_with_staff';
  END IF;
+ IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='find_schedule_event_create_request') THEN
+  RAISE EXCEPTION '同名の関数が既にあります: find_schedule_event_create_request';
+ END IF;
  IF to_regclass('public.schedule_event_create_requests') IS NOT NULL THEN
   RAISE EXCEPTION '同名の表が既にあります: schedule_event_create_requests';
  END IF;
@@ -33,6 +36,33 @@ CREATE TABLE public.schedule_event_create_requests (
 CREATE INDEX schedule_event_create_requests_event_id_idx ON public.schedule_event_create_requests(event_id);
 ALTER TABLE public.schedule_event_create_requests ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.schedule_event_create_requests FROM PUBLIC, anon, authenticated;
+
+-- 巻き戻し（rollbacks/ の同名ファイル）で rollback_backup へ退避した対応を、当て直しのときに書き戻す。
+-- 書き戻すのは公演がまだある行だけ（消えた公演の要求 ID は、同じ ID で作り直せてよい）。退避が無ければ何もしない。
+-- 書き戻した後、退避のうち公演が残っている行がすべて同じ対応で入ったことを確かめ、違えば取引ごと止める。
+DO $restore$
+DECLARE v_src text; v_backup bigint; v_restored bigint; v_total_restored bigint := 0; v_gone bigint; v_missing bigint;
+BEGIN
+ FOR v_src IN
+  SELECT format('rollback_backup.%I', c.relname) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='rollback_backup' AND c.relkind='r' AND c.relname LIKE 'schedule\_event\_create\_requests\_backup\_%' ORDER BY c.relname DESC
+ LOOP
+  EXECUTE format('SELECT count(*) FROM %s', v_src) INTO v_backup;
+  EXECUTE format('INSERT INTO public.schedule_event_create_requests(request_id, organization_id, user_id, event_id, created_at)
+   SELECT b.request_id, b.organization_id, b.user_id, b.event_id, b.created_at FROM %s b
+   WHERE EXISTS (SELECT 1 FROM public.schedule_events e WHERE e.id=b.event_id AND e.organization_id=b.organization_id)
+   ON CONFLICT (request_id) DO NOTHING', v_src);
+  GET DIAGNOSTICS v_restored = ROW_COUNT;
+  EXECUTE format('SELECT count(*) FROM %s b WHERE NOT EXISTS (SELECT 1 FROM public.schedule_events e WHERE e.id=b.event_id AND e.organization_id=b.organization_id)', v_src) INTO v_gone;
+  EXECUTE format('SELECT count(*) FROM %s b WHERE EXISTS (SELECT 1 FROM public.schedule_events e WHERE e.id=b.event_id AND e.organization_id=b.organization_id)
+   AND NOT EXISTS (SELECT 1 FROM public.schedule_event_create_requests r WHERE r.request_id=b.request_id AND r.event_id=b.event_id AND r.organization_id=b.organization_id AND r.user_id=b.user_id)', v_src) INTO v_missing;
+  IF v_missing > 0 THEN
+   RAISE EXCEPTION '退避 % の書き戻しが一致しません（公演が残っているのに戻らなかった対応 % 行）', v_src, v_missing;
+  END IF;
+  v_total_restored := v_total_restored + v_restored;
+  RAISE NOTICE '書き戻しました: % → public.schedule_event_create_requests（退避 % 行・書き戻し % 行・公演が消えていて戻さない % 行）', v_src, v_backup, v_restored, v_gone;
+ END LOOP;
+END $restore$;
 
 CREATE FUNCTION public.create_schedule_event_with_staff(p_request_id uuid, p_event jsonb, p_gms text[], p_gm_roles jsonb, p_entries jsonb)
  RETURNS uuid
@@ -102,3 +132,26 @@ END $function$;
 
 REVOKE ALL ON FUNCTION public.create_schedule_event_with_staff(uuid, jsonb, text[], jsonb, jsonb) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.create_schedule_event_with_staff(uuid, jsonb, text[], jsonb, jsonb) TO authenticated, service_role;
+
+-- 作成の結果が分からなかった要求 ID が、自分の作成として確定しているかを調べる（Codex 再レビュー 7658a64 の 1）。
+-- 同じ要求 ID の作成が処理中なら、その取引が終わるまで待ってから答える（「未作成」を早まって返さない）。
+-- 確定していれば公演 ID、無ければ NULL（その要求では公演は作られていない）。
+CREATE FUNCTION public.find_schedule_event_create_request(p_request_id uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public'
+AS $function$
+DECLARE v_org uuid := public.get_user_organization_id();
+BEGIN
+ IF auth.uid() IS NULL OR v_org IS NULL OR NOT EXISTS(SELECT 1 FROM public.users WHERE id=auth.uid() AND role::text IN ('admin','staff','license_admin')) THEN
+  RAISE EXCEPTION '公演を確認する権限がありません' USING ERRCODE='42501';
+ END IF;
+ IF p_request_id IS NULL THEN RAISE EXCEPTION '要求 ID が必要です' USING ERRCODE='22023'; END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('mmq-event-create:'||p_request_id::text, 0));
+ RETURN (SELECT r.event_id FROM public.schedule_event_create_requests r
+  WHERE r.request_id=p_request_id AND r.organization_id=v_org AND r.user_id=auth.uid());
+END $function$;
+
+REVOKE ALL ON FUNCTION public.find_schedule_event_create_request(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.find_schedule_event_create_request(uuid) TO authenticated, service_role;

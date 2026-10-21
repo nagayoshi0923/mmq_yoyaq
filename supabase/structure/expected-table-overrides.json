@@ -4768,5 +4768,69 @@
     "type": "f"
    }
   ]
+ },
+ "schedule_event_create_requests": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "request_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "user_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "event_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX schedule_event_create_requests_event_id_idx ON public.schedule_event_create_requests USING btree (event_id)",
+    "name": "schedule_event_create_requests_event_id_idx"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX schedule_event_create_requests_pkey ON public.schedule_event_create_requests USING btree (request_id)",
+    "name": "schedule_event_create_requests_pkey"
+   }
+  ],
+  "policies": [],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "FOREIGN KEY (event_id) REFERENCES schedule_events(id) ON DELETE CASCADE",
+    "name": "schedule_event_create_requests_event_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+    "name": "schedule_event_create_requests_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (request_id)",
+    "name": "schedule_event_create_requests_pkey",
+    "type": "p"
+   }
+  ]
  }
 }

@@ -85,11 +85,20 @@ DO $$ DECLARE r jsonb; BEGIN
 END $$;
 SELECT set_config('request.jwt.claims','{"sub":"dddddddd-0000-4000-8000-0000000000a2","role":"authenticated"}',true);
 SELECT pg_temp.try_create('case8', pg_temp.ev('case8'), ARRAY['架空GM'], '{}', '[]');
+-- 14) 照合（find_schedule_event_create_request）: 自分の要求 ID は公演 ID、知らない ID と他人の要求 ID は NULL（下で確認）
 -- 12) 別の利用者（同じ組織の管理者）が同じ要求 ID を使っても、他人の公演は返さない
 SELECT set_config('request.jwt.claims','{"sub":"dddddddd-0000-4000-8000-0000000000a3","role":"authenticated"}',true);
 SELECT pg_temp.try_create('case12', pg_temp.ev('case12'), ARRAY[]::text[], '{}', '[]', 'dddddddd-0000-4000-8000-0000000010aa');
-SET LOCAL ROLE anon;
-SELECT pg_temp.try_create('case9', '{}', ARRAY[]::text[], '{}', '[]');
+DO $$ BEGIN
+ INSERT INTO calls VALUES ('case14_other', public.find_schedule_event_create_request('dddddddd-0000-4000-8000-0000000010aa'), NULL, NULL);
+END $$;
+SELECT set_config('request.jwt.claims','{"sub":"dddddddd-0000-4000-8000-0000000000a1","role":"authenticated"}',true);
+DO $$ BEGIN
+ INSERT INTO calls VALUES ('case14_own', public.find_schedule_event_create_request('dddddddd-0000-4000-8000-0000000010aa'), NULL, NULL);
+ INSERT INTO calls VALUES ('case14_none', public.find_schedule_event_create_request('dddddddd-0000-4000-8000-00000000dead'), NULL, NULL);
+END $$;
+-- 9) anon は実行権限が無いことを権限表で確かめる（anon で pg_temp の関数から権限の無い関数を呼ぶと、
+--    PostgreSQL 17.6 では例外処理の中でサーバーが落ちる。既存の関数でも同じで今回の関数とは無関係。17.11 では落ちない）
 SET LOCAL ROLE postgres;
 
 INSERT INTO results SELECT '0_old_two_step_leaves_empty_gm_event', c.err IS NOT NULL AND c.err<>'同期が成功した' AND cardinality(e.gms)=0, c.err
@@ -142,10 +151,15 @@ INSERT INTO results SELECT '11_no_gm_created_with_create_history_same_tx',
  FROM calls c LEFT JOIN public.schedule_events e ON e.id=c.id WHERE c.label='case11';
 INSERT INTO results SELECT '12_request_id_of_other_user_rejected', c.id IS NULL AND c.code='22023' AND NOT EXISTS(SELECT 1 FROM public.schedule_events WHERE notes='case12'), c.err FROM calls c WHERE label='case12';
 INSERT INTO results SELECT '13_request_table_not_readable_by_browser', NOT has_table_privilege('authenticated','public.schedule_event_create_requests','SELECT') AND NOT has_table_privilege('anon','public.schedule_event_create_requests','SELECT'), NULL;
-INSERT INTO results SELECT '9_anon_rejected', c.id IS NULL AND c.code='42501' AND NOT has_function_privilege('anon','public.create_schedule_event_with_staff(uuid,jsonb,text[],jsonb,jsonb)','EXECUTE'), c.err FROM calls c WHERE label='case9';
+INSERT INTO results SELECT '14_find_create_request',
+  (SELECT id FROM calls WHERE label='case14_own')=(SELECT id FROM calls WHERE label='case10a')
+  AND (SELECT id FROM calls WHERE label='case14_none') IS NULL AND (SELECT id FROM calls WHERE label='case14_other') IS NULL
+  AND NOT has_function_privilege('anon','public.find_schedule_event_create_request(uuid)','EXECUTE'), NULL;
+INSERT INTO results SELECT '9_anon_rejected', NOT has_function_privilege('anon','public.create_schedule_event_with_staff(uuid,jsonb,text[],jsonb,jsonb)','EXECUTE')
+  AND NOT has_function_privilege('anon','public.find_schedule_event_create_request(uuid)','EXECUTE'), NULL;
 
 SELECT label, ok, left(coalesce(detail,''), 80) AS detail FROM results ORDER BY label;
 DO $$ BEGIN
- IF EXISTS(SELECT 1 FROM results WHERE NOT ok) OR (SELECT count(*) FROM results) <> 17 THEN RAISE EXCEPTION 'create_schedule_event_with_staff: 失敗あり'; END IF;
+ IF EXISTS(SELECT 1 FROM results WHERE NOT ok) OR (SELECT count(*) FROM results) <> 18 THEN RAISE EXCEPTION 'create_schedule_event_with_staff: 失敗あり'; END IF;
 END $$;
 ROLLBACK;
