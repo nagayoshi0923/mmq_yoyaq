@@ -28,6 +28,7 @@ export function PerformanceFooter({
         <button
           type="button"
           className="scenario-edit-dialog__btn"
+          disabled={isFormInitializing}
           onClick={() => setDeleteConfirming(true)}
           style={{ color: '#b91c1c', borderColor: '#fecaca' }}
         >

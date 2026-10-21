@@ -1,7 +1,7 @@
 import { useOperatingSettings } from '@/hooks/useOperatingSettings'
 import { usePreparationSettings } from '@/hooks/usePreparationSettings'
 import { PerformanceOperatingSettings } from '@/components/settings/PerformanceOperatingSettings'
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
 import '@/components/modals/ScenarioEditDialogV2.css'
@@ -109,6 +109,7 @@ export function PerformanceModal({
   const [localCurrentParticipants, setLocalCurrentParticipants] = useState<number>(event?.current_participants || 0)
   // initForm の非同期初期化が完了するまで true。完了前の保存を防ぐガード（B7: 初期化未完了レース対策）
   const [isFormInitializing, setIsFormInitializing] = useState(true)
+  const [initializationError, setInitializationError] = useState(false)
   // 保存処理の二重送信ガード（B7）。常時マウントのため initForm 実行時（モーダルを開くたび）にリセットする
   const isSavingRef = useRef(false)
   const initializationGeneration = useRef(0)
@@ -307,17 +308,22 @@ export function PerformanceModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.venue, stores])
 
-  // モードに応じてフォームを初期化
-  useEffect(() => {
+  // 時間帯の既定値は追加時だけ必要。編集開始後の設定遅着で入力を初期値へ戻さない。
+  const addTimeSlotDefaults = mode === 'add' ? getDefaultsForDate : null
+  const isWaitingForAddTimeSlots = mode === 'add' && isTimeSlotSettingsLoading
+
+  // 別公演への切替・再度開く際も、前の入力欄を操作できるフレームを作らない。
+  useLayoutEffect(() => {
     if (!isOpen) return
     // 設定がロード中の場合は待機（追加モードの場合のみ）
-    if (mode === 'add' && isTimeSlotSettingsLoading) {
+    if (isWaitingForAddTimeSlots) {
+      setIsFormInitializing(true)
       return
     }
     void initForm()
     return () => { initializationGeneration.current += 1 }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, mode, event, initialData, getDefaultsForDate, isTimeSlotSettingsLoading])
+  }, [isOpen, mode, event, initialData, addTimeSlotDefaults, isWaitingForAddTimeSlots])
 
   // 自分の担当分だけを受け取る画面では、キット不足を数えるためにその日の組織全体の公演を取り直す。null は取得中・失敗（警告しない）
   const [orgDayEvents, setOrgDayEvents] = useState<ScheduleEvent[] | null>(null)
@@ -371,7 +377,12 @@ export function PerformanceModal({
     // 常時マウントのため、次にモーダルを開いた時に前回の保存中フラグが残留しないようリセット
     isSavingRef.current = false
     setParticipationLoadError(false)
+    setInitializationError(false)
     setParticipationReservations([])
+    setIsScenarioDialogOpen(false)
+    setIsStaffModalOpen(false)
+    setPendingScenarioTitle(null)
+    setDeleteConfirming(false)
     try {
     if (mode === 'edit' && event) {
       // 編集モード：既存データで初期化
@@ -393,7 +404,7 @@ export function PerformanceModal({
       let participation = { entries: [], reservations: [], assignment: {gms:event.gms ?? [],gm_roles:event.gm_roles ?? {}} } as Awaited<ReturnType<typeof reservationApi.getStaffParticipation>>
       if (!event.is_private_request) {
         try { participation = await reservationApi.getStaffParticipation(event.id) }
-        catch (error) { if (generation !== initializationGeneration.current) return; setParticipationLoadError(true); logger.error('スタッフ参加方法の取得失敗', error) }
+        catch (error) { if (generation !== initializationGeneration.current) return; setParticipationLoadError(true); throw error }
       }
       if (generation !== initializationGeneration.current) return
       setParticipationReservations(participation.reservations)
@@ -425,6 +436,10 @@ export function PerformanceModal({
       
       setFormData(buildAddFormData({ id: Date.now().toString(), date: initialData.date, venue: initialData.venue, startTime, endTime, notes: slotMemo }))
     }
+    } catch (error) {
+      if (generation !== initializationGeneration.current) return
+      logger.error('公演情報の初期化に失敗しました:', error)
+      setInitializationError(true)
     } finally {
       if (generation === initializationGeneration.current) setIsFormInitializing(false)
     }
@@ -506,7 +521,7 @@ export function PerformanceModal({
 
   const handleSave = async () => {
     // 二重送信ガード（B7）: 保存処理中の再クリックを無視する
-    if (isSavingRef.current) return
+    if (!isOpen || isFormInitializing || initializationError || isSavingRef.current) return
     // 時間帯を'朝'/'昼'/'夜'形式で保存
     if (participationLoadError) { showToast.error('スタッフ参加方法を取得できません。公演を開き直してください。'); return }
     const participantStaff = formData.gms.filter(name => formData.gmRoles?.[name] === 'staff').map(name => staff.find(member => member.name === name))
@@ -700,7 +715,17 @@ export function PerformanceModal({
       ].filter(Boolean).join(' / ')
     : null
 
+  const isFormBlocked = isFormInitializing || initializationError
+
   const renderTabBody = () => {
+    // 入力欄をマウントしないことで、Selectのポータルやキーボード操作も初期化中は開始させない。
+    if (isFormInitializing) return <p role="status">公演情報を読み込んでいます…</p>
+    if (initializationError) return (
+      <div role="alert">
+        <p>公演情報を読み込めませんでした。再試行するか、閉じてから開き直してください。</p>
+        <button type="button" className="scenario-edit-dialog__btn" onClick={() => { void initForm() }}>再試行</button>
+      </div>
+    )
     if (activeTab === 'operating-settings') return <PerformanceOperatingSettings eventId={event?.id} />
     if (activeTab === 'deadlines') return <BookingDeadlineTab eventId={event?.id} />
     if (activeTab === 'reservations') {
@@ -878,6 +903,7 @@ export function PerformanceModal({
                 <button
                   key={tab.id}
                   type="button"
+                  disabled={isFormBlocked}
                   onClick={() => setActiveTab(tab.id)}
                   aria-current={selected ? 'page' : undefined}
                   className={selected ? 'scenario-edit-dialog__nav-item is-selected' : 'scenario-edit-dialog__nav-item'}
@@ -893,7 +919,7 @@ export function PerformanceModal({
             })}
           </nav>
 
-          <div key={activeTab} className="scenario-edit-dialog__content">
+          <div key={activeTab} className="scenario-edit-dialog__content" aria-busy={isFormInitializing}>
             <h2 className="scenario-edit-dialog__page-title">{activeTabLabel}</h2>
             {renderTabBody()}
           </div>
@@ -918,7 +944,7 @@ export function PerformanceModal({
             setDeleteConfirming={setDeleteConfirming}
             onClose={onClose}
             handleSave={handleSave}
-            isFormInitializing={isFormInitializing}
+            isFormInitializing={isFormBlocked}
           />
         </footer>
       </DialogContent>

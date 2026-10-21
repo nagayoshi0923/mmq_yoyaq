@@ -1,3 +1,9 @@
+## 2026-10-22 / 公演編集の初期化中の入力消失を防ぐ（GPT hotfix）
+
+- 対象: `PerformanceModal` のスタッフ参加情報・枠メモ読み込み中に入力すると、遅着した初期値が入力を上書きする問題。
+- 修正: 初期化完了まで編集本体を表示せず読み込み状態を表示し、タブ・削除・保存を無効化。閉じる・キャンセルは維持。失敗時は理由と再試行を表示。別公演/再度開く際も描画前にガードし、旧要求の世代ガードと既存GM原子保存を維持。
+- 検証: 架空component試験8件（時間帯設定の遅着で編集を再初期化しない・追加時の設定待ち、遅延中の全編集ガード、閉再開、別公演の遅着失敗、失敗→再試行、二重保存、追加時枠メモ）と全単体354ファイル/2529件成功。DB/Edge/通知/実顧客データは変更なし。性能計測・cache変更・未公開通知UI #1208 は含めない。独立レビュー/CI/公開後読取は後続工程。
+
 ## 2026-10-22 / 管理画面・スケジュール管理が遅い（perf/schedule-network #1211・perf/schedule-render #1212、main 向け hotfix・do-not-merge）
 
 - 計測: 手元 local-repro DB に本番最大組織と同規模の架空組織 perf-org（`scripts/perf/seed-schedule-perf.sql`）。本番の構成（Vercel 関数 iad1・DB 東京）を遅延中継で模して Playwright で計測（`scripts/perf/run-latency-env.sh`・`measure-schedule.mjs`）。記録は Vault 側 `.runtime/性能_スケジュール_計測_2026-10-22.md`。
