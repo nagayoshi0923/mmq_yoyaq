@@ -6,6 +6,8 @@
 --  (3) 希望店舗の変更でその店だけにすると平日朝の候補が外れる（件数を返す）。
 --  昼 13:00・夜 19:00、作品の固定時刻 昼 12:00・夜 16:00（開店前でも）は 3 経路とも通る。
 --  朝を受け付ける店（土曜 09:00、平日も開店 10:00 の店）は通る。作品の時間枠（I10）に無い枠は拒否。
+--  枠の可否と空きは同じ店舗で両方成り立つこと: 朝を止めた空いている店 ＋ 朝を受け付けるが朝が受付停止の店 では 3 経路とも通さない。
+--  特別営業日（その店舗だけ土日祝扱い）の店では、平日は朝不可・土日祝は朝可の作品の朝が通る。普通の平日の店では引き続き不可。
 --  既存の候補・申込の行は migration では変わらない。rollback で元の動き（3 経路とも I2 を見ない）に戻り、当て直すと同じ結果。
 \set ON_ERROR_STOP on
 BEGIN;
@@ -86,15 +88,18 @@ BEGIN
    private_booking_time_slots='{}',private_booking_time_slots_weekend=NULL,private_booking_slot_start_times=NULL,accepts_private_booking=true
   WHERE organization_id=c.org AND scenario_master_id=c.sm;
 END $$;
-CREATE TEMP TABLE _w AS SELECT pg_temp.day_of(3,1) AS w, pg_temp.day_of(6,1) AS sat;
+CREATE TEMP TABLE _w AS SELECT pg_temp.day_of(3,1) AS w, pg_temp.day_of(6,1) AS sat, pg_temp.day_of(2,2) AS sp;
+-- 朝を止めた店（st2）は火曜 sp だけ特別営業日（日曜の設定 = 土日祝・3 枠）
+UPDATE business_hours_settings SET special_open_days=jsonb_build_array(jsonb_build_object('date',(SELECT sp FROM _w)))
+ WHERE organization_id=(SELECT org FROM _ctx) AND store_id=(SELECT st2 FROM _ctx);
 
 -- 既存の行（架空）: 設定を変える前からある平日朝の候補。migration では変わらない
 CREATE TEMP TABLE _rows_before AS SELECT md5(coalesce(string_agg(to_jsonb(cd)::text,'|' ORDER BY cd.id),'')) AS fp FROM private_group_candidate_dates cd;
 
 CREATE FUNCTION pg_temp.run(p_step text) RETURNS void LANGUAGE plpgsql AS $$
-DECLARE c _ctx; w date; sat date; one uuid[]; st12 uuid[];
+DECLARE c _ctx; w date; sat date; sp date; one uuid[]; st12 uuid[];
 BEGIN
- SELECT * INTO c FROM _ctx; SELECT _w.w, _w.sat INTO w, sat FROM _w; one:=ARRAY[c.st2]; st12:=ARRAY[c.st1,c.st2];
+ SELECT * INTO c FROM _ctx; SELECT _w.w, _w.sat, _w.sp INTO w, sat, sp FROM _w; one:=ARRAY[c.st2]; st12:=ARRAY[c.st1,c.st2];
  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub','00000000-0000-4000-b000-000000000011','role','authenticated')::text,true);
  UPDATE organization_scenarios SET private_booking_slot_start_times=NULL,private_booking_time_slots='{}' WHERE organization_id=c.org AND scenario_master_id=c.sm;
  INSERT INTO _log VALUES
@@ -128,7 +133,25 @@ BEGIN
  INSERT INTO _log VALUES
   (p_step,'I10 申込 開店10時の店 平日 朝 10:00',pg_temp.request(ARRAY[c.st1],w,'午前','10:00','12:30')),
   (p_step,'I10 店舗変更 2 店→開店10時の店 平日 朝 10:00',pg_temp.change(st12,ARRAY[c.st1],w,'午前','10:00','12:30'));
+ -- 交差条件: st2 = 朝を止めた・空いている店、st1 = 朝を受け付けるが平日 w の朝が受付停止。2 店とも希望しても朝は通さない
  UPDATE organization_scenarios SET private_booking_time_slots='{}' WHERE organization_id=c.org AND scenario_master_id=c.sm;
+ INSERT INTO schedule_blocked_slots(organization_id,store_id,date,time_slot) VALUES(c.org,c.st1::text,w,'morning');
+ INSERT INTO _log VALUES
+  (p_step,'交差 作成 2 店 平日 朝 10:00',pg_temp.create(st12,w,'午前','10:00','12:30')),
+  (p_step,'交差 申込 2 店 平日 朝 10:00',pg_temp.request(st12,w,'午前','10:00','12:30')),
+  (p_step,'交差 店舗変更 開店10時の店→2 店 平日 朝 10:00',pg_temp.change(ARRAY[c.st1],st12,w,'午前','10:00','12:30')),
+  (p_step,'交差 申込 2 店 平日 昼 13:00',pg_temp.request(st12,w,'午後','13:00','15:30'));
+ DELETE FROM schedule_blocked_slots WHERE organization_id=c.org AND store_id=c.st1::text AND date=w;
+ -- 特別営業日: 作品は 平日 = 昼・夜だけ、土日祝 = 3 枠
+ UPDATE organization_scenarios SET private_booking_time_slots=ARRAY['午後','夜'],private_booking_time_slots_weekend=ARRAY['午前','午後','夜']
+  WHERE organization_id=c.org AND scenario_master_id=c.sm;
+ INSERT INTO _log VALUES
+  (p_step,'特別営業日 作成 朝止めた店 火曜 朝 10:00',pg_temp.create(one,sp,'午前','10:00','12:30')),
+  (p_step,'特別営業日 申込 朝止めた店 火曜 朝 10:00',pg_temp.request(one,sp,'午前','10:00','12:30')),
+  (p_step,'特別営業日 店舗変更 開店10時の店→朝止めた店 火曜 朝 10:00',pg_temp.change(ARRAY[c.st1],one,sp,'午前','10:00','12:30')),
+  (p_step,'普通の平日 申込 開店10時の店 火曜 朝 10:00',pg_temp.request(ARRAY[c.st1],sp,'午前','10:00','12:30')),
+  (p_step,'普通の平日 店舗変更 朝止めた店→開店10時の店 火曜 朝 10:00',pg_temp.change(one,ARRAY[c.st1],sp,'午前','10:00','12:30'));
+ UPDATE organization_scenarios SET private_booking_time_slots='{}',private_booking_time_slots_weekend=NULL WHERE organization_id=c.org AND scenario_master_id=c.sm;
 END $$;
 
 -- 1. migration 適用後（この DB には適用済み。改めて当てても同じ = 冪等）
@@ -138,7 +161,7 @@ DO $$ BEGIN ASSERT (SELECT md5(coalesce(string_agg(to_jsonb(cd)::text,'|' ORDER 
 -- 2. rollback 後（本番の今の動き: 3 経路とも I2 を見ない）
 \ir ../rollbacks/20261021144000_private_booking_candidate_slot_rule_all_paths.sql
 SELECT pg_temp.run('rollback 後');
-DO $$ BEGIN ASSERT to_regprocedure('public.private_booking_candidate_slot_rule(uuid,uuid,uuid[],date,text)') IS NULL, 'rollback で共通検査の関数が残った'; END $$;
+DO $$ BEGIN ASSERT to_regprocedure('public.private_booking_store_slot_rule(uuid,uuid,uuid,date,text,boolean)') IS NULL, 'rollback で店舗ごとの検査の関数が残った'; END $$;
 -- 3. 当て直し
 \ir ../migrations/20261021144000_private_booking_candidate_slot_rule_all_paths.sql
 SELECT pg_temp.run('当て直し');
@@ -172,7 +195,17 @@ BEGIN
   ('固定 店舗変更 2 店→朝止めた店 平日 昼 12:00','removed 0','removed 0'),
   ('固定 店舗変更 2 店→朝止めた店 平日 夜 16:00','removed 0','removed 0'),
   ('I10 申込 開店10時の店 平日 朝 10:00',rej10,'ok'),
-  ('I10 店舗変更 2 店→開店10時の店 平日 朝 10:00','removed 1','removed 0')) e(item,after,rb)
+  ('I10 店舗変更 2 店→開店10時の店 平日 朝 10:00','removed 1','removed 0'),
+  ('交差 作成 2 店 平日 朝 10:00','22023 選択した候補日時は現在受付できません%受付停止中です%','ok'),
+  ('交差 申込 2 店 平日 朝 10:00','P0040 PRIVATE_BOOKING_SLOT_BLOCKED%','ok'),
+  ('交差 店舗変更 開店10時の店→2 店 平日 朝 10:00','removed 1','removed 0'),
+  ('交差 申込 2 店 平日 昼 13:00','ok','ok'),
+  -- グループ作成は、この migration の前からある作品の時間枠の検査（組織の平日／土日祝で読む。表示・候補の追加と同じ）で弾く。この migration では変えない
+  ('特別営業日 作成 朝止めた店 火曜 朝 10:00','22023 この作品では選択できない時間帯です','22023 この作品では選択できない時間帯です'),
+  ('特別営業日 申込 朝止めた店 火曜 朝 10:00','ok','ok'),
+  ('特別営業日 店舗変更 開店10時の店→朝止めた店 火曜 朝 10:00','removed 0','removed 0'),
+  ('普通の平日 申込 開店10時の店 火曜 朝 10:00',rej10,'ok'),
+  ('普通の平日 店舗変更 朝止めた店→開店10時の店 火曜 朝 10:00','removed 1','removed 0')) e(item,after,rb)
  LOOP
   ASSERT (SELECT result FROM _log WHERE step='適用後' AND item=r.item) LIKE r.after, format('適用後 %s: 期待 %s / 実際 %s', r.item, r.after, (SELECT result FROM _log WHERE step='適用後' AND item=r.item));
   ASSERT (SELECT result FROM _log WHERE step='rollback 後' AND item=r.item) LIKE r.rb, format('rollback 後 %s: 期待 %s / 実際 %s', r.item, r.rb, (SELECT result FROM _log WHERE step='rollback 後' AND item=r.item));

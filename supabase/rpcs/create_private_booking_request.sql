@@ -57,6 +57,8 @@ DECLARE
   v_player_count_max INTEGER;
   v_scenario_kind TEXT;
   v_slot_rule TEXT;
+  v_store_rule TEXT;
+  v_rule_store_count INTEGER;
 BEGIN
   -- 20260414150000 の認可境界を維持する。SECURITY DEFINERでもanon/なりすましを許可しない。
   v_caller_user_id := auth.uid();
@@ -523,27 +525,27 @@ BEGIN
       RAISE EXCEPTION 'INVALID_CANDIDATE_TIME_SLOT' USING ERRCODE = 'P0041';
     END IF;
 
-    -- 店舗の曜日ごとの枠設定（I2）・作品の時間枠（I10）: 送る店舗のどれもその日のその枠を受け付けていなければ申込全体を拒否する（issue #1200）
-    v_slot_rule := public.private_booking_candidate_slot_rule(
-      v_org_id, COALESCE(v_scenario_master_id, p_scenario_id),
-      ARRAY(SELECT (value->>'storeId')::UUID FROM jsonb_array_elements(v_trusted_candidate_datetimes->'requestedStores')),
-      v_cand_date, v_candidate_time_slot);
-    IF v_slot_rule IS NOT NULL THEN
-      RAISE EXCEPTION '選択した候補日時は現在受付できません（%/% %: %）。空き状況を更新して選び直してください',
-        extract(month FROM v_cand_date), extract(day FROM v_cand_date),
-        CASE v_candidate_time_slot WHEN 'morning' THEN '午前' WHEN 'afternoon' THEN '午後' ELSE '夜' END,
-        CASE WHEN v_slot_rule = 'slot_not_allowed' THEN 'この作品では選択できない時間帯です' ELSE '営業時間外です' END
-        USING ERRCODE = '22023';
-    END IF;
-
     v_store_available := false;
     v_blocked_store_count := 0;
+    v_rule_store_count := 0;
+    v_slot_rule := NULL;
 
     FOR v_store_id_text IN
       SELECT value->>'storeId'
       FROM jsonb_array_elements(v_trusted_candidate_datetimes->'requestedStores')
     LOOP
       v_store_uuid := v_store_id_text::UUID;
+
+      -- この店舗で枠が有効か（店舗の曜日の枠 I2・作品の時間枠 I10。issue #1200）。無効なら空きを見ずに次の店へ
+      -- （「枠が有効 AND 空き」を同じ店舗で確かめる。他店の条件を混ぜない）
+      v_store_rule := public.private_booking_store_slot_rule(
+        v_org_id, COALESCE(v_scenario_master_id, p_scenario_id), v_store_uuid, v_cand_date, v_candidate_time_slot,
+        v_requested_store_count = 1);
+      IF v_store_rule IS NOT NULL THEN
+        v_rule_store_count := v_rule_store_count + 1;
+        v_slot_rule := CASE WHEN v_slot_rule = 'closed' OR v_store_rule = 'closed' THEN 'closed' ELSE v_store_rule END;
+        CONTINUE;
+      END IF;
 
       IF EXISTS (
         SELECT 1
@@ -575,7 +577,15 @@ BEGIN
     END LOOP;
 
     IF NOT v_store_available THEN
-      IF v_blocked_store_count = v_requested_store_count THEN
+      -- 送る店舗のどれもこの枠を受け付けていない（I2・I10）: 申込全体を拒否する
+      IF v_rule_store_count = v_requested_store_count THEN
+        RAISE EXCEPTION '選択した候補日時は現在受付できません（%/% %: %）。空き状況を更新して選び直してください',
+          extract(month FROM v_cand_date), extract(day FROM v_cand_date),
+          CASE v_candidate_time_slot WHEN 'morning' THEN '午前' WHEN 'afternoon' THEN '午後' ELSE '夜' END,
+          CASE WHEN v_slot_rule = 'slot_not_allowed' THEN 'この作品では選択できない時間帯です' ELSE '営業時間外です' END
+          USING ERRCODE = '22023';
+      END IF;
+      IF v_blocked_store_count > 0 AND v_blocked_store_count = v_requested_store_count - v_rule_store_count THEN
         RAISE EXCEPTION 'PRIVATE_BOOKING_SLOT_BLOCKED:%:%', v_cand_date, v_candidate_time_slot
           USING ERRCODE = 'P0040';
       END IF;

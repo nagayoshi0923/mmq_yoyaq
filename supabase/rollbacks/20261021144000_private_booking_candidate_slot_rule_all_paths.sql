@@ -823,4 +823,4 @@ END $function$
 REVOKE ALL ON FUNCTION public.private_group_set_preferred_stores(uuid,uuid[],uuid[]) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.private_group_set_preferred_stores(uuid,uuid[],uuid[]) TO authenticated,service_role;
 
-DROP FUNCTION IF EXISTS public.private_booking_candidate_slot_rule(uuid,uuid,uuid[],date,text);
+DROP FUNCTION IF EXISTS public.private_booking_store_slot_rule(uuid,uuid,uuid,date,text,boolean);

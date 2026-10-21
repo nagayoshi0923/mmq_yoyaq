@@ -1,26 +1,32 @@
 -- issue #1200（main 向け hotfix #1202）: 店舗への申込・グループ作成・希望店舗の変更でも、店舗の曜日ごとの枠設定（I2 available_slots）と
 -- 作品の時間枠（I10）を確かめる。本番（main）ではこの 3 経路が I2 を見ておらず、設定で平日朝を止めても
 -- 平日朝の候補から申込・グループ作成ができ、希望店舗を変えても候補が外れなかった（staging は #1168 / 20261020210000 で対応済み。
--- それを丸ごと移さず、main にある関数だけで最小の共通検査を足す）。
--- 共通検査: private_booking_candidate_slot_rule（新規）。店舗の枠は表示・候補の追加と同じ private_booking_store_day_slots
---   （本番 c0bec3c1cd17722fe446b23745ce89b8）と apply_scenario_slot_start_times で読む。開店時刻では決めない（昼 12:00・夜 16:00 固定は通る）。
--- 変更:
---   create_private_booking_request: 送る店舗のどれもその日のその枠を受け付けていない候補があれば申込全体を拒否（22023「選択した候補日時は現在受付できません…」）
---   create_private_group_atomic: 希望店舗のどれも受け付けていない候補があれば作らない（同じ文面。希望店舗が空なら店舗は見ない＝従来どおり）
---   private_group_set_preferred_stores: 新しい希望店舗のどれも受け付けていない候補を外す（外した件数を返す既存の動き）
+-- それを丸ごと移さず、main にある関数だけで最小の検査を足す）。
+-- 店舗ごとの検査: private_booking_store_slot_rule（新規）。店舗 1 つで I10（その店舗の平日／土日祝。特別営業日は土日祝）と
+--   I2（表示・候補の追加と同じ private_booking_store_day_slots。本番 c0bec3c1cd17722fe446b23745ce89b8）を確かめる。
+--   開店時刻では決めない（昼 12:00・夜 16:00 固定は通る）。
+-- 3 経路とも「同じ店舗で 枠が有効 AND 空き（受付停止・募集停止・公演と重ならない）」が、希望店舗・送る店舗のどれか 1 店で成り立つときだけ通す
+--   （枠の可否と空きを別々の店で満たして通ることはない）:
+--   create_private_booking_request: 成り立たない候補があれば申込全体を拒否。どの店も枠が無効なら 22023「選択した候補日時は現在受付できません…」、
+--     それ以外は従来どおり受付停止（P0040）／公演と重なる（P0030）
+--   create_private_group_atomic: 成り立たない候補があれば 22023（同じ文面。理由は 受付停止中／他の公演と重なります／営業時間外／作品の時間帯）で拒否。
+--     希望店舗が空なら店舗は見ない（従来どおり）
+--   private_group_set_preferred_stores: 新しい希望店舗で成り立たない候補を外す（外した件数を返す既存の動き）
 -- 既存の候補・申請中・確定済みの行は変えない（関数の差し替えだけ）。
 -- 各関数の本体は本番の定義（2026-10-21 読み取り、supabase/rpcs/ と同じ）に検査を足しただけ。正本: supabase/rpcs/*.sql
 -- 巻き戻し: supabase/rollbacks/20261021144000_private_booking_candidate_slot_rule_all_paths.sql
--- 仕様: docs/product-spec/貸切受付ルール.md（例 R39・経緯）。試験: supabase/tests/private_booking_rules_examples.sql、data_fix_queens_waltz_weekday_morning_off.sql
+-- 仕様: docs/product-spec/貸切受付ルール.md（例 R39・経緯）。試験: supabase/tests/private_booking_candidate_slot_rule_all_paths.sql ほか
 
--- 貸切の候補 1 件（日付 × 枠）が、作品の時間枠（I10）と店舗の曜日ごとの枠設定（I2 available_slots）で有効か（issue #1200、main 向け）。
--- 戻り値: NULL = 有効 / 'slot_not_allowed' = 作品の時間枠に無い / 'closed' = 対象の店舗のどれもその日のその枠を受け付けていない。
--- 店舗の枠は表示・候補の追加と同じ private_booking_store_day_slots（作品の開始時刻 I11 を重ねた後）で読む。
--- 開店時刻（open_time）では決めない（昼 12:00・夜 16:00 などの固定開始は、枠が有効なら通る）。
--- 公演・受付停止・募集停止・所要時間はここでは見ない（各 RPC の既存の検査のまま）。
--- p_store_ids が空なら店舗は見ない（希望店舗なしで作るグループの従来の動き）。
--- 店舗の絞り込み（有効・オフィス以外・作品の上演店舗／臨時会場以外）は private_booking_slot_store_fit と同じ。
-CREATE OR REPLACE FUNCTION public.private_booking_candidate_slot_rule(p_org uuid, p_scenario_id uuid, p_store_ids uuid[], p_date date, p_slot text)
+-- 貸切の候補 1 件（日付 × 枠）が、店舗 1 つで、作品の時間枠（I10）と店舗の曜日ごとの枠設定（I2 available_slots）の両方で有効か（issue #1200、main 向け）。
+-- 戻り値: NULL = 有効 / 'slot_not_allowed' = 作品の時間枠に無い / 'closed' = この店舗はこの日のこの枠を受け付けていない（上演できない店舗も）。
+-- 店舗ごとに判定する（呼び出し側は「この店舗で枠が有効 AND この店舗で空いている」を店舗ごとに確かめ、どれか 1 店で成り立てば通す）。
+-- 平日／土日祝の扱いも店舗ごと: 土日・祝日・組織の独自休日に加え、その店舗の特別営業日（special_open_days）は土日祝（I5）。
+--   I10 の平日／土日祝の枠、作品の開始時刻（I11）はこの店舗ごとの扱いで読む（private_booking_slot_store_fit と同じ）。
+-- 店舗の枠は表示・候補の追加と同じ private_booking_store_day_slots で読む。開店時刻（open_time）では決めない
+--   （昼 12:00・夜 16:00 などの固定開始は、枠が有効なら通る）。公演・受付停止・募集停止は呼び出し側で見る。
+-- p_single: 希望店舗・送る店舗が 1 店だけか（営業設定の無い店舗を 3 枠とも有効とみなすのはそのときだけ。表示と同じ）。
+-- 店舗の絞り込み（同じ組織・有効・オフィス以外・作品の上演店舗／臨時会場以外）は private_booking_slot_store_fit と同じ。
+CREATE OR REPLACE FUNCTION public.private_booking_store_slot_rule(p_org uuid, p_scenario_id uuid, p_store_id uuid, p_date date, p_slot text, p_single boolean)
  RETURNS text
  LANGUAGE plpgsql
  STABLE
@@ -28,40 +34,38 @@ CREATE OR REPLACE FUNCTION public.private_booking_candidate_slot_rule(p_org uuid
 AS $function$
 DECLARE
  v_available_stores text[]; v_weekday text[]; v_weekend text[]; v_start_times jsonb; v_custom jsonb;
- v_holiday boolean; v_allowed text[]; st record; v_weekend_day boolean; v_eff jsonb;
+ v_holiday boolean; v_hours jsonb; v_weekend_day boolean; v_allowed text[]; v_eff jsonb;
 BEGIN
- IF p_date IS NULL OR p_slot IS NULL OR p_slot NOT IN ('morning','afternoon','evening') THEN RETURN 'closed'; END IF;
+ IF p_store_id IS NULL OR p_date IS NULL OR p_slot IS NULL OR p_slot NOT IN ('morning','afternoon','evening') THEN RETURN 'closed'; END IF;
  SELECT s.available_stores, s.private_booking_time_slots, s.private_booking_time_slots_weekend, s.private_booking_slot_start_times
    INTO v_available_stores, v_weekday, v_weekend, v_start_times
  FROM public.organization_scenarios s
  WHERE s.organization_id=p_org AND (s.scenario_master_id=p_scenario_id OR s.id=p_scenario_id)
  ORDER BY (s.id=p_scenario_id) DESC LIMIT 1;
+ SELECT to_jsonb(h) INTO v_hours FROM public.stores s
+  LEFT JOIN public.business_hours_settings h ON h.store_id=s.id AND h.organization_id=p_org
+ WHERE s.id=p_store_id AND s.organization_id=p_org AND s.status='active'
+  AND s.ownership_type IS DISTINCT FROM 'office'
+  AND CASE WHEN coalesce(cardinality(v_available_stores),0)>0 THEN s.id::text=ANY(v_available_stores) ELSE NOT coalesce(s.is_temporary,false) END
+ ORDER BY h.id LIMIT 1;
+ IF NOT FOUND THEN RETURN 'closed'; END IF;
  SELECT coalesce(os.custom_holidays,'[]'::jsonb) INTO v_custom FROM public.organization_settings os WHERE os.organization_id=p_org;
  v_holiday:=extract(dow FROM p_date) IN (0,6) OR public.is_booking_calendar_holiday(p_date) OR coalesce(v_custom ? p_date::text,false);
- -- I10（候補の追加・グループ作成と同じ読み方）
- v_allowed:=CASE WHEN v_holiday THEN v_weekend ELSE v_weekday END;
+ v_weekend_day:=v_holiday OR EXISTS(SELECT 1 FROM jsonb_array_elements(coalesce(nullif(v_hours->'special_open_days','null'::jsonb),'[]'::jsonb)) d WHERE d->>'date'=p_date::text);
+ -- I10（この店舗での平日／土日祝で読む）
+ v_allowed:=CASE WHEN v_weekend_day THEN v_weekend ELSE v_weekday END;
  IF coalesce(cardinality(v_allowed),0)>0 AND NOT EXISTS(
   SELECT 1 FROM unnest(v_allowed) value WHERE value=ANY(CASE p_slot
    WHEN 'morning' THEN ARRAY['午前','朝公演','朝'] WHEN 'afternoon' THEN ARRAY['午後','昼公演','昼'] ELSE ARRAY['夜','夜公演'] END)
  ) THEN RETURN 'slot_not_allowed'; END IF;
- IF coalesce(cardinality(p_store_ids),0)=0 THEN RETURN NULL; END IF;
- -- I2: 対象の店舗のうち 1 店でもその日のその枠を受け付けていれば有効（private_booking_slot_store_fit と同じ読み方）
- FOR st IN SELECT s.id, to_jsonb(h) AS hours FROM public.stores s
-  LEFT JOIN public.business_hours_settings h ON h.store_id=s.id AND h.organization_id=p_org
-  WHERE s.id=ANY(p_store_ids) AND s.organization_id=p_org AND s.status='active'
-   AND s.ownership_type IS DISTINCT FROM 'office'
-   AND CASE WHEN coalesce(cardinality(v_available_stores),0)>0 THEN s.id::text=ANY(v_available_stores) ELSE NOT coalesce(s.is_temporary,false) END
-  ORDER BY s.id
- LOOP
-  v_weekend_day:=v_holiday OR EXISTS(SELECT 1 FROM jsonb_array_elements(coalesce(nullif(st.hours->'special_open_days','null'::jsonb),'[]'::jsonb)) d WHERE d->>'date'=p_date::text);
-  v_eff:=public.apply_scenario_slot_start_times(st.hours,v_start_times,v_weekend_day);
-  IF EXISTS(SELECT 1 FROM public.private_booking_store_day_slots(p_date,v_eff,v_holiday,cardinality(p_store_ids)=1) x WHERE x.slot_key=p_slot) THEN
-   RETURN NULL;
-  END IF;
- END LOOP;
+ -- I2（private_booking_slot_store_fit と同じ読み方）
+ v_eff:=public.apply_scenario_slot_start_times(v_hours,v_start_times,v_weekend_day);
+ IF EXISTS(SELECT 1 FROM public.private_booking_store_day_slots(p_date,v_eff,v_holiday,coalesce(p_single,false)) x WHERE x.slot_key=p_slot) THEN
+  RETURN NULL;
+ END IF;
  RETURN 'closed';
 END $function$;
-REVOKE ALL ON FUNCTION public.private_booking_candidate_slot_rule(uuid,uuid,uuid[],date,text) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.private_booking_store_slot_rule(uuid,uuid,uuid,date,text,boolean) FROM PUBLIC,anon,authenticated;
 
 -- QW-20260917-001 A04: either the complete invitation group is created, or nothing is.
 CREATE OR REPLACE FUNCTION public.create_private_group_atomic(
@@ -71,7 +75,8 @@ CREATE OR REPLACE FUNCTION public.create_private_group_atomic(
 DECLARE
  v_user uuid:=auth.uid(); v_group public.private_groups; v_member uuid;
  v_name text; v_settings public.global_settings; v_date jsonb; v_order bigint;
- v_custom_holidays jsonb; v_weekday_slots text[]; v_weekend_slots text[]; v_cand date; v_holiday boolean; v_allowed text[]; v_rule text;
+ v_custom_holidays jsonb; v_weekday_slots text[]; v_weekend_slots text[]; v_cand date; v_holiday boolean; v_allowed text[];
+ v_slot text; v_start time; v_end time; v_store uuid; v_r text; v_rule text; v_busy text; v_ok boolean; v_single boolean;
 BEGIN
  IF v_user IS NULL THEN RAISE EXCEPTION 'ログインが必要です' USING ERRCODE='42501'; END IF;
  IF NOT EXISTS(SELECT 1 FROM organizations WHERE id=p_organization_id AND is_active IS TRUE) THEN
@@ -117,14 +122,32 @@ BEGIN
    SELECT 1 FROM unnest(v_allowed) value WHERE value=ANY(CASE v_date->>'time_slot'
     WHEN '午前' THEN ARRAY['午前','朝公演','朝'] WHEN '午後' THEN ARRAY['午後','昼公演','昼'] ELSE ARRAY['夜','夜公演'] END)
   ) THEN RAISE EXCEPTION 'この作品では選択できない時間帯です' USING ERRCODE='22023'; END IF;
-  -- 店舗の曜日ごとの枠設定（I2）。希望店舗のどれもその日のその枠を受け付けていなければ作らない（issue #1200）
-  v_rule:=public.private_booking_candidate_slot_rule(p_organization_id,p_scenario_master_id,coalesce(p_preferred_store_ids,'{}'),v_cand,
-   CASE v_date->>'time_slot' WHEN '午前' THEN 'morning' WHEN '午後' THEN 'afternoon' ELSE 'evening' END);
-  IF v_rule IS NOT NULL THEN
-   RAISE EXCEPTION '選択した候補日時は現在受付できません（%/% %: %）。空き状況を更新して選び直してください',
-    extract(month FROM v_cand),extract(day FROM v_cand),CASE v_date->>'time_slot' WHEN '夜間' THEN '夜' ELSE v_date->>'time_slot' END,
-    CASE WHEN v_rule='slot_not_allowed' THEN 'この作品では選択できない時間帯です' ELSE '営業時間外です' END
-    USING ERRCODE='22023';
+  -- 希望店舗のどれか 1 店で「枠が有効（I2・I10。private_booking_store_slot_rule）AND 受付停止・募集停止・公演と重ならない」が
+  -- 成り立つ候補だけ作る（issue #1200）。店舗ごとに両方を確かめ、他店の条件を混ぜない。希望店舗が空なら店舗は見ない（従来どおり）
+  IF coalesce(cardinality(p_preferred_store_ids),0)>0 THEN
+   v_slot:=CASE v_date->>'time_slot' WHEN '午前' THEN 'morning' WHEN '午後' THEN 'afternoon' ELSE 'evening' END;
+   v_start:=(v_date->>'start_time')::time; v_end:=(v_date->>'end_time')::time;
+   v_rule:=NULL; v_busy:=NULL; v_ok:=false;
+   SELECT count(DISTINCT s)=1 INTO v_single FROM unnest(p_preferred_store_ids) s;
+   FOR v_store IN SELECT DISTINCT s FROM unnest(p_preferred_store_ids) s ORDER BY s LOOP
+    v_r:=public.private_booking_store_slot_rule(p_organization_id,p_scenario_master_id,v_store,v_cand,v_slot,v_single);
+    IF v_r IS NOT NULL THEN v_rule:=CASE WHEN v_rule='closed' OR v_r='closed' THEN 'closed' ELSE v_r END; CONTINUE; END IF;
+    IF EXISTS(SELECT 1 FROM schedule_blocked_slots b WHERE b.organization_id=p_organization_id AND b.store_id=v_store::text AND b.date=v_cand AND b.time_slot=v_slot)
+     OR public.is_store_recruitment_paused(v_store,'private',v_cand) THEN v_busy:='blocked'; CONTINUE; END IF;
+    IF EXISTS(SELECT 1 FROM schedule_events e WHERE e.organization_id=p_organization_id AND e.store_id=v_store AND e.is_cancelled=false
+     AND e.date BETWEEN v_cand-2 AND v_cand+2
+     AND e.date+e.start_time < v_cand+v_end+CASE WHEN v_end<v_start THEN interval '1 day' ELSE interval '0 days' END+make_interval(mins=>public.resolve_preparation_minutes(p_organization_id,NULL,NULL,e.id))
+     AND e.date+e.end_time+CASE WHEN e.end_time<e.start_time THEN interval '1 day' ELSE interval '0 days' END > v_cand+v_start-make_interval(mins=>public.resolve_preparation_minutes(p_organization_id,v_store,p_scenario_master_id,NULL))
+    ) THEN v_busy:=coalesce(v_busy,'conflict'); CONTINUE; END IF;
+    v_ok:=true; EXIT;
+   END LOOP;
+   IF NOT v_ok THEN
+    RAISE EXCEPTION '選択した候補日時は現在受付できません（%/% %: %）。空き状況を更新して選び直してください',
+     extract(month FROM v_cand),extract(day FROM v_cand),CASE v_date->>'time_slot' WHEN '夜間' THEN '夜' ELSE v_date->>'time_slot' END,
+     CASE WHEN v_busy='blocked' THEN '受付停止中です' WHEN v_busy='conflict' THEN '他の公演と重なります'
+      WHEN v_rule='slot_not_allowed' THEN 'この作品では選択できない時間帯です' ELSE '営業時間外です' END
+     USING ERRCODE='22023';
+   END IF;
   END IF;
   INSERT INTO private_group_candidate_dates(group_id,date,time_slot,start_time,end_time,order_num)
   VALUES(v_group.id,(v_date->>'date')::date,v_date->>'time_slot',v_date->>'start_time',v_date->>'end_time',coalesce((v_date->>'order_num')::integer,v_order::integer));
@@ -198,6 +221,8 @@ DECLARE
   v_player_count_max INTEGER;
   v_scenario_kind TEXT;
   v_slot_rule TEXT;
+  v_store_rule TEXT;
+  v_rule_store_count INTEGER;
 BEGIN
   -- 20260414150000 の認可境界を維持する。SECURITY DEFINERでもanon/なりすましを許可しない。
   v_caller_user_id := auth.uid();
@@ -664,27 +689,27 @@ BEGIN
       RAISE EXCEPTION 'INVALID_CANDIDATE_TIME_SLOT' USING ERRCODE = 'P0041';
     END IF;
 
-    -- 店舗の曜日ごとの枠設定（I2）・作品の時間枠（I10）: 送る店舗のどれもその日のその枠を受け付けていなければ申込全体を拒否する（issue #1200）
-    v_slot_rule := public.private_booking_candidate_slot_rule(
-      v_org_id, COALESCE(v_scenario_master_id, p_scenario_id),
-      ARRAY(SELECT (value->>'storeId')::UUID FROM jsonb_array_elements(v_trusted_candidate_datetimes->'requestedStores')),
-      v_cand_date, v_candidate_time_slot);
-    IF v_slot_rule IS NOT NULL THEN
-      RAISE EXCEPTION '選択した候補日時は現在受付できません（%/% %: %）。空き状況を更新して選び直してください',
-        extract(month FROM v_cand_date), extract(day FROM v_cand_date),
-        CASE v_candidate_time_slot WHEN 'morning' THEN '午前' WHEN 'afternoon' THEN '午後' ELSE '夜' END,
-        CASE WHEN v_slot_rule = 'slot_not_allowed' THEN 'この作品では選択できない時間帯です' ELSE '営業時間外です' END
-        USING ERRCODE = '22023';
-    END IF;
-
     v_store_available := false;
     v_blocked_store_count := 0;
+    v_rule_store_count := 0;
+    v_slot_rule := NULL;
 
     FOR v_store_id_text IN
       SELECT value->>'storeId'
       FROM jsonb_array_elements(v_trusted_candidate_datetimes->'requestedStores')
     LOOP
       v_store_uuid := v_store_id_text::UUID;
+
+      -- この店舗で枠が有効か（店舗の曜日の枠 I2・作品の時間枠 I10。issue #1200）。無効なら空きを見ずに次の店へ
+      -- （「枠が有効 AND 空き」を同じ店舗で確かめる。他店の条件を混ぜない）
+      v_store_rule := public.private_booking_store_slot_rule(
+        v_org_id, COALESCE(v_scenario_master_id, p_scenario_id), v_store_uuid, v_cand_date, v_candidate_time_slot,
+        v_requested_store_count = 1);
+      IF v_store_rule IS NOT NULL THEN
+        v_rule_store_count := v_rule_store_count + 1;
+        v_slot_rule := CASE WHEN v_slot_rule = 'closed' OR v_store_rule = 'closed' THEN 'closed' ELSE v_store_rule END;
+        CONTINUE;
+      END IF;
 
       IF EXISTS (
         SELECT 1
@@ -716,7 +741,15 @@ BEGIN
     END LOOP;
 
     IF NOT v_store_available THEN
-      IF v_blocked_store_count = v_requested_store_count THEN
+      -- 送る店舗のどれもこの枠を受け付けていない（I2・I10）: 申込全体を拒否する
+      IF v_rule_store_count = v_requested_store_count THEN
+        RAISE EXCEPTION '選択した候補日時は現在受付できません（%/% %: %）。空き状況を更新して選び直してください',
+          extract(month FROM v_cand_date), extract(day FROM v_cand_date),
+          CASE v_candidate_time_slot WHEN 'morning' THEN '午前' WHEN 'afternoon' THEN '午後' ELSE '夜' END,
+          CASE WHEN v_slot_rule = 'slot_not_allowed' THEN 'この作品では選択できない時間帯です' ELSE '営業時間外です' END
+          USING ERRCODE = '22023';
+      END IF;
+      IF v_blocked_store_count > 0 AND v_blocked_store_count = v_requested_store_count - v_rule_store_count THEN
         RAISE EXCEPTION 'PRIVATE_BOOKING_SLOT_BLOCKED:%:%', v_cand_date, v_candidate_time_slot
           USING ERRCODE = 'P0040';
       END IF;
@@ -888,16 +921,14 @@ BEGIN
   -- 店舗間の公演移動の前後を混ぜて「全店満席」と誤認しない。
   SELECT EXISTS(
    SELECT 1 FROM unnest(selected) AS choice(store_id)
-   WHERE NOT EXISTS(SELECT 1 FROM public.schedule_blocked_slots b WHERE b.organization_id=g.organization_id AND b.store_id=choice.store_id::text AND b.date=cd.date AND b.time_slot=slot)
+   -- 同じ店舗で「枠が有効（I2・I10）AND 空き」が成り立つこと（issue #1200。他店の条件を混ぜない）
+   WHERE public.private_booking_store_slot_rule(g.organization_id,g.scenario_master_id,choice.store_id,cd.date,slot,cardinality(selected)=1) IS NULL
+   AND NOT EXISTS(SELECT 1 FROM public.schedule_blocked_slots b WHERE b.organization_id=g.organization_id AND b.store_id=choice.store_id::text AND b.date=cd.date AND b.time_slot=slot)
    AND NOT EXISTS(SELECT 1 FROM public.schedule_events e WHERE e.organization_id=g.organization_id AND e.store_id=choice.store_id AND e.is_cancelled=false
     AND e.date BETWEEN cd.date-2 AND cd.date+2
     AND e.date+e.start_time < v_candidate_end_at+make_interval(mins=>public.resolve_preparation_minutes(g.organization_id,NULL,NULL,e.id))
     AND e.date+e.end_time+CASE WHEN e.end_time<e.start_time THEN interval '1 day' ELSE interval '0 days' END > v_candidate_start_at-make_interval(mins=>public.resolve_preparation_minutes(g.organization_id,choice.store_id,g.scenario_master_id,NULL)))
   ) INTO available;
-  -- 新しい希望店舗のどれもその日のその枠を受け付けていない（店舗の曜日ごとの枠設定 I2・作品の時間枠 I10）候補も外す（issue #1200）
-  IF available AND public.private_booking_candidate_slot_rule(g.organization_id,g.scenario_master_id,selected,cd.date,slot) IS NOT NULL THEN
-   available:=false;
-  END IF;
   IF NOT available THEN
    DELETE FROM public.private_group_candidate_dates WHERE id=cd.id AND group_id=g.id;
    removed:=removed+1;
