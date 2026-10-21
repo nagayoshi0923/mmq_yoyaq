@@ -47,17 +47,24 @@ CREATE OR REPLACE FUNCTION pg_temp.qw_morning_off(p_hours jsonb) RETURNS jsonb L
 $$;
 
 -- 退避表（ブラウザの役割からは読めない。復旧と照合に使う。不要になったら手順書に従って削除する）
-CREATE TABLE IF NOT EXISTS public.business_hours_settings_backup_20261021 (
+-- public ではなく archive スキーマに置く（既存の退避表と同じ置き場所。PostgREST に公開されず、anon・authenticated は
+--   スキーマの USAGE も持たない）。DB 構造の記録（scripts/db-structure-snapshot.mjs）は public だけを見るため、
+--   退避表を作っても残しても supabase/structure/<env>.json との差（定期 DB Drift の失敗）にならない。
+-- archive は 2026-10-02 の migration（20261002120000）で本番・staging とも作成済み。無い DB（手元など）でも同じ状態で作る。
+CREATE SCHEMA IF NOT EXISTS archive;
+REVOKE ALL ON SCHEMA archive FROM PUBLIC;
+REVOKE ALL ON SCHEMA archive FROM anon, authenticated;
+CREATE TABLE IF NOT EXISTS archive.business_hours_settings_backup_20261021 (
   id uuid PRIMARY KEY,
   store_id uuid,
   opening_hours jsonb,
   updated_at timestamptz,
   backed_up_at timestamptz NOT NULL DEFAULT now()
 );
-REVOKE ALL ON TABLE public.business_hours_settings_backup_20261021 FROM anon, authenticated;
-ALTER TABLE public.business_hours_settings_backup_20261021 ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.business_hours_settings_backup_20261021 FORCE ROW LEVEL SECURITY;
-COMMENT ON TABLE public.business_hours_settings_backup_20261021 IS
+REVOKE ALL ON TABLE archive.business_hours_settings_backup_20261021 FROM anon, authenticated;
+ALTER TABLE archive.business_hours_settings_backup_20261021 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE archive.business_hours_settings_backup_20261021 FORCE ROW LEVEL SECURITY;
+COMMENT ON TABLE archive.business_hours_settings_backup_20261021 IS
   '2026-10-21 クインズワルツ平日朝枠の停止（PR #1201）の退避。復旧は supabase/data-fixes/20261021_queens_waltz_weekday_morning_off_rollback.sql';
 
 -- 対象の行を固定（更新が終わるまで他から書き換えさせない）
@@ -83,7 +90,7 @@ BEGIN
 END $$;
 
 -- 退避（既にある行は上書きしない = 最初の値を残す）
-INSERT INTO public.business_hours_settings_backup_20261021(id, store_id, opening_hours, updated_at)
+INSERT INTO archive.business_hours_settings_backup_20261021(id, store_id, opening_hours, updated_at)
 SELECT id, store_id, opening_hours, updated_at FROM _qw_target
 ON CONFLICT (id) DO NOTHING;
 

@@ -1,5 +1,5 @@
 -- 復旧: 20261021_queens_waltz_weekday_morning_off.sql（クインズワルツ平日朝枠の停止）を戻す
--- 退避表 public.business_hours_settings_backup_20261021 の opening_hours を書き戻す。
+-- 退避表 archive.business_hours_settings_backup_20261021 の opening_hours を書き戻す。
 -- 書き戻すのは「今の値 = 退避した値にデータ修正を当てた値」の行だけ（修正後に設定画面で誰かが変えた行は上書きしない）。
 -- 変えられていた行は WARNING で店舗 ID を出して飛ばす → 設定 › 店舗別 › 営業時間 で手で直す（手順書 docs/ops/平日朝枠の停止_2026-10.md）。
 -- updated_at は戻らない（更新時の自動記録で復旧時刻になる）。退避表は消さない（照合のため残す）。
@@ -34,12 +34,12 @@ $$;
 DO $$
 DECLARE r record; v_restored integer := 0; v_skipped integer := 0; v_same integer := 0;
 BEGIN
-  IF to_regclass('public.business_hours_settings_backup_20261021') IS NULL THEN
-    RAISE EXCEPTION '退避表 public.business_hours_settings_backup_20261021 が無い（データ修正を当てていない）。中止';
+  IF to_regclass('archive.business_hours_settings_backup_20261021') IS NULL THEN
+    RAISE EXCEPTION '退避表 archive.business_hours_settings_backup_20261021 が無い（データ修正を当てていない）。中止';
   END IF;
   FOR r IN
     SELECT k.id, k.store_id, k.opening_hours AS before_hours, b.opening_hours AS now_hours
-    FROM public.business_hours_settings_backup_20261021 k
+    FROM archive.business_hours_settings_backup_20261021 k
     JOIN public.business_hours_settings b ON b.id = k.id
     ORDER BY k.store_id
     FOR UPDATE OF b
@@ -55,6 +55,6 @@ BEGIN
     END IF;
   END LOOP;
   RAISE NOTICE '書き戻し % 店・既に元の値 % 店・飛ばした % 店（退避 % 店）', v_restored, v_same, v_skipped,
-    (SELECT count(*) FROM public.business_hours_settings_backup_20261021);
+    (SELECT count(*) FROM archive.business_hours_settings_backup_20261021);
 END $$;
 COMMIT;

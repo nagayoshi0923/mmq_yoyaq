@@ -9,7 +9,7 @@ SELECT o.slug, count(*) AS settings_rows, count(DISTINCT b.store_id) AS stores
 FROM public.business_hours_settings b JOIN public.organizations o ON o.id = b.organization_id
 WHERE o.slug IN ('queens-waltz', 'queenswaltz-sapporo') GROUP BY o.slug ORDER BY o.slug;
 
-SELECT to_regclass('public.business_hours_settings_backup_20261021') IS NOT NULL AS qw_has_backup \gset
+SELECT to_regclass('archive.business_hours_settings_backup_20261021') IS NOT NULL AS qw_has_backup \gset
 \if :qw_has_backup
 SELECT b.store_id, s.name AS store_name, d.k AS day,
   d.v->>'open_time' AS open_time,
@@ -19,17 +19,17 @@ SELECT b.store_id, s.name AS store_name, d.k AS day,
 FROM public.business_hours_settings b
 JOIN public.organizations o ON o.id = b.organization_id
 JOIN public.stores s ON s.id = b.store_id
-LEFT JOIN public.business_hours_settings_backup_20261021 k ON k.id = b.id
+LEFT JOIN archive.business_hours_settings_backup_20261021 k ON k.id = b.id
 CROSS JOIN LATERAL jsonb_each(b.opening_hours) d(k,v)
 WHERE o.slug = 'queens-waltz' AND d.k IN ('monday','tuesday','wednesday','thursday','friday')
 ORDER BY s.name, array_position(ARRAY['monday','tuesday','wednesday','thursday','friday'], d.k);
-SELECT count(*) AS backup_rows, min(backed_up_at) AS backed_up_at FROM public.business_hours_settings_backup_20261021;
+SELECT count(*) AS backup_rows, min(backed_up_at) AS backed_up_at FROM archive.business_hours_settings_backup_20261021;
 -- 土日・特別営業日・休業日・他の項目が退避時と同じか（false の行があれば調べる）
 SELECT k.store_id,
   (b.opening_hours - ARRAY['monday','tuesday','wednesday','thursday','friday']) = (k.opening_hours - ARRAY['monday','tuesday','wednesday','thursday','friday']) AS weekend_same,
   (SELECT bool_and((b.opening_hours->d) - 'available_slots' = (k.opening_hours->d) - 'available_slots')
      FROM unnest(ARRAY['monday','tuesday','wednesday','thursday','friday']) d) AS weekday_other_fields_same
-FROM public.business_hours_settings_backup_20261021 k JOIN public.business_hours_settings b ON b.id = k.id
+FROM archive.business_hours_settings_backup_20261021 k JOIN public.business_hours_settings b ON b.id = k.id
 ORDER BY k.store_id;
 \else
 SELECT b.store_id, s.name AS store_name, d.k AS day, d.v->>'is_open' AS is_open, d.v->>'open_time' AS open_time,
