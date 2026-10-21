@@ -12,6 +12,9 @@
 \set qw_rb `sed -E '/^[[:space:]]*(BEGIN|COMMIT)[[:space:]]*;[[:space:]]*$/d' supabase/data-fixes/20261021_queens_waltz_weekday_morning_off_rollback.sql`
 BEGIN;
 \ir fixtures/private_test_group.sql
+-- 境界の店（st3）: seed だけの新しい DB でも通るよう、無ければ作る（あれば触らない。最後の ROLLBACK で消える）
+INSERT INTO stores(id,name,short_name,organization_id) VALUES('4206bcea-43b3-4a6e-a03b-fe674c800982','試験 境界の店','境','00000000-0000-4000-a000-000000000001')
+ ON CONFLICT (id) DO NOTHING;
 CREATE TEMP TABLE _ctx(org uuid, sm uuid, st1 uuid, st2 uuid, st3 uuid, grp uuid, other_org uuid, other_st uuid);
 INSERT INTO _ctx VALUES('00000000-0000-4000-a000-000000000001','00000000-0000-4000-a000-000000000202',
  '00000000-0000-4000-a000-000000000101','00000000-0000-4000-a000-000000000102','4206bcea-43b3-4a6e-a03b-fe674c800982',
