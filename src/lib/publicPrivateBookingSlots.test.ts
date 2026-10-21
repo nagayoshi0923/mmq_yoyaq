@@ -21,9 +21,22 @@ describe('公開スケジュールの貸切受付', () => {
   it('すべての枠を無効にした店では出さない', () => {
     expect(options('evening', [row('a', {available_slots:[]})])).toEqual([])
   })
-  it('開店前に開始せず閉店後の枠を出さない', () => {
-    expect(options('afternoon', [row('a', {open_time:'16:00'})])).toEqual([{storeId:'a',startTime:'16:00'}])
+  // 2026-10-21 issue #1200（社長の仕様訂正）: 開店時刻は枠の可否・開始を決めない。枠の可否は available_slots（I2）。DB と同じ
+  it('開店時刻より前でも有効な枠は設定の開始時刻で出し、閉店後の枠は出さない', () => {
+    expect(options('afternoon', [row('a', {open_time:'16:00'})])).toEqual([{storeId:'a',startTime:'14:30'}])
     expect(options('evening', [row('a', {close_time:'18:00'})])).toEqual([])
+  })
+  it('平日 開店 13:00 でも朝を有効にした店（東京の店舗と同じ）は朝 10:00 を出し、朝が無効な店（札幌店と同じ）は出さない', () => {
+    const tokyo = row('t', {available_slots:['morning', 'afternoon', 'evening'], slot_start_times:{morning:'10:00', afternoon:'13:00', evening:'19:00'}})
+    const sapporo = row('s', {slot_start_times:{morning:'10:00', afternoon:'13:00', evening:'19:00'}})
+    expect(options('morning', [tokyo])).toEqual([{storeId:'t',startTime:'10:00'}])
+    expect(options('morning', [sapporo])).toEqual([])
+    expect(options('morning', [tokyo, sapporo])).toEqual([{storeId:'t',startTime:'10:00'}])
+    expect(options('afternoon', [sapporo])).toEqual([{storeId:'s',startTime:'13:00'}])
+    expect(options('evening', [sapporo])).toEqual([{storeId:'s',startTime:'19:00'}])
+  })
+  it('営業設定が無い店は DB の合成と同じく平日も 3 枠（朝 10:00）', () => {
+    expect(options('morning', [{store_id:'n', opening_hours:null}])).toEqual([{storeId:'n',startTime:'10:00'}])
   })
   it('複数店舗から停止店だけを除き、全店停止なら非表示', () => {
     const blocked = [{date,store_id:'a',time_slot:'afternoon'}]

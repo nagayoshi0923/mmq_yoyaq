@@ -72,7 +72,7 @@ DECLARE
  free_hours int4multirange; free_unblocked int4multirange; free_events int4multirange; free_all int4multirange;
  occ int4multirange; cand int4range; hours_ok boolean; unblocked_ok boolean; events_ok boolean;
  weekend boolean; lo integer; hi_excl integer; allowed text[]; slot_times jsonb; title text; available text[];
- weekday_minutes integer; weekend_minutes integer; unfloored integer;
+ weekday_minutes integer; weekend_minutes integer;
 BEGIN
  title:=coalesce(p_scenario->>'title','');
  slot_times:=p_scenario->'private_booking_slot_start_times';
@@ -110,15 +110,6 @@ BEGIN
   SELECT (x->>'start_minutes')::integer AS start_minutes,(x->>'end_minutes')::integer AS end_minutes,(x->>'closing_minutes')::integer AS closing_minutes
    INTO band FROM jsonb_array_elements(slots) x WHERE x->>'slot_key'=p_slot;
   IF NOT FOUND THEN RETURN NEXT; CONTINUE; END IF;
-  -- 作品の開始時刻（I11）が店舗の開店時刻より前のときは、開店時刻へずらさず選べない（closed）。
-  -- 枠の開始は開店時刻より前にしない（2026-10-21 issue #1200）＋作品の開始時刻は絶対（2026-10-15 社長決定）。
-  -- 開店時刻の下限を外した（open_time を 00:00 にした）場合の開始と比べ、下限で動いたかを見る。
-  IF fixed AND jsonb_typeof(eff->'opening_hours')='object' THEN
-   SELECT x.start_minutes INTO unfloored FROM public.private_booking_store_day_slots(p_date,
-    jsonb_set(eff,'{opening_hours}',(SELECT coalesce(jsonb_object_agg(e.k,CASE WHEN jsonb_typeof(e.v)='object' THEN e.v||'{"open_time":"00:00"}'::jsonb ELSE e.v END),'{}'::jsonb)
-     FROM jsonb_each(eff->'opening_hours') e(k,v))),weekend,cardinality(p_store_ids)=1) x WHERE x.slot_key=p_slot;
-   IF unfloored IS NOT NULL AND band.start_minutes>unfloored THEN RETURN NEXT; CONTINUE; END IF;
-  END IF;
   prep:=public.resolve_preparation_minutes(p_org,st.id,p_scenario_id,NULL);
   -- 標準開始。戦塵のレガストリア／BeatSpecter の土日祝の夜は 19:30（それより前には始めない。
   -- ただし 19:30 開始で 23:00 を超えるときは従来どおり 23:00 終わりまで繰り上げてよい）。
