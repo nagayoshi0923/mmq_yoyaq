@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Bell, Check, CheckCheck, Calendar, Clock, AlertCircle, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useNotifications, Notification } from '@/hooks/useNotifications'
 import { formatDistanceToNow } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
@@ -14,10 +15,18 @@ interface NotificationDropdownProps {
 
 export function NotificationDropdown({ className }: NotificationDropdownProps) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [isOpen, setIsOpen] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState({ top: 0, right: 0 })
+  // 詳細ウィンドウで見せている通知（どの通知も押すとここで全文を見せる。押しただけでは遷移しない）
+  const [detail, setDetail] = useState<Notification | null>(null)
+
+  // ブラウザの戻る・進むなどで画面が変わったら詳細ウィンドウを閉じる（別の画面に開いたまま残さない）
+  useEffect(() => {
+    setDetail(null)
+  }, [location.pathname, location.search])
   const { notifications, loading, unreadCount, newCount, markBellSeen, markAsRead, markAllAsRead } = useNotifications()
 
   // ベルを開いたら新着の数字を消す（一覧の未読の印は押すか「すべて既読」まで残る）
@@ -89,13 +98,17 @@ export function NotificationDropdown({ className }: NotificationDropdownProps) {
     }
   }
 
-  // 通知クリック時の処理
+  // 通知を押すと詳細ウィンドウで全文を見せる（遷移はウィンドウの「開く」ボタンだけ）。未読なら開いた時点で 1 回だけ既読にする
   const handleNotificationClick = (notification: Notification) => {
-    markAsRead(notification.id)
-    if (notification.link) {
-      navigate(notification.link)
-    }
+    if (!notification.read) markAsRead(notification.id)
     setIsOpen(false)
+    setDetail(notification)
+  }
+
+  const openDetailLink = () => {
+    const link = detail?.link
+    setDetail(null)
+    if (link) navigate(link)
   }
 
   // ドロップダウンコンテンツ（Portal用）
@@ -228,6 +241,53 @@ export function NotificationDropdown({ className }: NotificationDropdownProps) {
 
       {/* ドロップダウン - Portalでbody直下にレンダリング */}
       {isOpen && createPortal(dropdownContent, document.body)}
+
+      {/* 通知の詳細ウィンドウ（題名・本文の全文・項目・「開く」） */}
+      <Dialog open={detail !== null} onOpenChange={(open) => { if (!open) setDetail(null) }}>
+        {detail && (
+          <DialogContent
+            size="md"
+            // 中身の最小幅で横に広がらないよう列を 0 まで縮められるようにし、長い URL や英数字も折り返す（ボタンを画面内に保つ）
+            className="sm:max-w-lg p-4 sm:p-6 gap-3 grid-cols-[minmax(0,1fr)] [&>*]:min-w-0 [overflow-wrap:anywhere]"
+            // 閉じたらベルのボタンへフォーカスを戻す（キーボード・読み上げで元の位置に戻れるように）
+            onCloseAutoFocus={(e) => {
+              e.preventDefault()
+              buttonRef.current?.focus()
+            }}
+          >
+            <DialogHeader className="text-left pr-6">
+              <DialogTitle className="text-base leading-snug [overflow-wrap:anywhere]">{detail.title}</DialogTitle>
+              <p className="text-xs text-muted-foreground">
+                {formatDistanceToNow(detail.timestamp, { addSuffix: true, locale: ja })}
+              </p>
+            </DialogHeader>
+            <DialogDescription className="text-sm text-foreground leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">
+              {detail.message}
+            </DialogDescription>
+            {detail.details && detail.details.length > 0 && (
+              <ul className="list-disc pl-5 space-y-2 text-sm text-foreground leading-relaxed [overflow-wrap:anywhere]" aria-label="お知らせの項目">
+                {detail.details.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+            )}
+            <DialogFooter className="sticky -bottom-4 sm:-bottom-6 -mb-4 sm:-mb-6 pb-4 sm:pb-6 pt-2 bg-background border-t border-border gap-2 sm:gap-2 sm:space-x-0">
+              <Button type="button" variant="outline" onClick={() => setDetail(null)}>
+                閉じる
+              </Button>
+              {detail.link && (
+                <Button
+                  type="button"
+                  onClick={openDetailLink}
+                  className="bg-[#E60012] hover:bg-[#CC0010] text-white"
+                >
+                  開く
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   )
 }
