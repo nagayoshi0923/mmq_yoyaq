@@ -347,6 +347,8 @@ export function useEventSave({
         // 置くと、その間ずっと仮ID（temp-）のセルが見えてしまい、右クリックの
         // 中止・削除が「存在しないID」で失敗する（2026-06-13 テストで発覚）
         const matchedScenario = findDisplayScenario(scenarios, savedEvent.scenario || performanceData.scenario, performanceData.scenario_master_id)
+        const pendingGms = performanceData.gms || []
+        const pendingGmRoles = performanceData.gm_roles || {}
         const effectiveMax = matchedScenario?.player_count_max || savedEvent.capacity || 8
         const formattedEvent: ScheduleEvent = {
           id: savedEvent.id,
@@ -359,8 +361,10 @@ export function useEventSave({
             title: savedEvent.scenario || performanceData.scenario || matchedScenario.title,
             player_count_max: matchedScenario.player_count_max ?? 8
           } : undefined,
-          gms: savedEvent.gms || [],
-          gm_roles: performanceData.gm_roles || {},
+          // 担当は後段の syncStaff で保存する。保存が終わるまでは入力した担当を表示し続ける
+          // （ここで保存直後の空の担当に置き換えると、GM 名が一度消えて見える。2026-10-22 hotfix）
+          gms: pendingGms,
+          gm_roles: pendingGmRoles,
           start_time: savedEvent.start_time,
           end_time: savedEvent.end_time,
           category: savedEvent.category,
@@ -371,28 +375,34 @@ export function useEventSave({
         }
         setEvents(prev => prev.map(e => e.id === tempEventId ? formattedEvent : e))
 
-        // 履歴を記録（新規作成）
-        try {
-          const createdSnapshot = await fetchEventSnapshot(savedEvent.id, organizationId)
-          void createEventHistory(
-            savedEvent.id,
-            organizationId,
-            'create',
-            null,
-            createdSnapshot ?? eventData,
-            {
-              date: eventData.date,
-              storeId: eventData.store_id,
-              timeSlot: eventData.time_slot || null
-            }
-          )
-        } catch (historyError) {
-          logger.error('履歴記録エラー（新規作成）:', historyError)
-          // 履歴記録の失敗は保存処理に影響させない
-        }
+        // 履歴を記録（新規作成）。作成の事実だけを記録する（差分なし）ので、保存の完了を待たせない。
+        // 以前はここでスナップショット取得の往復を待ってから担当を保存していた（2026-10-22 hotfix）
+        const createdEventId = savedEvent.id
+        void (async () => {
+          try {
+            const createdSnapshot = await fetchEventSnapshot(createdEventId, organizationId)
+            await createEventHistory(
+              createdEventId,
+              organizationId,
+              'create',
+              null,
+              createdSnapshot ?? eventData,
+              {
+                date: eventData.date,
+                storeId: eventData.store_id,
+                timeSlot: eventData.time_slot || null
+              }
+            )
+          } catch (historyError) {
+            logger.error('履歴記録エラー（新規作成）:', historyError)
+            // 履歴記録の失敗は保存処理に影響させない
+          }
+        })()
 
-        // GM欄で「スタッフ参加」を選択した場合、予約も作成する
-        if (performanceData.gm_roles) {
+        // 担当（GM・スタッフ参加）を保存する。担当もスタッフ参加も無い（GM 未指定）なら、
+        // 作成時点で空のまま正しいので、何も変えない同期の往復を省く
+        const hasStaffToSave = pendingGms.length > 0 || (performanceData.staffParticipation?.entries.length ?? 0) > 0
+        if (performanceData.gm_roles && hasStaffToSave) {
           await syncStaff(
             savedEvent.id,
             performanceData.gms || [],
@@ -406,6 +416,10 @@ export function useEventSave({
             },
             performanceData.staffParticipation
           )
+          // 保存できなかった担当を表示し続けない（DB に残っている作成時点の担当へ戻す）
+          if (staffSyncFailed) {
+            setEvents(prev => prev.map(e => e.id === savedEvent.id ? { ...e, gms: savedEvent.gms || [], gm_roles: savedEvent.gm_roles || {} } : e))
+          }
         }
         
       } else {

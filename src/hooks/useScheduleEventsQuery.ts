@@ -331,13 +331,44 @@ export async function fetchScheduleEventsForMonth(
 // React Query フック
 // ---------------------------------------------------------------------------
 
+// 画面側で月の表示を書き換えた回数（setScheduleMonthData）。取得の開始時と終了時で比べ、
+// 取得中に書き換えがあれば、その取得結果は書き換えより古い可能性があるため採用しない。
+const localWriteCounts = new Map<string, number>()
+const monthCacheKey = (year: number, month: number) => `${year}-${month}`
+const localWriteCount = (year: number, month: number) => localWriteCounts.get(monthCacheKey(year, month)) ?? 0
+
+/**
+ * 月の公演一覧を取り直す queryFn。
+ * 取得中に画面側の書き換え（保存直後の担当反映など）があったら、古い取得結果で表示を上書きせず
+ * いまの表示を保ったまま取り直す。以前は、担当の保存より前に始まった取得が後から届き、
+ * GM 名が空の状態に戻っていた（2026-10-22 hotfix）。
+ */
+export function createScheduleMonthQueryFn(
+  queryClient: QueryClient,
+  year: number,
+  month: number,
+  fetcher: (year: number, month: number) => Promise<ScheduleEvent[]> = fetchScheduleEventsForMonth,
+): () => Promise<ScheduleEvent[]> {
+  return async () => {
+    const writesAtStart = localWriteCount(year, month)
+    const fetched = await fetcher(year, month)
+    if (localWriteCount(year, month) === writesAtStart) return fetched
+    const current = queryClient.getQueryData<ScheduleEvent[]>(scheduleEventKeys.month(year, month))
+    if (!current) return fetched
+    logger.log('⏭️ 取得中に表示を更新したため、古い取得結果を捨てて取り直します')
+    setTimeout(() => invalidateScheduleMonth(queryClient, year, month), 0)
+    return current
+  }
+}
+
 export function useScheduleEventsQuery(currentDate: Date) {
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth() + 1
+  const queryClient = useQueryClient()
 
   return useQuery({
     queryKey: scheduleEventKeys.month(year, month),
-    queryFn: () => fetchScheduleEventsForMonth(year, month),
+    queryFn: createScheduleMonthQueryFn(queryClient, year, month),
     // Realtime が変更をプッシュするため自動タイマー再フェッチは不要
     staleTime: Infinity,
     // メモリ上は無期限保持（IndexedDB が14日間を担保）
@@ -376,6 +407,7 @@ export function setScheduleMonthData(
   month: number,
   updater: ScheduleEvent[] | ((prev: ScheduleEvent[]) => ScheduleEvent[])
 ): void {
+  localWriteCounts.set(monthCacheKey(year, month), localWriteCount(year, month) + 1)
   queryClient.setQueryData<ScheduleEvent[]>(
     scheduleEventKeys.month(year, month),
     prev => {
