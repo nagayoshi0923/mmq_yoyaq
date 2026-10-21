@@ -106,6 +106,23 @@ export async function getCurrentOrganizationId(): Promise<string | null> {
     return currentOrgIdCache.orgId
   }
 
+  // 画面を開いた直後は複数の部品が同時にここへ来る。キャッシュが入る前の同時呼び出しは
+  // 1 回の問い合わせを共有する（以前は users への同じ問い合わせが 5 回並んでいた）
+  if (orgIdLookupInFlight?.userId !== user.id) {
+    const userId = user.id
+    const promise = lookupOrganizationId(userId).finally(() => {
+      if (orgIdLookupInFlight?.promise === promise) orgIdLookupInFlight = null
+    })
+    orgIdLookupInFlight = { userId, promise }
+  }
+  return orgIdLookupInFlight.promise
+}
+
+let orgIdLookupInFlight: { userId: string; promise: Promise<string | null> } | null = null
+
+async function lookupOrganizationId(userId: string): Promise<string | null> {
+  const user = { id: userId }
+
   // まず users テーブルから取得（高速・406エラー回避）
   try {
     const { data: userData } = await supabase

@@ -96,11 +96,21 @@ function hasSecretField(payload: Record<string, unknown>): boolean {
   )
 }
 
+let orgSettingsInFlight: Promise<OrganizationSettings | null> | null = null
+
 export const organizationSettingsApi = {
   // 現在の組織の設定を取得
   // バックエンド API (/api/org-settings) 経由で org_id をサーバー側で強制フィルタする
+  // スケジュール画面では時間帯設定・休日などの部品が同時に呼ぶので、同時の呼び出しは 1 回の通信を共有する
+  // （以前は同じ /api/org-settings が 4 回並んでいた）。終わったら共有をやめるので、次の呼び出しは取り直す。
   async get(): Promise<OrganizationSettings | null> {
-    return apiClient.get<OrganizationSettings | null>('/api/org-settings')
+    if (!orgSettingsInFlight) {
+      const promise = apiClient.get<OrganizationSettings | null>('/api/org-settings').finally(() => {
+        if (orgSettingsInFlight === promise) orgSettingsInFlight = null
+      })
+      orgSettingsInFlight = promise
+    }
+    return orgSettingsInFlight
   },
 
   // 機密トークン含む全設定を取得（設定編集画面専用）

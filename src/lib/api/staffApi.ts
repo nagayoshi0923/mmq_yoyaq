@@ -9,6 +9,7 @@
 import { supabase } from '../supabase'
 import { apiClient } from '@/lib/apiClient'
 import type { Staff } from '@/types'
+import { getAllStaffShared } from './staffShared'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const STAFF_SELECT_FIELDS =
@@ -31,7 +32,7 @@ export const staffApi = {
     }
 
     // バックエンド API 経由: org_id をサーバー側で強制フィルタ
-    return apiClient.get<Staff[]>('/api/staff')
+    return getAllStaffShared()
   },
 
   // スタッフを作成（admin 権限が必要）

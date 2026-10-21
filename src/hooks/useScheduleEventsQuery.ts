@@ -88,6 +88,7 @@ interface PrivateRequestData {
 // ---------------------------------------------------------------------------
 
 let _scenarioModuleCache: any[] = []
+let _scenarioListInFlight: Promise<any[]> | null = null
 
 // ---------------------------------------------------------------------------
 // 純粋なデータ取得関数（queryFn として使用）
@@ -107,16 +108,30 @@ export async function fetchScheduleEventsForMonth(
     }
   })()
 
-  // スケジュール取得とエイリアスマッピングを並列で実行
-  const [data, SCENARIO_ALIAS] = await Promise.all([
+  // 公演・エイリアス・作品一覧（初回のみ）・組織 ID と、組織 ID だけで引ける「公演の無い確定貸切」は
+  // 互いに依存しないので同時に始める（以前は 公演 → 作品一覧 → 組織 ID → 予約 の順番待ちだった）
+  // 作品一覧は月をまたいで共有する。先読みで数か月分が同時に来ても取得は 1 回にする
+  if (!_scenarioModuleCache.length && !_scenarioListInFlight) {
+    _scenarioListInFlight = scenarioApi.getAll().finally(() => { _scenarioListInFlight = null })
+  }
+  const scenarioListPromise: Promise<any[]> = _scenarioModuleCache.length
+    ? Promise.resolve(_scenarioModuleCache)
+    : _scenarioListInFlight!
+  const orgIdPromise = getCurrentOrganizationId()
+  const privatePromise = orgIdPromise.then((id) => scheduleEventsQueryReadApi.listConfirmedPrivateWithoutEvent(id))
+  // 先に公演の取得が失敗したとき、待たれないまま失敗した側が未処理の拒否にならないようにする
+  privatePromise.catch(() => undefined)
+  const [data, SCENARIO_ALIAS, fetchedScenarioList, orgId] = await Promise.all([
     scheduleApi.getByMonth(year, month),
     getScenarioAliases(),
-  ]) as [RawEventData[], Record<string, string>]
+    scenarioListPromise,
+    orgIdPromise,
+  ]) as [RawEventData[], Record<string, string>, any[], string | null]
 
   // シナリオリスト（モジュールキャッシュを優先）
   let scenarioList = _scenarioModuleCache
   if (!scenarioList.length) {
-    scenarioList = await scenarioApi.getAll()
+    scenarioList = fetchedScenarioList
     _scenarioModuleCache = scenarioList
   }
   const scenarioByTitle = new Map<string, any>()
@@ -204,13 +219,11 @@ export async function fetchScheduleEventsForMonth(
     .filter(e => e.category === 'private')
     .map(e => e.id)
 
-  const orgId = await getCurrentOrganizationId()
-
   const [nicknameResult, privateResult, cancelCheckResult] = await Promise.all([
     reservationIdsForNickname.length > 0
       ? scheduleEventsQueryReadApi.listNicknamesByReservationIds(reservationIdsForNickname)
       : Promise.resolve({ data: null, error: null }),
-    scheduleEventsQueryReadApi.listConfirmedPrivateWithoutEvent(orgId),
+    privatePromise,
     privateEventIdsForCancelCheck.length > 0
       ? scheduleEventsQueryReadApi.listStatusesByEventIds(privateEventIdsForCancelCheck, orgId)
       : Promise.resolve({ data: null, error: null }),
