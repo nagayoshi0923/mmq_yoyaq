@@ -1,3 +1,11 @@
+## 2026-10-22 / 管理画面・スケジュール管理が遅い（perf/schedule-network #1211・perf/schedule-render #1212、main 向け hotfix・do-not-merge）
+
+- 計測: 手元 local-repro DB に本番最大組織と同規模の架空組織 perf-org（`scripts/perf/seed-schedule-perf.sql`）。本番の構成（Vercel 関数 iad1・DB 東京）を遅延中継で模して Playwright で計測（`scripts/perf/run-latency-env.sh`・`measure-schedule.mjs`）。記録は Vault 側 `.runtime/性能_スケジュール_計測_2026-10-22.md`。
+- 主因 1（判断事項・未対応）: 本番の /api は米国東部（`x-vercel-id: kix1::iad1`）で動き、DB は東京。/api 1 回で DB と 6〜7 往復するので 1 回 1 秒前後。関数を東京（hnd1）相当にした模擬で、キャッシュなしで開く表示まで 6.8 秒 → 2.0 秒。`vercel.json` の `regions` で変えられるが配備設定なので別判断。
+- 主因 2（#1211）: 公演データの取得が 4 段の順番待ち、作品の担当を 50 件ずつ直列、同じ取得の重複（org-settings 4・staff 3・組織ID 5）。→ 同時に始める・同時の呼び出しを共有。再読み込みの裏の取得完了 9.0 秒 → 5.0 秒、キャッシュなしの表示 4.9 秒 → 2.4 秒。
+- 主因 3（#1212）: 公演の開閉で表全体（セル 657・カード 393）を描き直し（setSearchParams の作り直し）、月移動でシフトが遅れて届き全セルを描き直し。→ 参照を固定・シフトの先読み。
+- 残り（提案）: auth/v1/user が初期表示で 7〜14 回（getCurrentOrganizationId などが毎回 getUser）、/api の認証で DB を 3 回直列（api/_lib/auth.ts）、先読み 7 か月分が同じ「公演の無い確定貸切」を 7 回取る、絞り込みは表全体の描き直しが必要（約 60ms・開発版）。保存経路の通信回数は GM 担当 #1210。
+
 ## 2026-10-21 / リリース統合候補（staging の未反映分 ＋ main の #1202、reconcile migration 付き）（release/2026-10-integration、staging 向け PR・マージしない）
 
 - 目的: staging の未反映分（10/11〜10/21 の 118 コミット）と本番 main（179958be、#1202 = issue #1200 の hotfix）を 1 本の統合候補にし、本番へは統合 PR（staging → main）で出す。#1201（draft）の内容は #1202 経由で入る。#1014・cherry-pick の案は使わない。
