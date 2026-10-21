@@ -3,7 +3,8 @@ import { memo, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { formatDateJST } from '@/utils/dateUtils'
 import { BookingFilters } from './BookingFilters'
-import { OptimizedImage } from '@/components/ui/optimized-image'
+import { KeyVisualThumb } from '@/components/public-top/KeyVisualThumb'
+import type { StoreOption } from '@/components/public-top/StorePicker'
 import { scenarioCardId, scenarioCardTitle, type EnrichedPublicEvent, type PublicCalendarEvent, type PublicEventRow, type PublicStoreRow, type ScenarioCard } from '../hooks/useBookingData'
 
 interface CalendarDay {
@@ -19,6 +20,9 @@ interface CalendarViewProps {
   selectedStoreIds: string[]
   onStoreIdsChange: (storeIds: string[]) => void
   stores: PublicStoreRow[]
+  /** 上の操作列の店舗の選択肢（お客様向けの名前） */
+  storeOptions: StoreOption[]
+  primaryColor: string
   scenarios: ScenarioCard[]
   onCardClick: (scenarioId: string) => void
   getStoreName: (event: PublicCalendarEvent) => string
@@ -37,6 +41,7 @@ interface CalendarViewProps {
 
 /**
  * カレンダービューコンポーネント
+ * 2026-10-12 社長決定: 元の見た目を維持。変えたのは店舗名（お客様向け）・上の操作列のチップ・過去日の文言を出さない・作品画像の比率だけ。
  */
 export const CalendarView = memo(function CalendarView({
   currentMonth,
@@ -46,6 +51,8 @@ export const CalendarView = memo(function CalendarView({
   selectedStoreIds,
   onStoreIdsChange,
   stores,
+  storeOptions,
+  primaryColor,
   scenarios,
   onCardClick,
   getStoreName,
@@ -62,7 +69,13 @@ export const CalendarView = memo(function CalendarView({
   isLoggedIn = false,
 }: CalendarViewProps) {
   const navigate = useNavigate()
-  const getPrivateOptions = usePublicPrivateBookingSlots(organizationId, selectedStoreIds, currentMonth)
+  // 店舗未選択のときは、お客様向けの通常店舗すべて（臨時会場は含まない）で貸切申込の空きを判定する（ListView と同じ考え方）
+  const availabilityStoreIds = useMemo(
+    () => (selectedStoreIds.length > 0 ? selectedStoreIds : storeOptions.map(option => option.id)),
+    [selectedStoreIds, storeOptions],
+  )
+  const getPrivateOptions = usePublicPrivateBookingSlots(organizationId, availabilityStoreIds, currentMonth)
+  const todayStr = formatDateJST(new Date())
   
   // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
   const scenarioMap = useMemo(() => {
@@ -96,14 +109,18 @@ export const CalendarView = memo(function CalendarView({
         onMonthChange={onMonthChange}
         selectedStoreIds={selectedStoreIds}
         onStoreIdsChange={onStoreIdsChange}
-        stores={stores}
+        storeOptions={storeOptions}
         hideSoldOut={hideSoldOut}
         onHideSoldOutChange={onHideSoldOutChange}
         hidePlayed={hidePlayed}
         onHidePlayedChange={onHidePlayedChange}
         isLoggedIn={isLoggedIn}
+        primaryColor={primaryColor}
       />
-      
+
+      {getPrivateOptions.horizonDays != null && getPrivateOptions.horizonEnd && (
+        <p className="text-xs text-muted-foreground px-1">貸切の申込は今日から {getPrivateOptions.horizonDays} 日先（{Number(getPrivateOptions.horizonEnd.slice(5, 7))}/{Number(getPrivateOptions.horizonEnd.slice(8, 10))}）までです</p>
+      )}
       {/* カレンダーグリッド */}
       <div className="bg-white border overflow-hidden">
         {/* 曜日ヘッダー（日曜始まり） */}
@@ -127,13 +144,15 @@ export const CalendarView = memo(function CalendarView({
             const dateNum = day.date.getDate()
             const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6
             const isSunday = day.date.getDay() === 0
+            // 今日より前の日は文言を出さず薄い地色だけ。過去だけの週は低くする（#1057）
+            const isPast = formatDateJST(day.date) < todayStr
             
             return (
               <div
                 key={index}
                 className={`border-r border-b ${
-                  !day.isCurrentMonth ? 'bg-muted/20' : ''
-                } flex flex-col min-h-[110px] sm:min-h-[150px]`}
+                  isPast ? 'bg-muted/50' : !day.isCurrentMonth ? 'bg-muted/20' : ''
+                } flex flex-col ${isPast ? 'min-h-[32px]' : 'min-h-[110px] sm:min-h-[150px]'}`}
               >
                 {/* 日付 */}
                 <div 
@@ -244,14 +263,8 @@ export const CalendarView = memo(function CalendarView({
                       evening: allDisplayEvents.filter((e) => getTimeSlot(e.start_time) === 'evening')
                     }
                     
-                    // 全店舗表示で何もない場合
-                    if (allDisplayEvents.length === 0 && !selectedStore) {
-                      return (
-                        <div className="p-1 sm:p-2 text-xs text-gray-400 text-center">
-                          店舗を選択して貸切申込
-                        </div>
-                      )
-                    }
+                    // 店舗未選択なら対象店舗すべてで判定済み。選択中の店舗が見つからないときは申込枠を出さない
+                    const canShowPrivateEntry = selectedStoreIds.length === 0 || !!selectedStore
                     
                     // 時間帯順にイベントと貸切ボタンを表示
                     const renderEvent = (event: PublicCalendarEvent, idx: number) => {
@@ -279,7 +292,7 @@ export const CalendarView = memo(function CalendarView({
                         return (
                           <div
                             key={`${event.id || idx}`}
-                            className="w-full text-[10px] leading-tight py-0.5 px-1 border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                            className="w-full ts-10 leading-tight py-0.5 px-1 border border-gray-200 bg-gray-100 fg-gray-400 cursor-not-allowed"
                           >
                             <span className="whitespace-nowrap">{event.start_time?.slice(0, 5)}</span>
                             {' '}
@@ -296,7 +309,7 @@ export const CalendarView = memo(function CalendarView({
                         <div
                           key={`${event.id || idx}`}
                           onClick={() => scenario && onCardClick(scenarioCardId(scenario))}
-                          className="text-[10px] leading-tight transition-colors border-l-2 touch-manipulation cursor-pointer hover:bg-gray-50"
+                          className="ts-10 leading-tight transition-colors border-l-2 touch-manipulation cursor-pointer hover:bg-gray-50"
                           style={{
                             borderLeftColor: isFull ? '#9CA3AF' : storeColor,
                             backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`,
@@ -306,24 +319,13 @@ export const CalendarView = memo(function CalendarView({
                           <div className="flex gap-1 min-w-0">
                             {/* 左カラム: 画像（PC版のみ）。高さはテキスト2行に合わせる */}
                             <div className="hidden sm:block flex-shrink-0 w-7 self-stretch overflow-hidden bg-gray-200">
-                              {imageUrl ? (
-                                <OptimizedImage
-                                  src={imageUrl}
-                                  alt={title || (scenario && scenarioCardTitle(scenario)) || 'シナリオ画像'}
-                                  responsive={false}
-                                  useWebP={true}
-                                  quality={70}
-                                  lazy={true}
-                                  srcSetSizes={[50, 100]}
-                                  breakpoints={{ mobile: 50, tablet: 75, desktop: 100 }}
-                                  className="w-full h-full object-cover"
-                                  fallback={
-                                    <div className="w-full h-full bg-gray-200" />
-                                  }
-                                />
-                              ) : (
-                                <div className="w-full h-full bg-gray-200" />
-                              )}
+                              <KeyVisualThumb
+                                src={imageUrl}
+                                alt={title || (scenario && scenarioCardTitle(scenario)) || 'シナリオ画像'}
+                                seed={event.scenario_master_id || event.id || String(idx)}
+                                width={60}
+                                className="h-full w-full rounded-none bg-gray-200"
+                              />
                             </div>
 
                             {/* 右カラム: 1行目=時間・場所・人数 / 2行目=タイトル */}
@@ -336,20 +338,20 @@ export const CalendarView = memo(function CalendarView({
                                   {storeName}
                                 </span>
                                 {isConfirmed && (
-                                  <span className="text-[8px] font-bold px-0.5 bg-blue-100 text-blue-700 whitespace-nowrap flex-shrink-0">
+                                  <span className="ts-8 font-bold px-0.5 bg-blue-100 text-blue-700 whitespace-nowrap flex-shrink-0">
                                     決定
                                   </span>
                                 )}
                                 {isNearlyFull && (
-                                  <span className="text-[8px] font-bold px-0.5 bg-orange-100 text-orange-600 whitespace-nowrap flex-shrink-0">
+                                  <span className="ts-8 font-bold px-0.5 bg-orange-100 text-orange-600 whitespace-nowrap flex-shrink-0">
                                     残少
                                   </span>
                                 )}
-                                <span className={`ml-auto whitespace-nowrap flex-shrink-0 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                <span className={`ml-auto whitespace-nowrap flex-shrink-0 ${isFull ? 'fg-gray-500' : 'fg-gray-600'}`}>
                                   {capacityLabel}
                                 </span>
                               </div>
-                              <div className="text-gray-800 overflow-hidden whitespace-nowrap" style={{ textOverflow: 'clip' }}>
+                              <div className="fg-gray-800 overflow-hidden whitespace-nowrap" style={{ textOverflow: 'clip' }}>
                                 {title}
                               </div>
                             </div>
@@ -369,9 +371,9 @@ export const CalendarView = memo(function CalendarView({
                           ? slotEvents.map((event, idx: number) => renderEvent(event, idx))
                           : []
 
-                        // 営業設定・募集停止・非公開イベントも含めて店舗ごとに受付を判定
+                        // 営業設定・募集停止・非公開イベントも店舗ごとに判定
                         const options = getPrivateOptions(dateStr, slot)
-                        const showPrivateButton = selectedStore && canApplyPrivateBooking && options.length > 0
+                        const showPrivateButton = canShowPrivateEntry && !isPast && canApplyPrivateBooking && options.length > 0
 
                         if (hasEvents && showPrivateButton) {
                           const suggestedTime = options[0].startTime
@@ -379,7 +381,7 @@ export const CalendarView = memo(function CalendarView({
                             <div key={slot}>
                               {renderedEvents}
                               <button
-                                className="w-full text-[10px] leading-tight py-1 px-1 bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 transition-colors touch-manipulation"
+                                className="w-full ts-10 leading-tight py-1 px-1 bg-gray-50 border border-gray-200 fg-gray-600 hover:bg-gray-100 hover:border-gray-300 transition-colors touch-manipulation"
                                 onClick={() => {
                                   const basePath = organizationSlug ? `/${organizationSlug}` : ''
                                   const storeParam = options.map(option => option.storeId).join(',')
@@ -397,7 +399,7 @@ export const CalendarView = memo(function CalendarView({
                           return (
                             <button
                               key={slot}
-                              className="w-full text-[10px] leading-tight py-1 px-1 bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 transition-colors touch-manipulation"
+                              className="w-full ts-10 leading-tight py-1 px-1 bg-gray-50 border border-gray-200 fg-gray-600 hover:bg-gray-100 hover:border-gray-300 transition-colors touch-manipulation"
                               onClick={() => {
                                 const basePath = organizationSlug ? `/${organizationSlug}` : ''
                                 const storeParam = options.map(option => option.storeId).join(',')

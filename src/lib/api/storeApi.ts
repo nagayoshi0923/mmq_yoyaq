@@ -8,6 +8,7 @@
  * RLS で保護された stores_public ビューを Supabase 直接で読む。
  */
 import { supabase } from '../supabase'
+import { withCustomerStoreNames } from '../publicStoreName'
 import { apiClient } from '@/lib/apiClient'
 import type { Store, StoreTravelTime, StoreTravelTimeInput } from '@/types'
 
@@ -89,12 +90,24 @@ export const storeApi = {
   async getAllPublic(organizationId: string): Promise<Store[]> {
     const { data, error } = await supabase
       .from('stores_public')
-      .select('id, organization_id, name, short_name, address, access_info, opening_date, status, ownership_type, capacity, rooms, color, is_temporary, temporary_date, temporary_dates, temporary_venue_names, display_order, region, kit_group_id, created_at, updated_at')
+      .select('id, organization_id, name, short_name, address, access_info, opening_date, status, ownership_type, capacity, rooms, color, is_temporary, temporary_date, temporary_dates, temporary_venue_names, display_order, region, kit_group_id, created_at, updated_at, public_name')
       .eq('organization_id', organizationId)
       .order('display_order', { ascending: true, nullsFirst: false })
 
     if (error) throw error
     return (data || []) as Store[]
+  },
+
+  /**
+   * お客様向け画面用の店舗一覧。name / short_name をお客様向けの名前（storeDisplayName）に置き換えて返す。
+   * 判定は id で行い、名前は表示にだけ使う画面（作品ページ・貸切の申込・グループページ）で使う。
+   */
+  async getAllPublicForCustomer(organizationId: string): Promise<Store[]> {
+    const [stores, org] = await Promise.all([
+      storeApi.getAllPublic(organizationId),
+      supabase.from('organizations').select('name').eq('id', organizationId).maybeSingle(),
+    ])
+    return withCustomerStoreNames(stores, org.data?.name ?? null)
   },
 
   // 店舗の表示順序を一括更新（admin 権限が必要）

@@ -14,7 +14,16 @@ import { logger } from '@/utils/logger'
 import { validateRedirectUrl } from '@/lib/utils'
 import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import {
+  buildSignupEmailRedirectTo,
+  forgetReturnUrl,
+  normalizeReturnTo,
+  readAuthIntent,
+  readReturnToFromSearch,
+  rememberReturnUrl,
+  RETURN_URL_STORAGE_KEY,
+} from '@/lib/authReturn'
 import { 
   ArrowRight, Eye, EyeOff, 
   Sparkles, AlertCircle, CheckCircle, Loader2
@@ -80,6 +89,10 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
   const oauthHangTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const { signIn, loading } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  /** ログイン・登録の後に戻る画面（URL の ?redirect=。確認メールのリンクにも載せる） */
+  const [returnTo, setReturnTo] = useState<string | null>(() => readReturnToFromSearch(location.search))
+  const authIntent = readAuthIntent(returnTo)
 
   React.useEffect(() => {
     return () => {
@@ -119,13 +132,19 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
       setMode('signup')
     }
     
-    // redirectパラメータがあれば戻り先URLとして保存
-    const redirectParam = urlParams.get('redirect')
-    if (redirectParam) {
-      const safeUrl = validateRedirectUrl(redirectParam)
-      if (safeUrl && safeUrl !== '/') {
-        sessionStorage.setItem('returnUrl', safeUrl)
-      }
+    // 戻り先は URL（?redirect=）が正。Google ログイン用にタブ内にも写す。
+    // 戻り先なしで開いたときは古い値を消す（前に押した別ページへ飛ぶのを防ぐ。点検 3）。
+    // 例外: クーポン受け取りのようにトークンを URL に出さない画面は state で「残す」と伝える
+    const fromUrl = readReturnToFromSearch(window.location.search)
+    const keepStored = (location.state as { keepReturnUrl?: boolean } | null)?.keepReturnUrl === true
+    if (fromUrl) {
+      rememberReturnUrl(fromUrl)
+      setReturnTo(fromUrl)
+    } else if (keepStored) {
+      setReturnTo(normalizeReturnTo(sessionStorage.getItem(RETURN_URL_STORAGE_KEY)))
+    } else {
+      forgetReturnUrl()
+      setReturnTo(null)
     }
     
     // sessionStorageからエラーメッセージを取得（OAuthログイン失敗時など）
@@ -134,7 +153,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
       setError(authError)
       sessionStorage.removeItem('auth_error')
     }
-  }, [signup])
+  }, [signup, location.state])
 
   // モード切替時にフォームをリセット
   const switchMode = (newMode: AuthMode) => {
@@ -157,7 +176,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
     setError('')
     setMessage('')
     try {
-      const redirectTo = `${window.location.origin}/complete-profile`
+      const redirectTo = buildSignupEmailRedirectTo(window.location.origin, returnTo)
       const result = await resendSignupConfirmationEmail(email.trim(), redirectTo)
       if (result.ok) {
         setMessage('確認メールを再送信しました。メールのリンクから登録を完了してください。届かない場合は迷惑メールフォルダもご確認ください。')
@@ -193,13 +212,22 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         )
       }, 20000)
 
-      const safeReturnUrl = validateRedirectUrl(sessionStorage.getItem('returnUrl'))
       sessionStorage.setItem('oauth_mode', mode)
+      // 新規登録はプロフィール登録画面へ直接戻し、登録後に戻り先へ（next に載せる）。
+      // このときタブ内の戻り先は消す（ログイン直後に登録画面から戻り先へ引きはがされるのを防ぐ）
+      let oauthRedirectTo: string
+      if (mode === 'signup') {
+        forgetReturnUrl()
+        oauthRedirectTo = buildSignupEmailRedirectTo(window.location.origin, returnTo)
+      } else {
+        rememberReturnUrl(returnTo)
+        oauthRedirectTo = `${window.location.origin}${returnTo ?? '/'}`
+      }
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}${safeReturnUrl}`,
+          redirectTo: oauthRedirectTo,
           // ログインはアカウント選択を毎回出さず、再利用セッションで速くする（新規登録のみ明示選択）
           queryParams:
             provider === 'google' && mode === 'signup'
@@ -230,7 +258,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
       const { error: fallbackError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}${safeReturnUrl}`,
+          redirectTo: oauthRedirectTo,
           queryParams:
             provider === 'google' && mode === 'signup'
               ? { prompt: 'select_account' }
@@ -286,7 +314,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
           return
         } else if (registrationStatus === 'pending_confirmation') {
           // 登録済み・未確認 → 確認メールを再送信
-          const redirectTo = `${window.location.origin}/complete-profile`
+          const redirectTo = buildSignupEmailRedirectTo(window.location.origin, returnTo)
           const resent = await resendSignupConfirmationEmail(email, redirectTo)
           if (resent.ok) {
             setMessage(
@@ -311,7 +339,8 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
           email,
           options: {
             shouldCreateUser: true,
-            emailRedirectTo: `${window.location.origin}/complete-profile`,
+            // 戻り先（選んでいた公演・招待ページ）をメールのリンクに載せる。別のタブで開いても消えない（点検 1）
+            emailRedirectTo: buildSignupEmailRedirectTo(window.location.origin, returnTo),
           }
         })
         
@@ -593,6 +622,32 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                 )}
               </div>
 
+              {/* 何を予約しようとしているか・この後の流れ（点検 25） */}
+              {mode !== 'forgot' && (returnTo || mode === 'signup') && (
+                <div className="mb-6 space-y-2" data-testid="auth-context">
+                  {returnTo && (
+                    <div className="p-3 border border-border bg-muted/40 ts-body">
+                      {authIntent ? (
+                        <p>
+                          <span className="ts-caption block">ご予約の途中です</span>
+                          <span className="font-medium">{authIntent.label}</span>
+                        </p>
+                      ) : null}
+                      <p className={authIntent ? 'ts-caption mt-1' : 'ts-caption'}>
+                        {mode === 'signup'
+                          ? '登録が終わると、元の画面に戻ります。'
+                          : 'ログインすると、元の画面に戻ります。'}
+                      </p>
+                    </div>
+                  )}
+                  {mode === 'signup' && (
+                    <p className="ts-caption text-center">
+                      この後の流れ: メールが届く → メールのリンクを開く → お名前など 8 項目を入力
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* ソーシャルログインボタン */}
               {mode !== 'forgot' && (
                 <>
@@ -811,12 +866,11 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
 
               {/* 利用規約リンク */}
               {mode === 'signup' && (
-                <p className="mt-6 text-xs text-gray-500 text-center">
-                  アカウントを作成することで、
-                  <Link to="/terms" className="underline hover:text-gray-700">利用規約</Link>
-                  および
-                  <Link to="/privacy" className="underline hover:text-gray-700">プライバシーポリシー</Link>
-                  に同意したものとみなされます。
+                <p className="mt-6 ts-caption text-center">
+                  <Link to="/terms" className="underline">利用規約</Link>
+                  と
+                  <Link to="/privacy" className="underline">プライバシーポリシー</Link>
+                  への同意は、最後の入力画面でお願いします。
                 </p>
               )}
             </div>

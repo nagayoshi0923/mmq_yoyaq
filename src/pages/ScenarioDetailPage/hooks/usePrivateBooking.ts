@@ -5,8 +5,22 @@ import { showToast } from '@/utils/toast'
 import { usePrivateBookingStorePreference, useStoreFilterPreference } from '@/hooks/useUserPreference'
 import { useCandidateSlotAvailability } from '@/hooks/useCandidateSlotAvailability'
 import { availableSlotsForDate } from '@/lib/candidateSlotAvailability'
+import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
 import type { TimeSlot } from '../utils/types'
 import { useEffect } from 'react'
+import { privateBookingHorizonMaxYmd, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
+import { toJstYmd } from '@/utils/jstDate'
+
+/**
+ * この作品の貸切を受け付ける店舗（DB の判定と同じ。上演店舗の指定があればその店舗、無ければ臨時会場以外）。
+ * slug が未設定の場合、別組織のシナリオが返ることがある。その場合 available_stores は参照組織のものなので無視する（全店舗対応扱い）
+ */
+function playableStores(stores: any[], scenario: any, organizationId: string | undefined): any[] {
+  const rawAvailableStores = scenario?.available_stores || scenario?.available_stores_ids
+  const isCrossOrg = organizationId && scenario?.organization_id && scenario.organization_id !== organizationId
+  const scenarioAvailableStores: string[] = !isCrossOrg && Array.isArray(rawAvailableStores) ? rawAvailableStores : []
+  return stores.filter(s => s.status === 'active' && isStorePlayableForScenario(s, scenarioAvailableStores))
+}
 
 interface UsePrivateBookingProps {
   events: any[]
@@ -27,7 +41,6 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
   const [selectedStoreIds, setSelectedStoreIdsInternal] = useState<string[]>(savedStoreIds)
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<Array<{date: string, slot: TimeSlot}>>([])
   const MAX_SELECTIONS = 6
-  const MAX_FUTURE_DAYS = 180
 
   const setSelectedStoreIds = useCallback((storeIds: string[] | ((prev: string[]) => string[])) => {
     setSelectedStoreIdsInternal(prev => {
@@ -43,50 +56,33 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     if (stores.length > 0 && !hasInitialized) {
       setHasInitialized(true)
 
-      const rawAvailableStores = scenario?.available_stores || scenario?.available_stores_ids
-      // slug が未設定の場合、別組織のシナリオが返ることがある。
-      // その場合 available_stores は参照組織のものなので無視する（全店舗対応扱い）
-      const isCrossOrg = organizationId && scenario?.organization_id && scenario.organization_id !== organizationId
-      const scenarioAvailableStores = isCrossOrg ? [] : rawAvailableStores
-      const hasScenarioStoreLimit = Array.isArray(scenarioAvailableStores) && scenarioAvailableStores.length > 0
-
-      const validStores = stores.filter(s =>
-        s.ownership_type !== 'office' &&
-        s.status === 'active' &&
-        !s.is_temporary &&
-        (hasScenarioStoreLimit
-          ? scenarioAvailableStores.includes(s.id)
-          : true)
-      )
-
-      const allValidIds = validStores.map(s => s.id)
+      const allValidIds = playableStores(stores, scenario, organizationId).map(s => s.id)
       setSelectedStoreIdsInternal(allValidIds)
       setSavedStoreIds(allValidIds)
     }
-  }, [stores, savedStoreIds, storeFilterIds, hasInitialized, setSavedStoreIds, scenario])
+  }, [stores, savedStoreIds, storeFilterIds, hasInitialized, setSavedStoreIds, scenario, organizationId])
 
   const scenarioMasterId = scenario?.scenario_master_id || scenario?.scenario_id || scenario?.id || scenarioId
+  // 申し込める範囲（今日から N 日先まで。MMQ 既定 180 → 組織 → 作品の設定。I21）。判定の正本は DB
+  // 読めるまで（読めなかったときも）は days が null で、どの日も出さない（既定の 180 日で選ばせない。Codex 点検 不具合 5）
+  const horizon = usePrivateBookingHorizonDays({ organizationId: scenario?.organization_id || organizationId, scenarioId: scenarioMasterId })
+  const horizonDays = horizon.days
+  const horizonMaxYmd = privateBookingHorizonMaxYmd(horizonDays)
 
   const generatePrivateDates = useCallback(() => {
     const dates: string[] = []
     const year = currentMonth.getFullYear()
     const month = currentMonth.getMonth()
     const lastDay = new Date(year, month + 1, 0)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const maxDate = new Date(today)
-    maxDate.setDate(today.getDate() + MAX_FUTURE_DAYS)
+    const todayYmd = toJstYmd(new Date())
 
     for (let day = 1; day <= lastDay.getDate(); day++) {
-      const date = new Date(year, month, day)
-      if (date >= today && date <= maxDate) {
-        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-        dates.push(dateStr)
-      }
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      if (dateStr >= todayYmd && dateStr <= horizonMaxYmd) dates.push(dateStr)
     }
 
     return dates
-  }, [currentMonth])
+  }, [currentMonth, horizonMaxYmd])
 
   // 表示中の月の日付（generatePrivateDates の結果を安定化）
   const monthDates = useMemo(() => generatePrivateDates(), [generatePrivateDates])
@@ -102,6 +98,8 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     availability: slotAvailability,
     loading: isLoadingEvents,
     ready: canRevalidate,
+    error: availabilityError,
+    reload: reloadAvailability,
   } = useCandidateSlotAvailability(availabilityTarget, monthDates)
 
   const getTimeSlotsForDate = useCallback((date: string): TimeSlot[] => (
@@ -159,30 +157,13 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     }
   }, [selectedTimeSlots])
 
-  const availableStores = useMemo(() => {
-    const rawAvailableStores = scenario?.available_stores || scenario?.available_stores_ids
-    const isCrossOrg = organizationId && scenario?.organization_id && scenario.organization_id !== organizationId
-    const scenarioAvailableStores = isCrossOrg ? [] : rawAvailableStores
-    const hasScenarioStoreLimit = Array.isArray(scenarioAvailableStores) && scenarioAvailableStores.length > 0
-
-    return stores.filter(s =>
-      s.ownership_type !== 'office' &&
-      s.status === 'active' &&
-      !s.is_temporary &&
-      (hasScenarioStoreLimit
-        ? scenarioAvailableStores.includes(s.id)
-        : true)
-    )
-  }, [scenario, stores, organizationId])
+  const availableStores = useMemo(() => playableStores(stores, scenario, organizationId), [scenario, stores, organizationId])
 
   const isNextMonthDisabled = useMemo(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const maxDate = new Date(today)
-    maxDate.setDate(today.getDate() + MAX_FUTURE_DAYS)
-    const nextMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
-    return nextMonthStart > maxDate
-  }, [currentMonth])
+    const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+    const nextMonthStart = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-01`
+    return nextMonthStart > horizonMaxYmd
+  }, [currentMonth, horizonMaxYmd])
 
   return {
     currentMonth,
@@ -192,7 +173,13 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     availableStores,
     isNextMonthDisabled,
     isLoadingEvents,
-    isAvailabilityReady: canRevalidate,
+    // 受付範囲が分からない間は、枠の選択も申込ボタンも止める
+    isAvailabilityReady: canRevalidate && horizonDays !== null,
+    /** 空き状況を読めなかった（通信失敗など）。「空きなし」と区別して出し、再読み込みできるようにする */
+    availabilityError,
+    reloadAvailability,
+    /** 受付範囲（今日から何日先まで）。days が null の間は日付を出さず、確認中・再試行を出す */
+    horizon,
     slotAvailability,
     monthDates,
     showMonthOf,

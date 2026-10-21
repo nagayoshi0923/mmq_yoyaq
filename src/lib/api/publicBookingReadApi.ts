@@ -52,7 +52,7 @@ export const publicBookingListReadApi = {
   async listAvailableScenarios(organizationId: string | null | undefined) {
     let query = supabase
       .from('organization_scenarios_with_master')
-      .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id, scenario_master_id, is_recommended')
+      .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id, scenario_master_id, is_recommended, weekend_duration, participation_costs')
       .eq('status', 'available')
       .neq('scenario_type', 'gm_test')
 
@@ -66,7 +66,7 @@ export const publicBookingListReadApi = {
   async listPublicStores(organizationId: string | null | undefined) {
     let query = supabase
       .from('stores_public')
-      .select('id, organization_id, name, short_name, address, color, capacity, rooms, status, is_temporary, temporary_dates, temporary_venue_names, display_order, region')
+      .select('id, organization_id, name, short_name, address, color, capacity, rooms, status, is_temporary, temporary_dates, temporary_venue_names, display_order, region, public_name')
 
     if (organizationId) {
       query = query.eq('organization_id', organizationId)
@@ -96,7 +96,9 @@ export const publicBookingListReadApi = {
             is_private_booking,
             is_extended,
             reservation_deadline_hours,
-            organization_id
+            organization_id,
+            max_participants,
+            capacity
           `)
       .gte('date', startDate)
       .lte('date', endDate)
@@ -110,5 +112,30 @@ export const publicBookingListReadApi = {
 
     return query
   },
+  /**
+   * 全組織の期間内の公演（公開用ビュー）。全体トップの横断検索用。
+   * 1 回の取得は最大 1000 件で打ち切られるため、id 順を固定して 1000 件ずつ最大 maxPages 回読む。
+   */
+  async listAllPublicEventsInRange(startDate: string, endDate: string, maxPages = 5) {
+    const pageSize = 1000
+    const fetchPage = (page: number) => supabase
+      .from('schedule_events_public')
+      .select('id, date, start_time, end_time, scenario_master_id, scenario, store_id, venue, current_participants, max_participants, capacity, is_reservation_enabled, published, category, is_private_booking, is_extended, reservation_deadline_hours, organization_id')
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .eq('is_cancelled', false)
+      .in('category', ['open', 'offsite'])
+      .order('date', { ascending: true })
+      .order('id', { ascending: true })
+      .range(page * pageSize, page * pageSize + pageSize - 1)
+    type Row = NonNullable<Awaited<ReturnType<typeof fetchPage>>['data']>[number]
+    const rows: Row[] = []
+    for (let page = 0; page < maxPages; page++) {
+      const { data, error } = await fetchPage(page)
+      if (error) return { data: rows, error }
+      rows.push(...(data ?? []))
+      if (!data || data.length < pageSize) break
+    }
+    return { data: rows, error: null }
+  },
 }
-

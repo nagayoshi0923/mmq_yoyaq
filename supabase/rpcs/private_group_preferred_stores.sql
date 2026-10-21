@@ -39,14 +39,23 @@ BEGIN
   -- 店舗間の公演移動の前後を混ぜて「全店満席」と誤認しない。
   SELECT EXISTS(
    SELECT 1 FROM unnest(selected) AS choice(store_id)
-   -- 同じ店舗で「枠が有効（I2・I10）AND 空き」が成り立つこと（issue #1200。他店の条件を混ぜない）
-   WHERE public.private_booking_store_slot_rule(g.organization_id,g.scenario_master_id,choice.store_id,cd.date,slot,cardinality(selected)=1) IS NULL
-   AND NOT EXISTS(SELECT 1 FROM public.schedule_blocked_slots b WHERE b.organization_id=g.organization_id AND b.store_id=choice.store_id::text AND b.date=cd.date AND b.time_slot=slot)
+   WHERE NOT EXISTS(SELECT 1 FROM public.schedule_blocked_slots b WHERE b.organization_id=g.organization_id AND b.store_id=choice.store_id::text AND b.date=cd.date AND b.time_slot=slot)
    AND NOT EXISTS(SELECT 1 FROM public.schedule_events e WHERE e.organization_id=g.organization_id AND e.store_id=choice.store_id AND e.is_cancelled=false
     AND e.date BETWEEN cd.date-2 AND cd.date+2
     AND e.date+e.start_time < v_candidate_end_at+make_interval(mins=>public.resolve_preparation_minutes(g.organization_id,NULL,NULL,e.id))
     AND e.date+e.end_time+CASE WHEN e.end_time<e.start_time THEN interval '1 day' ELSE interval '0 days' END > v_candidate_start_at-make_interval(mins=>public.resolve_preparation_minutes(g.organization_id,choice.store_id,g.scenario_master_id,NULL)))
   ) INTO available;
+  -- 2026-10-20: 候補の追加と同じ検査（店舗の曜日の枠・休業日・営業時間・募集停止・作品の固定開始時刻・時間枠・上演店舗・所要時間）を
+  -- 新しい希望店舗で通し、どの店舗でも受け付けない候補は外す（例 R36）。日付だけの理由（締切・範囲・募集期間・公演期間）は
+  -- 店舗を変えても変わらないので、ここでは外さない（申込の送信で弾く）。
+  IF available THEN
+   BEGIN
+    PERFORM public.private_booking_assert_candidate(g.organization_id,coalesce(g.scenario_master_id,g.scenario_id),selected,cd.date,slot,
+     to_char(cd.start_time::time,'HH24:MI'),to_char(cd.end_time::time,'HH24:MI'));
+   EXCEPTION WHEN SQLSTATE '22023' OR SQLSTATE '40001' THEN available:=false;
+    WHEN SQLSTATE 'P0045' OR SQLSTATE 'P0058' OR SQLSTATE 'P0044' OR SQLSTATE 'P0054' THEN NULL;
+   END;
+  END IF;
   IF NOT available THEN
    DELETE FROM public.private_group_candidate_dates WHERE id=cd.id AND group_id=g.id;
    removed:=removed+1;

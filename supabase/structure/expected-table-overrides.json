@@ -1902,6 +1902,10 @@
     "name": "guard_withdrawn_private_group_response"
    },
    {
+    "def": "CREATE CONSTRAINT TRIGGER private_group_on_date_response AFTER INSERT OR UPDATE OF response ON public.private_group_date_responses DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION private_group_on_date_response()",
+    "name": "private_group_on_date_response"
+   },
+   {
     "def": "CREATE TRIGGER trigger_update_private_group_date_responses_updated_at BEFORE UPDATE ON public.private_group_date_responses FOR EACH ROW EXECUTE FUNCTION update_private_group_date_responses_updated_at()",
     "name": "trigger_update_private_group_date_responses_updated_at"
    }
@@ -1936,6 +1940,11 @@
     "def": "CHECK ((response = ANY (ARRAY['ok'::text, 'ng'::text, 'maybe'::text])))",
     "name": "private_group_date_responses_response_check",
     "type": "c"
+   },
+   {
+    "def": "TRIGGER DEFERRABLE INITIALLY DEFERRED",
+    "name": "private_group_on_date_response",
+    "type": "t"
    }
   ]
  },
@@ -2709,6 +2718,30 @@
     "type": "text",
     "default": null,
     "not_null": false
+   },
+   {
+    "name": "reply_to_message_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "deleted_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "pinned_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "pinned_by_member_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
    }
   ],
   "indexes": [
@@ -2723,6 +2756,10 @@
    {
     "def": "CREATE INDEX idx_private_group_messages_member_id ON public.private_group_messages USING btree (member_id)",
     "name": "idx_private_group_messages_member_id"
+   },
+   {
+    "def": "CREATE INDEX idx_private_group_messages_pinned ON public.private_group_messages USING btree (group_id, pinned_at DESC) WHERE (pinned_at IS NOT NULL)",
+    "name": "idx_private_group_messages_pinned"
    },
    {
     "def": "CREATE UNIQUE INDEX private_group_messages_pkey ON public.private_group_messages USING btree (id)",
@@ -2779,6 +2816,10 @@
    {
     "def": "CREATE TRIGGER guard_private_group_browser_write BEFORE INSERT OR DELETE OR UPDATE ON public.private_group_messages FOR EACH ROW EXECUTE FUNCTION guard_private_group_browser_write()",
     "name": "guard_private_group_browser_write"
+   },
+   {
+    "def": "CREATE CONSTRAINT TRIGGER web_push_on_group_message AFTER INSERT ON public.private_group_messages DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (((new.member_id IS NOT NULL) AND (new.deleted_at IS NULL))) EXECUTE FUNCTION web_push_on_group_message()",
+    "name": "web_push_on_group_message"
    }
   ],
   "constraints": [
@@ -2798,9 +2839,24 @@
     "type": "f"
    },
    {
+    "def": "FOREIGN KEY (pinned_by_member_id) REFERENCES private_group_members(id) ON DELETE SET NULL",
+    "name": "private_group_messages_pinned_by_member_id_fkey",
+    "type": "f"
+   },
+   {
     "def": "PRIMARY KEY (id)",
     "name": "private_group_messages_pkey",
     "type": "p"
+   },
+   {
+    "def": "FOREIGN KEY (reply_to_message_id) REFERENCES private_group_messages(id) ON DELETE SET NULL",
+    "name": "private_group_messages_reply_to_message_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "TRIGGER DEFERRABLE INITIALLY DEFERRED",
+    "name": "web_push_on_group_message",
+    "type": "t"
    }
   ]
  },
@@ -3277,6 +3333,10 @@
    {
     "def": "CREATE TRIGGER customer_notice_on_handover_bell AFTER INSERT ON public.user_notifications FOR EACH ROW WHEN (((new.metadata ->> 'kind'::text) = 'private_group_handover'::text)) EXECUTE FUNCTION customer_notice_on_handover_bell()",
     "name": "customer_notice_on_handover_bell"
+   },
+   {
+    "def": "CREATE TRIGGER web_push_on_user_notification AFTER INSERT ON public.user_notifications FOR EACH ROW WHEN (((new.metadata ->> 'kind'::text) = ANY (ARRAY['private_confirmed'::text, 'private_rejected'::text, 'private_group_handover'::text, 'private_dates_aligned'::text, 'private_group_memories'::text]))) EXECUTE FUNCTION web_push_on_user_notification()",
+    "name": "web_push_on_user_notification"
    }
   ],
   "constraints": [
@@ -3397,6 +3457,1314 @@
    {
     "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
     "name": "user_notification_views_user_id_fkey",
+    "type": "f"
+   }
+  ]
+ },
+ "private_group_read_states": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "group_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "member_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "last_read_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_private_group_read_states_member ON public.private_group_read_states USING btree (member_id)",
+    "name": "idx_private_group_read_states_member"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_read_states_pkey ON public.private_group_read_states USING btree (group_id, member_id)",
+    "name": "private_group_read_states_pkey"
+   }
+  ],
+  "policies": [],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+    "name": "private_group_read_states_group_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+    "name": "private_group_read_states_member_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (group_id, member_id)",
+    "name": "private_group_read_states_pkey",
+    "type": "p"
+   }
+  ]
+ },
+ "private_group_message_reactions": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "message_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "member_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "group_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "emoji",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_private_group_message_reactions_group ON public.private_group_message_reactions USING btree (group_id)",
+    "name": "idx_private_group_message_reactions_group"
+   },
+   {
+    "def": "CREATE INDEX idx_private_group_message_reactions_member ON public.private_group_message_reactions USING btree (member_id)",
+    "name": "idx_private_group_message_reactions_member"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_message_reactions_pkey ON public.private_group_message_reactions USING btree (message_id, member_id)",
+    "name": "private_group_message_reactions_pkey"
+   }
+  ],
+  "policies": [],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "CHECK (((char_length(emoji) >= 1) AND (char_length(emoji) <= 16)))",
+    "name": "private_group_message_reactions_emoji_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+    "name": "private_group_message_reactions_group_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+    "name": "private_group_message_reactions_member_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (message_id) REFERENCES private_group_messages(id) ON DELETE CASCADE",
+    "name": "private_group_message_reactions_message_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (message_id, member_id)",
+    "name": "private_group_message_reactions_pkey",
+    "type": "p"
+   }
+  ]
+ },
+ "private_group_message_photos": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "message_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "position",
+    "type": "smallint",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "group_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "storage_path",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "width",
+    "type": "integer",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "height",
+    "type": "integer",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "thumb_path",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "byte_size",
+    "type": "bigint",
+    "default": null,
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_private_group_message_photos_group ON public.private_group_message_photos USING btree (group_id, created_at DESC)",
+    "name": "idx_private_group_message_photos_group"
+   },
+   {
+    "def": "CREATE INDEX idx_private_group_message_photos_org ON public.private_group_message_photos USING btree (organization_id)",
+    "name": "idx_private_group_message_photos_org"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_message_photos_pkey ON public.private_group_message_photos USING btree (message_id, \"position\")",
+    "name": "private_group_message_photos_pkey"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_message_photos_storage_path_key ON public.private_group_message_photos USING btree (storage_path)",
+    "name": "private_group_message_photos_storage_path_key"
+   }
+  ],
+  "policies": [],
+  "triggers": [
+   {
+    "def": "CREATE TRIGGER private_group_message_photo_enforce_limit BEFORE INSERT ON public.private_group_message_photos FOR EACH ROW EXECUTE FUNCTION private_group_message_photo_enforce_limit()",
+    "name": "private_group_message_photo_enforce_limit"
+   },
+   {
+    "def": "CREATE TRIGGER private_group_message_photo_set_size BEFORE INSERT ON public.private_group_message_photos FOR EACH ROW EXECUTE FUNCTION private_group_message_photo_set_size()",
+    "name": "private_group_message_photo_set_size"
+   }
+  ],
+  "constraints": [
+   {
+    "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+    "name": "private_group_message_photos_group_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK (((height IS NULL) OR ((height >= 1) AND (height <= 10000))))",
+    "name": "private_group_message_photos_height_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (message_id) REFERENCES private_group_messages(id) ON DELETE CASCADE",
+    "name": "private_group_message_photos_message_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+    "name": "private_group_message_photos_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (message_id, \"position\")",
+    "name": "private_group_message_photos_pkey",
+    "type": "p"
+   },
+   {
+    "def": "CHECK (((\"position\" >= 1) AND (\"position\" <= 10)))",
+    "name": "private_group_message_photos_position_check",
+    "type": "c"
+   },
+   {
+    "def": "UNIQUE (storage_path)",
+    "name": "private_group_message_photos_storage_path_key",
+    "type": "u"
+   },
+   {
+    "def": "CHECK (((thumb_path IS NULL) OR (thumb_path = regexp_replace(storage_path, '\\.jpg$'::text, '_thumb.jpg'::text))))",
+    "name": "private_group_message_photos_thumb_path_check",
+    "type": "c"
+   },
+   {
+    "def": "CHECK (((width IS NULL) OR ((width >= 1) AND (width <= 10000))))",
+    "name": "private_group_message_photos_width_check",
+    "type": "c"
+   }
+  ]
+ },
+ "web_push_subscriptions": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "user_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "endpoint",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "p256dh",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "auth",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "user_agent",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "last_used_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_web_push_subscriptions_user ON public.web_push_subscriptions USING btree (user_id)",
+    "name": "idx_web_push_subscriptions_user"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX web_push_subscriptions_endpoint_key ON public.web_push_subscriptions USING btree (endpoint)",
+    "name": "web_push_subscriptions_endpoint_key"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX web_push_subscriptions_pkey ON public.web_push_subscriptions USING btree (id)",
+    "name": "web_push_subscriptions_pkey"
+   }
+  ],
+  "policies": [],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "CHECK ((auth ~ '^[A-Za-z0-9_-]{16,32}$'::text))",
+    "name": "web_push_subscriptions_auth_check",
+    "type": "c"
+   },
+   {
+    "def": "CHECK (((char_length(endpoint) <= 1024) AND (endpoint ~ '^https://(fcm\\.googleapis\\.com|android\\.googleapis\\.com|updates\\.push\\.services\\.mozilla\\.com|push\\.services\\.mozilla\\.com|web\\.push\\.apple\\.com|[a-z0-9-]+\\.push\\.apple\\.com|[a-z0-9.-]+\\.notify\\.windows\\.com)/'::text)))",
+    "name": "web_push_subscriptions_endpoint_check",
+    "type": "c"
+   },
+   {
+    "def": "UNIQUE (endpoint)",
+    "name": "web_push_subscriptions_endpoint_key",
+    "type": "u"
+   },
+   {
+    "def": "CHECK ((p256dh ~ '^[A-Za-z0-9_-]{80,100}$'::text))",
+    "name": "web_push_subscriptions_p256dh_check",
+    "type": "c"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "web_push_subscriptions_pkey",
+    "type": "p"
+   },
+   {
+    "def": "CHECK (((user_agent IS NULL) OR (char_length(user_agent) <= 300)))",
+    "name": "web_push_subscriptions_user_agent_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "name": "web_push_subscriptions_user_id_fkey",
+    "type": "f"
+   }
+  ]
+ },
+ "private_group_notification_settings": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "group_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "member_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "push_enabled",
+    "type": "boolean",
+    "default": "true",
+    "not_null": true
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_private_group_notification_settings_member ON public.private_group_notification_settings USING btree (member_id)",
+    "name": "idx_private_group_notification_settings_member"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_notification_settings_pkey ON public.private_group_notification_settings USING btree (group_id, member_id)",
+    "name": "private_group_notification_settings_pkey"
+   }
+  ],
+  "policies": [],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+    "name": "private_group_notification_settings_group_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+    "name": "private_group_notification_settings_member_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (group_id, member_id)",
+    "name": "private_group_notification_settings_pkey",
+    "type": "p"
+   }
+  ]
+ },
+ "web_push_outbox": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "user_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "group_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "member_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "kind",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "dedupe_key",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "message_count",
+    "type": "integer",
+    "default": "1",
+    "not_null": true
+   },
+   {
+    "name": "last_message_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "last_message_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "notification_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "title",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "body",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "url",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "tag",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "status",
+    "type": "text",
+    "default": "'pending'::text",
+    "not_null": true
+   },
+   {
+    "name": "send_after",
+    "type": "timestamp with time zone",
+    "default": "clock_timestamp()",
+    "not_null": true
+   },
+   {
+    "name": "claimed_until",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "attempt_count",
+    "type": "integer",
+    "default": "0",
+    "not_null": true
+   },
+   {
+    "name": "delivered_count",
+    "type": "integer",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "skip_reason",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "last_error",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "clock_timestamp()",
+    "not_null": true
+   },
+   {
+    "name": "sent_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_web_push_outbox_created ON public.web_push_outbox USING btree (created_at)",
+    "name": "idx_web_push_outbox_created"
+   },
+   {
+    "def": "CREATE INDEX idx_web_push_outbox_due ON public.web_push_outbox USING btree (send_after) WHERE (status = 'pending'::text)",
+    "name": "idx_web_push_outbox_due"
+   },
+   {
+    "def": "CREATE INDEX idx_web_push_outbox_group ON public.web_push_outbox USING btree (group_id)",
+    "name": "idx_web_push_outbox_group"
+   },
+   {
+    "def": "CREATE INDEX idx_web_push_outbox_member ON public.web_push_outbox USING btree (member_id)",
+    "name": "idx_web_push_outbox_member"
+   },
+   {
+    "def": "CREATE INDEX idx_web_push_outbox_notification ON public.web_push_outbox USING btree (notification_id)",
+    "name": "idx_web_push_outbox_notification"
+   },
+   {
+    "def": "CREATE INDEX idx_web_push_outbox_recipient ON public.web_push_outbox USING btree (user_id, group_id, kind, status)",
+    "name": "idx_web_push_outbox_recipient"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX web_push_outbox_dedupe_key_key ON public.web_push_outbox USING btree (dedupe_key)",
+    "name": "web_push_outbox_dedupe_key_key"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX web_push_outbox_pkey ON public.web_push_outbox USING btree (id)",
+    "name": "web_push_outbox_pkey"
+   }
+  ],
+  "policies": [],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "CHECK ((attempt_count >= 0))",
+    "name": "web_push_outbox_attempt_count_check",
+    "type": "c"
+   },
+   {
+    "def": "UNIQUE (dedupe_key)",
+    "name": "web_push_outbox_dedupe_key_key",
+    "type": "u"
+   },
+   {
+    "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+    "name": "web_push_outbox_group_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((kind = ANY (ARRAY['chat'::text, 'reply'::text, 'notice'::text])))",
+    "name": "web_push_outbox_kind_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+    "name": "web_push_outbox_member_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((message_count >= 1))",
+    "name": "web_push_outbox_message_count_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (notification_id) REFERENCES user_notifications(id) ON DELETE SET NULL",
+    "name": "web_push_outbox_notification_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "web_push_outbox_pkey",
+    "type": "p"
+   },
+   {
+    "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'skipped'::text, 'failed'::text])))",
+    "name": "web_push_outbox_status_check",
+    "type": "c"
+   },
+   {
+    "def": "CHECK ((url ~ '^/'::text))",
+    "name": "web_push_outbox_url_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "name": "web_push_outbox_user_id_fkey",
+    "type": "f"
+   }
+  ]
+ },
+ "private_group_feedback": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "group_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "member_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "reservation_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "rating",
+    "type": "smallint",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "comment",
+    "type": "text",
+    "default": "''::text",
+    "not_null": true
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_private_group_feedback_org ON public.private_group_feedback USING btree (organization_id, created_at DESC)",
+    "name": "idx_private_group_feedback_org"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_feedback_group_id_member_id_key ON public.private_group_feedback USING btree (group_id, member_id)",
+    "name": "private_group_feedback_group_id_member_id_key"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_feedback_pkey ON public.private_group_feedback USING btree (id)",
+    "name": "private_group_feedback_pkey"
+   }
+  ],
+  "policies": [],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "CHECK ((char_length(comment) <= 2000))",
+    "name": "private_group_feedback_comment_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+    "name": "private_group_feedback_group_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "UNIQUE (group_id, member_id)",
+    "name": "private_group_feedback_group_id_member_id_key",
+    "type": "u"
+   },
+   {
+    "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+    "name": "private_group_feedback_member_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+    "name": "private_group_feedback_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "private_group_feedback_pkey",
+    "type": "p"
+   },
+   {
+    "def": "CHECK (((rating >= 1) AND (rating <= 5)))",
+    "name": "private_group_feedback_rating_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE SET NULL",
+    "name": "private_group_feedback_reservation_id_fkey",
+    "type": "f"
+   }
+  ]
+ },
+ "stores": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "name",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "short_name",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "address",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "phone_number",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "email",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "opening_date",
+    "type": "date",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "manager_name",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "status",
+    "type": "text",
+    "default": "'active'::text",
+    "not_null": true
+   },
+   {
+    "name": "capacity",
+    "type": "integer",
+    "default": "0",
+    "not_null": true
+   },
+   {
+    "name": "rooms",
+    "type": "integer",
+    "default": "1",
+    "not_null": true
+   },
+   {
+    "name": "notes",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "color",
+    "type": "text",
+    "default": "'#3B82F6'::text",
+    "not_null": true
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": false
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": false
+   },
+   {
+    "name": "fixed_costs",
+    "type": "jsonb",
+    "default": "'[]'::jsonb",
+    "not_null": false
+   },
+   {
+    "name": "ownership_type",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "franchise_fee",
+    "type": "integer",
+    "default": "1000",
+    "not_null": false
+   },
+   {
+    "name": "is_temporary",
+    "type": "boolean",
+    "default": "false",
+    "not_null": false
+   },
+   {
+    "name": "temporary_date",
+    "type": "date",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "temporary_dates",
+    "type": "jsonb",
+    "default": "'[]'::jsonb",
+    "not_null": false
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "display_order",
+    "type": "integer",
+    "default": "999",
+    "not_null": false
+   },
+   {
+    "name": "region",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "temporary_venue_names",
+    "type": "jsonb",
+    "default": "'{}'::jsonb",
+    "not_null": false
+   },
+   {
+    "name": "transport_allowance",
+    "type": "integer",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "kit_group_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "venue_cost_per_performance",
+    "type": "integer",
+    "default": "0",
+    "not_null": false
+   },
+   {
+    "name": "access_info",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "kit_fixed",
+    "type": "boolean",
+    "default": "false",
+    "not_null": false
+   },
+   {
+    "name": "franchise_fee_type",
+    "type": "text",
+    "default": "'fixed'::text",
+    "not_null": true
+   },
+   {
+    "name": "franchise_fee_percent",
+    "type": "numeric(5,2)",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "public_name",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_stores_display_order ON public.stores USING btree (display_order)",
+    "name": "idx_stores_display_order"
+   },
+   {
+    "def": "CREATE INDEX idx_stores_kit_group_id ON public.stores USING btree (kit_group_id)",
+    "name": "idx_stores_kit_group_id"
+   },
+   {
+    "def": "CREATE INDEX idx_stores_organization_id ON public.stores USING btree (organization_id)",
+    "name": "idx_stores_organization_id"
+   },
+   {
+    "def": "CREATE INDEX idx_stores_status ON public.stores USING btree (status)",
+    "name": "idx_stores_status"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX stores_id_organization_id_key ON public.stores USING btree (id, organization_id)",
+    "name": "stores_id_organization_id_key"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX stores_pkey ON public.stores USING btree (id)",
+    "name": "stores_pkey"
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "d",
+    "name": "org_scope_restrict_delete",
+    "check": null,
+    "roles": [
+     "authenticated"
+    ],
+    "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+    "permissive": false
+   },
+   {
+    "cmd": "a",
+    "name": "org_scope_restrict_insert",
+    "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+    "roles": [
+     "authenticated"
+    ],
+    "using": null,
+    "permissive": false
+   },
+   {
+    "cmd": "w",
+    "name": "org_scope_restrict_update",
+    "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+    "roles": [
+     "authenticated"
+    ],
+    "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+    "permissive": false
+   },
+   {
+    "cmd": "d",
+    "name": "stores_delete_admin",
+    "check": null,
+    "roles": null,
+    "using": "(is_admin() AND (organization_id = get_user_organization_id()))",
+    "permissive": true
+   },
+   {
+    "cmd": "a",
+    "name": "stores_insert_org_scoped",
+    "check": "((organization_id = get_user_organization_id()) AND is_admin())",
+    "roles": null,
+    "using": null,
+    "permissive": true
+   },
+   {
+    "cmd": "r",
+    "name": "stores_select_public",
+    "check": null,
+    "roles": null,
+    "using": "true",
+    "permissive": true
+   },
+   {
+    "cmd": "r",
+    "name": "stores_select_public_safe",
+    "check": null,
+    "roles": null,
+    "using": "true",
+    "permissive": true
+   },
+   {
+    "cmd": "w",
+    "name": "stores_update_admin",
+    "check": null,
+    "roles": null,
+    "using": "(is_admin() AND (organization_id = get_user_organization_id()))",
+    "permissive": true
+   }
+  ],
+  "triggers": [
+   {
+    "def": "CREATE TRIGGER trigger_audit_stores AFTER INSERT OR DELETE OR UPDATE ON public.stores FOR EACH ROW EXECUTE FUNCTION audit_generic_changes()",
+    "name": "trigger_audit_stores"
+   },
+   {
+    "def": "CREATE TRIGGER update_stores_updated_at BEFORE UPDATE ON public.stores FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "name": "update_stores_updated_at"
+   }
+  ],
+  "constraints": [
+   {
+    "def": "CHECK ((franchise_fee_type = ANY (ARRAY['fixed'::text, 'percent'::text])))",
+    "name": "stores_franchise_fee_type_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (kit_group_id) REFERENCES stores(id) ON DELETE SET NULL",
+    "name": "stores_kit_group_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id)",
+    "name": "stores_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((ownership_type = ANY (ARRAY['corporate'::text, 'franchise'::text, 'office'::text])))",
+    "name": "stores_ownership_type_check",
+    "type": "c"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "stores_pkey",
+    "type": "p"
+   },
+   {
+    "def": "CHECK ((status = ANY (ARRAY['active'::text, 'temporarily_closed'::text, 'closed'::text])))",
+    "name": "stores_status_check",
+    "type": "c"
+   }
+  ]
+ },
+ "coupon_usages": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "customer_coupon_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "reservation_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "discount_amount",
+    "type": "integer",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "used_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "redeemed_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "redeemed_by_member",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "redeemed_source",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE UNIQUE INDEX coupon_usages_pkey ON public.coupon_usages USING btree (id)",
+    "name": "coupon_usages_pkey"
+   },
+   {
+    "def": "CREATE INDEX idx_coupon_usages_coupon ON public.coupon_usages USING btree (customer_coupon_id)",
+    "name": "idx_coupon_usages_coupon"
+   },
+   {
+    "def": "CREATE INDEX idx_coupon_usages_reservation ON public.coupon_usages USING btree (reservation_id)",
+    "name": "idx_coupon_usages_reservation"
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "d",
+    "name": "coupon_usages_delete_staff_or_admin",
+    "check": null,
+    "roles": null,
+    "using": "is_staff_or_admin()",
+    "permissive": true
+   },
+   {
+    "cmd": "a",
+    "name": "coupon_usages_insert_customer",
+    "check": "(customer_coupon_id IN ( SELECT customer_coupons.id\n   FROM customer_coupons\n  WHERE (customer_coupons.customer_id IN ( SELECT customers.id\n           FROM customers\n          WHERE (customers.user_id = auth.uid())))))",
+    "roles": null,
+    "using": null,
+    "permissive": true
+   },
+   {
+    "cmd": "a",
+    "name": "coupon_usages_insert_via_rpc",
+    "check": "(EXISTS ( SELECT 1\n   FROM customer_coupons cc\n  WHERE (cc.id = coupon_usages.customer_coupon_id)))",
+    "roles": null,
+    "using": null,
+    "permissive": true
+   },
+   {
+    "cmd": "r",
+    "name": "coupon_usages_select",
+    "check": null,
+    "roles": null,
+    "using": "((customer_coupon_id IN ( SELECT customer_coupons.id\n   FROM customer_coupons\n  WHERE (customer_coupons.customer_id IN ( SELECT customers.id\n           FROM customers\n          WHERE (customers.user_id = auth.uid()))))) OR is_org_admin())",
+    "permissive": true
+   },
+   {
+    "cmd": "w",
+    "name": "coupon_usages_update_admin",
+    "check": "is_org_admin()",
+    "roles": null,
+    "using": "is_org_admin()",
+    "permissive": true
+   },
+   {
+    "cmd": "d",
+    "name": "org_scope_restrict_delete",
+    "check": null,
+    "roles": [
+     "authenticated"
+    ],
+    "using": "(( SELECT is_platform_master() AS is_platform_master) OR (EXISTS ( SELECT 1\n   FROM customer_coupons cc\n  WHERE ((cc.id = coupon_usages.customer_coupon_id) AND (cc.organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id))))))",
+    "permissive": false
+   },
+   {
+    "cmd": "w",
+    "name": "org_scope_restrict_update",
+    "check": "(( SELECT is_platform_master() AS is_platform_master) OR (EXISTS ( SELECT 1\n   FROM customer_coupons cc\n  WHERE ((cc.id = coupon_usages.customer_coupon_id) AND (cc.organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id))))))",
+    "roles": [
+     "authenticated"
+    ],
+    "using": "(( SELECT is_platform_master() AS is_platform_master) OR (EXISTS ( SELECT 1\n   FROM customer_coupons cc\n  WHERE ((cc.id = coupon_usages.customer_coupon_id) AND (cc.organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id))))))",
+    "permissive": false
+   }
+  ],
+  "triggers": [
+   {
+    "def": "CREATE TRIGGER enforce_coupon_performance_scope BEFORE INSERT OR UPDATE ON public.coupon_usages FOR EACH ROW EXECUTE FUNCTION enforce_coupon_performance_scope()",
+    "name": "enforce_coupon_performance_scope"
+   },
+   {
+    "def": "CREATE TRIGGER trigger_update_coupon_on_usage AFTER INSERT ON public.coupon_usages FOR EACH ROW EXECUTE FUNCTION update_customer_coupon_on_usage()",
+    "name": "trigger_update_coupon_on_usage"
+   }
+  ],
+  "constraints": [
+   {
+    "def": "FOREIGN KEY (customer_coupon_id) REFERENCES customer_coupons(id) ON DELETE CASCADE",
+    "name": "coupon_usages_customer_coupon_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((discount_amount > 0))",
+    "name": "coupon_usages_discount_amount_check",
+    "type": "c"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "coupon_usages_pkey",
+    "type": "p"
+   },
+   {
+    "def": "FOREIGN KEY (redeemed_by_member) REFERENCES customers(id) ON DELETE SET NULL",
+    "name": "coupon_usages_redeemed_by_member_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK (((redeemed_source IS NULL) OR (redeemed_source = ANY (ARRAY['customer_present'::text, 'venue_use'::text]))))",
+    "name": "coupon_usages_redeemed_source_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE",
+    "name": "coupon_usages_reservation_id_fkey",
     "type": "f"
    }
   ]

@@ -14,10 +14,13 @@ import { isCustomerProfileComplete } from '@/utils/customerProfileGate'
 import { grantRegistrationCoupon } from '@/lib/api/couponApi'
 import { ProfileForm } from './completeProfile/ProfileForm'
 import { SuccessScreen, ReopenLinkScreen, DuplicateAccountScreen } from './completeProfile/StatusScreens'
+import { SUCCESS_REDIRECT_DELAY_MS, type SuccessDestination } from './completeProfile/successRedirect'
 import { useNavigate } from 'react-router-dom'
 import { getOrganizationBySlug, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 import { profileRegistrationApi } from '@/lib/api/customerApi'
+import { normalizeReturnTo } from '@/lib/authReturn'
+import { readSignupLinkError } from './completeProfile/linkError'
 
 export function CompleteProfile() {
   const [password, setPassword] = useState('')
@@ -27,6 +30,8 @@ export function CompleteProfile() {
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  // 登録完了後に自動で移る先（完了画面の文言とボタンを実際の移動先に合わせるため）
+  const [successDestination, setSuccessDestination] = useState<SuccessDestination>({ url: '/', kind: 'top' })
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [isCheckingSession, setIsCheckingSession] = useState(true)
@@ -46,6 +51,10 @@ export function CompleteProfile() {
     'resolving' | 'form' | 'duplicate_account' | 'leaving'
   >('resolving')
   const navigate = useNavigate()
+  // 確認メールのリンクが期限切れ・使用済みだったか（Supabase が URL に付けて返す。点検 11）
+  const [linkError] = useState(() => readSignupLinkError(window.location.hash, window.location.search))
+  // 登録後に戻る画面（確認メールのリンクの ?next=。点検 1）
+  const [returnTo] = useState(() => normalizeReturnTo(new URLSearchParams(window.location.search).get('next')))
 
   useEffect(() => {
     let cancelled = false
@@ -586,19 +595,17 @@ export function CompleteProfile() {
         }
       }
       
+      // 新規登録者はクーポンプレゼントページへ、既存ユーザーは直接遷移先へ
+      const destination = isNewCustomer
+        ? { url: `/coupon-present?next=${encodeURIComponent(nextUrl)}`, kind: 'coupon' as const }
+        : { url: nextUrl, kind: nextUrl === '/' ? 'top' as const : 'previous' as const }
+      setSuccessDestination(destination)
       setSuccess(true)
       
-      // 2秒後にリダイレクト
+      // SUCCESS_REDIRECT_DELAY_MS 後にリダイレクト（完了画面の「◯秒後に」表示と同じ値）
       setTimeout(() => {
-        if (isNewCustomer) {
-          // 新規登録者はクーポンプレゼントページへ
-          const couponUrl = `/coupon-present?next=${encodeURIComponent(nextUrl)}`
-          navigate(couponUrl, { replace: true })
-        } else {
-          // 既存ユーザーは直接遷移先へ
-          navigate(nextUrl, { replace: true })
-        }
-      }, 2000)
+        navigate(destination.url, { replace: true })
+      }, SUCCESS_REDIRECT_DELAY_MS)
       
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'エラーが発生しました'
@@ -611,7 +618,7 @@ export function CompleteProfile() {
 
   if (success) {
     return (
-      <SuccessScreen navigate={navigate} />
+      <SuccessScreen navigate={navigate} destination={successDestination} />
     )
   }
 
@@ -638,6 +645,8 @@ export function CompleteProfile() {
         resendLoading={resendLoading}
         setResendLoading={setResendLoading}
         navigate={navigate}
+        linkError={linkError}
+        nextUrl={returnTo}
       />
     )
   }

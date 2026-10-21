@@ -13,6 +13,7 @@ import { clearBookingDataSnapshot } from '@/pages/PublicBookingTop/utils/booking
 import { notificationOutcome, type NotificationOutcome } from '@/lib/notificationResult'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { upsertOwnCustomer } from '@/lib/api/customerApi'
+import { trackPendingNotification } from '@/lib/pendingNotifications'
 
 /**
  * 参加費を計算する関数
@@ -23,8 +24,12 @@ export const calculateParticipationFee = async (
   date: string,
   organizationId?: string
 ): Promise<number> => {
-  // シナリオの料金設定を取得（organization_scenarios_with_master: 組織固有の participation_fee）
-  const { data: scenario, error } = await bookingConfirmationReadApi.findScenarioPricing(scenarioId, organizationId)
+  // シナリオの料金設定（organization_scenarios_with_master: 組織固有の participation_fee）と
+  // 独自休日は互いに依存しないので同時に取る（点検 36）
+  const [{ data: scenario, error }, { data: holidays, error: holidayError }] = await Promise.all([
+    bookingConfirmationReadApi.findScenarioPricing(scenarioId, organizationId),
+    bookingConfirmationReadApi.getPublicCustomHolidays(organizationId),
+  ])
 
   if (error) {
     logger.error('シナリオ料金設定取得エラー:', error)
@@ -43,7 +48,6 @@ export const calculateParticipationFee = async (
   
   // 保存単価は reservationApi.create → 予約作成RPC側で独自休日を再取得して確定する。
   // ここは表示用の再計算なので、休日取得の一時失敗で予約自体を中断しない。
-  const { data: holidays, error: holidayError } = await bookingConfirmationReadApi.getPublicCustomHolidays(organizationId)
   if (holidayError) {
     logger.warn('休日設定の取得に失敗（表示用）。予約作成側で再確定します:', holidayError)
   }
@@ -171,7 +175,11 @@ export const checkReservationLimits = async (
   try {
     // 公演の最大参加人数・現在参加人数・store_idを取得（公開用ビュー）
     // current_participants はトリガーで常に再計算されるため、正確な集計値として使用
-    const { data: eventData, error: eventError } = await bookingConfirmationReadApi.findPublicEventForBooking(eventId)
+    // 受付締切（追加募集の判断待ちを含む）も同時に取る（点検 36: 直列の待ちを減らす）
+    const [{ data: eventData, error: eventError }, { data: bookingWindows, error: bookingWindowError }] = await Promise.all([
+      bookingConfirmationReadApi.findPublicEventForBooking(eventId),
+      bookingConfirmationReadApi.getPerformanceBookingWindow(eventId),
+    ])
 
     if (eventError) {
       logger.error('公演データ取得エラー:', eventError)
@@ -209,7 +217,6 @@ export const checkReservationLimits = async (
     }
 
     // 追加募集の判断待ちと、開催決定後の通常受付をDBと同じ締切で判断する。
-    const { data: bookingWindows, error: bookingWindowError } = await bookingConfirmationReadApi.getPerformanceBookingWindow(eventId)
     if (bookingWindowError) return { allowed: false, reason: '予約締切を確認できません。再度お試しください。' }
     const bookingDeadline = bookingWindows?.[0]?.effective_booking_deadline
     if (bookingDeadline && now.getTime() >= new Date(bookingDeadline).getTime()) {
@@ -238,6 +245,15 @@ export const checkReservationLimits = async (
   }
 }
 
+/** 予約の進み具合。checking=空席・料金の確認、saving=予約の保存、sending_email=確認メールの送信 */
+export type BookingSubmitProgress = 'checking' | 'saving' | 'sending_email'
+
+export const BOOKING_PROGRESS_LABELS: Record<BookingSubmitProgress, string> = {
+  checking: '空席と料金を確認しています…',
+  saving: '予約を確定しています…',
+  sending_email: '確認メールを送っています…',
+}
+
 interface UseBookingSubmitProps {
   eventId: string
   scenarioTitle: string
@@ -264,9 +280,12 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
   const submitInFlight = useRef(false)
   const savedReservation = useRef(false)
   const [confirmationEmailOutcome, setConfirmationEmailOutcome] = useState<NotificationOutcome | null>(null)
+  /** 待ち中に出す進み具合（点検 36） */
+  const [progress, setProgress] = useState<BookingSubmitProgress | null>(null)
   // 冪等性: 同一フォーム送信のリトライでは同じ予約番号を使う
   const reservationNumberRef = useRef<string | null>(null)
   const [completedReservation, setCompletedReservation] = useState<{
+    reservationId: string
     reservationNumber: string
     participantCount: number
     totalPrice: number
@@ -296,22 +315,25 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
 
     submitInFlight.current = true
     setIsSubmitting(true)
+    setProgress('checking')
+    const userId = props.userId
 
     try {
-      // 予約制限をチェック
-      const limitCheck = await checkReservationLimits(
-        props.eventId,
-        participantCount,
-        props.eventDate,
-        props.startTime
-      )
+      // 予約制限のチェックと組織IDの取得（料金計算と予約作成に必要・公開用ビュー）は
+      // 互いに依存しないので同時に行う（点検 36: 直列の待ちを並列に）
+      const [limitCheck, { data: eventOrg, error: eventOrgError }] = await Promise.all([
+        checkReservationLimits(
+          props.eventId,
+          participantCount,
+          props.eventDate,
+          props.startTime
+        ),
+        bookingConfirmationReadApi.findEventOrganizationId(props.eventId),
+      ])
 
       if (!limitCheck.allowed) {
         throw new Error(limitCheck.reason || '予約制限により予約できません')
       }
-
-      // 組織IDを取得（料金計算と予約作成に必要）- 公開用ビュー
-      const { data: eventOrg, error: eventOrgError } = await bookingConfirmationReadApi.findEventOrganizationId(props.eventId)
 
       if (eventOrgError) {
         logger.error('組織ID取得エラー:', eventOrgError)
@@ -320,37 +342,40 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
 
       const organizationId = eventOrg.organization_id
 
-      // 料金を計算（組織固有の participation_fee）
-      const calculatedFee = await calculateParticipationFee(
-        props.scenarioId,
-        props.startTime,
-        props.eventDate,
-        organizationId
-      )
+      // 顧客レコードを取得または作成し、電話番号が保存されたことを確かめる
+      const ensureCustomer = async (): Promise<string> => {
+        let customerId: string | null = null
+        try {
+          // user_id でプラットフォーム共通の顧客レコードを検索し、あれば更新・無ければ作成（API 層に集約）
+          customerId = await upsertOwnCustomer({
+            userId, name: customerName, nickname: customerNickname || null,
+            phone: customerPhone, email: customerEmail, organizationId,
+          })
+        } catch (error) {
+          logger.error('顧客レコードの作成/更新エラー:', error)
+        }
+        if (!customerId) {
+          throw new Error('顧客情報の取得に失敗しました。もう一度お試しください。')
+        }
+        const { data: phoneRow, error: phoneVerifyError } = await bookingConfirmationReadApi.findOwnCustomerPhone(customerId, userId)
+        if (phoneVerifyError || !hasNonEmptyCustomerPhone(phoneRow?.phone)) {
+          throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
+        }
+        return customerId
+      }
+
+      // 料金の計算（組織固有の participation_fee）と顧客レコードの準備も同時に行う
+      const [calculatedFee, customerId] = await Promise.all([
+        calculateParticipationFee(
+          props.scenarioId,
+          props.startTime,
+          props.eventDate,
+          organizationId
+        ),
+        ensureCustomer(),
+      ])
       // JSTとして明示的に指定して保存（タイムゾーン不整合を防ぐ）
       const eventDateTime = `${props.eventDate}T${props.startTime}+09:00`
-
-      // 顧客レコードを取得または作成
-      let customerId: string | null = null
-      
-      try {
-        // user_id でプラットフォーム共通の顧客レコードを検索し、あれば更新・無ければ作成（API 層に集約）
-        customerId = await upsertOwnCustomer({
-          userId: props.userId, name: customerName, nickname: customerNickname || null,
-          phone: customerPhone, email: customerEmail, organizationId,
-        })
-      } catch (error) {
-        logger.error('顧客レコードの作成/更新エラー:', error)
-      }
-      
-      if (!customerId) {
-        throw new Error('顧客情報の取得に失敗しました。もう一度お試しください。')
-      }
-
-      const { data: phoneRow, error: phoneVerifyError } = await bookingConfirmationReadApi.findOwnCustomerPhone(customerId, props.userId)
-      if (phoneVerifyError || !hasNonEmptyCustomerPhone(phoneRow?.phone)) {
-        throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
-      }
 
       // 冪等性: 予約番号（YYMMDD-XXXX）を1回だけ生成してリトライでも固定
       if (!reservationNumberRef.current) {
@@ -360,6 +385,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         reservationNumberRef.current = `${dateStr}-${randomStr}`
       }
 
+      setProgress('saving')
       const reservationData = await reservationApi.create({
         schedule_event_id: props.eventId,
         title: `${props.scenarioTitle} - ${formatDate(props.eventDate)}`,
@@ -389,9 +415,31 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       } as any)
 
       savedReservation.current = true
-      // 予約確認メールを送信
+      const totalPrice = reservationData.final_price ?? (calculatedFee * participantCount)
+
+      // 予約は保存済み。メールの返事を待たずに完了画面を出す（点検 36）。
+      // メール欄は「送っています…」→ 結果に切り替わる。
+      setCompletedReservation({
+        reservationId: reservationData.id,
+        reservationNumber: reservationData.reservation_number,
+        participantCount: participantCount,
+        totalPrice,
+        discountAmount: reservationData.discount_amount ?? 0
+      })
+      setSuccess(true)
+      setProgress('sending_email')
+      // Analytics must never change a successfully created reservation's outcome.
+      try { trackReservationComplete(reservationData.id, props.organizationSlug) } catch { /* non-critical */ }
+
+      // 予約完了後: トップページの残り席数が古い値を表示しないようキャッシュを無効化
+      queryClient.invalidateQueries({ queryKey: ['booking-data'] })
+      if (props.organizationSlug) {
+        clearBookingDataSnapshot(props.organizationSlug)
+      }
+
+      // 予約確認メールを送信（送り終わるまでタブを閉じようとしたら確認を出す）
       try {
-        const emailResponse = await supabase.functions.invoke('send-booking-confirmation', {
+        const emailResponse = await trackPendingNotification(supabase.functions.invoke('send-booking-confirmation', {
           body: {
             reservationId: reservationData.id,
             organizationId,
@@ -405,10 +453,10 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
             storeName: props.storeName,
             storeAddress: props.storeAddress,
             participantCount: participantCount,
-            totalPrice: reservationData.final_price ?? (calculatedFee * participantCount),
+            totalPrice,
             reservationNumber: reservationData.reservation_number
           }
-        })
+        }))
 
         const outcome = notificationOutcome(emailResponse)
         setConfirmationEmailOutcome(outcome)
@@ -422,34 +470,19 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         logger.error('メール送信処理エラー:', emailError)
       }
 
-      // 完了した予約情報を保存（サーバー側で計算された最終金額を使用）
-      setCompletedReservation({
-        reservationNumber: reservationData.reservation_number,
-        participantCount: participantCount,
-        totalPrice: reservationData.final_price ?? (calculatedFee * participantCount),
-        discountAmount: reservationData.discount_amount ?? 0
-      })
-      setSuccess(true)
-      // Analytics must never change a successfully created reservation's outcome.
-      try { trackReservationComplete(reservationData.id, props.organizationSlug) } catch { /* non-critical */ }
-
-      // 予約完了後: トップページの残り席数が古い値を表示しないようキャッシュを無効化
-      queryClient.invalidateQueries({ queryKey: ['booking-data'] })
-      if (props.organizationSlug) {
-        clearBookingDataSnapshot(props.organizationSlug)
-      }
-
     } catch (error) {
       logger.error('予約処理エラー:', error)
       throw error
     } finally {
       submitInFlight.current = false
       setIsSubmitting(false)
+      setProgress(null)
     }
   }
 
   return {
     isSubmitting,
+    progress,
     success,
     completedReservation,
     confirmationEmailOutcome,

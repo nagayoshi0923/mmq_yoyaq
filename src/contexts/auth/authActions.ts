@@ -4,6 +4,7 @@ import { supabase, type AuthUser } from '@/lib/supabase'
 import { authTrace, logger } from '@/utils/logger'
 import { maskEmail } from '@/utils/security'
 import { clearPersistedQueryCache } from '@/lib/persistedQueryCache'
+import { removeWebPushSubscription } from '@/lib/webPush'
 import { getSignOutRedirectPath, logAuthEvent } from './authContextHelpers'
 
 /**
@@ -115,6 +116,8 @@ export function createAuthActions(deps: AuthActionsDeps) {
     const currentUserRole = userRef.current?.role
     
     try {
+      // この端末のプッシュ通知の購読を外す（次に使う人に前の人の通知が届かないように。ログイン中にしか消せない）
+      await removeWebPushSubscription()
       const { error } = await supabase.auth.signOut()
       if (error) {
         // ログアウト失敗をログに記録

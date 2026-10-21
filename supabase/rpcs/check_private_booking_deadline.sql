@@ -1,16 +1,22 @@
--- RPC と直接 INSERT/UPDATE の双方で、保存時点の実効締切・作品の公演期間・貸切募集期間を強制する。
+-- RPC と直接 INSERT/UPDATE の双方で、保存時点の実効締切・申し込める日の上限・作品の公演期間・貸切募集期間を強制する。
+-- 申し込める日の上限は「今日（日本時間）から設定の日数後まで」（I21。MMQ 既定 180 日 → 組織 → 作品 → 公演の順に上書き）。超えたら P0058。
 CREATE OR REPLACE FUNCTION public.assert_private_booking_candidate_date(p_org uuid, p_scenario uuid, p_date date)
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-DECLARE days INTEGER; today DATE := (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tokyo')::DATE; period RECORD;
+DECLARE days INTEGER; horizon INTEGER; today DATE := (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tokyo')::DATE; period RECORD;
 BEGIN
  IF p_org IS NULL OR p_scenario IS NULL OR p_date IS NULL THEN RAISE EXCEPTION 'PRIVATE_BOOKING_CONTEXT_REQUIRED' USING ERRCODE='P0045'; END IF;
  days := public.get_effective_private_booking_deadline_days(p_org,NULL,p_scenario);
  IF p_date < today + days THEN
    RAISE EXCEPTION 'PRIVATE_BOOKING_DEADLINE_PASSED' USING ERRCODE='P0045';
+ END IF;
+ -- 申し込める日の上限（設定「貸切を受け付ける範囲」。作品の値まで反映。2026-10-20 本番 #1140）
+ horizon := public.get_effective_private_booking_horizon_days(p_org,p_scenario,NULL);
+ IF p_date > today + horizon THEN
+   RAISE EXCEPTION '申し込めるのは今日から % 日先までです', horizon USING ERRCODE='P0058', HINT='PRIVATE_BOOKING_TOO_FAR';
  END IF;
  -- 作品編集の「貸切募集期間」（申し込める期間）と「公演期間」（公演できる日の範囲）。未設定は制限なし。
  SELECT os.booking_start_date,os.booking_end_date,os.available_from,os.available_until INTO period

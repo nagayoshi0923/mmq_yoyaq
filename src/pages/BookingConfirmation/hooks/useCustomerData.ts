@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { bookingConfirmationReadApi } from '@/lib/api/bookingConfirmationReadApi'
 
@@ -40,16 +40,22 @@ export function useCustomerData({ userId, userEmail }: UseCustomerDataProps) {
     },
   })
 
-  // 取得データでフォームを初期化（ユーザーが既に入力済みの場合は上書きしない）
+  // 取得データでフォームを初期化するのは最初に読めたときだけ。それまでに利用者が入力した欄は残す。
+  // 読み直し（キャッシュの更新など）では入力・変更した欄を上書きしない（2026-10-20 Codex staging 点検「再取得で入力内容が消える」）
+  const initializedRef = useRef(false)
+  // 別のアカウントに切り替わったら、その人の登録情報で入れ直す
+  useEffect(() => { initializedRef.current = false }, [userId])
   useEffect(() => {
     if (!fetchedData) {
       if (!customerEmail && userEmail) setCustomerEmail(userEmail)
       return
     }
-    setCustomerName(fetchedData.name || '')
-    setCustomerNickname(fetchedData.nickname || '')
-    setCustomerEmail(fetchedData.email || userEmail || '')
-    setCustomerPhone(fetchedData.phone || '')
+    if (initializedRef.current) return
+    initializedRef.current = true
+    setCustomerName(prev => prev || fetchedData.name || '')
+    setCustomerNickname(prev => prev || fetchedData.nickname || '')
+    setCustomerEmail(prev => (!prev || prev === userEmail ? fetchedData.email || userEmail || '' : prev))
+    setCustomerPhone(prev => prev || fetchedData.phone || '')
   // fetchedData が変わったときだけ同期する（フォーム操作を上書きしないよう依存を絞る）
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchedData])

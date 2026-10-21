@@ -18,6 +18,7 @@ export type CandidateSlotReason =
   | 'outside_period'
   | 'already_added'
   | 'start_fixed'
+  | 'too_far'
 
 export interface CandidateSlotAvailabilityRow {
   date: string
@@ -56,6 +57,7 @@ export const CANDIDATE_SLOT_REASON_TEXT: Record<CandidateSlotReason, string> = {
   outside_period: '作品の公演期間外です',
   already_added: '追加済みの候補です',
   start_fixed: 'この作品の開始時刻では前後の公演と重なります',
+  too_far: '申し込める範囲より先の日付です',
 }
 
 export function candidateSlotReasonText(reason: string | null | undefined): string {
@@ -78,8 +80,9 @@ export function buildCandidateSlotAvailability(rows: CandidateSlotAvailabilityRo
     }
     ;(slotsByDate[date] ??= []).push(slot)
     if (!row.available || !slot.startTime) {
-      // start_fixed（作品の開始時刻が決まっていて入らない。2026-10-15 社長決定）は detail が理由の全文
-      unavailableReasons[`${date}-${label}`] = row.reason === 'start_fixed' && row.detail
+      // start_fixed（作品の開始時刻が決まっていて入らない。2026-10-15 社長決定）と
+      // too_far（申し込める範囲より先。「申し込めるのは今日から N 日先までです」）は detail が理由の全文
+      unavailableReasons[`${date}-${label}`] = (row.reason === 'start_fixed' || row.reason === 'too_far') && row.detail
         ? row.detail
         : candidateSlotReasonText(row.reason) + (row.detail ? `（${row.detail}）` : '')
     }
@@ -112,4 +115,24 @@ export async function fetchCandidateSlotAvailability(
       })
   if (error) throw error
   return (data ?? []) as CandidateSlotAvailabilityRow[]
+}
+
+/**
+ * 日時から選ぶ貸切の作品一覧用: その日に、日付だけで決まる理由（受付締切・貸切募集期間・公演期間）で申し込めない作品。
+ * DB の private_booking_scenario_date_reasons（保存と同じ assert_private_booking_candidate_date）を使う。
+ * 返り値は 作品 id → 短い日本語の理由。店舗・時間帯の空きは作品を選んだあとに fetchCandidateSlotAvailability で確かめる。
+ */
+export async function fetchScenarioDateReasons(organizationId: string, date: string, scenarioIds: string[]): Promise<Record<string, string>> {
+  if (scenarioIds.length === 0) return {}
+  const { data, error } = await supabase.rpc('private_booking_scenario_date_reasons', {
+    p_organization_id: organizationId,
+    p_date: date,
+    p_scenario_ids: scenarioIds.slice(0, 400),
+  })
+  if (error) throw error
+  const reasons: Record<string, string> = {}
+  for (const row of (data ?? []) as Array<{ scenario_id: string; reason: string | null }>) {
+    reasons[row.scenario_id] = candidateSlotReasonText(row.reason)
+  }
+  return reasons
 }

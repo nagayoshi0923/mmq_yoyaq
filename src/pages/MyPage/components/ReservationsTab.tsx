@@ -1,6 +1,7 @@
+import type React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Calendar, ChevronRight, Sparkles, Users, XCircle } from 'lucide-react'
+import { Calendar, ChevronRight, Drama, Sparkles, Users, XCircle } from 'lucide-react'
 import { formatJstDateJa } from '@/utils/jstDate'
 import type { Reservation } from '@/types'
 import type { MyPageData } from '../hooks/useMyPageDataQuery'
@@ -9,6 +10,22 @@ import { countActivePrivateBookings, type PrivateBookingView } from './PrivateBo
 import { CANCEL_KIND_LABELS, cancelledDateReplacement, classifyCancellation } from '../utils/cancelledReservation'
 
 export type ReservationsSubTab = 'bookings' | 'private' | 'cancelled'
+
+/** 押せる予約カードをリンクとして扱う（読み上げ・キーボード操作で気づけるように。点検 40） */
+function cardLinkProps(open: () => void, label: string) {
+  return {
+    role: 'link' as const,
+    tabIndex: 0,
+    'aria-label': label,
+    onClick: open,
+    onKeyDown: (event: React.KeyboardEvent) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        open()
+      }
+    },
+  }
+}
 
 interface ReservationsTabProps {
   privateView: PrivateBookingView
@@ -107,8 +124,8 @@ export function ReservationsTab({
                       return (
                         <div 
                           key={reservation.id}
-                          className="bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer rounded-none"
-                          onClick={() => navigate(`/mypage/reservation/${reservation.id}`)}
+                          className="bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer rounded-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                          {...cardLinkProps(() => navigate(`/mypage/reservation/${reservation.id}`), `${reservation.title || '予約'}の予約詳細を開く`)}
                         >
                           {/* カウントダウンバー（各予約・公演日までの日数） */}
                           {daysUntil >= 0 && (
@@ -144,7 +161,7 @@ export function ReservationsTab({
                                 </>
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center">
-                                  <span className="text-xl opacity-40">🎭</span>
+                                  <Drama className="h-5 w-5 text-muted-foreground opacity-50" aria-hidden="true" />
                                 </div>
                               )}
                             </div>
@@ -256,8 +273,8 @@ export function ReservationsTab({
                         return (
                           <div
                             key={reservation.id}
-                            className="bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer rounded-none"
-                            onClick={() => navigate(`/mypage/reservation/${reservation.id}`)}
+                            className="bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer rounded-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                            {...cardLinkProps(() => navigate(`/mypage/reservation/${reservation.id}`), `${reservation.title || '予約'}の予約詳細を開く`)}
                           >
                             <div className="p-3 flex gap-3">
                               {/* 画像（キャンセル済みは淡く） */}
@@ -271,7 +288,7 @@ export function ReservationsTab({
                                   />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center">
-                                    <span className="text-xl opacity-30">🎭</span>
+                                    <Drama className="h-5 w-5 text-muted-foreground opacity-40" aria-hidden="true" />
                                   </div>
                                 )}
                               </div>

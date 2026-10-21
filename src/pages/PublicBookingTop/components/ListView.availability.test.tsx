@@ -13,7 +13,7 @@ const stores = [{id:'a',name:'A'},{id:'b',name:'B'}] as PublicStoreRow[]
 function render(selectedStoreIds:string[]) {
   captured.useSlots.mockClear()
   renderToStaticMarkup(createElement(MemoryRouter,null,createElement(ListView,{
-    organizationId:'org',listViewMonth:new Date(2030,0,1),onMonthChange:()=>{},selectedStoreIds,onStoreIdsChange:()=>{},stores,listViewData:[],getEventsForDateStore:()=>[],getColorFromName:()=>'',scenarios:[],onCardClick:()=>{},
+    organizationId:'org',storeOptions:[],primaryColor:'#000',listViewMonth:new Date(2030,0,1),onMonthChange:()=>{},selectedStoreIds,onStoreIdsChange:()=>{},stores,listViewData:[],getEventsForDateStore:()=>[],getColorFromName:()=>'',scenarios:[],onCardClick:()=>{},
   })))
   return captured.useSlots.mock.calls[0] as unknown as [string,string[],Date]
 }

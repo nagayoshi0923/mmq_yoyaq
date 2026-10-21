@@ -45,3 +45,21 @@ describe('公開の規定の中止判定（実際の判定の設定から作る�
     expect(html).not.toContain('古い文')
   })
 })
+
+describe('同じ規定の店舗をまとめる（点検 21）', () => {
+  it('内容が同じ店舗は 1 つにまとめ、違う店舗だけ別に出す', async () => {
+    const { groupPoliciesByContent } = await import('@/lib/cancellationPolicyGroups')
+    const base = createPreviewCancellationPolicy('queens-waltz')
+    const a = { ...base, store_id: 'a', store_name: 'フォレスト①', policy_updated_at: '2026-09-01' }
+    const b = { ...base, store_id: 'b', store_name: '高田馬場店', policy_updated_at: '2026-10-01' }
+    const c = { ...base, store_id: 'c', store_name: '大久保店', cancellation_deadline_hours: 72 }
+    const groups = groupPoliciesByContent([a, b, c])
+    expect(groups).toHaveLength(2)
+    expect(groups[0].storeNames).toEqual(['フォレスト①', '高田馬場店'])
+    expect(groups[0].policy.policy_updated_at).toBe('2026-10-01')
+    expect(groups[1].storeNames).toEqual(['大久保店'])
+    const html = renderToStaticMarkup(<CancellationPolicyView policy={groups[0].policy} storeNames={groups[0].storeNames} />)
+    expect(html).toContain('対象店舗（2店舗）')
+    expect(html).toContain('フォレスト①、高田馬場店')
+  })
+})

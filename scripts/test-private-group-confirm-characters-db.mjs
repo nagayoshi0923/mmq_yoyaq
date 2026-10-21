@@ -67,5 +67,20 @@ assert.equal((await db.query('SELECT * FROM private_group_messages')).rows.lengt
 assert.deepEqual((await db.query('SELECT character_assignments FROM private_groups')).rows[0].character_assignments,reverse)
 await db.exec(fs.readFileSync('supabase/rollbacks/20260927029000_private_group_confirm_characters.sql','utf8'))
 await db.exec(migration)
+// 20261011180000: 作品の人数（player_count_max=2）に満たなくても、登録メンバー全員分・重なりなしなら確定できる
+const noHeadcount = 'supabase/migrations/20261011180000_private_group_confirm_characters_no_headcount.sql'
+await db.exec(fs.readFileSync(noHeadcount, 'utf8'))
+await db.query("UPDATE private_group_members SET status='declined' WHERE id=$1",[id(102)])
+const current=(await db.query('SELECT character_assignments FROM private_groups')).rows[0].character_assignments
+await db.exec('SET ROLE authenticated')
+await assert.rejects(confirm(1,{[id(101)]:'a',[id(102)]:'b'},current),e=>e.code==='22023') // 抜けた人は入れられない
+await confirm(1,{[id(101)]:'a'},current)
+await db.exec('RESET ROLE')
+assert.deepEqual((await db.query('SELECT character_assignments FROM private_groups')).rows[0].character_assignments,{[id(101)]:'a'})
+// 取り消すと人数の条件が戻る
+await db.exec(fs.readFileSync(noHeadcount.replace('migrations','rollbacks'), 'utf8'))
+await db.exec('SET ROLE authenticated')
+await assert.rejects(confirm(1,{[id(101)]:'b'},{[id(101)]:'a'}),e=>e.code==='22023')
+await db.exec('RESET ROLE')
 await db.close()
-console.log('PASS character confirmation: authorization, membership, characters, stale state, atomic rollback, organizer/staff, rollback/reapply')
+console.log('PASS character confirmation: authorization, membership, characters, stale state, atomic rollback, organizer/staff, rollback/reapply, no headcount minimum')

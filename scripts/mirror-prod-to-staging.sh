@@ -154,12 +154,19 @@ TRIGGERS_DISABLE=$(staging_psql -c "
   GROUP BY event_object_table, trigger_name;
 ")
 
+# 6 で戻すときは「ミラー前の状態」に戻す（一律 ENABLE にしない）。staging で止めている引き金
+# （例: ウェブプッシュの web_push_on_group_message / web_push_on_user_notification = D）をミラーで有効に戻さない。
+# 2026-10-21 Codex 指摘。tgenabled: O=有効 D=無効 R=REPLICA A=ALWAYS。検証: scripts/test-mirror-trigger-state.sh
 TRIGGERS_ENABLE=$(staging_psql -c "
-  SELECT 'ALTER TABLE public.' || quote_ident(event_object_table)
-    || ' ENABLE TRIGGER ' || quote_ident(trigger_name) || ';'
-  FROM information_schema.triggers
-  WHERE trigger_schema = 'public'
-  GROUP BY event_object_table, trigger_name;
+  SELECT 'ALTER TABLE public.' || quote_ident(c.relname)
+    || CASE t.tgenabled WHEN 'D' THEN ' DISABLE TRIGGER ' WHEN 'R' THEN ' ENABLE REPLICA TRIGGER '
+         WHEN 'A' THEN ' ENABLE ALWAYS TRIGGER ' ELSE ' ENABLE TRIGGER ' END
+    || quote_ident(t.tgname) || ';'
+  FROM pg_trigger t
+  JOIN pg_class c ON c.oid = t.tgrelid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND NOT t.tgisinternal
+  ORDER BY c.relname, t.tgname;
 ")
 
 echo "  OK"
@@ -189,7 +196,7 @@ echo "[4/5] ステージングDBにリストア中..."
   echo "-- 5b. お客様情報を伏せる（トリガー無効のまま・同じトランザクション内。失敗したら全体を取り消す）"
   cat "$(dirname "$0")/mask-staging-pii.sql"
   echo ""
-  echo "-- 6. ユーザー定義トリガーを再有効化"
+  echo "-- 6. ユーザー定義トリガーをミラー前の状態に戻す（止めていたものは止めたまま）"
   echo "$TRIGGERS_ENABLE"
   echo ""
   echo "-- 7. public→public FK制約を再作成"
@@ -218,7 +225,7 @@ resume_cron_jobs() {
       echo "  定期ジョブを再開しました"
       PAUSED_CRON_JOBS=""
     else
-      echo "  ⚠️ 定期ジョブの再開に失敗しました。cron.job を確認してください（jobid: $PAUSED_CRON_JOBS）"
+      echo "  ⚠️ 定期ジョブの再開に失敗しました。cron.job を確認してください（jobid: ${PAUSED_CRON_JOBS}）"
       return 1
     fi
   fi
@@ -228,7 +235,7 @@ resume_cron_jobs_or_fail() {
     resume_cron_jobs && return 0
     sleep 10
   done
-  echo "  ❌ 定期ジョブを再開できませんでした。手動で再開してください（jobid: $PAUSED_CRON_JOBS）"
+  echo "  ❌ 定期ジョブを再開できませんでした。手動で再開してください（jobid: ${PAUSED_CRON_JOBS}）"
   exit 1
 }
 trap resume_cron_jobs_or_fail EXIT

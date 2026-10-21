@@ -2,7 +2,8 @@
  * 貸切の「操作」の実処理（マイページのカード・グループ画面で共通）。
  * 赤い操作（閉じる・取り下げ・キャンセル・抜ける）は ConfirmDialog で影響を数字で見せてから実行する。
  * - グループを閉じる: cancel_unrequested_private_group_with_notice（行は消さず履歴を残す。チャットにお知らせ）
- * - 申込を取り下げる: /api/reservations?action=cancel-with-group-lock（予約詳細の「取り下げる」と同じ処理）
+ * - 申込を取り下げる: /api/reservations?action=cancel-with-group-lock（予約詳細の「取り下げる」と同じ処理）。
+ *   ダイアログ（WithdrawRequestDialog）でグループを残す（既定。keep_group）か閉じるかを選ぶ（2026-10-20 社長決定）
  * - キャンセル: reservationApi.cancel（予約詳細の「キャンセル」と同じ。キャンセル規定で不可なら無効にして理由を出す）
  * - グループから抜ける: private_group_leave_with_notice（申込後・確定後は店舗へ人数変更を知らせる）
  * - 主催者の引き継ぎ（段階 3）: 依頼はメンバー管理シートの「主催者にする」、取り消しはメニューの「引き継ぎの依頼を取り消す」
@@ -18,11 +19,13 @@ import { formatPolicyHours } from '@/lib/publicCancellationPolicy'
 import { getErrorMessage } from '@/lib/errorFields'
 import { logger } from '@/utils/logger'
 import { reservationDetailKeys, useReservationDetailQuery } from '../../hooks/useReservationDetailQuery'
+import { WithdrawRequestDialog } from './WithdrawRequestDialog'
 import {
   privateBookingConfirmText,
   privateBookingStatusLabel,
   type PrivateBookingDangerAction,
   type PrivateBookingPhase,
+  type WithdrawRequestMode,
 } from './privateBookingMenu'
 import type { PrivateGroupMemberRow } from './privateGroupSummary'
 import { PrivateGroupInquiryDialog } from './PrivateGroupInquiryDialog'
@@ -54,8 +57,8 @@ export interface PrivateBookingActionTarget {
 }
 
 interface Options {
-  /** 赤い操作が終わったあと（一覧の読み直し・画面の移動） */
-  onDone?: (action: PrivateBookingDangerAction) => void | Promise<unknown>
+  /** 赤い操作が終わったあと（一覧の読み直し・画面の移動）。groupKept: 申込だけ取り下げてグループは残した */
+  onDone?: (action: PrivateBookingDangerAction, detail: { groupKept: boolean }) => void | Promise<unknown>
   /** メンバーを外したあと */
   onMembersChanged?: () => void | Promise<unknown>
 }
@@ -82,12 +85,12 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
     if (!needsPolicy || policy.isLoading) return { loading: needsPolicy, allowed: false, reason: null }
     const data = policy.data
     if (!data) return { loading: false, allowed: false, reason: '予約の情報を読めませんでした。店舗へご連絡ください。' }
-    if (data.reservation.status !== 'confirmed') return { loading: false, allowed: false, reason: 'この予約はマイページからキャンセルできません。店舗へご連絡ください。' }
+    if (data.reservation.status !== 'confirmed') return { loading: false, allowed: false, reason: 'この予約はマイページからキャンセルできません。「店舗に問い合わせる」からご連絡ください。' }
     if (!data.canCancelByPolicy) {
       return {
         loading: false,
         allowed: false,
-        reason: `キャンセル料金が発生する期間のため、マイページからのキャンセルはできません（${formatPolicyHours(data.cancelDeadlineHours)}まで）。店舗へご連絡ください。`,
+        reason: `キャンセル料金が発生する期間のため、マイページからのキャンセルはできません（${formatPolicyHours(data.cancelDeadlineHours)}まで）。「店舗に問い合わせる」からご連絡ください。`,
       }
     }
     return { loading: false, allowed: true, reason: null }
@@ -96,13 +99,16 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
   const refreshLists = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['mypage-data'], refetchType: 'all' }),
+      // 事前配役アンケートの未回答（カードの「回答済み」）
+      queryClient.invalidateQueries({ queryKey: ['mypage-private-survey-status'], refetchType: 'all' }),
       target.reservationId
         ? queryClient.invalidateQueries({ queryKey: reservationDetailKeys.detail(target.reservationId), refetchType: 'all' })
         : Promise.resolve(),
     ]).catch(error => logger.warn('操作は保存済み・一覧の読み直しに失敗:', error))
   }
 
-  const execute = async (action: PrivateBookingDangerAction) => {
+  const execute = async (action: PrivateBookingDangerAction, withdrawMode: WithdrawRequestMode = 'close_group') => {
+    let groupKept = false
     try {
       if (action === 'close_group') {
         if (!target.groupId) throw new Error('グループが見つかりません')
@@ -113,8 +119,10 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
       } else if (action === 'withdraw') {
         if (!target.reservationId) throw new Error('申込が見つかりません')
         // 本人確認は DB 側が auth.uid() で行うため customer_id は不要（予約詳細の取り下げと同じ）
-        await reservationApi.cancelWithGroupLock(target.reservationId, null, PRIVATE_REQUEST_WITHDRAWN_REASON)
-        toast.success('申込を取り下げました')
+        const keepGroup = withdrawMode === 'keep_group' && Boolean(target.groupId)
+        await reservationApi.cancelWithGroupLock(target.reservationId, null, PRIVATE_REQUEST_WITHDRAWN_REASON, { keepGroup })
+        groupKept = keepGroup
+        toast.success(keepGroup ? '申込を取り下げました。候補日を直してもう一度申し込めます' : '申込を取り下げました')
       } else if (action === 'cancel') {
         if (!target.reservationId) throw new Error('予約が見つかりません')
         if (!cancelAvailability.allowed) throw new Error(cancelAvailability.reason || 'キャンセルできません')
@@ -133,7 +141,7 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
       throw err
     }
     await refreshLists()
-    await options.onDone?.(action)
+    await options.onDone?.(action, { groupKept })
   }
 
   const copyInvite = async () => {
@@ -164,7 +172,7 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
   }
   const cancelHandoverText = target.handover ? handoverCancelConfirmText(target.handover.toName) : null
 
-  const confirm = pending
+  const confirm = pending && pending !== 'withdraw'
     ? privateBookingConfirmText(pending, {
       otherMembers: Math.max(0, target.memberCount - 1),
       candidateDates: target.candidateDates,
@@ -175,8 +183,15 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
 
   const dialogs: ReactNode = (
     <>
+      <WithdrawRequestDialog
+        open={pending === 'withdraw'}
+        onOpenChange={next => { if (!next) setPending(null) }}
+        hasGroup={Boolean(target.groupId)}
+        otherMembers={Math.max(0, target.memberCount - 1)}
+        onConfirm={mode => execute('withdraw', mode)}
+      />
       <ConfirmDialog
-        open={pending !== null}
+        open={pending !== null && pending !== 'withdraw'}
         onOpenChange={next => { if (!next) setPending(null) }}
         title={confirm?.title ?? ''}
         message={confirm?.message}

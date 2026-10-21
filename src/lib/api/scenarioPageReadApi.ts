@@ -189,7 +189,7 @@ export const scenarioDetailGlobalReadApi = {
 
   /** 店舗（公開ビュー）を id で */
   async listPublicStoresByIds(storeIds: string[]) {
-    return supabase.from('stores_public').select('id, name, short_name, color, region').in('id', storeIds)
+    return supabase.from('stores_public').select('id, name, short_name, color, region, public_name, is_temporary, temporary_venue_names').in('id', storeIds)
   },
 
   /** メールで顧客の id（1件） */

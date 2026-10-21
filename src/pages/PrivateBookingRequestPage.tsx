@@ -11,11 +11,14 @@ import {
   fetchCandidateSlotAvailability,
 } from '@/lib/candidateSlotAvailability'
 import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
+import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import {
   resolvePrivateBookingUrlPrefillSlot,
   slotParamToKey,
 } from '@/lib/privateBookingUrlPrefill'
+import { isBeyondPrivateBookingHorizon, privateBookingTooFarText, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
+import { PrivateBookingHorizonNotice } from '@/components/private-booking/PrivateBookingHorizonNotice'
 
 interface TimeSlot {
   label: string
@@ -78,6 +81,10 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
   }
   
   const date = formatDate(dateParam)
+  // 申し込める範囲（今日から N 日先まで。MMQ 既定 180 → 組織 → 作品の設定。I21）。
+  // カレンダー・リストの「貸切申込」から渡る ?date= がこれより先なら、理由を出して申込フォームへ進めない（2026-10-20 本番 #1140）
+  const horizon = usePrivateBookingHorizonDays({ organizationId: scenario?.organization_id ?? null, scenarioId: scenario?.id ?? null })
+  const dateTooFar = Boolean(date) && isBeyondPrivateBookingHorizon(date, horizon.days)
   const urlSlotPrefillKey = `${scenarioId}|${date}|${storeId}|${slotParam}|${timeParam}`
 
   useEffect(() => {
@@ -125,7 +132,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       const orgIdForStores = foundScenario.organization_id
       if (orgIdForStores) {
         try {
-          storesData = await storeApi.getAllPublic(orgIdForStores)
+          storesData = await storeApi.getAllPublicForCustomer(orgIdForStores)
         } catch {
           // フォールバック: スタッフとしてログイン中ならバックエンド API も試みる
           try { storesData = await storeApi.getAll() } catch { /* ignore */ }
@@ -192,12 +199,8 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     const scenarioStoreIds: string[] = Array.isArray(scenario.available_stores)
       ? scenario.available_stores.filter((id: unknown) => typeof id === 'string')
       : []
-    const eligible = stores.filter(
-      (s) =>
-        s.ownership_type !== 'office' &&
-        s.status === 'active' &&
-        (scenarioStoreIds.length === 0 || scenarioStoreIds.includes(s.id))
-    )
+    // 受付できる店舗は DB の判定と同じ（作品の上演店舗の指定が無ければ臨時会場を除く）
+    const eligible = stores.filter((s) => s.status === 'active' && isStorePlayableForScenario(s, scenarioStoreIds))
     const storeIdsForSlots =
       urlStoreIds.length > 0
         ? urlStoreIds.filter((id) => eligible.some((s) => s.id === id))
@@ -256,7 +259,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     navigate(bookingBasePath)
   }
 
-  if (loading) {
+  if (loading || (scenario?.organization_id && !scenario.__privateBookingBlocked && date && horizon.loading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">読み込み中...</p>
@@ -273,6 +276,37 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
               ? 'このシナリオは現在貸切リクエストを受け付けていません'
               : 'シナリオが見つかりません'}
           </p>
+          <button
+            onClick={handleBack}
+            className="text-primary hover:underline"
+          >
+            戻る
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // 受付範囲を読めなかったときは、既定の 180 日で進めず再試行を出す（組織が 90 日などだと保存で拒否されるため。Codex 点検 不具合 5）
+  if (date && horizon.days === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="text-center space-y-4">
+          <PrivateBookingHorizonNotice horizon={horizon} className="justify-center text-left" />
+          <button onClick={handleBack} className="text-primary hover:underline">戻る</button>
+        </div>
+      </div>
+    )
+  }
+
+  if (dateTooFar && horizon.days !== null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="text-center space-y-4" role="alert">
+          <p className="text-muted-foreground">
+            選んだ日（{date}）には貸切を申し込めません。{privateBookingTooFarText(horizon.days)}。
+          </p>
+          <p className="text-sm text-muted-foreground">カレンダーに戻り、{horizon.days} 日先までの日付を選び直してください。</p>
           <button
             onClick={handleBack}
             className="text-primary hover:underline"

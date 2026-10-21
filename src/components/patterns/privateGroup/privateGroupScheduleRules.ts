@@ -18,3 +18,17 @@ export function canMutateScheduleBeforeStoreReply(
   }
   return true
 }
+
+/** 参加完了画面などで使う、グループの進み具合（募集中／店舗へ申込済み／確定済み） */
+export type PrivateGroupProgress = 'gathering' | 'requested' | 'confirmed'
+
+export function privateGroupProgress(
+  group: { status: string; reservation_id?: string | null } | null | undefined,
+  linkedReservationStatus: string | null | undefined,
+): PrivateGroupProgress {
+  if (!group) return 'gathering'
+  if (group.status === 'confirmed' || linkedReservationStatus === 'confirmed') return 'confirmed'
+  if (group.status === 'booking_requested') return 'requested'
+  if (group.reservation_id && linkedReservationStatus !== 'cancelled') return 'requested'
+  return 'gathering'
+}

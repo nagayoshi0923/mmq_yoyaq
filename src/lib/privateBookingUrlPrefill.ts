@@ -73,7 +73,8 @@ export function resolvePrivateBookingUrlPrefillSlot(params: {
   return {
     label: PRIVATE_BOOKING_URL_SLOT_LABEL[slotKey],
     startTime,
-    // 終了時刻は PrivateBookingRequest 側の enrichSlotEnd でシナリオ所要に合わせる
-    endTime: startTime,
+    // DB の空き判定で時刻が決まらなかった（選べない・取得できない）。終了は空にし、
+    // 申込確認画面（PrivateBookingRequest）が DB の最新の応答で時刻を埋めるか、選べない理由を出す（監査 R1）
+    endTime: '',
   }
 }

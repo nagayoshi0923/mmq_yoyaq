@@ -1,9 +1,7 @@
 // 貸切の候補日時の選択（空き判定は DB の private_booking_candidate_slot_availability 系）。
 // 仕様の正本: docs/product-spec/貸切受付ルール.md。変更時は同じ PR で更新。
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Card } from '@/components/ui/card'
+import { useState, useCallback, useMemo, useEffect, useRef, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Plus, Loader2, Calendar } from 'lucide-react'
 import { logger } from '@/utils/logger'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
@@ -17,7 +15,11 @@ import { ScenarioStoreHint } from '@/components/private-booking/ScenarioStoreHin
 import { usePrivateBookingDeadlineState, DEFAULT_PRIVATE_BOOKING_DEADLINE_DAYS } from '@/hooks/usePrivateBookingDeadlineDays'
 import { PrivateBookingSlotGrid } from '@/components/private-booking/PrivateBookingSlotGrid'
 import { showToast } from '@/utils/toast'
-import { formatJstDateJa } from '@/utils/jstDate'
+import { keepSelectedSlots, removedSelectionMessage } from '@/lib/keepSelectionOnRefetch'
+import { getJstParts } from '@/utils/jstDate'
+import { privateBookingErrorText } from '@/lib/privateBookingErrors'
+import { privateBookingHorizonMaxYmd, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
+import { PrivateBookingHorizonNotice } from '@/components/private-booking/PrivateBookingHorizonNotice'
 
 function getJstDateStringFromNow(now = new Date()): string {
   const jstOffsetMin = 9 * 60
@@ -44,6 +46,15 @@ interface AddCandidateDatesProps {
   storeIds: string[]
   existingDates: PrivateGroupCandidateDate[]
   onDatesAdded: () => void
+  /**
+   * dialog: ダイアログの中で使う。月の切り替えと件数を上に、選択中と保存ボタンを下に貼り付ける（スクロールはダイアログ全体の 1 つ）。
+   * embedded（既定）: ページに埋め込む。貼り付けず、カレンダーは全部出し、保存ボタンはカレンダーの直下。
+   */
+  layout?: 'dialog' | 'embedded'
+  /** dialog のとき「キャンセル」で呼ぶ（ダイアログを閉じる）。未指定なら編集欄をたたむ */
+  onCancel?: () => void
+  /** dialog のとき、カレンダーの下（同じスクロールの末尾）に出すもの。登録済みの候補日など */
+  belowCalendar?: ReactNode
 }
 
 export function AddCandidateDates({
@@ -53,8 +64,17 @@ export function AddCandidateDates({
   storeIds,
   existingDates,
   onDatesAdded,
+  layout = 'embedded',
+  onCancel,
+  belowCalendar,
 }: AddCandidateDatesProps) {
-  const [isOpen, setIsOpen] = useState(false)
+  const isDialog = layout === 'dialog'
+  // ダイアログでは開いた直後からカレンダーを出す
+  const [isOpen, setIsOpen] = useState(isDialog)
+  const cancel = () => {
+    if (onCancel) onCancel()
+    else setIsOpen(false)
+  }
   const [currentMonth, setCurrentMonth] = useState(() =>
     getFirstSelectableMonthStart(DEFAULT_PRIVATE_BOOKING_DEADLINE_DAYS)
   )
@@ -63,6 +83,8 @@ export function AddCandidateDates({
   const [selectedSlots, setSelectedSlots] = useState<
     Array<{ date: string; slot: PrivateBookingSlot }>
   >([])
+  const selectedSlotsRef = useRef(selectedSlots)
+  selectedSlotsRef.current = selectedSlots
   const [saving, setSaving] = useState(false)
   const savingRef = useRef(false)
   const pendingRequestRef = useRef<{ fingerprint: string; id: string } | null>(null)
@@ -72,18 +94,17 @@ export function AddCandidateDates({
 
   // 予約受付締切（公演日の何日前まで候補にできるか）。設定 > 予約設定の値
   const { days: minAdvanceDays, loading: deadlineLoading } = usePrivateBookingDeadlineState({ organizationId, scenarioId })
+  // 申し込める範囲（今日から N 日先まで。MMQ 既定 180 → 組織 → 作品の設定。I21）
+  // 読めるまで（読めなかったときも）は days が null で、どの日も選べない（既定の 180 日で選ばせない。Codex 点検 不具合 5）
+  const horizon = usePrivateBookingHorizonDays({ organizationId, scenarioId })
+  const horizonDays = horizon.days
 
   const { availableDates } = useMemo(() => {
     const dates: string[] = []
     const todayJstStr = getJstDateStringFromNow()
     const minStr = addCalendarDaysYmd(todayJstStr, minAdvanceDays)
 
-    const jstOffsetMin = 9 * 60
-    const jstNow = new Date(
-      new Date().getTime() + (jstOffsetMin + new Date().getTimezoneOffset()) * 60 * 1000
-    )
-    const maxFuture = new Date(jstNow.getFullYear(), jstNow.getMonth(), jstNow.getDate() + 180)
-    const maxFutureStr = `${maxFuture.getFullYear()}-${String(maxFuture.getMonth() + 1).padStart(2, '0')}-${String(maxFuture.getDate()).padStart(2, '0')}`
+    const maxFutureStr = privateBookingHorizonMaxYmd(horizonDays)
 
     const start = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
     const end = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0)
@@ -98,7 +119,7 @@ export function AddCandidateDates({
     }
 
     return { availableDates: dates }
-  }, [currentMonth, minAdvanceDays])
+  }, [currentMonth, minAdvanceDays, horizonDays])
 
   // 空き判定は DB（保存と同じ判定）。画面では計算しない
   const availabilityTarget = useMemo(() => (isOpen ? { kind: 'group' as const, groupId } : null), [isOpen, groupId])
@@ -111,13 +132,14 @@ export function AddCandidateDates({
   const loading = availabilityLoading
   const storeHint = useScenarioStoreHint(isOpen ? organizationId : null, scenarioId, storeIds)
 
-  // 読み直した結果で選べなくなった枠は選択から外す（保存で弾かれる前に）
+  // 読み直した結果で選べなくなった枠だけを選択から外し、理由を知らせる（保存で弾かれる前に）。
+  // 選べる枠の選択は保ち、DB の時刻が変わった枠は時刻だけそろえる（2026-10-20 Codex staging 点検）
   useEffect(() => {
     if (loading) return
-    setSelectedSlots(prev => {
-      const next = prev.filter(({ date, slot }) => !availability.slotsByDate[date] || !availability.unavailableReasons[`${date}-${slot.label}`])
-      return next.length === prev.length ? prev : next
-    })
+    const { next, removed, changed } = keepSelectedSlots(selectedSlotsRef.current, availability)
+    if (!changed) return
+    setSelectedSlots(next)
+    if (removed.length > 0) showToast.warning(removedSelectionMessage(removed))
   }, [loading, availability])
 
   const existingSlotKeys = useMemo(() => new Set(existingDates.filter(date => !date.withdrawn_at).map(
@@ -141,28 +163,32 @@ export function AddCandidateDates({
   }, [currentMonth, minAdvanceDays])
 
   const isNextDisabled = useMemo(() => {
-    const jstOffsetMin = 9 * 60
-    const jstNow = new Date(
-      new Date().getTime() + (jstOffsetMin + new Date().getTimezoneOffset()) * 60 * 1000
-    )
-    const maxFuture = new Date(jstNow.getFullYear(), jstNow.getMonth(), jstNow.getDate() + 180)
-    const nextMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
-    return nextMonthStart > maxFuture
-  }, [currentMonth])
+    const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+    const nextMonthStart = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-01`
+    return nextMonthStart > privateBookingHorizonMaxYmd(horizonDays)
+  }, [currentMonth, horizonDays])
 
-  // Auto-skip empty months, reset month on open
+  // 開いたときに最初の月へ戻し、選べる日が無い月は自動で次の月へ進める。
+  // 受付範囲（horizonDays）が読み込み中・読めなかった（null）間は、どの月も「選べる日が無い」に見えるので進めない。
+  // 進めると上限 24 回まで先の月へ飛んでしまう（Codex 第2回再レビュー R5）。
+  // 範囲が分かってから最初の月へ戻し、範囲の外（今日から N 日先より後）の月は表示しない・そこへは進まない。
   useEffect(() => {
     if (!isOpen) {
       wasOpenRef.current = false
       emptyMonthAutoSkipRef.current = 0
       return
     }
-    if (loading || deadlineLoading || holidaysLoading || holidaysError) return
+    if (loading || deadlineLoading || holidaysLoading || holidaysError || horizonDays === null) return
 
-    if (!wasOpenRef.current) {
+    const maxYmd = privateBookingHorizonMaxYmd(horizonDays)
+    const monthStartYmd = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-01`
+    const first = getFirstSelectableMonthStart(minAdvanceDays)
+    const firstYmd = `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, '0')}-01`
+    // 範囲の外の月にいたら最初の月へ戻す（最初の月そのものなら戻し続けない）
+    if (!wasOpenRef.current || (monthStartYmd > maxYmd && monthStartYmd !== firstYmd)) {
       wasOpenRef.current = true
       emptyMonthAutoSkipRef.current = 0
-      setCurrentMonth(getFirstSelectableMonthStart(minAdvanceDays))
+      setCurrentMonth(first)
       return
     }
 
@@ -170,10 +196,10 @@ export function AddCandidateDates({
       emptyMonthAutoSkipRef.current = 0
       return
     }
-    if (emptyMonthAutoSkipRef.current >= 24) return
+    if (isNextDisabled || emptyMonthAutoSkipRef.current >= 24) return
     emptyMonthAutoSkipRef.current += 1
     setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
-  }, [isOpen, loading, deadlineLoading, holidaysLoading, holidaysError, availableDates.length, currentMonth, minAdvanceDays])
+  }, [isOpen, loading, deadlineLoading, holidaysLoading, holidaysError, horizonDays, isNextDisabled, availableDates.length, currentMonth, minAdvanceDays])
 
   const handleSlotToggle = useCallback((date: string, slot: PrivateBookingSlot) => {
     if (savingRef.current || holidaysLoading || holidaysError) return
@@ -221,16 +247,13 @@ export function AddCandidateDates({
       })
       pendingRequestRef.current = null
       setSelectedSlots([])
-      setIsOpen(false)
+      if (!isDialog) setIsOpen(false)
       onDatesAdded()
     } catch (err: unknown) {
       // 弾かれた理由が分かるよう、空き状況を読み直す
       reloadAvailability()
       logger.error('Failed to save candidate dates', err)
-      const msg =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: string }).message)
-          : '候補日の保存に失敗しました'
+      const msg = privateBookingErrorText(err, '候補日の保存に失敗しました')
       const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined
       showToast.error(
         code === 'P0045' ? '受付締切を過ぎた候補日があります。日程を選び直してください。'
@@ -244,8 +267,10 @@ export function AddCandidateDates({
     }
   }
 
+  /** チップ用の短い日付「10/30(金)」 */
   const formatDate = (dateStr: string) => {
-    return formatJstDateJa(dateStr, true)
+    const p = getJstParts(dateStr)
+    return p ? `${Number(p.mo)}/${Number(p.d)}(${p.weekday})` : dateStr
   }
 
   const noStoresSelected = storeIds.length === 0
@@ -266,94 +291,126 @@ export function AddCandidateDates({
     )
   }
 
-  return (
-    <Card className="flex w-full min-h-[min(52dvh,360px)] max-h-[min(86dvh,600px)] flex-col overflow-hidden rounded-lg border-purple-200 bg-purple-50 p-0 shadow-none">
-      <div className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden px-1 pb-0 pt-0.5 sm:px-1.5 sm:pt-1">
-        <div className="flex shrink-0 items-center justify-between gap-1">
-          <h3 className="flex items-center gap-0.5 text-[11px] font-semibold leading-none text-purple-800">
-            <Calendar className="h-3 w-3 shrink-0" />
-            候補日を追加
-          </h3>
-          <Button variant="ghost" size="sm" className="h-6 min-h-0 shrink-0 px-1 py-0 text-[10px]" onClick={() => setIsOpen(false)} disabled={saving}>
-            閉じる
+  const saveDisabled = selectedSlots.length === 0 || saving || loading || deadlineLoading || holidaysLoading || !!holidaysError || horizonDays === null
+  const inset = isDialog ? 'px-3 sm:px-4' : ''
+
+  const grid = (
+    <PrivateBookingSlotGrid
+      currentMonth={currentMonth}
+      onMonthChange={handleMonthChange}
+      isPrevMonthDisabled={isPrevDisabled}
+      isNextMonthDisabled={isNextDisabled}
+      availableDates={availableDates}
+      slotsByDate={availability.slotsByDate}
+      selectedSlots={selectedSlots}
+      onSlotToggle={handleSlotToggle}
+      maxSelections={MAX_SELECTIONS}
+      unavailableReasons={availability.unavailableReasons}
+      existingSlotKeys={existingSlotKeys}
+      isCustomHoliday={isCustomHoliday}
+      colorScheme="purple"
+      loading={loading || holidaysLoading || deadlineLoading}
+      stickyHeader={isDialog}
+      insetClassName={inset}
+      compact
+      emptyMonth={
+        <div className="space-y-2 px-2 py-6 text-center text-xs text-muted-foreground">
+          <p>今月に選択可能な日がありません。</p>
+          <Button type="button" variant="outline" size="sm" onClick={() => handleMonthChange(1)}>
+            次月を表示
           </Button>
         </div>
+      }
+    />
+  )
 
-        {holidaysError && <p role="alert" className="text-sm text-destructive">{holidaysError}</p>}
-        {availabilityError && <p role="alert" className="text-xs text-destructive">{availabilityError}</p>}
-        <ScenarioStoreHint hint={storeHint} compact />
-        <PrivateBookingSlotGrid
-          currentMonth={currentMonth}
-          onMonthChange={handleMonthChange}
-          isPrevMonthDisabled={isPrevDisabled}
-          isNextMonthDisabled={isNextDisabled}
-          availableDates={availableDates}
-          slotsByDate={availability.slotsByDate}
-          selectedSlots={selectedSlots}
-          onSlotToggle={handleSlotToggle}
-          maxSelections={MAX_SELECTIONS}
-          unavailableReasons={availability.unavailableReasons}
-          existingSlotKeys={existingSlotKeys}
-          isCustomHoliday={isCustomHoliday}
-          colorScheme="purple"
-          loading={loading || holidaysLoading || deadlineLoading}
-          fillContainer
-          compact
-          emptyMonth={
-            <div className="space-y-2 px-2 py-6 text-center text-xs text-muted-foreground">
-              <p>今月に選択可能な日がありません。</p>
-              <Button type="button" variant="outline" size="sm" onClick={() => handleMonthChange(1)}>
-                次月を表示
-              </Button>
-            </div>
-          }
-        />
+  const notes = (holidaysError || availabilityError || storeHint || horizonDays === null) && (
+    <div className={`space-y-1 py-1.5 ${inset}`}>
+      <PrivateBookingHorizonNotice horizon={horizon} />
+      {holidaysError && <p role="alert" className="text-sm text-destructive">{holidaysError}</p>}
+      {availabilityError && (
+        <div className="flex flex-wrap items-center gap-2">
+          <p role="alert" className="text-xs text-destructive">{availabilityError}</p>
+          <Button type="button" variant="outline" size="sm" onClick={reloadAvailability} disabled={loading}>空き状況を再読み込み</Button>
+        </div>
+      )}
+      <ScenarioStoreHint hint={storeHint} compact />
+    </div>
+  )
 
-        <p className="shrink-0 px-1 py-0.5 text-[9px] text-muted-foreground">
-          「追加済み」は保存済みの候補です。削除は候補日程の「削除」から行えます。灰色は選べない枠です（押すと理由を表示）。
-        </p>
-
-        {selectedSlots.length > 0 && (
-          <div className="shrink-0 space-y-px">
-            <p className="text-[9px] text-muted-foreground">選択中</p>
-            <div className="flex flex-wrap gap-0.5">
-              {selectedSlots.map(slot => (
-                <Badge
-                  key={`${slot.date}-${slot.slot.label}`}
-                  variant="outline"
-                  className="cursor-pointer border-purple-200 bg-white px-1 py-0 text-[9px] text-purple-800 hover:bg-purple-100"
-                  onClick={() => handleSlotToggle(slot.date, slot.slot)}
-                >
-                  {formatDate(slot.date)} {slot.slot.label} ×
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div
-          className="-mx-1 mt-0 flex shrink-0 items-center justify-end gap-0.5 border-t border-purple-200/70 bg-purple-50 px-1 py-0.5 pb-[max(0.2rem,env(safe-area-inset-bottom))] shadow-[0_-1px_6px_rgba(100,50,140,0.06)]"
+  // 選択中のチップ列と保存。ダイアログでは画面の下に貼り付け、常に見える位置に置く
+  const actions = (
+    <div
+      className={`border-t border-border bg-background pt-2 ${isDialog ? `sticky bottom-0 z-10 mt-auto pb-[max(0.75rem,env(safe-area-inset-bottom))] ${inset}` : 'pb-1'}`}
+      data-testid="candidate-dates-actions"
+    >
+      {selectedSlots.length > 0 && (
+        <div className="mb-2 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pb-0.5 text-xs" aria-label="選択中の候補日">
+          <span className="shrink-0 text-muted-foreground">選択中 {selectedSlots.length} 件</span>
+          {selectedSlots.map(slot => (
+            <button
+              type="button"
+              key={`${slot.date}-${slot.slot.label}`}
+              className="shrink-0 rounded-full bg-purple-50 px-2.5 py-0.5 text-purple-800 hover:bg-purple-100"
+              aria-label={`${formatDate(slot.date)} ${slot.slot.label} を外す`}
+              onClick={() => handleSlotToggle(slot.date, slot.slot)}
+            >
+              {formatDate(slot.date)} {slot.slot.label} ×
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Button variant="outline" className="h-10 flex-1" onClick={cancel} disabled={saving}>
+          キャンセル
+        </Button>
+        <Button
+          onClick={handleSave}
+          disabled={saveDisabled}
+          className="h-10 flex-[2] bg-purple-600 font-bold hover:bg-purple-700"
         >
-          <Button variant="ghost" size="sm" className="h-6 min-h-0 px-1 py-0 text-[10px]" onClick={() => setIsOpen(false)} disabled={saving}>
-            キャンセル
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={selectedSlots.length === 0 || saving || loading || deadlineLoading || holidaysLoading || !!holidaysError}
-            className="h-6 min-h-0 shrink-0 bg-purple-600 px-2 py-0 text-[10px] hover:bg-purple-700"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="mr-0.5 inline h-2.5 w-2.5 animate-spin" />
-                保存中...
-              </>
-            ) : (
-              '候補日を保存'
-            )}
-          </Button>
-        </div>
+          {saving ? (
+            <>
+              <Loader2 className="mr-1 inline h-4 w-4 animate-spin" />
+              保存中...
+            </>
+          ) : selectedSlots.length > 0 ? (
+            `候補日を保存（${selectedSlots.length} 件）`
+          ) : (
+            '候補日を保存'
+          )}
+        </Button>
       </div>
-    </Card>
+    </div>
+  )
+
+  if (isDialog) {
+    return (
+      // 中身が短くても保存列は画面の下端に置く（min-h-full + mt-auto）
+      <div className="flex min-h-full flex-col" data-testid="add-candidate-dates" data-layout="dialog">
+        {notes}
+        {grid}
+        {belowCalendar && <div className={`pb-3 ${inset}`}>{belowCalendar}</div>}
+        {actions}
+      </div>
+    )
+  }
+
+  return (
+    // ページ埋め込み: 囲みの枠は置かず（外側の欄がすでに枠）、幅をカレンダーに回す
+    <div className="w-full" data-testid="add-candidate-dates" data-layout="embedded">
+      <div className="mb-1 flex items-center justify-between gap-1">
+        <h3 className="flex items-center gap-1 text-sm font-semibold text-purple-800">
+          <Calendar className="h-4 w-4 shrink-0" />
+          候補日を追加
+        </h3>
+        <Button variant="ghost" size="sm" className="h-7 px-2 py-0 text-xs" onClick={() => setIsOpen(false)} disabled={saving}>
+          閉じる
+        </Button>
+      </div>
+      {notes}
+      {grid}
+      {actions}
+    </div>
   )
 }

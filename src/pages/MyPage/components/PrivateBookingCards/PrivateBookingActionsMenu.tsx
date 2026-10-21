@@ -19,10 +19,18 @@ interface PrivateBookingActionsMenuProps {
   /** 開くボタン。省略時は「操作」 */
   trigger?: ReactNode
   align?: 'start' | 'end'
+  /** 外から開け閉めする（グループページの ⋮ メニューの「操作」から開く。段階 2） */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function PrivateBookingActionsMenu({ target, actions, nav, trigger, align = 'end' }: PrivateBookingActionsMenuProps) {
-  const [open, setOpen] = useState(false)
+export function PrivateBookingActionsMenu({ target, actions, nav, trigger, align = 'end', open: controlledOpen, onOpenChange }: PrivateBookingActionsMenuProps) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+  const open = controlledOpen ?? uncontrolledOpen
+  const setOpen = (next: boolean) => {
+    if (controlledOpen === undefined) setUncontrolledOpen(next)
+    onOpenChange?.(next)
+  }
   const items = buildPrivateBookingMenu({
     isOrganizer: target.isOrganizer,
     phase: target.phase,

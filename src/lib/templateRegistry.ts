@@ -40,7 +40,16 @@ export function getDefaultReservationTemplate(companyName = 'クインズワル�
 
 ・開演15分前までに受付をお済ませください
 ・お飲み物は店内でご購入いただけます
-・キャンセルは3日前までにご連絡ください
+
+■ キャンセルについて
+{cancel_deadline}
+
+■ 当日のお支払い
+{payment_note}
+
+■ 予約の確認・人数変更・取消
+マイページからいつでもご確認いただけます。
+{mypage_url}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 
@@ -597,6 +606,7 @@ export const BASE_VARIABLES = [
 
 // メールタイプ別の追加変数
 export const ADDITIONAL_VARIABLES: Record<string, string[]> = {
+  reservation: ['cancel_deadline', 'payment_note', 'mypage_url'],
   waitlist: ['booking_url', 'freed_seats'],
   performance: ['current_participants', 'max_participants'],
   extension: ['current_participants', 'max_participants', 'remaining_seats', 'extension_deadline'],
@@ -644,6 +654,7 @@ export const TEMPLATE_CONFIGS: TemplateConfig[] = [
     title: '予約確認メール',
     description: '予約完了時に自動送信。作品または公演で上書きしている場合はそちらを優先',
     category: 'reservation',
+    additionalVariables: ADDITIONAL_VARIABLES.reservation,
     getDefault: getDefaultReservationTemplate
   },
   {
@@ -793,6 +804,9 @@ export const TEMPLATE_PREVIEW_SAMPLE_VALUES: Record<string, string> = {
   company_phone: '03-0000-0000',
   company_email: 'info@example.com',
   booking_url: 'https://example.com/booking/xxxx',
+  cancel_deadline: '2026年6月18日(木) 13:00 まで、マイページから無料で取り消せます。それ以降の取消はキャンセル料がかかります。',
+  payment_note: '当日、店舗でお支払いください（金額は税込です。現金またはカードがご利用いただけます）。',
+  mypage_url: 'https://mmq.game/mypage',
   freed_seats: '2',
   current_participants: '4',
   max_participants: '6',

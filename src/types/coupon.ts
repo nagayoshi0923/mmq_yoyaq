@@ -51,12 +51,21 @@ export interface CustomerCouponUsageWithReservation {
   reservation_id: string
   used_at: string
   discount_amount: number
+  /** 来店時に「もぎる」を押した時刻（未確認は null。20261020130000 適用前の DB では来ない） */
+  redeemed_at?: string | null
+  /** customer_present=予約に適用済みを来店時に確認 / venue_use=来店時にその場で使用 */
+  redeemed_source?: string | null
   reservations?: {
     id: string
     title: string | null
+    status?: string | null
     requested_datetime: string
     store_id: string | null
     stores?: { name: string; short_name?: string | null } | null
+    /** 公演の日付（YYYY-MM-DD、日本時間の日付そのもの）。公演当日の判定はこちらが正。公演の無い予約・古い API では来ない */
+    performance_date?: string | null
+    /** 公演の開始時刻（HH:MM[:SS]） */
+    performance_start_time?: string | null
   } | null
 }
 
@@ -75,6 +84,12 @@ export interface CustomerCoupon {
   coupon_campaigns?: CouponCampaign | null
   /** getAllCoupons 時のみ: 各使用ごとの予約（公演）情報 */
   coupon_usages?: CustomerCouponUsageWithReservation[] | null
+  /** getAllCoupons 時のみ: 使用履歴を読み込めなかった（coupon_usages は空で返る） */
+  coupon_usages_error?: boolean
+  /** getAllCoupons 時のみ: 使える店舗（例「クインズワルツの全店舗（東京・埼玉）」） */
+  usable_stores_label?: string | null
+  /** getAllCoupons 時のみ: 押すと開く店舗名の一覧（全店舗のクーポンのとき） */
+  usable_store_names?: string[] | null
 }
 
 // クーポン使用履歴

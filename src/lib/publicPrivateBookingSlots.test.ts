@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { getPublicPrivateBookingSlotOptions } from './publicPrivateBookingSlots'
-import { computePrivateBookingSlots } from './computePrivateBookingSlots'
 import type { BusinessHoursSettingRow } from './privateGroupCandidateSlots'
 
 const date = '2030-01-08'
@@ -52,6 +51,18 @@ describe('公開スケジュールの貸切受付', () => {
   it('営業設定が無い店は DB の合成と同じく平日も 3 枠（朝 10:00）', () => {
     expect(options('morning', [{store_id:'n', opening_hours:null}])).toEqual([{storeId:'n',startTime:'10:00'}])
   })
+  // issue #1203（2026-10-21 Codex）: 合成（営業設定なしの既定 3 枠）は DB と同じく、作品選択へ渡す店舗が 1 店だけのときだけ使う。
+  // 未設定の店を複数まとめて渡すと、作品選択後の DB（private_booking_store_day_slots の p_allow_missing = 1 店だけ）で同じ枠が選べなかった
+  it('営業設定が無い店が複数なら、朝・昼・夜とも出さない（DB は複数店では合成しない）', () => {
+    const none = [{store_id:'n1', opening_hours:null}, {store_id:'n2', opening_hours:null}]
+    for (const slot of ['morning', 'afternoon', 'evening'] as const) expect(options(slot, none), slot).toEqual([])
+  })
+  it('設定のある店で受付できれば、未設定の店は混ぜずに設定のある店だけを渡す', () => {
+    expect(options('afternoon', [{store_id:'n', opening_hours:null}, row('a')])).toEqual([{storeId:'a',startTime:'14:30'}])
+    // 設定のある店がその枠を受け付けない（朝は無効）ときは、未設定の店 1 店だけを合成で渡す（DB も 1 店なら合成）
+    expect(options('morning', [{store_id:'n', opening_hours:null}, row('a')])).toEqual([{storeId:'n',startTime:'10:00'}])
+    expect(options('morning', [{store_id:'n1', opening_hours:null}, {store_id:'n2', opening_hours:null}, row('a')])).toEqual([])
+  })
   it('複数店舗から停止店だけを除き、全店停止なら非表示', () => {
     const blocked = [{date,store_id:'a',time_slot:'afternoon'}]
     expect(options('afternoon', [row('a'), row('b')], blocked)).toEqual([{storeId:'b',startTime:'14:30'}])
@@ -63,12 +74,5 @@ describe('公開スケジュールの貸切受付', () => {
   it('設定開始より早い同時間帯の公演も占有として扱う', () => {
     expect(options('afternoon', [row('a')], [], [{date,store_id:'a',start_time:'13:30',end_time:'16:00'}])).toEqual([])
     expect(options('evening', [row('a')], [], [{date,store_id:'a',start_time:'18:30',end_time:'21:00'}])).toEqual([])
-  })
-  it('選択後の作品候補でも停止した最早店舗を使わない', () => {
-    const a = row('a', {slot_start_times:{afternoon:'13:00',evening:'19:00'}})
-    const b = row('b', {slot_start_times:{afternoon:'15:00',evening:'21:00'}})
-    const slots = computePrivateBookingSlots({date,storeIds:['a','b'],businessHoursByStore:new Map([['a',a],['b',b]]),scenarioTiming:{duration:120,weekend_duration:null},allStoreEvents:[],isCustomHoliday:()=>false,blockedSlots:[{date,store_id:'a',time_slot:'afternoon'}]})
-    expect(slots.find(slot=>slot.key==='afternoon')?.startTime).toBe('15:00')
-    expect(slots.some(slot=>slot.key==='morning')).toBe(false)
   })
 })

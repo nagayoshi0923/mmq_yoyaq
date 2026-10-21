@@ -19,6 +19,8 @@ export function OperatingScalarSettings({ scope, targetId, keys, title }: { scop
     <h3 className="font-semibold">{title}</h3>
     {keys.includes('judgment_minutes_before') && <p className="text-sm text-muted-foreground">案内済みの開催判断・追加募集の期限は変更されません。</p>}
     {keys.includes('survey_deadline_days') && <p className="text-sm text-muted-foreground">変更した回答期限は、これから案内するグループに適用します。案内済みの期限は維持します。</p>}
+    {keys.includes('private_booking_horizon_days') && <p className="text-sm text-muted-foreground">お客様が貸切を申し込める公演日を、今日から何日先までにするかを決めます（1〜180 日）。組織 → 作品 → 公演の順に、後のものが優先されます。申込済みの候補日は変更しません。</p>}
+    {keys.includes('private_group_photo_limit') && <p className="text-sm text-muted-foreground">グループ全体で送れる写真の枚数です（1 回に送れるのは 10 枚まで）。上限を下げても、送った写真は消えません。</p>}
     {keys.includes('coupon_usage_enabled') && <p className="text-muted-foreground">変更はこれから成立する予約へ適用します。予約済みの受付条件と配布済みクーポンの利用条件は保持します。</p>}
     <SettingSourceControls state={state} scope={scope} keys={keys} defaults={SETTING_DEFAULTS} />
     {keys.map(key => {

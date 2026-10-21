@@ -1,4 +1,5 @@
--- 正本: 顧客QA回帰修正（本番取得定義から最小変更）
+-- 正本: 顧客QA回帰修正（本番取得定義から最小変更）＋ 20261011200000（候補日の order＝送られた優先順・希望店舗は部分集合で可）
+-- ＋ 20261020210000（送る店舗で private_booking_assert_candidate を通す）
 CREATE OR REPLACE FUNCTION public.create_private_booking_request(p_scenario_id uuid, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_participant_count integer, p_candidate_datetimes jsonb, p_notes text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_private_group_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -56,9 +57,6 @@ DECLARE
   v_player_count_min INTEGER;
   v_player_count_max INTEGER;
   v_scenario_kind TEXT;
-  v_slot_rule TEXT;
-  v_store_rule TEXT;
-  v_rule_store_count INTEGER;
 BEGIN
   -- 20260414150000 の認可境界を維持する。SECURITY DEFINERでもanon/なりすましを許可しない。
   v_caller_user_id := auth.uid();
@@ -295,9 +293,10 @@ BEGIN
     RAISE EXCEPTION 'CANDIDATES_AND_REQUESTED_STORES_REQUIRED' USING ERRCODE = 'P0023';
   END IF;
 
-  -- store名を含む保存payloadはDBから再構築する。group経路ではpreferred_store_idsと完全一致を必須化。
+  -- store名を含む保存payloadはDBから再構築する。group経路ではpreferred_store_idsの中から1店舗以上（重複なし）を必須化。
+  -- 2026-10-11: 申込シートで希望店舗の一部だけを送れるようにした（完全一致 → 部分集合）。
   IF p_private_group_id IS NOT NULL
-     AND v_requested_store_count IS DISTINCT FROM cardinality(
+     AND v_requested_store_count > cardinality(
        COALESCE(v_group.preferred_store_ids, '{}'::UUID[])
      )
   THEN
@@ -443,7 +442,7 @@ BEGIN
         WHEN '夜間' THEN 'evening'
         ELSE NULL
       END;
-      v_candidate_order := v_group_candidate_order;
+      -- 2026-10-11: order は送られた並び（主催者が付けた優先順、1 から）。グループの候補日の order_num は使わない。
     END IF;
 
     v_unit_price := public.calculate_booking_participation_fee(
@@ -527,25 +526,12 @@ BEGIN
 
     v_store_available := false;
     v_blocked_store_count := 0;
-    v_rule_store_count := 0;
-    v_slot_rule := NULL;
 
     FOR v_store_id_text IN
       SELECT value->>'storeId'
       FROM jsonb_array_elements(v_trusted_candidate_datetimes->'requestedStores')
     LOOP
       v_store_uuid := v_store_id_text::UUID;
-
-      -- この店舗で枠が有効か（店舗の曜日の枠 I2・作品の時間枠 I10。issue #1200）。無効なら空きを見ずに次の店へ
-      -- （「枠が有効 AND 空き」を同じ店舗で確かめる。他店の条件を混ぜない）
-      v_store_rule := public.private_booking_store_slot_rule(
-        v_org_id, COALESCE(v_scenario_master_id, p_scenario_id), v_store_uuid, v_cand_date, v_candidate_time_slot,
-        v_requested_store_count = 1);
-      IF v_store_rule IS NOT NULL THEN
-        v_rule_store_count := v_rule_store_count + 1;
-        v_slot_rule := CASE WHEN v_slot_rule = 'closed' OR v_store_rule = 'closed' THEN 'closed' ELSE v_store_rule END;
-        CONTINUE;
-      END IF;
 
       IF EXISTS (
         SELECT 1
@@ -577,21 +563,22 @@ BEGIN
     END LOOP;
 
     IF NOT v_store_available THEN
-      -- 送る店舗のどれもこの枠を受け付けていない（I2・I10）: 申込全体を拒否する
-      IF v_rule_store_count = v_requested_store_count THEN
-        RAISE EXCEPTION '選択した候補日時は現在受付できません（%/% %: %）。空き状況を更新して選び直してください',
-          extract(month FROM v_cand_date), extract(day FROM v_cand_date),
-          CASE v_candidate_time_slot WHEN 'morning' THEN '午前' WHEN 'afternoon' THEN '午後' ELSE '夜' END,
-          CASE WHEN v_slot_rule = 'slot_not_allowed' THEN 'この作品では選択できない時間帯です' ELSE '営業時間外です' END
-          USING ERRCODE = '22023';
-      END IF;
-      IF v_blocked_store_count > 0 AND v_blocked_store_count = v_requested_store_count - v_rule_store_count THEN
+      IF v_blocked_store_count = v_requested_store_count THEN
         RAISE EXCEPTION 'PRIVATE_BOOKING_SLOT_BLOCKED:%:%', v_cand_date, v_candidate_time_slot
           USING ERRCODE = 'P0040';
       END IF;
       RAISE EXCEPTION 'PRIVATE_BOOKING_CANDIDATE_CONFLICT:%:%', v_cand_date, v_candidate_time_slot
         USING ERRCODE = 'P0030';
     END IF;
+
+    -- 2026-10-20: 候補の追加・グループ作成と同じ検査（private_booking_assert_candidate）を、送る店舗だけで通す。
+    -- 上の公演・受付停止だけでは、店舗の曜日の枠（available_slots）・休業日・営業時間・作品の固定開始時刻・
+    -- 作品の時間枠・上演店舗・所要時間を見ておらず、候補を追加した後の設定変更や、希望店舗の一部だけに送る申込で
+    -- 受け付けない枠が通っていた（docs/product-spec/貸切受付ルール.md 手順 7・例 R34〜R35）。
+    PERFORM public.private_booking_assert_candidate(
+      v_org_id, COALESCE(v_scenario_master_id, p_scenario_id), v_seen_store_ids, v_cand_date,
+      v_candidate_time_slot, to_char(v_cand_start, 'HH24:MI'), to_char(v_cand_end, 'HH24:MI')
+    );
   END LOOP;
   -- =========================================================================
 

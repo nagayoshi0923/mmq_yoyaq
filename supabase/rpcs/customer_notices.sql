@@ -1,4 +1,4 @@
--- お客様への知らせ（通知ベル・メール）の関数とトリガー（マイページ改修 段階 4、migration 20261009140000）
+-- お客様への知らせ（通知ベル・メール）の関数とトリガー（マイページ改修 段階 4、migration 20261009140000。文面の名称は 20261011190000）
 -- 正本の写し。変えるときは live 定義（pg_get_functiondef）を確かめてから migration を足し、ここも同じにする。
 -- 表 customer_notice_emails は supabase/schemas/customer_notice_emails.sql、ベルの重複防止キーは user_notifications の索引 user_notifications_dedupe_key_idx。
 
@@ -185,7 +185,7 @@ BEGIN
     CASE WHEN v_when_long<>'' THEN '開催日時: '||v_when_long END, CASE WHEN v_store IS NOT NULL THEN '会場: '||v_store END,
     CASE WHEN r.reservation_number IS NOT NULL THEN '予約番号: '||r.reservation_number END];
    IF v_survey_on THEN
-    v_lines := v_lines || ARRAY['','■ 公演前アンケート','当日の準備のため、グループ画面の「アンケート」からご回答をお願いします。',
+    v_lines := v_lines || ARRAY['','■ 事前配役アンケート','当日の準備のため、グループ画面の「事前配役アンケート」からご回答をお願いします。',
      CASE WHEN v_deadline IS NOT NULL THEN '回答期限: '||v_deadline||'まで' END];
    END IF;
    v_lines := v_lines || ARRAY['','当日のご来店をお待ちしております。'];
@@ -196,8 +196,8 @@ BEGIN
    IF v_survey_on THEN
     -- アンケートに回答してください → 会員全員（ベル）。メールは上の確定メール（メンバー）と既存のアンケート案内（主催者）
     PERFORM public.customer_notice_group_members(g.id,'private_survey','private_survey:'||coalesce(r.id,g.id)::text,'system',
-     'アンケートに回答してください',
-     format('「%s」の貸切の公演前アンケートにご回答ください。%s',v_work,coalesce('回答期限は'||v_deadline||'です。','')),
+     '事前配役アンケートに回答してください',
+     format('「%s」の貸切の事前配役アンケートにご回答ください。%s',v_work,coalesce('回答期限は'||v_deadline||'です。','')),
      v_link||'?tab=survey');
    END IF;
 
@@ -280,7 +280,7 @@ CREATE TRIGGER customer_notice_on_private_request AFTER INSERT ON public.reserva
 CREATE OR REPLACE FUNCTION public.customer_notice_on_reservation_cancelled()
  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp' AS $function$
 DECLARE v_user uuid; v_work text; v_when text; v_event_cancelled boolean; v_private boolean; v_link text; v_key text;
- v_title text; v_msg text; v_kind text; v_bell uuid; v_email text; v_name text; v_count integer; v_group boolean;
+ v_title text; v_msg text; v_kind text; v_bell uuid; v_email text; v_name text; v_count integer; v_group boolean; v_kept boolean;
 BEGIN
  BEGIN
   SELECT user_id INTO v_user FROM public.customers WHERE id=NEW.customer_id;
@@ -300,7 +300,11 @@ BEGIN
    END IF;
   ELSIF NEW.cancellation_reason='お客様による貸切申込の取り下げ' THEN
    v_kind := 'private_withdrawn'; v_title := '貸切の申込を取り下げました';
-   v_msg := format('「%s」の貸切の申込を取り下げました（予約番号 %s）。',v_work,coalesce(NEW.reservation_number,'-'));
+   -- グループを残す取り下げ（withdraw_private_request_keep_group）はグループを募集中へ戻してから申込を取り消す
+   v_kept := NEW.private_group_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.private_groups pg
+     WHERE pg.id=NEW.private_group_id AND pg.status='gathering');
+   v_msg := format('「%s」の貸切の申込を取り下げました（予約番号 %s）。%s',v_work,coalesce(NEW.reservation_number,'-'),
+     CASE WHEN v_kept THEN 'グループはそのままです。候補日を直してもう一度申し込めます。' ELSE '' END);
   ELSIF NEW.cancellation_reason='貸切リクエストを却下しました' THEN
    v_kind := 'private_rejected'; v_title := '店舗が貸切の申込をお断りしました';
    v_msg := format('「%s」の貸切の申込は、店舗の都合によりお受けできませんでした。詳しくはお送りしたメール・グループのお知らせをご確認ください。',v_work);
@@ -324,7 +328,8 @@ BEGIN
      CASE WHEN v_count IS NOT NULL THEN '候補日: '||v_count||'件（申込中だったもの）' END,
      CASE WHEN NEW.participant_count IS NOT NULL THEN '参加人数: '||NEW.participant_count||'名' END,
      CASE WHEN v_group THEN '' END,
-     CASE WHEN v_group THEN 'グループは閉じられ、メンバーの皆さまにもお知らせしました。' END],
+     CASE WHEN v_group AND v_kept THEN 'グループはそのまま残っています。候補日を直して、もう一度申し込めます。'
+          WHEN v_group THEN 'グループは閉じられ、メンバーの皆さまにもお知らせしました。' END],
     v_link,
     CASE WHEN v_group THEN 'ご不明な点は、グループ画面の歯車マークから「店舗へのお問い合わせ」をご利用ください。' END,
     false,v_bell);
@@ -524,8 +529,8 @@ BEGIN
   IF v_user IS NULL THEN RETURN NULL; END IF;
   SELECT * INTO g FROM public.private_groups WHERE id=NEW.group_id;
   PERFORM public.customer_notice_bell(v_user,NULL,g.organization_id,'system','private_survey','private_survey_reminder:'||NEW.id::text,
-   'アンケートに回答してください',
-   format('「%s」の貸切の公演前アンケートにご回答ください。回答期限は%sです。',
+   '事前配役アンケートに回答してください',
+   format('「%s」の貸切の事前配役アンケートにご回答ください。回答期限は%sです。',
     coalesce((SELECT s.title FROM public.scenario_masters s WHERE s.id=g.scenario_master_id),'貸切'),
     public.customer_notice_when((NEW.deadline_at AT TIME ZONE 'Asia/Tokyo')::date)),
    '/group/invite/'||g.invite_code||'?tab=survey',NULL,NULL,jsonb_build_object('group_id',g.id));

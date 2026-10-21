@@ -21,6 +21,13 @@ import {
 import { scenarioApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
 import { getErrorMessage } from '@/lib/errorFields'
+import { toast } from 'sonner'
+import { announceNextGroup } from '@/lib/privateGroupChat'
+import { clearNextGroupSource, loadNextGroupSource } from '@/lib/nextPrivateGroup'
+import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
+import { parseStoreIdsParam } from '@/pages/PrivateBookingStart/paths'
+import { groupInviteShareText } from '@/lib/shareTexts'
+import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
 
 export function PrivateGroupCreate() {
   const navigate = useNavigate()
@@ -58,39 +65,50 @@ export function PrivateGroupCreate() {
       const { data: storesData, error: storesError } = await privateGroupPageReadApi.listActiveStoresForGroup(organizationId)
       if (storesError) throw storesError
 
-      return { scenario: scenarioData, stores: storesData || [] }
+      return { scenario: scenarioData, stores: storesData || [], organizationId }
     },
   })
   const scenario = scenarioStoreData?.scenario ?? null
   const stores = scenarioStoreData?.stores ?? []
 
-  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
+  // 作品ページの貸切タブで選んでいた希望店舗（?stores=ID,ID）を初期値にする。対象外の店舗は読み込み後に外す
+  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>(() => parseStoreIdsParam(searchParams.get('stores')))
   const [groupName, setGroupName] = useState('')
   const [notes, setNotes] = useState('')
 
   const [createdGroup, setCreatedGroup] = useState<any>(null)
+  // 「同じメンバーで次の貸切」（グループページ 段階 4）から来たとき: 作ったグループの招待をもとのグループのチャットに流す
+  const [nextSource] = useState(() => loadNextGroupSource())
+  const [announceNext, setAnnounceNext] = useState(true)
+  const nextSameOrg = Boolean(nextSource && scenarioStoreData?.organizationId && nextSource.organizationId === scenarioStoreData.organizationId)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
   const bookingBasePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
 
 
-  /** シナリオ設定で公演店舗が限定されているか（空配列・未設定は全店舗可） */
-  const scenarioStoreAllowlist = useMemo(() => {
+  /** 作品の上演店舗の指定（空配列・未設定は臨時会場以外の全店舗） */
+  const scenarioAvailableStores = useMemo(() => {
     const raw = scenario?.available_stores
-    if (!Array.isArray(raw) || raw.length === 0) return null
-    const ids = raw.filter((id): id is string => typeof id === 'string' && id.length > 0)
-    return ids.length > 0 ? new Set(ids) : null
+    if (!Array.isArray(raw)) return []
+    return raw.filter((id): id is string => typeof id === 'string' && id.length > 0)
   }, [scenario?.available_stores])
 
-  const eligibleStores = useMemo(() => {
-    if (!scenarioStoreAllowlist) return stores
-    return stores.filter((s) => scenarioStoreAllowlist.has(s.id))
-  }, [stores, scenarioStoreAllowlist])
+  // 選べる店舗は DB の判定（I12）と同じ: 上演店舗の指定があればその店舗（臨時会場でも可）、無ければ臨時会場以外
+  const eligibleStores = useMemo(
+    () => stores.filter((s) => isStorePlayableForScenario(s, scenarioAvailableStores)),
+    [stores, scenarioAvailableStores]
+  )
 
   useEffect(() => {
-    setSelectedStoreIds((prev) => prev.filter((id) => eligibleStores.some((s) => s.id === id)))
-  }, [eligibleStores])
+    // 読み込み前（店舗が空）に外すと URL の希望店舗まで消えるので、読み込み後だけ
+    if (!scenarioStoreData) return
+    // 何も外れないときは同じ配列を返す（読み込み中は stores が毎回新しい [] になり、再描画が止まらなくなるため）
+    setSelectedStoreIds((prev) => {
+      const next = prev.filter((id) => eligibleStores.some((s) => s.id === id))
+      return next.length === prev.length ? prev : next
+    })
+  }, [eligibleStores, scenarioStoreData])
 
   /** 貸切グループの定員はシナリオ最大人数に固定（主催が別数値を選ばない） */
   const scenarioParticipantMax = useMemo(() => {
@@ -167,6 +185,17 @@ export function PrivateGroupCreate() {
         notes: notes || undefined,
       })
 
+      if (nextSource && nextSameOrg && announceNext) {
+        try {
+          await announceNextGroup(nextSource.groupId, nextSource.memberId, group.id)
+          toast.success(`「${nextSource.title}」のグループのチャットに招待を送りました`)
+        } catch (err) {
+          logger.error('次の貸切の招待をチャットに流せませんでした', err)
+          toast.error('前のグループのチャットに招待を送れませんでした。招待リンクを直接送ってください')
+        }
+      }
+      if (nextSource) clearNextGroupSource()
+
       if (mode === 'no-dates') {
         navigate(`/group/invite/${group.invite_code}`)
       } else {
@@ -193,7 +222,7 @@ export function PrivateGroupCreate() {
   }
 
   const handleShareLine = () => {
-    const text = `貸切マーダーミステリーに参加しませんか？\n\n🎭 ${scenario?.title}\n👥 最大${scenarioParticipantMax ?? ''}名まで\n\n以下のリンクから参加・日程回答をお願いします👇`
+    const text = groupInviteShareText(scenario?.title ?? '', scenarioParticipantMax)
     const url = getInviteUrl()
     window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank')
   }
@@ -209,11 +238,24 @@ export function PrivateGroupCreate() {
               <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
               <h2 className="text-lg font-medium mb-2">ログインが必要です</h2>
               <p className="text-sm text-muted-foreground mb-4">
-                貸切リクエストを作成するにはログインしてください
+                貸切リクエストを作成するにはログインしてください。ログイン・登録の後、この画面に戻ります。
               </p>
-              <Button onClick={() => navigate('/login')}>
-                ログイン
-              </Button>
+              {/* 行き止まりにしない: 戻り先付きのログイン・新規登録と、作品に戻る（点検 3） */}
+              <div className="flex flex-col gap-2 max-w-xs mx-auto">
+                <Button onClick={() => navigate(buildAuthUrl('login', currentPathWithSearch()))}>
+                  ログイン
+                </Button>
+                <Button variant="outline" onClick={() => navigate(buildAuthUrl('signup', currentPathWithSearch()))}>
+                  新規登録
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate(scenarioId ? `${bookingBasePath}/scenario/${encodeURIComponent(scenarioId)}` : bookingBasePath)}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1" />
+                  {scenarioId ? '作品に戻る' : '予約サイトに戻る'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -242,10 +284,21 @@ export function PrivateGroupCreate() {
           <Card>
             <CardContent className="p-8 text-center">
               <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-              <h2 className="text-lg font-medium mb-2">シナリオが見つかりません</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                シナリオを選択してからグループを作成してください
-              </p>
+              {scenarioId ? (
+                <>
+                  <h2 className="text-lg font-medium mb-2">この作品はいま貸切を受け付けていません</h2>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    公開が止まっているか、作品が見つかりませんでした。ほかの作品からグループを作成してください
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-medium mb-2">シナリオが見つかりません</h2>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    シナリオを選択してからグループを作成してください
+                  </p>
+                </>
+              )}
               <Button onClick={() => navigate(bookingBasePath)}>
                 シナリオ一覧へ
               </Button>
@@ -347,6 +400,26 @@ export function PrivateGroupCreate() {
           </Card>
         )}
 
+        {nextSource && (
+          <Card className="mb-6 border-purple-200 bg-purple-50" data-testid="next-group-banner">
+            <CardContent className="p-4 text-sm">
+              {nextSameOrg ? (
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <Checkbox checked={announceNext} onCheckedChange={v => setAnnounceNext(v === true)} className="mt-0.5" />
+                  <span>
+                    <span className="font-bold text-purple-800">同じメンバーで次の貸切</span>
+                    <span className="block text-foreground/80 mt-0.5">
+                      作ったグループの招待を「{nextSource.title}」のグループのチャットに送ります（メンバー {nextSource.memberCount}名）。参加はそれぞれが招待から行います。
+                    </span>
+                  </span>
+                </label>
+              ) : (
+                <p className="text-foreground/80">「{nextSource.title}」とは別の店舗の作品のため、前のグループのチャットには招待を送れません。作成後に招待リンクを直接送ってください。</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2 space-y-6">
             {/* シナリオ情報 */}
@@ -397,7 +470,7 @@ export function PrivateGroupCreate() {
                   <p className="text-xs text-muted-foreground">
                     希望する店舗を選択してください。未選択の場合は、後からグループ管理画面で選択できます。
                   </p>
-                  {scenarioStoreAllowlist && (
+                  {scenarioAvailableStores.length > 0 && (
                     <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-2">
                       このシナリオは設定により、公演可能な店舗のみ選択できます。
                     </p>

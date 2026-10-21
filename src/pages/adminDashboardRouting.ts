@@ -72,6 +72,16 @@ export function parsePath(pathname: string): { page: string, scenarioId: string 
     return { page: 'group-manage', scenarioId: segments[2], organizationSlug: null }
   }
   
+  // /guide/private - 貸切の流れ（使い方ガイドから独立したページ）
+  if (segments.length === 2 && segments[0] === 'guide' && segments[1] === 'private') {
+    return { page: 'guide-private', scenarioId: null, organizationSlug: null }
+  }
+
+  // /private-booking/select-organization - 貸切を始める（店舗を選ぶ → 作品を選ぶ。MMQ 全体トップの「参加店舗から選ぶ」から）
+  if (segments.length === 2 && segments[0] === 'private-booking' && segments[1] === 'select-organization') {
+    return { page: 'private-booking-start', scenarioId: null, organizationSlug: null }
+  }
+
   // 特殊ページのチェック（組織スラッグなし）
   const specialPages = ['login', 'signup', 'reset-password', 'set-password', 'complete-profile', 'coupon-present', 'register', 'start', 'about',
     'accept-invitation', 'author-dashboard', 'author-login', 'mypage', 'my-page', 'scenario',
@@ -146,6 +156,10 @@ export function parsePath(pathname: string): { page: string, scenarioId: string 
     }
     if (subPage === 'cancel-policy') {
       return { page: 'cancel-policy', scenarioId: null, organizationSlug: orgSlug }
+    }
+    // /{slug}/guide/private - 貸切の流れ（共通ページ。店舗の予約サイトから来たときの URL）
+    if (subPage === 'guide' && segments[2] === 'private') {
+      return { page: 'guide-private', scenarioId: null, organizationSlug: orgSlug }
     }
     // /{slug}/guide - ご予約ガイド（共通ページ。組織付き URL でも 404 にしない）
     if (subPage === 'guide') {

@@ -2,16 +2,22 @@
  * マイページ - クーポン一覧ページ
  * 保有クーポンと使用履歴を表示
  * クーポンをタップしてもぎる機能付き
+ * 予約時に付けたクーポンは「この予約に適用済み」に出し、来店時に「もぎる（来店確認）」を押せる（社長決定 B、2026-10-20）
+ * 予約したあとで既存の予約にクーポンを使う「この予約に使う」は公演当日（日本時間）だけ押せる（20261020190000）
  */
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { previewCouponUse } from '@/lib/api/couponApi'
 import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle, Scissors } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { CouponUsableStores } from '../components/CouponUsableStores'
+import { AppliedCouponsSection, isPerformanceDay } from '../components/AppliedCouponsSection'
+import { listAppliedCoupons } from '../utils/appliedCoupons'
 import type { CustomerCoupon, CustomerCouponUsageWithReservation } from '@/types'
-import { useCouponsQuery, useCurrentReservationsQuery, useUseCouponMutation } from '../hooks/useCouponsQuery'
+import { useCouponsQuery, useCurrentReservationsQuery, useRedeemCouponUsageMutation, useUseCouponMutation } from '../hooks/useCouponsQuery'
 import { countUsableCoupons, getLastCouponUsedAt, isUsedCouponVisible, resolveCouponDisplayStatus } from '../utils/couponListVisibility'
-import { formatJstDateJa, formatJstDateTime } from '@/utils/jstDate'
+import { formatJstDateJa, formatJstDateTime, formatJstMonthDay } from '@/utils/jstDate'
+import { useJstToday } from '@/hooks/useJstToday'
 import { showToast } from '@/utils/toast'
 
 function cleanScenarioTitleForCoupon(title?: string | null): string {
@@ -57,14 +63,23 @@ export function CouponsPage() {
   const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
-  const { data: coupons = [], isLoading: couponsLoading } = useCouponsQuery()
+  const { data: coupons = [], isLoading: couponsLoading, refetch: reloadCoupons, isFetching: couponsFetching } = useCouponsQuery()
+  // 使用履歴だけ読めなかったとき（クーポン自体は出せる）。黙って空にせず再読み込みを案内する
+  const usagesFailed = coupons.some(coupon => coupon.coupon_usages_error)
   const { data: currentReservations = [], isLoading: reservationsLoading, isError: reservationsError, refetch: reloadReservations } = useCurrentReservationsQuery()
   const useCouponMutation = useUseCouponMutation()
+  const redeemMutation = useRedeemCouponUsageMutation()
+
+  const selectedReservation = (currentReservations as CurrentReservation[]).find(r => r.id === selectedReservationId) ?? null
+  // 予約後にクーポンを使うのは公演当日だけ。当日でなければ割引額の確認もしない（サーバーも同じ判定で断る）
+  // 「もぎる」と同じ日本時間の時計。開いたまま 0 時をまたいでも当日判定が切り替わる
+  const today = useJstToday()
+  const selectedNotToday = !!selectedReservation && !isPerformanceDay(selectedReservation.date, today)
 
   const preview = useQuery({
     queryKey: ['coupon-use-preview', selectedCoupon?.coupon.id, selectedReservationId],
     queryFn: () => previewCouponUse(selectedCoupon!.coupon.id, selectedReservationId!),
-    enabled: !!selectedCoupon && !!selectedReservationId && showConfirmDialog,
+    enabled: !!selectedCoupon && !!selectedReservationId && showConfirmDialog && !selectedNotToday,
     retry: false,
     staleTime: 0,
   })
@@ -96,7 +111,7 @@ export function CouponsPage() {
   }
 
   const handleUseCoupon = async () => {
-    if (!selectedCoupon || !selectedReservationId || !preview.data?.success || preview.isFetching || preview.isError) return
+    if (!selectedCoupon || !selectedReservationId || selectedNotToday || !preview.data?.success || preview.isFetching || preview.isError) return
     const result = await useCouponMutation.mutateAsync({
       couponId: selectedCoupon.coupon.id,
       reservationId: selectedReservationId,
@@ -105,6 +120,9 @@ export function CouponsPage() {
       setShowConfirmDialog(false)
       setSelectedCoupon(null)
       setSelectedReservationId(null)
+    } else if (result.code === 'not_performance_day') {
+      const day = selectedReservation ? formatJstMonthDay(selectedReservation.date) : ''
+      showToast.error(day ? `クーポンは公演当日（${day}）にお使いください` : 'クーポンは公演当日にお使いください')
     } else {
       showToast.error(result.error || 'クーポンの使用に失敗しました')
     }
@@ -123,6 +141,7 @@ export function CouponsPage() {
   const usedCoupons = sortedCoupons.filter(c => isUsedCouponVisible(c, now))
 
   const totalAvailableCount = countUsableCoupons(coupons, now)
+  const appliedCoupons = listAppliedCoupons(coupons, now)
 
   const expandedActiveCoupons = activeCoupons.flatMap(coupon => {
     const cards: { coupon: CustomerCoupon; index: number; total: number }[] = []
@@ -177,6 +196,22 @@ export function CouponsPage() {
         </p>
       </div>
 
+      {usagesFailed && (
+        <div role="alert" className="flex items-center justify-between gap-3 border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 rounded-none">
+          <span className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            使用履歴を読み込めませんでした
+          </span>
+          <Button variant="outline" size="sm" disabled={couponsFetching} onClick={() => void reloadCoupons()}>再読み込み</Button>
+        </div>
+      )}
+
+      <AppliedCouponsSection
+        cards={appliedCoupons}
+        onRedeem={usageId => redeemMutation.mutateAsync(usageId)}
+        redeeming={redeemMutation.isPending}
+      />
+
       {expandedActiveCoupons.length > 0 && (
         <div>
           <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
@@ -218,6 +253,9 @@ export function CouponsPage() {
                     <h4 className="font-medium text-gray-900 text-sm">{campaign.name}</h4>
                     {campaign.description && (
                       <p className="ts-muted mt-1">{campaign.description}</p>
+                    )}
+                    {coupon.usable_stores_label && (
+                      <CouponUsableStores label={coupon.usable_stores_label} storeNames={coupon.usable_store_names} />
                     )}
                     <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                       {coupon.expires_at && (
@@ -302,6 +340,7 @@ export function CouponsPage() {
                                 className="text-xs text-gray-600 leading-snug pl-2 border-l-2 border-gray-200"
                               >
                                 {formatCouponUsagePerformance(u)}
+                                {u.redeemed_at && <span className="ml-1 text-green-700">（来店時に確認済み）</span>}
                               </p>
                             ))}
                           </div>
@@ -403,6 +442,9 @@ export function CouponsPage() {
                             <p className="text-gray-600 text-xs mt-0.5">
                               {reservation.store_name} ｜ {formatJstDateJa(reservation.date)} {reservation.time}〜
                             </p>
+                            {!isPerformanceDay(reservation.date, today) && (
+                              <p className="text-xs text-muted-foreground mt-0.5">公演当日に使えます（{formatJstMonthDay(reservation.date)}）</p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -410,9 +452,10 @@ export function CouponsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-3 mb-4">
+                <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-3 mb-4 flex items-start gap-2">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-700" aria-hidden="true" />
                   <p className="text-xs text-yellow-700">
-                    ⚠️ このクーポンを利用できる公演がありません。<br />
+                    このクーポンを利用できる公演がありません。<br />
                     この組織の本日以降の確定予約が対象です。
                   </p>
                 </div>
@@ -423,7 +466,8 @@ export function CouponsPage() {
               </p>
 
               {selectedReservationId && <div className="mb-4" aria-live="polite">
-                {preview.isFetching ? <p>利用条件を確認しています…</p>
+                {selectedNotToday && selectedReservation ? <p data-testid="coupon-use-not-today">公演当日に使えます（{formatJstMonthDay(selectedReservation.date)}）</p>
+                  : preview.isFetching ? <p>利用条件を確認しています…</p>
                   : preview.isError ? <p role="alert">{preview.error.message}</p>
                   : preview.data?.success && <p>今回の割引額：¥{preview.data.discount_amount.toLocaleString()}</p>}
               </div>}
@@ -441,11 +485,11 @@ export function CouponsPage() {
                   キャンセル
                 </Button>
                 <Button
-                  className={`flex-1 ${selectedReservationId ? 'bg-mypage-primary hover:bg-mypage-primary-hover' : 'bg-gray-400 hover:bg-gray-400'}`}
+                  className={`flex-1 ${selectedReservationId && !selectedNotToday ? 'bg-mypage-primary hover:bg-mypage-primary-hover' : 'bg-gray-400 hover:bg-gray-400'}`}
                   onClick={handleUseCoupon}
-                  disabled={useCouponMutation.isPending || !selectedReservationId || preview.isFetching || preview.isError || !preview.data?.success}
+                  disabled={useCouponMutation.isPending || !selectedReservationId || selectedNotToday || preview.isFetching || preview.isError || !preview.data?.success}
                 >
-                  {useCouponMutation.isPending ? '処理中...' : 'もぎる'}
+                  {useCouponMutation.isPending ? '処理中...' : 'この予約に使う'}
                 </Button>
               </div>
             </div>

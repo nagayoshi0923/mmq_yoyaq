@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { OperatingTextSettings } from './OperatingTextSettings'
 import { PAYMENT_SETTING_FIELDS } from './operatingSettingFields'
 import { OperatingScalarSettings } from './OperatingScalarSettings'
-import { OPERATION_SETTING_KEYS, SURVEY_SETTING_KEYS } from './operatingSettingFields'
+import { OPERATION_SETTING_KEYS, PRIVATE_BOOKING_HORIZON_SETTING_KEYS, SURVEY_SETTING_KEYS } from './operatingSettingFields'
 import { CancellationSettings } from '@/pages/Settings/pages/CancellationSettings'
 import { EmailSettings } from '@/pages/Settings/pages/EmailSettings'
 
@@ -16,6 +16,7 @@ export function PerformanceOperatingSettings({ eventId }: { eventId?: string | n
       ['operations', '開催判断・準備'], ['payment', '支払い案内'], ['cancellation', 'キャンセル・変更'], ['email', 'メール'], ['survey', '事前配役アンケート'],
     ].map(([key, label]) => <Button key={key} variant={section === key ? 'default' : 'outline'} onClick={() => setSection(key)}>{label}</Button>)}</div>
     {section === 'operations' && <OperatingScalarSettings scope="performance" targetId={eventId} keys={OPERATION_SETTING_KEYS} title="開催判断・準備時間・クーポン" />}
+    {section === 'operations' && <OperatingScalarSettings scope="performance" targetId={eventId} keys={PRIVATE_BOOKING_HORIZON_SETTING_KEYS} title="貸切を受け付ける範囲" />}
     {section === 'payment' && <OperatingTextSettings scope="performance" targetId={eventId} fields={PAYMENT_SETTING_FIELDS} />}
     {section === 'cancellation' && <CancellationSettings scope="performance" targetId={eventId} />}
     {section === 'email' && <EmailSettings scope="performance" targetId={eventId} />}

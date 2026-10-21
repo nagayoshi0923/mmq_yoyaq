@@ -1,4 +1,4 @@
--- 正本: migration 20261005120000（公演前アンケートの画面の状態の記録）
+-- 正本: migration 20261005120000（事前配役アンケートの画面の状態の記録）
 CREATE OR REPLACE FUNCTION public.record_private_group_survey_event(p_group_id uuid, p_member_id uuid, p_guest_token text, p_event text, p_detail jsonb DEFAULT '{}'::jsonb)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 BEGIN

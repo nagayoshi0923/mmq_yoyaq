@@ -6,7 +6,8 @@ import { addJstDays, toJstYmd } from '@/utils/jstDate'
 import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
 import { getPrivateBookingCandidateBlockedState, type PrivateBookingBlockedSlotRow } from '@/lib/privateBookingBlockedSlotAvailability'
 import { timeStrToMinutes } from '@/lib/privateBookingSlotAvailability'
-import { getPrivateBookingDisplayEndTime, type ScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
+import type { ScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
+import { privateBookingErrorText } from '@/lib/privateBookingErrors'
 
 export interface BookingCandidate {
   id: string
@@ -25,9 +26,11 @@ export interface AvailabilityEventRow {
   end_time: string
 }
 
-/** 申請に含める候補（選択したもののうち却下済みを除く） */
-export function selectBookableCandidates<T extends BookingCandidate>(candidates: T[] | undefined, selectedIds: Set<string>): T[] {
-  return candidates?.filter(cd => selectedIds.has(cd.id) && cd.status !== 'rejected') || []
+/** 申請に含める候補（選んだ順＝優先順のまま。却下済み・見つからない id は除く） */
+export function selectBookableCandidates<T extends BookingCandidate>(candidates: T[] | undefined, orderedIds: ReadonlyArray<string>): T[] {
+  return orderedIds
+    .map(id => candidates?.find(cd => cd.id === id))
+    .filter((cd): cd is T => Boolean(cd) && cd!.status !== 'rejected')
 }
 
 /** 締切日数を数値として読めたときだけ返す（読めないときは止めず、DB の確認に任せる） */
@@ -88,20 +91,22 @@ export function generateReservationNumber(now: Date = new Date(), random: () => 
   return `${dateStr}-${randomStr}`
 }
 
-/** 申込に保存する候補日時（終了は営業枠ではなくシナリオ公演時間）と希望店舗 */
+/**
+ * 申込に保存する候補日時（並び＝優先順。order は 1 から）と希望店舗。
+ * 開始・終了はグループの候補日（private_group_candidate_dates）に DB が確定した値をそのまま使う。
+ * 画面側で作品の所要時間から終了を計算し直すと、特別営業日・作品の固定開始時刻・前後の公演で DB が調整した終了とずれる（監査 R1 と同じ）。
+ */
 export function buildCandidateDatetimes(
   candidates: BookingCandidate[],
   stores: Array<{ id: string; name: string }>,
-  scenarioTiming: ScenarioTimingFromDb,
-  isCustomHoliday: (d: string) => boolean,
 ) {
   return {
     candidates: candidates.map((cd, index) => ({
       order: index + 1,
       date: cd.date,
       timeSlot: cd.time_slot,
-      startTime: cd.start_time,
-      endTime: getPrivateBookingDisplayEndTime(cd.start_time, cd.date, scenarioTiming, isCustomHoliday),
+      startTime: hhmm(cd.start_time),
+      endTime: hhmm(cd.end_time),
       status: 'pending'
     })),
     requestedStores: stores.map(store => ({
@@ -110,6 +115,26 @@ export function buildCandidateDatetimes(
       storeShortName: store.name
     }))
   }
+}
+
+/** 候補日の時刻が変わったときに出す文（送信を止める） */
+export const CANDIDATE_TIMES_UPDATED_MESSAGE = '候補日の時刻が更新されました。確認してください'
+
+const hhmm = (time: string | null | undefined) => (time ?? '').slice(0, 5)
+
+/**
+ * 申込シートに出していた候補（shown）と、送信直前に DB から読み直した候補（latest）を比べ、
+ * 開始・終了の時刻が変わった（または無くなった・却下された）候補を返す。1 件でもあれば送らず、確認してもらう。
+ */
+export function findChangedCandidateTimes<T extends BookingCandidate>(
+  shown: ReadonlyArray<T>,
+  latest: ReadonlyArray<{ id: string; start_time: string | null; end_time: string | null; status?: string | null }> | undefined,
+): T[] {
+  return shown.filter((candidate) => {
+    const next = latest?.find((row) => row.id === candidate.id)
+    if (!next || next.status === 'rejected') return true
+    return hhmm(next.start_time) !== hhmm(candidate.start_time) || hhmm(next.end_time) !== hhmm(candidate.end_time)
+  })
 }
 
 /** 予約リクエスト作成の失敗を、お客様向けの文にする */
@@ -125,6 +150,5 @@ export function bookingRequestErrorMessage(rpcError: { code?: string; message?: 
   if (rpcError.code === 'P0047') return '貸切リクエストはグループから申し込んでください。画面を開き直してから、もう一度お試しください。'
   if (rpcError.code === 'P0044') return 'この作品は現在貸切リクエストを受け付けていません'
   if (rpcError.code === 'P0054') return '作品の公演期間外の候補日があります。その日程を外して、もう一度お試しください。'
-  if (rpcError.message) return rpcError.message
-  return '貸切リクエストの送信に失敗しました'
+  return privateBookingErrorText(rpcError, '貸切リクエストの送信に失敗しました')
 }

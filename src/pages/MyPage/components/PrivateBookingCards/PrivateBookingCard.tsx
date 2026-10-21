@@ -1,49 +1,12 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Drama } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import type { PrivateBookingItem, PrivateBookingTone } from './privateBookingModel'
+import { ScheduleActions, absolutePageUrl } from '@/components/patterns/schedule'
+import type { PrivateBookingItem } from './privateBookingModel'
+import { PRIVATE_BOOKING_TONE as TONE } from './privateBookingTone'
 
-/** 色の組（改善案 Main.dc.html の各カードの指定に合わせる） */
-const TONE: Record<PrivateBookingTone, { card: string; header: string; chip: string; sub: string; done: string; current: string; primary: string }> = {
-  purple: {
-    card: 'border-violet-200',
-    header: 'bg-violet-50',
-    chip: 'bg-violet-600 text-white',
-    sub: 'text-violet-800',
-    done: 'bg-violet-600 text-white border-violet-600',
-    current: 'border-violet-600 text-violet-800 font-bold',
-    primary: 'bg-violet-600 hover:bg-violet-700 text-white',
-  },
-  green: {
-    card: 'border-green-200',
-    header: 'bg-green-50',
-    chip: 'bg-green-700 text-white',
-    sub: 'text-green-800',
-    done: 'bg-green-700 text-white border-green-700',
-    current: 'border-green-700 text-green-800 font-bold',
-    primary: 'bg-green-700 hover:bg-green-800 text-white',
-  },
-  amber: {
-    card: 'border-amber-200',
-    header: 'bg-amber-50',
-    chip: 'bg-amber-700 text-white',
-    sub: 'text-amber-800',
-    done: 'bg-amber-700 text-white border-amber-700',
-    current: 'border-amber-700 text-amber-800 font-bold',
-    primary: 'bg-amber-700 hover:bg-amber-800 text-white',
-  },
-  gray: {
-    card: 'border-border',
-    header: 'bg-muted',
-    chip: 'bg-zinc-600 text-white',
-    sub: 'text-muted-foreground',
-    done: 'bg-zinc-600 text-white border-zinc-600',
-    current: 'border-zinc-600 text-foreground font-bold',
-    primary: 'bg-zinc-700 hover:bg-zinc-800 text-white',
-  },
-}
-
-/** 進み具合の小さなチップ列（1 招待 — 2 候補日 — … ／ 確定 — アンケート — 当日） */
+/** 進み具合の小さなチップ列（1 招待 — 2 候補日 — … ／ 確定 — 事前配役アンケート — 当日） */
 function ProgressChips({ item }: { item: PrivateBookingItem }) {
   const tone = TONE[item.tone]
   const { steps, current } = item.progress
@@ -81,7 +44,7 @@ function Thumbnail({ url, compact }: { url: string | null; compact: boolean }) {
         </>
       ) : (
         <div className="w-full h-full flex items-center justify-center" aria-hidden="true">
-          <span className="text-xl opacity-40">🎭</span>
+          <Drama className="h-5 w-5 text-muted-foreground opacity-50" />
         </div>
       )}
     </div>
@@ -119,6 +82,18 @@ export function PrivateBookingCard({ item, actions, secondaryAction, onOpenInPla
       {item.secondary.label}
     </Button>
   )
+  // 確定した貸切はボタン列の下に「カレンダーに登録」「地図を開く」を横並び（押してもカードは開かない）
+  const schedule = item.calendar ? (
+    <div className="px-3 sm:px-4 pb-3 sm:flex sm:justify-end" onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
+      <ScheduleActions
+        event={{ ...item.calendar.event, pageUrl: item.calendar.event.pageUrl ? absolutePageUrl(item.calendar.event.pageUrl) : null }}
+        address={item.calendar.address}
+        stretch
+        className="sm:w-80"
+        testId="private-booking-schedule-actions"
+      />
+    </div>
+  ) : null
   return (
     <div
       role="link"
@@ -185,6 +160,7 @@ export function PrivateBookingCard({ item, actions, secondaryAction, onOpenInPla
         </div>
       )}
       {item.compact && <div className="sm:hidden px-3 pb-3 -mt-1 flex">{secondary}</div>}
+      {schedule}
     </div>
   )
 }

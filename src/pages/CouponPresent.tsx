@@ -1,6 +1,7 @@
 /**
  * クーポンプレゼント＆使い方ガイドページ
  * 新規登録完了後にクーポン付与を表示 + 使い方を案内するページ
+ * 予約に適用済みのクーポンがあれば「この予約に適用済み」を出し、来店時に「もぎる（来店確認）」を押せる（社長決定 B、2026-10-20）
  * @path /coupon-present
  */
 import { useState, useEffect, useMemo } from 'react'
@@ -18,6 +19,9 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { safeRedirectAfterProfileCompletion } from '@/lib/utils'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { formatJstDateJa } from '@/utils/jstDate'
+import { AppliedCouponsSection } from '@/pages/MyPage/components/AppliedCouponsSection'
+import { useCouponsQuery, useRedeemCouponUsageMutation } from '@/pages/MyPage/hooks/useCouponsQuery'
+import { listAppliedCoupons } from '@/pages/MyPage/utils/appliedCoupons'
 
 interface CouponInfo {
   id: string
@@ -64,6 +68,10 @@ export function CouponPresent() {
   const [coupons, setCoupons] = useState<CouponInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [userName, setUserName] = useState('')
+  // 予約に適用済みのクーポン（予約時に消費済み。来店時に「もぎる」で来店確認だけ付ける）
+  const { data: allCoupons = [] } = useCouponsQuery()
+  const redeemMutation = useRedeemCouponUsageMutation()
+  const appliedCoupons = useMemo(() => listAppliedCoupons(allCoupons, new Date()), [allCoupons])
   
   const nextUrl = useMemo(() => {
     const nextParam = searchParams.get('next')
@@ -243,6 +251,26 @@ export function CouponPresent() {
             </CardContent>
           </Card>
 
+          <AppliedCouponsSection
+            cards={appliedCoupons}
+            onRedeem={usageId => redeemMutation.mutateAsync(usageId)}
+            redeeming={redeemMutation.isPending}
+          />
+
+          {/* 予約の途中で登録した人には、すぐ戻れるボタンを使い方より上に出す（点検 1） */}
+          {nextUrl !== '/' && (
+            <Button
+              asChild
+              className="w-full h-12 text-base font-semibold flex items-center justify-center gap-2"
+              style={{ backgroundColor: THEME.primary }}
+            >
+              <Link to={nextUrl}>
+                元の画面に戻って続ける
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            </Button>
+          )}
+
           {/* ===== クーポンの使い方ガイド ===== */}
           <Card className="border border-gray-200 shadow-lg overflow-hidden">
             <div
@@ -286,6 +314,16 @@ export function CouponPresent() {
                   title="「もぎる」で完了！"
                   description="「もぎる」ボタンを押して使用完了。使用後の画面をスタッフにお見せください。"
                 />
+              </div>
+
+              <div className="mt-6 rounded-lg border border-gray-200 px-4 py-4" data-testid="applied-coupon-guide">
+                <h4 className="font-bold text-foreground mb-1 flex items-center gap-2">
+                  <Scissors className="w-4 h-4" style={{ color: THEME.primary }} />
+                  予約時にクーポンを付けた場合
+                </h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  ご予約の時点で割引済みです。来店時は、マイページのクーポンの「この予約に適用済み」で「もぎる（来店確認）」をスタッフの前で押してください。押してもクーポンが新たに使われることはありません。
+                </p>
               </div>
 
               <div className="mt-6 rounded-lg bg-gray-50 border border-gray-200 px-4 py-4">
@@ -360,14 +398,15 @@ export function CouponPresent() {
           </Card>
 
           {/* ===== CTAボタン ===== */}
+          {/* 予約の途中で登録した人は、元の画面（選んでいた公演・招待ページ）へ戻るのを主にする（点検 1） */}
           <div className="space-y-3 pt-2">
             <Button
               asChild
               className="w-full h-12 text-base font-semibold flex items-center justify-center gap-2"
               style={{ backgroundColor: THEME.primary }}
             >
-              <Link to="/mypage">
-                マイページでクーポンを確認する
+              <Link to={nextUrl === '/' ? '/mypage' : nextUrl}>
+                {nextUrl === '/' ? 'マイページでクーポンを確認する' : '元の画面に戻って続ける'}
                 <ChevronRight className="w-4 h-4" />
               </Link>
             </Button>
@@ -377,8 +416,8 @@ export function CouponPresent() {
               variant="outline"
               className="w-full h-12"
             >
-              <Link to={nextUrl}>
-                {nextUrl === '/' ? '公演を探す' : '続ける'}
+              <Link to={nextUrl === '/' ? '/' : '/mypage'}>
+                {nextUrl === '/' ? '公演を探す' : 'マイページでクーポンを確認する'}
               </Link>
             </Button>
           </div>

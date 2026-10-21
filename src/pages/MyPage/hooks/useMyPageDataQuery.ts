@@ -179,7 +179,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       })
 
       const stores: Record<string, Store> = {}
-      storesData.forEach(store => { stores[store.id] = store as Store })
+      storesData.forEach(store => { stores[store.id] = store as unknown as Store })
 
       const storeNameById: Record<string, string> = {}
       storesData.forEach(s => { storeNameById[s.id] = s.name })

@@ -1,13 +1,14 @@
 import { readPrivateGroupList } from '@/lib/privateGroupRead'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { getGroupsSurveySettings } from '@/lib/groupSurveySettings'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { privateBookingMgmtReadApi } from '@/lib/api/privateBookingMgmtReadApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { boundedBatches } from '@/lib/boundedBatches'
 import { fetchBookingRows } from '../utils/fetchBookingRows'
 import { getErrorMessage } from '@/lib/errorFields'
+import type { PrivateGroup } from '@/types'
 
 export interface PrivateGroupListItem {
   id: string
@@ -17,6 +18,11 @@ export interface PrivateGroupListItem {
   scenario_master_id: string
   created_at: string
   updated_at: string
+  /**
+   * 予約・履歴・アンケート設定・確定公演（後から埋める列）を読み終えたか。
+   * false の間は予約番号での検索・確定日・担当・店舗・アンケート絞り込みに使えない（画面はスケルトン）。
+   */
+  details_loaded: boolean
   reservation_numbers?: string[]
   survey_enabled?: boolean
   confirmed_date?: string         // 確定した公演日（YYYY-MM-DD）
@@ -56,28 +62,71 @@ export interface PrivateGroupListItem {
 
 interface UsePrivateGroupListReturn {
   groups: PrivateGroupListItem[]
+  /** 一覧の最初の 100 件がまだ届いていない（この間だけ「読み込み中」） */
   loading: boolean
+  /** グループ本体の続き（100 件ずつ）を読んでいる */
+  loadingMore: boolean
+  /** 予約・履歴・アンケート設定など後から埋める列を読んでいる */
+  detailsLoading: boolean
   error: string | null
   loadGroups: () => Promise<void>
+}
+
+/** グループ本体だけで出せる一覧の行（グループ名・作品・状態・主催者・候補日・更新日）。後から埋める列は未読み込み。 */
+export function toBaseListItem(g: PrivateGroup): PrivateGroupListItem {
+  // 古い応答で作品が配列のまま届く場合に備える（従来の一覧と同じ扱い）
+  const scenarioMasters: unknown = g.scenario_masters
+  return {
+    ...(g as unknown as PrivateGroupListItem),
+    details_loaded: false,
+    scenario_masters: ((Array.isArray(scenarioMasters) ? scenarioMasters[0] : scenarioMasters) || null) as PrivateGroupListItem['scenario_masters'],
+    members: (g.members || []).map(m => ({
+      ...m,
+      member_name: m.staff_display_name || m.guest_name || null,
+    })),
+    organizer: { name: g.organizer_display_name || '幹事情報を確認できません' },
+  }
 }
 
 export function usePrivateGroupList(): UsePrivateGroupListReturn {
   const [groups, setGroups] = useState<PrivateGroupListItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [detailsLoading, setDetailsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // 再読み込みで前の読み込みの結果が後から届いても上書きしない
+  const loadSeq = useRef(0)
 
   const loadGroups = useCallback(async () => {
+    const seq = ++loadSeq.current
+    const current = () => seq === loadSeq.current
     setLoading(true)
+    setLoadingMore(true)
+    setDetailsLoading(true)
     setError(null)
+    setGroups([])
 
     try {
       const orgId = await getCurrentOrganizationId()
+      // 組織の解決を待つ間に新しい読み込みが始まっていたら、古い呼び出しは error も loading も触らない。
+      // 古い呼び出しの「組織なし」が、新しい呼び出しで出た一覧をエラー表示に変えるのを防ぐ（Codex 第2回再レビュー R6）
+      if (!current()) return
       if (!orgId) {
         setError('組織情報が取得できません')
         return
       }
 
-      const data = await readPrivateGroupList('staff', orgId)
+      // 先に 100 件ずつ軽い情報だけで一覧を出す（検索欄もここで出る）。後から埋める列はスケルトン。
+      const data = await readPrivateGroupList('staff', orgId, undefined, loaded => {
+        if (!current()) return
+        setGroups(loaded.map(toBaseListItem))
+        setLoading(false)
+      })
+      if (!current()) return
+      const baseGroups = data.map(toBaseListItem)
+      setGroups(baseGroups)
+      setLoading(false)
+      setLoadingMore(false)
 
       const groupIds = (data || []).map(g => g.id)
 
@@ -140,21 +189,12 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
         })
       }
 
-      const groupsWithOrganizer = (data || []).map(g => {
-        const scenarioMasters = Array.isArray(g.scenario_masters)
-          ? g.scenario_masters[0]
-          : g.scenario_masters
-
+      const groupsWithOrganizer: PrivateGroupListItem[] = baseGroups.map(g => {
         const storeId = confirmedStoreIdMap.get(g.id)
         return {
           ...g,
+          details_loaded: true,
           reservation_numbers: [...new Set(reservationNumbers.get(g.id) || [])],
-          scenario_masters: scenarioMasters || null,
-          members: (g.members || []).map(m => ({
-            ...m,
-            member_name: m.staff_display_name || m.guest_name || null,
-          })),
-          organizer: { name: g.organizer_display_name || '幹事情報を確認できません' },
           survey_enabled: surveyResult[g.id]?.survey_enabled ?? false,
           confirmed_date: confirmedDateMap.get(g.id),
           confirmed_time: confirmedTimeMap.get(g.id),
@@ -163,14 +203,22 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
           confirmed_warning: g.status === 'confirmed' && !confirmedDateMap.has(g.id)
             ? '現在の予約と公演の対応を確認できません。予約詳細を確認してください。' : undefined,
         }
-      }) as PrivateGroupListItem[]
+      })
 
+      if (!current()) return
       setGroups(groupsWithOrganizer)
     } catch (err) {
+      if (!current()) return
       logger.error('グループ一覧の取得エラー:', err)
+      // 一部だけ読めた一覧を正しいデータとして残さない（確定日・予約番号が欠けたまま見せない）
+      setGroups([])
       setError(getErrorMessage(err) || 'グループ一覧の取得に失敗しました')
     } finally {
-      setLoading(false)
+      if (current()) {
+        setLoading(false)
+        setLoadingMore(false)
+        setDetailsLoading(false)
+      }
     }
   }, [])
 
@@ -178,5 +226,5 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
     loadGroups()
   }, [loadGroups])
 
-  return { groups, loading, error, loadGroups }
+  return { groups, loading, loadingMore, detailsLoading, error, loadGroups }
 }

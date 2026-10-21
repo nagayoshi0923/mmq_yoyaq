@@ -15,6 +15,8 @@ export interface Store {
   organization_id?: string  // マルチテナント対応（移行期間中はオプショナル）
   name: string
   short_name: string
+  /** お客様向けの店舗名（空なら店舗名から組織名を外したもの。src/lib/publicStoreName.ts） */
+  public_name?: string | null
   address: string
   access_info?: string
   phone_number: string

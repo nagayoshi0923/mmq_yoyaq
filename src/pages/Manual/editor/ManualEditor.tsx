@@ -324,7 +324,7 @@ function MigrateDialog({
                 移行後はUIから編集できるようになります。
               </p>
               <ul className="space-y-1 text-muted-foreground">
-                {['受付・チェックイン', '事前アンケート・配役', 'クーポン受付対応',
+                {['受付・チェックイン', '事前配役アンケート・配役', 'クーポン受付対応',
                   'クーポン・チケット種類', '予約管理', 'スタッフ管理',
                   'シフト・スケジュール', 'クーポン管理'].map(name => (
                   <li key={name} className="flex items-center gap-2">

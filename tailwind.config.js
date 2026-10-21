@@ -127,5 +127,10 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // 作品カードの幅で見た目を切り替える（card-narrow: カード幅 200px 未満。スマホの 2 列・残りわずかの 150px）
+    function ({ addVariant }) {
+      addVariant('card-narrow', '@container scenario-card (max-width: 199px)')
+    },
+  ],
 }

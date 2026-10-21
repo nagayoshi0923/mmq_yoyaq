@@ -5,7 +5,8 @@ import type { ScenarioDetail, ScenarioCharacter } from '../utils/types'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { useOrgThemePreset } from '@/hooks/useOrgThemePreset'
 import { OptimizedImage } from '@/components/ui/optimized-image'
-import { SensitivityCheck } from './SensitivityCheck'
+import { SensitivityCheck } from '@/components/scenario/SensitivityCheck'
+import { characterImageStyle } from '@/components/scenario/scenarioFacts'
 
 interface ScenarioAboutProps {
   scenario: ScenarioDetail
@@ -40,14 +41,7 @@ function CharacterCard({ character }: { character: ScenarioCharacter }) {
               src={character.image_url}
               alt={character.name}
               className="w-full h-full object-cover"
-              style={{
-                objectPosition: character.image_position
-                  ? (character.image_position.includes(' ')
-                      ? `${character.image_position.split(' ')[0]}% ${character.image_position.split(' ')[1]}%`
-                      : `center ${character.image_position}`)
-                  : '50% 50%',
-                transform: character.image_scale ? `scale(${character.image_scale / 100})` : undefined
-              }}
+              style={characterImageStyle(character.image_position, character.image_scale)}
             />
           </div>
         ) : (

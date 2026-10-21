@@ -1,5 +1,5 @@
 /**
- * 貸切について店舗に問い合わせる（マイページの「操作」メニュー・グループ画面の共通部品）。
+ * 店舗に問い合わせる（貸切: マイページの「操作」メニュー・グループ画面、通常の予約: 予約詳細の共通部品）。
  * 予約番号・作品名・いまの状態・招待コードを本文の最初に入れた状態で開く。
  * 送信は Edge Function send-contact-inquiry。使えないときはメールアプリを開く（従来のグループ設定シートと同じ）。
  */
@@ -18,8 +18,12 @@ import { buildInquiryMessage, type PrivateGroupInquiryInfo } from './privateBook
 
 const MIN_MESSAGE_LENGTH = 10
 
-function inquirySubject(info: PrivateGroupInquiryInfo): string {
-  return `【貸切予約のお問い合わせ】${info.reservationNumber || info.inviteCode || info.title}`
+/** private=貸切、booking=通常の（オープン公演の）予約 */
+export type StoreInquiryKind = 'private' | 'booking'
+
+function inquirySubject(info: PrivateGroupInquiryInfo, kind: StoreInquiryKind): string {
+  const label = kind === 'booking' ? '予約のお問い合わせ' : '貸切予約のお問い合わせ'
+  return `【${label}】${info.reservationNumber || info.inviteCode || info.title}`
 }
 
 interface PrivateGroupInquiryDialogProps {
@@ -29,9 +33,11 @@ interface PrivateGroupInquiryDialogProps {
   /** 返信先（ログイン中のメール、ゲストなら参加時のメール） */
   replyEmail: string
   replyName: string
+  /** 既定は貸切 */
+  kind?: StoreInquiryKind
 }
 
-export function PrivateGroupInquiryDialog({ open, onOpenChange, info, replyEmail, replyName }: PrivateGroupInquiryDialogProps) {
+export function PrivateGroupInquiryDialog({ open, onOpenChange, info, replyEmail, replyName, kind = 'private' }: PrivateGroupInquiryDialogProps) {
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -51,7 +57,7 @@ export function PrivateGroupInquiryDialog({ open, onOpenChange, info, replyEmail
     const { data: org } = info.organizationId
       ? await privateGroupPageReadApi.findOrganizationContactEmail(info.organizationId)
       : { data: null }
-    const subject = encodeURIComponent(inquirySubject(info))
+    const subject = encodeURIComponent(inquirySubject(info, kind))
     const body = encodeURIComponent(`${message}\n\n---\n返信先: ${replyEmail}`)
     window.location.href = `mailto:${org?.contact_email || ''}?subject=${subject}&body=${body}`
     toast.info('メールアプリを開きます')
@@ -82,10 +88,10 @@ export function PrivateGroupInquiryDialog({ open, onOpenChange, info, replyEmail
         body: {
           organizationId: org.id,
           organizationName: org.name,
-          name: replyName || '貸切予約者',
+          name: replyName || (kind === 'booking' ? '予約者' : '貸切予約者'),
           email: replyEmail,
-          type: 'private',
-          subject: inquirySubject(info),
+          type: kind,
+          subject: inquirySubject(info, kind),
           message,
         },
       })
@@ -135,8 +141,8 @@ export function PrivateGroupInquiryDialog({ open, onOpenChange, info, replyEmail
           </div>
         </div>
         <DialogFooter className="gap-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={sending}>閉じる</Button>
-          <Button type="button" className="gap-2" onClick={send} disabled={sending || tooShort}>
+          <Button type="button" variant="outline" className="min-h-11 sm:min-h-0" onClick={() => onOpenChange(false)} disabled={sending}>閉じる</Button>
+          <Button type="button" className="gap-2 min-h-11 sm:min-h-0" onClick={send} disabled={sending || tooShort}>
             {sending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <MessageCircle className="h-4 w-4" aria-hidden="true" />}
             {sending ? '送信中...' : '送信する'}
           </Button>

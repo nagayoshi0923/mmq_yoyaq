@@ -20,6 +20,10 @@
       "destination": "/api/seo?kind=guide"
     },
     {
+      "source": "/guide/private",
+      "destination": "/api/seo?kind=guide/private"
+    },
+    {
       "source": "/faq",
       "destination": "/api/seo?kind=faq"
     },

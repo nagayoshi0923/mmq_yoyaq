@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/patterns/list'
 import { SearchInput, FilterBar } from '@/components/patterns/filter'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -27,6 +28,7 @@ import type { RpcSendStaffGroupMessageParams } from '@/lib/rpcTypes'
 import { showToast } from '@/utils/toast'
 import { usePrivateGroupList, type PrivateGroupListItem } from '../hooks/usePrivateGroupList'
 import { PrivateGroupAnnouncementHistoryDialog } from './PrivateGroupAnnouncementHistoryDialog'
+import { PrivateGroupFeedbackBadge } from './PrivateGroupFeedbackBadge'
 import { useLocalState } from '@/hooks/useLocalState'
 import { useAuth } from '@/contexts/AuthContext'
 import { readSurveyDeliveries, sendSurveyNotice, surveyDeliveryLabels, type SurveyDeliveryHistory } from '@/lib/privateSurveyDelivery'
@@ -78,6 +80,9 @@ function getResponseProgress(group: PrivateGroupListItem) {
   }
 }
 
+/** 一度に並べるカードの数（「さらに表示」で 100 件ずつ足す） */
+export const GROUP_LIST_PAGE_SIZE = 100
+
 interface PrivateGroupListProps {
   onGroupClick?: (group: PrivateGroupListItem) => void
 }
@@ -85,11 +90,14 @@ interface PrivateGroupListProps {
 export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { groups, loading, error, loadGroups } = usePrivateGroupList()
+  const { groups, loading, loadingMore, detailsLoading, error, loadGroups } = usePrivateGroupList()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useLocalState<string>('privateGroupStatusFilter', 'all')
   const [hideCompleted, setHideCompleted] = useLocalState<boolean>('privateGroupHideCompleted', false)
   const [showSurveyOnly, setShowSurveyOnly] = useLocalState<boolean>('privateGroupShowSurveyOnly', false)
+  const [visibleCount, setVisibleCount] = useState(GROUP_LIST_PAGE_SIZE)
+  // 条件を変えたら先頭の 100 件から見せ直す
+  useEffect(() => { setVisibleCount(GROUP_LIST_PAGE_SIZE) }, [searchTerm, statusFilter, hideCompleted, showSurveyOnly])
   
   // メッセージ送信用
   const [messageDialogOpen, setMessageDialogOpen] = useState(false)
@@ -165,6 +173,9 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
   }
 
   const filteredGroups = filterPrivateGroups(groups, { searchTerm, statusFilter, hideCompleted, showSurveyOnly })
+  const visibleGroups = filteredGroups.slice(0, visibleCount)
+  const remaining = filteredGroups.length - visibleGroups.length
+  const stillLoading = loadingMore || detailsLoading
 
   // ステータス別の件数
   const statusCounts = groups.reduce((acc, g) => {
@@ -262,10 +273,19 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        全{groups.length}件中{filteredGroups.length}件を表示
+        {loadingMore ? `読み込み済み${groups.length}件中` : `全${groups.length}件中`}{filteredGroups.length}件が該当
+        {remaining > 0 && `（${visibleGroups.length}件を表示）`}
         {searchTerm.trim() && '（検索時は完了・取消済みも対象）'}
         {!searchTerm.trim() && hideCompleted && '（完了・取消済みを非表示）'}
       </p>
+      {stillLoading && (
+        <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="private-group-list-loading-note">
+          <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" aria-hidden="true" />
+          {loadingMore
+            ? '続きのグループを読み込み中です。読み込み中の分は検索・絞り込みの対象外です。'
+            : '予約・履歴を読み込み中です。予約番号での検索、確定公演の日程、「完了公演を非表示」「事前配役公演のみ」は読み込み完了後に有効になります。'}
+        </p>
+      )}
       {/* グループ一覧 */}
       {filteredGroups.length === 0 ? (
         <Card>
@@ -274,15 +294,15 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
               icon={Search}
               title={
                 searchTerm || statusFilter !== 'all' || hideCompleted || showSurveyOnly
-                  ? '条件に一致するグループがありません'
-                  : '貸切グループがありません'
+                  ? (stillLoading ? '読み込み済みの分には条件に一致するグループがありません' : '条件に一致するグループがありません')
+                  : (stillLoading ? '読み込み中です' : '貸切グループがありません')
               }
             />
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-3">
-          {filteredGroups.map(group => {
+          {visibleGroups.map(group => {
             const status = STATUS_CONFIG[group.status] || STATUS_CONFIG['draft']
             const progress = getResponseProgress(group)
             
@@ -347,7 +367,10 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
                         </span>
                       </div>
 
-                      {/* 確定公演の日程・店舗・GM */}
+                      {/* 確定公演の日程・店舗・GM（読み込み中はスケルトン） */}
+                      {group.status === 'confirmed' && !group.details_loaded && (
+                        <Skeleton className="mt-1.5 h-4 w-56 max-w-full" data-testid="private-group-details-skeleton" aria-label="確定公演の情報を読み込み中" />
+                      )}
                       {group.status === 'confirmed' && group.confirmed_date && (
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-green-700">
                           <span className="flex items-center gap-1">
@@ -420,6 +443,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
                         <MessageSquare className="w-4 h-4 mr-1" />
                         ログ
                       </Button>
+                      <PrivateGroupFeedbackBadge groupId={group.id} title={group.scenario_masters?.title || '(シナリオ未設定)'} />
                       <Button
                         variant="outline"
                         size="sm"
@@ -450,6 +474,16 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
               </Card>
             )
           })}
+          {remaining > 0 && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setVisibleCount(count => count + GROUP_LIST_PAGE_SIZE)}
+              data-testid="private-group-list-more"
+            >
+              さらに表示（残り{remaining}件）
+            </Button>
+          )}
         </div>
       )}
 

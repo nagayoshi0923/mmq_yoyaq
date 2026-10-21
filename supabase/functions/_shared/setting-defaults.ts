@@ -124,5 +124,7 @@ export const SETTING_DEFAULTS: Record<string, SettingValue> = {
   "coupon_usage_enabled": true,
   "survey_enabled": false,
   "survey_deadline_days": 1,
-  "survey_url": ""
+  "survey_url": "",
+  "private_booking_horizon_days": 180,
+  "private_group_photo_limit": 10
 }

@@ -56,7 +56,7 @@ describe('resolvePrivateBookingUrlPrefillSlot', () => {
     ).toEqual({
       label: '夜',
       startTime: '19:30',
-      endTime: '19:30',
+      endTime: '',
     })
   })
 
@@ -70,7 +70,7 @@ describe('resolvePrivateBookingUrlPrefillSlot', () => {
     ).toEqual({
       label: '午前',
       startTime: '09:00',
-      endTime: '09:00',
+      endTime: '',
     })
   })
 
@@ -94,7 +94,7 @@ describe('resolvePrivateBookingUrlPrefillSlot', () => {
     ).toEqual({
       label: '午後',
       startTime: '14:00',
-      endTime: '14:00',
+      endTime: '',
     })
   })
 })

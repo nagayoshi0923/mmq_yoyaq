@@ -4,6 +4,7 @@ import { confirmedReservationPrice } from './confirmed-reservation-price.ts'
 import { dueReminderSchedules } from './reminder-schedule.ts'
 import { isScheduledReminderCurrent } from './reminder-send-guard.ts'
 import { sendScheduledReminder } from './send-scheduled-reminder.ts'
+import { customerStoreName } from './customer-store-name.ts'
 
 async function readPages(makeQuery) {
   const rows = []
@@ -31,7 +32,7 @@ export async function runScheduledReminders(db, now = new Date(), send = sendSch
     const dates = [...days].map(day => dateFormat.format(new Date(now.getTime() + day * 86400000)))
     if (!dates.length) return { success: true, sent: 0, skipped: 0, failures: 0 }
     const events = await readPages(() => db.from('schedule_events')
-      .select('id,organization_id,store_id,date,start_time,end_time,scenario,venue,stores:store_id(name,address)')
+      .select('id,organization_id,store_id,date,start_time,end_time,scenario,venue,stores:store_id(name,address,public_name,is_temporary,temporary_venue_names,organizations(name))')
       .in('date', dates).eq('is_cancelled', false).order('id'))
     let sent = 0
     let skipped = 0
@@ -72,7 +73,7 @@ export async function runScheduledReminders(db, now = new Date(), send = sendSch
               scheduleEventId: event.id,
               customerEmail: reservation.customer_email, customerName: reservation.customer_name,
               scenarioTitle: event.scenario, eventDate: event.date, startTime: event.start_time, endTime: event.end_time,
-              storeName: event.stores?.name || event.venue, storeAddress: event.stores?.address,
+              storeName: customerStoreName(event.stores, { date: event.date, fallback: event.venue }), storeAddress: event.stores?.address,
               participantCount: reservation.participant_count, totalPrice: confirmedReservationPrice(reservation),
               reservationNumber: reservation.reservation_number, daysBefore: schedule.days_before, template: schedule.template,
               deliveryId: claim.delivery_id, deliveryLeaseToken: claim.lease_token,

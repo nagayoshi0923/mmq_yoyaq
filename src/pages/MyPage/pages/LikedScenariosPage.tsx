@@ -1,11 +1,12 @@
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Heart, Users, Clock, Sparkles, ChevronRight, CalendarDays } from 'lucide-react'
+import { Heart, Users, Clock, Sparkles, ChevronRight, CalendarDays, Drama } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useLikedScenariosQuery, useRemoveLikeMutation, useWishlistNextEventsQuery, type WishlistNextEvent } from '../hooks/useLikedScenariosQuery'
 import { formatJstDateJa, formatJstMonthDay } from '@/utils/jstDate'
+import { isFewSeats, seatCountText } from '@/lib/seatLabel'
 
 interface WantToPlayScenario {
   id: string
@@ -49,7 +50,7 @@ function NextEventLine({ next, loading, onOpen }: { next: WishlistNextEvent | un
   if (!next) {
     return <p className="ts-caption mt-2" data-testid="wishlist-next-none">予定なし・貸切リクエストできます</p>
   }
-  const seats = next.remaining == null ? '' : next.remaining === 0 ? '満席' : `残り${next.remaining}席`
+  const seats = next.remaining == null || next.capacity == null ? '' : next.remaining === 0 ? '満席' : `${seatCountText(next.booked, next.capacity)}${isFewSeats(next.remaining) ? '・残少' : ''}`
   return (
     <button
       type="button"
@@ -158,7 +159,7 @@ export function WantToPlayPage() {
                   />
                 </>
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">🎭</div>
+                <div className="w-full h-full flex items-center justify-center"><Drama className="h-7 w-7 text-muted-foreground opacity-40" aria-hidden="true" /></div>
               )}
             </div>
 

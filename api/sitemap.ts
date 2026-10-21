@@ -7,6 +7,8 @@ const SITE_ORIGIN = 'https://mmq.game'
 const STATIC_PATHS = [
   '/',
   '/guide',
+  '/guide/private',
+  '/private-booking/select-organization',
   '/faq',
   '/stores',
   '/scenario',

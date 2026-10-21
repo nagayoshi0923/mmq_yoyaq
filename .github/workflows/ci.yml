@@ -34,7 +34,7 @@ jobs:
         run: npm run test:unit
 
       - name: Coupon rules database regressions
-        run: npm run test:coupon-rules-db
+        run: npm run test:coupon-rules-db && npm run test:participant-change-coupon-db
 
       - name: 予約RPCの本人・組織認可と2接続競合
         timeout-minutes: 8
@@ -48,6 +48,9 @@ jobs:
 
       - name: Staff account lifecycle database regressions
         run: npm run test:staff-account-db
+
+      - name: 手動参加者追加のRLS循環と組織認可
+        run: node scripts/test-manual-reservations-db.mjs
 
       - name: Verify organization signup ownership
         run: npm run test:organization-signup-db
@@ -69,6 +72,9 @@ jobs:
 
       - name: Private booking change policy
         run: node scripts/test-private-change-policy-db.mjs
+
+      - name: Private request withdrawal keeping the group
+        run: node scripts/test-private-request-withdraw-keep-group-db.mjs
 
       - name: Unrecorded GM cost DB regression
         run: node scripts/test-unrecorded-gm-cost-db.mjs

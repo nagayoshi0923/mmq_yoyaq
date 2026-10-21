@@ -37,10 +37,60 @@ describe('クーポン利用API',()=>{
   it('DBが返す利用不可理由を画面へ返し消費を再試行しない',async()=>{
     mock.rpc.mockResolvedValue({data:null,error:{code:'P0028',message:'対象店舗ではありません'}})
     const r=response();await handler({method:'POST',headers:{},query:{action:'use'},body:{customer_coupon_id:'coupon',reservation_id:'reservation'}} as unknown as VercelRequest,r as unknown as VercelResponse)
-    expect(r.status).toHaveBeenCalledWith(400);expect(r.json).toHaveBeenCalledWith({success:false,error:'対象店舗ではありません'});expect(mock.rpc).toHaveBeenCalledTimes(1)
+    expect(r.status).toHaveBeenCalledWith(400);expect(r.json).toHaveBeenCalledWith({success:false,error:'対象店舗ではありません',code:'P0028'});expect(mock.rpc).toHaveBeenCalledTimes(1)
   })
 })
 
+
+describe('来店確認（もぎる）は公演当日だけ', () => {
+  const redeemReq = { method: 'POST', headers: {}, query: { action: 'redeem-usage' }, body: { usage_id: 'usage' } } as unknown as VercelRequest
+  it('当日でないと断られたら 400 と理由（not_performance_day）を返す', async () => {
+    mock.rpc.mockResolvedValue({ data: null, error: { code: 'P0028', message: '公演当日に押してください', hint: 'not_performance_day' } })
+    const r = response(); await handler(redeemReq, r as unknown as VercelResponse)
+    expect(mock.rpc).toHaveBeenCalledWith('redeem_coupon_usage', { p_user: 'verified-user', p_usage_id: 'usage', p_source: 'customer_present' })
+    expect(r.status).toHaveBeenCalledWith(400)
+    expect(r.json).toHaveBeenCalledWith({ success: false, error: '公演当日に押してください', code: 'not_performance_day' })
+  })
+  it('ほかの断りは 400 と DB のコードを返す', async () => {
+    mock.rpc.mockResolvedValue({ data: null, error: { code: 'P0028', message: 'クーポンが見つかりません' } })
+    const r = response(); await handler(redeemReq, r as unknown as VercelResponse)
+    expect(r.status).toHaveBeenCalledWith(400)
+    expect(r.json).toHaveBeenCalledWith({ success: false, error: 'クーポンが見つかりません', code: 'P0028' })
+  })
+  it('当日なら成功をそのまま返す', async () => {
+    mock.rpc.mockResolvedValue({ data: { success: true, usage_id: 'usage', redeemed_at: '2026-10-20T03:00:00Z', already_redeemed: false }, error: null })
+    const r = response(); await handler(redeemReq, r as unknown as VercelResponse)
+    expect(r.status).toHaveBeenCalledWith(200)
+    expect(r.json).toHaveBeenCalledWith({ success: true, usage_id: 'usage', redeemed_at: '2026-10-20T03:00:00Z', already_redeemed: false })
+  })
+  it('その場で使った（use）のが先の予約なら、使用は成功のまま印は付けず理由を添える', async () => {
+    mock.rpc
+      .mockResolvedValueOnce({ data: { success: true, usage_id: 'usage', discount_amount: 500 }, error: null })
+      .mockResolvedValueOnce({ data: null, error: { code: 'P0028', message: '公演当日に押してください', hint: 'not_performance_day' } })
+    const r = response()
+    await handler({ method: 'POST', headers: {}, query: { action: 'use' }, body: { customer_coupon_id: 'coupon', reservation_id: 'reservation' } } as unknown as VercelRequest, r as unknown as VercelResponse)
+    expect(mock.rpc).toHaveBeenNthCalledWith(2, 'redeem_coupon_usage', { p_user: 'verified-user', p_usage_id: 'usage', p_source: 'venue_use' })
+    expect(r.status).toHaveBeenCalledWith(200)
+    expect(r.json).toHaveBeenCalledWith({ success: true, usage_id: 'usage', discount_amount: 500, redeemed: false, redeem_code: 'not_performance_day' })
+  })
+  it('予約後に当てる（use）のが公演当日でなければ 400 で理由コードを返し、来店確認は呼ばない（20261020190000）', async () => {
+    mock.rpc.mockResolvedValueOnce({ data: null, error: { code: 'P0028', message: '公演当日にお使いください', hint: 'not_performance_day' } })
+    const r = response()
+    await handler({ method: 'POST', headers: {}, query: { action: 'use' }, body: { customer_coupon_id: 'coupon', reservation_id: 'reservation' } } as unknown as VercelRequest, r as unknown as VercelResponse)
+    expect(mock.rpc).toHaveBeenCalledTimes(1)
+    expect(mock.rpc).toHaveBeenCalledWith('use_customer_coupon', { p_user: 'verified-user', p_coupon: 'coupon', p_reservation: 'reservation' })
+    expect(r.status).toHaveBeenCalledWith(400)
+    expect(r.json).toHaveBeenCalledWith({ success: false, error: '公演当日にお使いください', code: 'not_performance_day' })
+  })
+  it('その場で使った（use）のが当日なら、そのまま印を付けて成功を返す', async () => {
+    mock.rpc
+      .mockResolvedValueOnce({ data: { success: true, usage_id: 'usage', discount_amount: 500 }, error: null })
+      .mockResolvedValueOnce({ data: { success: true, usage_id: 'usage', already_redeemed: false }, error: null })
+    const r = response()
+    await handler({ method: 'POST', headers: {}, query: { action: 'use' }, body: { customer_coupon_id: 'coupon', reservation_id: 'reservation' } } as unknown as VercelRequest, r as unknown as VercelResponse)
+    expect(r.json).toHaveBeenCalledWith({ success: true, usage_id: 'usage', discount_amount: 500 })
+  })
+})
 
 describe('クーポンの予約候補と期限', () => {
   function seed(rows: Record<string, unknown[]>) {
@@ -87,6 +137,46 @@ describe('クーポンの予約候補と期限', () => {
     await handler({ method: 'GET', headers: {}, query: { type: 'available' } } as unknown as VercelRequest, r as unknown as VercelResponse)
     expect(r.status).toHaveBeenCalledWith(200)
     expect(r.json.mock.calls[0][0]).toHaveLength(1)
+  })
+  it('予約確認画面の候補は、公演の組織のクーポンだけに絞る（別の組織のクーポンは出さない）', async () => {
+    seed({ schedule_events: [{ organization_id: 'tokyo-org' }], customers: [{ id: 'customer' }], customer_coupons: [] })
+    const eqCalls: unknown[][] = []
+    const original = mock.from.getMockImplementation()!
+    mock.from.mockImplementation((table: string) => {
+      const query = original(table)
+      if (table === 'schedule_events') query.maybeSingle = vi.fn(() => Promise.resolve({ data: { organization_id: 'tokyo-org' }, error: null }))
+      if (table === 'customers') query.maybeSingle = vi.fn(() => Promise.resolve({ data: { id: 'customer' }, error: null }))
+      if (table === 'customer_coupons') query.eq = vi.fn((...args: unknown[]) => { eqCalls.push(args); return query })
+      return query
+    })
+    const r = response()
+    await handler({ method: 'GET', headers: {}, query: { type: 'available', event_id: 'event' } } as unknown as VercelRequest, r as unknown as VercelResponse)
+    expect(r.status).toHaveBeenCalledWith(200)
+    expect(eqCalls).toContainEqual(['organization_id', 'tokyo-org'])
+  })
+  it('マイページのクーポンに使える店舗（数は出さず、店舗名の一覧）を付ける', async () => {
+    seed({
+      customers: [{ id: 'customer' }],
+      customer_coupons: [{ id: 'c1', organization_id: 'qw', coupon_campaigns: {}, rules_snapshot: {} }],
+      coupon_usages: [],
+      organizations: [{ id: 'qw', name: 'クインズワルツ' }],
+      stores: [
+        { id: 's1', organization_id: 'qw', name: 'クインズワルツ高田馬場店', region: '東京都' },
+        { id: 's2', organization_id: 'qw', name: 'クインズワルツ埼玉大宮店', region: '埼玉県' },
+        { id: 's3', organization_id: 'qw', name: '臨時会場1', is_temporary: true },
+      ],
+    })
+    const original = mock.from.getMockImplementation()!
+    mock.from.mockImplementation((table: string) => {
+      const query = original(table)
+      if (table === 'customers') query.maybeSingle = vi.fn(() => Promise.resolve({ data: { id: 'customer' }, error: null }))
+      return query
+    })
+    const r = response()
+    await handler({ method: 'GET', headers: {}, query: { type: 'all' } } as unknown as VercelRequest, r as unknown as VercelResponse)
+    expect(r.status).toHaveBeenCalledWith(200)
+    expect(r.json.mock.calls[0][0][0].usable_stores_label).toBe('クインズワルツの全店舗（東京・埼玉）')
+    expect(r.json.mock.calls[0][0][0].usable_store_names).toEqual(['高田馬場店', '埼玉大宮店'])
   })
   it('予約取得の失敗を予約なしの空配列に置き換えない', async () => {
     seed({ customers: [{ id: 'customer' }] })

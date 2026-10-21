@@ -3,8 +3,12 @@ import { useAuth } from '@/contexts/AuthContext'
 import { readPrivateGroupMessages } from '@/lib/privateGroupRead'
 import type { PrivateGroupMessage } from '@/types'
 
-/** チャットは参加資格を確認するRPCだけで読み、認証変更時は古い内容を破棄する。 */
-export function usePrivateGroupMessages(groupId: string, memberId: string | null) {
+/**
+ * チャットは参加資格を確認するRPCだけで読み、認証変更時は古い内容を破棄する。
+ * enabled: false のときは読まない（グループページが読んだものを GroupChat に渡すとき）。
+ */
+export function usePrivateGroupMessages(groupId: string, memberId: string | null, options: { enabled?: boolean } = {}) {
+  const enabled = options.enabled ?? true
   const { user } = useAuth()
   const [messages, setMessages] = useState<PrivateGroupMessage[]>([])
   const [loading, setLoading] = useState(true)
@@ -28,8 +32,12 @@ export function usePrivateGroupMessages(groupId: string, memberId: string | null
   const invalidate = useCallback(() => { generation.current++ }, [])
   useEffect(() => {
     setMessages([])
-    setLoading(true)
     setError(false)
+    if (!enabled) {
+      setLoading(false)
+      return
+    }
+    setLoading(true)
     let pending = false
     const refresh = async () => {
       if (pending) return
@@ -49,6 +57,6 @@ export function usePrivateGroupMessages(groupId: string, memberId: string | null
       window.removeEventListener('focus', refreshVisible)
       document.removeEventListener('visibilitychange', refreshVisible)
     }
-  }, [refetch, invalidate, user?.id])
+  }, [refetch, invalidate, user?.id, enabled])
   return { messages, loading, error, refetch }
 }

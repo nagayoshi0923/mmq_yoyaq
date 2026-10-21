@@ -1,9 +1,11 @@
 import { memo } from 'react'
+import { loginUrlWithIntent } from '@/lib/authReturn'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Users, CalendarPlus } from 'lucide-react'
 import { BookingNotice } from './BookingNotice'
+import { privateGroupCreatePath } from '@/pages/PrivateBookingStart/paths'
 
 interface PrivateBookingPanelProps {
   participationFee: number
@@ -17,6 +19,8 @@ interface PrivateBookingPanelProps {
   hasPreReading?: boolean
   scenarioId?: string
   organizationSlug?: string
+  /** 貸切タブでいま選んでいる希望店舗。グループ作成ページへ同じ店舗で引き継ぐ */
+  preferredStoreIds?: string[]
 }
 
 export const PrivateBookingPanel = memo(function PrivateBookingPanel({
@@ -30,22 +34,18 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
   reservationDeadlineHours,
   hasPreReading,
   scenarioId,
-  organizationSlug
+  organizationSlug,
+  preferredStoreIds = [],
 }: PrivateBookingPanelProps) {
   const navigate = useNavigate()
 
   const handleCreateGroupWithoutDates = () => {
-    // グループ作成ページのURLを構築
-    const params = new URLSearchParams()
-    if (scenarioId) params.set('scenarioId', scenarioId)
-    if (organizationSlug) params.set('org', organizationSlug)
-    params.set('mode', 'no-dates')
-    const groupCreateUrl = `/group/create?${params.toString()}`
-    
+    // グループ作成ページのURLを構築（希望店舗は作品ページの他のボタンと同じく引き継ぐ）
+    const groupCreateUrl = privateGroupCreatePath({ scenarioMasterId: scenarioId, organizationSlug, storeIds: preferredStoreIds, noDates: true })
+
     if (!isLoggedIn) {
-      // ログイン後にグループ作成ページに戻るようreturnUrlを設定
-      sessionStorage.setItem('returnUrl', groupCreateUrl)
-      navigate('/login')
+      // 戻り先（グループ作成ページ）を付けてログインへ
+      navigate(loginUrlWithIntent('login', groupCreateUrl, '貸切グループの作成'))
       return
     }
     navigate(groupCreateUrl)
@@ -110,7 +110,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
       />
 
       {/* 貸切リクエスト送信ボタン */}
-      {!availabilityReady && selectedTimeSlotsCount > 0 && <p role="status" className="text-sm text-muted-foreground">空き状況を確認できるまで選択した候補を保持します。通信を確認して店舗を選び直してください。</p>}
+      {!availabilityReady && selectedTimeSlotsCount > 0 && <p role="status" className="text-sm text-muted-foreground">空き状況を確認できるまで選択した候補を保持します。通信を確認して空き状況を再読み込みしてください。</p>}
       <Button
         className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
         onClick={onRequestBooking}

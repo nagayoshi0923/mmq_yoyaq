@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, Plus, X, Loader2 } from 'lucide-react'
+import { Calendar, Clock, Users, MapPin, ArrowLeft, AlertCircle, Plus, X, Loader2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCustomerData } from '../BookingConfirmation/hooks/useCustomerData'
 import { usePrivateBookingForm } from './hooks/usePrivateBookingForm'
@@ -21,9 +21,11 @@ import { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import { logger } from '@/utils/logger'
 import { formatDate } from './utils/privateBookingFormatters'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
+import { PrivateBookingRequestSuccess } from './components/PrivateBookingRequestSuccess'
+import { privateCancelNoticeText } from '@/lib/privateCancelNotice'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { usePrivateBookingDeadlineDays } from '@/hooks/usePrivateBookingDeadlineDays'
-import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
+import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
 import { privateBookingSlotReadApi } from '@/lib/api/scheduleHookReadApi'
 import { useCandidateSlotAvailability } from '@/hooks/useCandidateSlotAvailability'
 import {
@@ -41,10 +43,12 @@ import {
 import { resolveOrgIdFromPageContext } from '@/lib/organization'
 import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
 import { toJstYmd } from '@/utils/jstDate'
-import { getErrorMessage } from '@/lib/errorFields'
+import { privateBookingErrorText } from '@/lib/privateBookingErrors'
+import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
+import { PRIVATE_BOOKING_HORIZON_CHECKING_TEXT, privateBookingHorizonMaxYmd, privateBookingTooFarText, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
+import { PrivateBookingHorizonNotice } from '@/components/private-booking/PrivateBookingHorizonNotice'
 
 const MAX_TIME_SLOTS = 6
-const CANDIDATE_HORIZON_DAYS = 180
 
 /** YYYY-MM-DD の暦日加算（UTC 部品で計算するためローカルTZに依存しない） */
 function addCalendarDaysYmd(ymd: string, days: number): string {
@@ -59,8 +63,6 @@ export function PrivateBookingRequest({
   participationFee,
   participationCosts,
   maxParticipants,
-  scenarioDuration,
-  weekendDuration,
   selectedTimeSlots: initialTimeSlots,
   selectedStoreIds: initialStoreIds,
   stores,
@@ -76,22 +78,8 @@ export function PrivateBookingRequest({
   
   const { isCustomHoliday } = useCustomHolidays({ organizationSlug })
 
-  const scenarioTiming = useMemo(
-    () => ({
-      duration: scenarioDuration != null && scenarioDuration > 0 ? scenarioDuration : 180,
-      weekend_duration:
-        weekendDuration != null && weekendDuration > 0 ? weekendDuration : null,
-    }),
-    [scenarioDuration, weekendDuration]
-  )
-
-  const enrichSlotEnd = useCallback(
-    (date: string, slot: TimeSlot): TimeSlot => ({
-      ...slot,
-      endTime: getPrivateBookingDisplayEndTime(slot.startTime, date, scenarioTiming, isCustomHoliday),
-    }),
-    [scenarioTiming, isCustomHoliday]
-  )
+  // 候補の開始・終了時刻は DB の空き判定（private_booking_candidate_slot_availability）が返した値をそのまま使う。
+  // 画面側で作品の公演時間から終了を計算し直すと、店舗の特別営業日などが反映されず保存時に拒否される（監査 R1）。
   
   // グループID（既存または送信時に作成）
   const [createdGroupId, setCreatedGroupId] = useState<string | null>(groupId || null)
@@ -111,21 +99,8 @@ export function PrivateBookingRequest({
   // （PrivateBookingRequestPage 経由のフローで初回マウント時に空→非同期で充填されるケース）
   useEffect(() => {
     if (initialTimeSlots.length === 0) return
-    setEditableTimeSlots((prev) => {
-      if (prev.length > 0) return prev
-      return initialTimeSlots.map((ts) => ({
-        ...ts,
-        slot: enrichSlotEnd(ts.date, ts.slot),
-      }))
-    })
-  }, [initialTimeSlots, enrichSlotEnd])
-
-  useEffect(() => {
-    setEditableTimeSlots((prev) => {
-      if (prev.length === 0) return prev
-      return prev.map((ts) => ({ ...ts, slot: enrichSlotEnd(ts.date, ts.slot) }))
-    })
-  }, [enrichSlotEnd])
+    setEditableTimeSlots((prev) => (prev.length > 0 ? prev : initialTimeSlots))
+  }, [initialTimeSlots])
   const [showAddForm, setShowAddForm] = useState(false)
   const [newDate, setNewDate] = useState('')
   const [newSlotLabel, setNewSlotLabel] = useState('')
@@ -137,54 +112,49 @@ export function PrivateBookingRequest({
     )
   }, [stores])
 
-  // シナリオ対応店舗IDセット（null = 全店舗対応）
-  const scenarioAvailableSet = useMemo(() => {
-    if (scenarioAvailableStores && scenarioAvailableStores.length > 0) {
-      return new Set(scenarioAvailableStores)
-    }
-    return null
-  }, [scenarioAvailableStores])
+  // この作品の貸切を受け付ける店舗（DB の判定と同じ。上演店舗の指定が無ければ臨時会場を除く）
+  const playableStores = useMemo(
+    () => displayStores.filter((s) => isStorePlayableForScenario(s, scenarioAvailableStores)),
+    [displayStores, scenarioAvailableStores]
+  )
 
   // 希望店舗（前ページで選択済み、変更不可）
   const selectedStoreIds = useMemo(() => {
-    const filtered = initialStoreIds.filter(id => {
-      const isValid = displayStores.some((s) => s.id === id)
-      const isAvailable = scenarioAvailableSet === null || scenarioAvailableSet.has(id)
-      return isValid && isAvailable
-    })
+    const filtered = initialStoreIds.filter(id => playableStores.some((s) => s.id === id))
     return filtered.length > 0 ? filtered : []
-  }, [initialStoreIds, displayStores, scenarioAvailableSet])
+  }, [initialStoreIds, playableStores])
 
   // 貸切予約の受付締切（公演日の何日前まで申込可能か）。設定 > 予約設定の値
   const deadlineDays = usePrivateBookingDeadlineDays({ organizationSlug, scenarioId })
 
-  // 追加可能な日付の範囲（受付締切日数後から候補取得と同じ 180 日ホライズンまで）
+  const { data: slotOrganizationId = null } = useQuery({
+    queryKey: ['private-booking-request', 'organization-id', organizationSlug],
+    queryFn: async () => (await resolveOrgIdFromPageContext()) ?? null,
+  })
+  // 申し込める範囲（今日から N 日先まで。MMQ 既定 180 → 組織 → 作品の設定。I21）
+  // 読めるまで（読めなかったときも）は days が null。候補の追加と送信を止める（既定の 180 日で進めない。Codex 点検 不具合 5）
+  const horizon = usePrivateBookingHorizonDays({ organizationId: slotOrganizationId, scenarioId })
+  const horizonDays = horizon.days
+
+  // 追加可能な日付の範囲（受付締切日数後から、申し込める範囲の最後の日まで）
   const dateRange = useMemo(() => {
     const todayYmd = toJstYmd(new Date())
     const minDate = addCalendarDaysYmd(todayYmd, deadlineDays)
-    const horizonMax = addCalendarDaysYmd(todayYmd, CANDIDATE_HORIZON_DAYS)
+    const horizonMax = privateBookingHorizonMaxYmd(horizonDays)
     const maxDate = horizonMax >= minDate ? horizonMax : minDate
     return { minDate, maxDate }
-  }, [deadlineDays])
+  }, [deadlineDays, horizonDays])
 
   /** 候補追加・プルダウン用（HP貸切カレンダー・グループ候補追加と同じ営業時間マージ） */
   const storeIdsForSlotResolution = useMemo(() => {
-    const eligible = displayStores.filter(
-      (s: { id: string }) =>
-        scenarioAvailableSet === null || scenarioAvailableSet.has(s.id)
-    )
     if (selectedStoreIds.length > 0) return selectedStoreIds
-    return eligible.map((s: { id: string }) => s.id)
-  }, [displayStores, scenarioAvailableSet, selectedStoreIds])
+    return playableStores.map((s: { id: string }) => s.id)
+  }, [playableStores, selectedStoreIds])
 
   const storeIdsKey = storeIdsForSlotResolution.join(',')
 
   // 候補日時の空き判定は DB（private_booking_candidate_slot_availability）だけで行う。
   // 作品ページの申込フォーム・グループの候補日追加と同じ判定（仕様の正本: docs/product-spec/貸切受付ルール.md）。
-  const { data: slotOrganizationId = null } = useQuery({
-    queryKey: ['private-booking-request', 'organization-id', organizationSlug],
-    queryFn: async () => (await resolveOrgIdFromPageContext()) ?? null,
-  })
   const availabilityTarget = useMemo<CandidateSlotAvailabilityTarget | null>(
     () => slotOrganizationId && scenarioId && storeIdsKey
       ? { kind: 'scenario', organizationId: slotOrganizationId, scenarioId, storeIds: storeIdsKey.split(',') }
@@ -230,8 +200,8 @@ export function PrivateBookingRequest({
   const pickerDates = useMemo(() => (pickerDate ? [pickerDate] : []), [pickerDate])
   const { availability: pickerAvailability } = useCandidateSlotAvailability(availabilityTarget, pickerDates)
   const candidateSlotsForPicker = useMemo(
-    () => availableSlotsForDate(pickerAvailability, pickerDate).map((slot) => ({ ...slot, endTime: enrichSlotEnd(pickerDate, slot).endTime })),
-    [pickerAvailability, pickerDate, enrichSlotEnd]
+    () => availableSlotsForDate(pickerAvailability, pickerDate),
+    [pickerAvailability, pickerDate]
   )
 
   /** 送信前の再検証用: 候補の日付ごとに DB の最新の空き状況を読む（1 回の問い合わせは 62 日までなので日付ごと） */
@@ -242,10 +212,50 @@ export function PrivateBookingRequest({
     return buildCandidateSlotAvailability(rows)
   }, [availabilityTarget])
 
+  // 確認画面に並べる候補の時刻と「選べるか」は、DB の最新の応答から作る（監査 R1）。
+  // 前ページや URL から来た時刻（DB で決まらなかったときの仮の時刻を含む）をそのまま出さず、
+  // 選べる候補は DB の開始・終了に合わせ、選べない候補は理由を出して送信させない。
+  const candidateDatesKey = useMemo(
+    () => [...new Set(editableTimeSlots.map((candidate) => candidate.date))].sort().join(','),
+    [editableTimeSlots]
+  )
+  const { data: candidateAvailability, refetch: refetchCandidateAvailability } = useQuery({
+    queryKey: ['private-booking-request', 'candidate-availability', slotOrganizationId, scenarioId, storeIdsKey, candidateDatesKey],
+    enabled: !!availabilityTarget && candidateDatesKey.length > 0,
+    queryFn: () => loadLatestAvailableSlots(candidateDatesKey.split(',')),
+  })
+  const [candidateTimesUpdated, setCandidateTimesUpdated] = useState(false)
+  useEffect(() => {
+    if (!candidateAvailability) return
+    const reconciled = reconcilePrivateBookingCandidates(editableTimeSlots, (candidate) =>
+      availableSlotsForDate(candidateAvailability, candidate.date)
+    )
+    if (!reconciled.changed) return
+    // 前ページで時刻が決まっていた（終了がある）候補の時刻が変わったときだけ知らせる。DB で決まらなかった仮の時刻を埋めるときは知らせない
+    const moved = editableTimeSlots.some((candidate, index) => candidate.slot.endTime !== ''
+      && (reconciled.updated[index].slot.startTime !== candidate.slot.startTime || reconciled.updated[index].slot.endTime !== candidate.slot.endTime))
+    if (moved) setCandidateTimesUpdated(true)
+    setEditableTimeSlots(reconciled.updated)
+  }, [candidateAvailability, editableTimeSlots])
+  /** DB の最新の応答で選べない候補の理由（読み込み前・選べる候補は null） */
+  const candidateUnavailableReason = useCallback((candidate: { date: string; slot: TimeSlot }): string | null => {
+    if (!candidateAvailability || !candidateDatesKey.split(',').includes(candidate.date)) return null
+    if (availableSlotsForDate(candidateAvailability, candidate.date).some((slot) => slot.label === candidate.slot.label)) return null
+    return candidateAvailability.unavailableReasons[`${candidate.date}-${candidate.slot.label}`] || '選択できません'
+  }, [candidateAvailability, candidateDatesKey])
+
   const handleAddTimeSlot = () => {
     if (!newDate || !newSlotLabel) return
     if (newDate < dateRange.minDate) {
       toast.error(`候補日は本日より${deadlineDays}日後以降のみ選べます`)
+      return
+    }
+    if (horizonDays === null) {
+      toast.error(PRIVATE_BOOKING_HORIZON_CHECKING_TEXT)
+      return
+    }
+    if (newDate > dateRange.maxDate) {
+      toast.error(privateBookingTooFarText(horizonDays))
       return
     }
     const picked = newDate === pickerDate
@@ -325,6 +335,11 @@ export function PrivateBookingRequest({
       return
     }
 
+    if (horizonDays === null) {
+      setError(PRIVATE_BOOKING_HORIZON_CHECKING_TEXT)
+      return
+    }
+
     if (editableTimeSlots.some((candidate) => candidate.date < dateRange.minDate)) {
       setError(`候補日は本日より${deadlineDays}日後以降のみ選べます`)
       return
@@ -346,12 +361,15 @@ export function PrivateBookingRequest({
 
     try {
       // グループや顧客データを変更する前に、DB の最新の空き状況で全候補を再検証する（表示・保存と同じ判定）。
-      const [latestAvailability] = await Promise.all([
-        loadLatestAvailableSlots(editableTimeSlots.map((candidate) => candidate.date)),
+      // 画面の表示と同じ問い合わせを取り直す（表示と送信候補を同じ応答から作る。監査 R1）
+      const [latestResult] = await Promise.all([
+        refetchCandidateAvailability({ throwOnError: true }),
         refetchBlockedSlotRows(),
       ])
+      const latestAvailability = latestResult.data
+      if (!latestAvailability) throw new Error('空き状況を確認できません。時間をおいて開き直してください。')
       const reconciled = reconcilePrivateBookingCandidates(editableTimeSlots, (candidate) =>
-        availableSlotsForDate(latestAvailability, candidate.date).map((slot) => ({ ...slot, endTime: enrichSlotEnd(candidate.date, slot).endTime }))
+        availableSlotsForDate(latestAvailability, candidate.date)
       )
       if (reconciled.invalid.length > 0) {
         const details = reconciled.invalid
@@ -399,48 +417,20 @@ export function PrivateBookingRequest({
       
       // 成功後はボタンで遷移させるため自動リダイレクトは行わない
     } catch (error) {
-      setError(getErrorMessage(error) || '処理中にエラーが発生しました')
+      setError(privateBookingErrorText(error, '処理中にエラーが発生しました。もう一度お試しください。'))
     }
   }
 
-  // 成功画面
+  // 成功画面（店舗の返事の目安・メンバー招待・取消の案内。点検 43・35）
   if (success) {
     return (
-      <div className="booking-shell min-h-screen bg-background overflow-x-clip">
-        <Header />
-        <NavigationBar currentPage={bookingBasePath} />
-        
-        <div className="container mx-auto max-w-3xl px-2 md:px-4 py-12">
-          <Card className="border-2 border-purple-200 bg-purple-50">
-            <CardContent className="p-8 text-center space-y-4">
-              <CheckCircle2 className="w-16 h-16 text-purple-600 mx-auto" />
-              <h2 className="text-lg text-purple-800">貸切リクエストを受け付けました！</h2>
-              <p className="text-sm text-purple-700 leading-relaxed">
-                リクエストありがとうございます。<br />
-                {confirmationEmailAccepted ? `確認メールの送信を受け付けました（${customerEmail}）。` : '確認メールの送信を確認できませんでした。受付内容はマイページで確認できます。再申込は不要です。'}<br />
-                担当者より折り返しご連絡させていただきます。
-              </p>
-              <div className="pt-4 flex flex-col gap-3">
-                {createdInviteCode && (
-                  <Button
-                    onClick={() => navigate(`/group/invite/${createdInviteCode}`)}
-                    className="bg-purple-600 hover:bg-purple-700"
-                  >
-                    <Users className="w-4 h-4 mr-2" />
-                    グループを開く
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  onClick={() => navigate(bookingBasePath)}
-                >
-                  予約サイトトップに戻る
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <PrivateBookingRequestSuccess
+        bookingBasePath={bookingBasePath}
+        scenarioTitle={scenarioTitle}
+        customerEmail={customerEmail}
+        confirmationEmailAccepted={confirmationEmailAccepted}
+        inviteCode={createdInviteCode}
+      />
     )
   }
 
@@ -449,6 +439,7 @@ export function PrivateBookingRequest({
   const hasFullyBlockedCandidate = editableTimeSlots.some((candidate) =>
     getBlockedState(candidate.date, candidate.slot.label).allStoresBlocked
   )
+  const hasUnavailableCandidate = editableTimeSlots.some((candidate) => candidateUnavailableReason(candidate) !== null)
 
   return (
     <div className="booking-shell min-h-screen bg-background overflow-x-clip">
@@ -467,15 +458,6 @@ export function PrivateBookingRequest({
 
       <div className="container mx-auto max-w-5xl px-2 md:px-4 py-6">
         <h1 className="text-xl font-bold mb-6">貸切リクエスト確認</h1>
-
-        {error && (
-          <Card className="mb-6 border-2 border-red-200 bg-red-50">
-            <CardContent className="p-4 flex items-center gap-2 text-red-800 text-sm">
-              <AlertCircle className="w-5 h-5" />
-              <span>{error}</span>
-            </CardContent>
-          </Card>
-        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* 左側：リクエスト内容 */}
@@ -582,7 +564,7 @@ export function PrivateBookingRequest({
                       <Button
                         size="sm"
                         onClick={handleAddTimeSlot}
-                        disabled={!newDate || !newSlotLabel}
+                        disabled={!newDate || !newSlotLabel || horizonDays === null}
                         className="bg-purple-600 hover:bg-purple-700"
                       >
                         追加する
@@ -615,8 +597,13 @@ export function PrivateBookingRequest({
                           </div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Clock className="w-4 h-4" />
-                            <span>{slot.slot.label} {slot.slot.startTime} - {slot.slot.endTime}</span>
+                            <span>{slot.slot.label} {slot.slot.startTime}{slot.slot.endTime ? ` - ${slot.slot.endTime}` : ''}</span>
                           </div>
+                          {candidateUnavailableReason(slot) && (
+                            <p className="text-xs font-medium text-red-700" data-testid="candidate-unavailable">
+                              この日時は選べません（{candidateUnavailableReason(slot)}）— 候補日時を再選択してください
+                            </p>
+                          )}
                           {blockedState.allStoresBlocked && (
                             <p className="text-xs font-medium text-red-700">
                               現在受付停止中 — 候補日時を再選択してください
@@ -642,6 +629,11 @@ export function PrivateBookingRequest({
                     </Card>
                     )
                   })
+                )}
+                {candidateTimesUpdated && (
+                  <p className="text-xs text-amber-700" data-testid="candidate-times-updated">
+                    最新の空き状況に合わせて候補の時刻を更新しました。内容をご確認ください。
+                  </p>
                 )}
               </div>
             </div>
@@ -782,6 +774,10 @@ export function PrivateBookingRequest({
               </Card>
             </div>
 
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 leading-relaxed" data-testid="private-request-cancel-notice">
+              <span className="font-bold">取消について: </span>{privateCancelNoticeText()}
+            </p>
+
             {/* 注意事項（DBから取得） */}
             <BookingNotice
               mode="private"
@@ -797,9 +793,8 @@ export function PrivateBookingRequest({
                 </p>
                 <Button
                   onClick={() => {
-                    // 未ログイン時は戻り先URLを保存してログインページへ（入力途中で「ログインが必要です」にならないようにする）
-                    sessionStorage.setItem('returnUrl', window.location.pathname + window.location.search)
-                    navigate('/login')
+                    // 未ログイン時は戻り先付きでログインへ（入力途中で「ログインが必要です」にならないようにする）
+                    navigate(buildAuthUrl('login', currentPathWithSearch()))
                   }}
                   className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
                 >
@@ -807,9 +802,18 @@ export function PrivateBookingRequest({
                 </Button>
               </div>
             ) : (
+            <div className="space-y-2">
+            <PrivateBookingHorizonNotice horizon={horizon} />
+            {/* 送信の失敗・入力の不足は、押したボタンのすぐ上に出す（2026-10-20 staging 点検: 画面の一番上では見えなかった） */}
+            {error && (
+              <div role="alert" className="flex items-start gap-2 rounded-md border-2 border-red-200 bg-red-50 p-3 text-sm text-red-800" data-testid="private-request-error">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
             <Button
               onClick={onSubmit}
-              disabled={isSubmitting || groupLoading || hasFullyBlockedCandidate}
+              disabled={isSubmitting || groupLoading || hasFullyBlockedCandidate || hasUnavailableCandidate || horizonDays === null}
               className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
             >
               {(isSubmitting || groupLoading) ? (
@@ -817,8 +821,10 @@ export function PrivateBookingRequest({
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   {groupLoading ? 'グループ作成中...' : 'リクエスト送信中...'}
                 </>
-              ) : hasFullyBlockedCandidate ? '受付停止中の候補を再選択してください' : '貸切リクエストを送信'}
+              ) : hasFullyBlockedCandidate ? '受付停止中の候補を再選択してください'
+                : hasUnavailableCandidate ? '選べない候補日時を再選択してください' : '貸切リクエストを送信'}
             </Button>
+            </div>
             )}
           </div>
         </div>

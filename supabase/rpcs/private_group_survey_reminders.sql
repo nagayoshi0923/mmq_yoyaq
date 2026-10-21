@@ -1,4 +1,4 @@
--- 正本: migration 20261006110000（公演前アンケートのリマインドメール）
+-- 正本: migration 20261006110000（事前配役アンケートのリマインドメール）
 -- 送る対象（参加中・日程確定・公演前・アンケート有効・外部の回答先なし・未回答・締切前）
 CREATE OR REPLACE FUNCTION public.private_group_survey_reminder_targets()
 RETURNS TABLE(organization_id uuid, group_id uuid, member_id uuid, deadline_at timestamptz)

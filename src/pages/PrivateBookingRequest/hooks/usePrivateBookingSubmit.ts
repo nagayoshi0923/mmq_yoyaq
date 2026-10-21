@@ -26,28 +26,8 @@ import {
 import { timeStrToMinutes } from '@/lib/privateBookingSlotAvailability'
 import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
 import { upsertOwnCustomer } from '@/lib/api/customerApi'
+import { privateBookingErrorText } from '@/lib/privateBookingErrors'
 
-// 貸切予約用RPCエラーコード → ユーザー向けメッセージのマッピング
-const PRIVATE_BOOKING_ERROR_MESSAGES: Record<string, string> = {
-  'P0001': '参加人数が正しくありません',
-  'P0020': 'お名前を入力してください',
-  'P0021': 'メールアドレスを入力してください',
-  'P0022': '電話番号を入力してください',
-  'P0023': '候補日時を選択してください',
-  'P0024': 'シナリオが見つかりません',
-  'P0025': '参加人数が作品の対応人数の範囲外です。作品の人数をご確認ください',
-  'P0051': '作品の対応人数が未設定です。店舗へお問い合わせください',
-  'P0009': '顧客情報が見つかりません',
-  'P0011': 'この操作を行う権限がありません',
-  'P0030': '候補日時に既存の公演との競合があります。日時と希望店舗を再選択してください。',
-  'P0040': '候補日時が現在受付停止中です。日時と希望店舗を再選択してください。',
-  'P0041': '候補日時の時間帯が正しくありません。日時を再選択してください。',
-  'P0042': '希望店舗が正しくありません。店舗を再選択してください。',
-  'P0047': '貸切リクエストはグループから申し込んでください。画面を開き直してから、もう一度お試しください。',
-  'P0045': '貸切の受付締切を過ぎた候補日があります。画面を再読み込みして日程を選び直してください。',
-  'P0044': 'この作品は現在貸切リクエストを受け付けていません',
-  'P0054': '作品の公演期間外の候補日があります。期間内の日程を選び直してください。',
-}
 
 interface UsePrivateBookingSubmitProps {
   scenarioTitle: string
@@ -253,9 +233,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
           hint: rpcError.hint
         })
         logger.error('貸切リクエストエラー:', rpcError)
-        const errorCode = rpcError.code || ''
-        const errorMessage = PRIVATE_BOOKING_ERROR_MESSAGES[errorCode] || `貸切リクエストの送信に失敗しました: ${rpcError.message || 'もう一度お試しください。'}`
-        throw new Error(errorMessage)
+        throw new Error(privateBookingErrorText(rpcError, '貸切リクエストの送信に失敗しました。もう一度お試しください。'))
       }
 
       // 予約IDを取得（RPC戻り値からの取得）

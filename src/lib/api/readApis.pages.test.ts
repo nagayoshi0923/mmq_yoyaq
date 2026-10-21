@@ -339,10 +339,10 @@ describe('マイページ・予約確認・クーポン', () => {
         "from("stores") .select("id, name, short_name, is_temporary") .order("name")",
       ],
       "myPageDataReadApi.listStoresByIds": [
-        "from("stores") .select("id, name, address, color") .in("id", "a1")",
+        "from("stores") .select("id, name, address, color, public_name, organizations(name)") .in("id", "a1")",
       ],
       "myPageDataReadApi.listStoresByIds (最後の引数なし)": [
-        "from("stores") .select("id, name, address, color") .in("id", undefined)",
+        "from("stores") .select("id, name, address, color, public_name, organizations(name)") .in("id", undefined)",
       ],
       "myPageLikesReadApi.findCustomerIdByUserId": [
         "from("customers") .select("id") .eq("user_id", "a1") .maybeSingle()",
@@ -396,10 +396,10 @@ describe('マイページ・予約確認・クーポン', () => {
         "from("organization_scenarios_with_master") .select("id, title, slug, key_visual_url, duration, player_count_min, player_c…) .eq("id", "a1") .eq("organization_id", undefined) .maybeSingle()",
       ],
       "myPageReservationReadApi.findPublicEvent": [
-        "from("schedule_events_public") .select("date, start_time, category, current_participants, max_participants, s…) .eq("id", "a1") .maybeSingle()",
+        "from("schedule_events_public") .select("date, start_time, end_time, category, current_participants, max_parti…) .eq("id", "a1") .maybeSingle()",
       ],
       "myPageReservationReadApi.findPublicEvent (最後の引数なし)": [
-        "from("schedule_events_public") .select("date, start_time, category, current_participants, max_participants, s…) .eq("id", undefined) .maybeSingle()",
+        "from("schedule_events_public") .select("date, start_time, end_time, category, current_participants, max_parti…) .eq("id", undefined) .maybeSingle()",
       ],
       "myPageReservationReadApi.findPublicEventForNotice": [
         "from("schedule_events_public") .select("date, start_time, end_time, scenario, venue, organization_id") .eq("id", "a1") .single()",
@@ -432,10 +432,10 @@ describe('マイページ・予約確認・クーポン', () => {
         "from("scenario_masters") .select("id, title, key_visual_url, official_duration, player_count_min, playe…) .eq("id", undefined) .single()",
       ],
       "myPageReservationReadApi.findStore": [
-        "from("stores") .select("id, name, address") .eq("id", "a1") .single()",
+        "from("stores") .select("id, name, address, public_name, organizations(name)") .eq("id", "a1") .single()",
       ],
       "myPageReservationReadApi.findStore (最後の引数なし)": [
-        "from("stores") .select("id, name, address") .eq("id", undefined) .single()",
+        "from("stores") .select("id, name, address, public_name, organizations(name)") .eq("id", undefined) .single()",
       ],
       "myPageSettingsReadApi.findOwnCustomerId": [
         "from("customers") .select("id") .eq("user_id", "a1") .order("updated_at", {"ascending":false}) .order("created_at", {"ascending":true}) .order("id", {"ascending":true}) .limit(1) .maybeSingle()",
@@ -1071,6 +1071,12 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       "privateGroupPageReadApi.findOrganizationContactEmail (最後の引数なし)": [
         "from("organizations") .select("contact_email") .eq("id", undefined) .single()",
       ],
+      "privateGroupPageReadApi.findOrganizationSlug": [
+        "from("organizations") .select("slug") .eq("id", "a1") .maybeSingle()",
+      ],
+      "privateGroupPageReadApi.findOrganizationSlug (最後の引数なし)": [
+        "from("organizations") .select("slug") .eq("id", undefined) .maybeSingle()",
+      ],
       "privateGroupPageReadApi.findOwnCustomerPhone": [
         "from("customers") .select("phone") .eq("user_id", "a1") .order("updated_at", {"ascending":false}) .limit(1) .maybeSingle()",
       ],
@@ -1084,10 +1090,10 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
         "from("organization_scenarios_with_master") .select("available_stores") .eq("scenario_master_id", "a1") .eq("organization_id", undefined) .limit(1) .maybeSingle()",
       ],
       "privateGroupPageReadApi.findScenarioForGroup": [
-        "from("organization_scenarios_with_master") .select("id, organization_id, scenario_master_id, title, key_visual_url, playe…) .eq("scenario_master_id", "a1") .eq("organization_id", "a2") .single()",
+        "from("organization_scenarios_with_master") .select("id, organization_id, scenario_master_id, title, key_visual_url, playe…) .eq("scenario_master_id", "a1") .eq("organization_id", "a2") .eq("org_status", "available") .eq("accepts_private_booking", true) .neq("scenario_kind", "offsite_only") .maybeSingle()",
       ],
       "privateGroupPageReadApi.findScenarioForGroup (最後の引数なし)": [
-        "from("organization_scenarios_with_master") .select("id, organization_id, scenario_master_id, title, key_visual_url, playe…) .eq("scenario_master_id", "a1") .eq("organization_id", undefined) .single()",
+        "from("organization_scenarios_with_master") .select("id, organization_id, scenario_master_id, title, key_visual_url, playe…) .eq("scenario_master_id", "a1") .eq("organization_id", undefined) .eq("org_status", "available") .eq("accepts_private_booking", true) .neq("scenario_kind", "offsite_only") .maybeSingle()",
       ],
       "privateGroupPageReadApi.getChatSettings": [
         "from("global_settings") .select("chat_enabled, chat_guest_allowed, system_msg_candidate_dates_added_ti…) .eq("organization_id", "a1") .maybeSingle()",
@@ -1108,10 +1114,10 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
         "from("stores") .select("id, name, short_name, ownership_type, is_temporary") .in("id", "a1") .eq("organization_id", undefined) .eq("status", "active")",
       ],
       "privateGroupPageReadApi.listActiveStoresForGroup": [
-        "from("stores") .select("id, name, address, region") .eq("organization_id", "a1") .eq("status", "active") .neq("is_temporary", true) .or("ownership_type.neq.office,ownership_type.is.null")",
+        "from("stores") .select("id, name, address, region, ownership_type, is_temporary, status") .eq("organization_id", "a1") .eq("status", "active") .or("ownership_type.neq.office,ownership_type.is.null")",
       ],
       "privateGroupPageReadApi.listActiveStoresForGroup (最後の引数なし)": [
-        "from("stores") .select("id, name, address, region") .eq("organization_id", undefined) .eq("status", "active") .neq("is_temporary", true) .or("ownership_type.neq.office,ownership_type.is.null")",
+        "from("stores") .select("id, name, address, region, ownership_type, is_temporary, status") .eq("organization_id", undefined) .eq("status", "active") .or("ownership_type.neq.office,ownership_type.is.null")",
       ],
       "privateGroupPageReadApi.listActiveStoresOfOrganization": [
         "from("stores") .select("id, name, short_name, ownership_type, is_temporary") .eq("organization_id", "a1") .eq("status", "active") .order("name")",
@@ -1256,6 +1262,12 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
   `) })
   it('予約サイトのトップ', async () => { expect(await snapshotModule(publicBooking)).toMatchInlineSnapshot(`
     {
+      "publicBookingListReadApi.listAllPublicEventsInRange": [
+        "from("schedule_events_public") .select("id, date, start_time, end_time, scenario_master_id, scenario, store_i…) .gte("date", "a1") .lte("date", "a2") .eq("is_cancelled", false) .in("category", ["open","offsite"]) .order("date", {"ascending":true}) .order("id", {"ascending":true}) .range(0, 999)",
+      ],
+      "publicBookingListReadApi.listAllPublicEventsInRange (最後の引数なし)": [
+        "from("schedule_events_public") .select("id, date, start_time, end_time, scenario_master_id, scenario, store_i…) .gte("date", "a1") .lte("date", undefined) .eq("is_cancelled", false) .in("category", ["open","offsite"]) .order("date", {"ascending":true}) .order("id", {"ascending":true}) .range(0, 999)",
+      ],
       "publicBookingListReadApi.listAvailableScenarios": [
         "from("organization_scenarios_with_master") .select("id, slug, title, key_visual_url, author, duration, player_count_min, …) .eq("status", "available") .neq("scenario_type", "gm_test") .eq("organization_id", "a1") .order("title", {"ascending":true})",
       ],
@@ -1421,10 +1433,10 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
         "from("organizations") .select("id, slug, name") .in("id", undefined)",
       ],
       "scenarioDetailGlobalReadApi.listPublicStoresByIds": [
-        "from("stores_public") .select("id, name, short_name, color, region") .in("id", "a1")",
+        "from("stores_public") .select("id, name, short_name, color, region, public_name, is_temporary, tempo…) .in("id", "a1")",
       ],
       "scenarioDetailGlobalReadApi.listPublicStoresByIds (最後の引数なし)": [
-        "from("stores_public") .select("id, name, short_name, color, region") .in("id", undefined)",
+        "from("stores_public") .select("id, name, short_name, color, region, public_name, is_temporary, tempo…) .in("id", undefined)",
       ],
       "scenarioDetailGlobalReadApi.listUpcomingPublicEvents": [
         "from("schedule_events_public") .select("id, date, start_time, time_slot, current_participants, max_participan…) .eq("scenario_master_id", "a1") .gte("date", "a2") .in("category", ["open","offsite"]) .order("date", {"ascending":true}) .order("start_time", {"ascending":true}) .limit(50)",

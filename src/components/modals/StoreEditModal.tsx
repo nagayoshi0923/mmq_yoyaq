@@ -71,6 +71,7 @@ export function StoreEditModal({
       setFormData({
         name: store.name,
         short_name: store.short_name,
+        public_name: store.public_name ?? '',
         address: store.address,
         access_info: store.access_info || '',
         phone_number: store.phone_number,
@@ -97,6 +98,7 @@ export function StoreEditModal({
       setFormData({
         name: '',
         short_name: '',
+        public_name: '',
         address: '',
         access_info: '',
         phone_number: '',
@@ -184,7 +186,8 @@ export function StoreEditModal({
     try {
       if (store) {
         // 編集モード：既存データとマージ
-        const updatedStore = { ...store, ...formData } as Store
+        // お客様向けの名前は空欄なら NULL（自動の名前を使う）
+        const updatedStore = { ...store, ...formData, public_name: formData.public_name?.trim() || null } as Store
         const travelTimeItems: StoreTravelTimeInput[] = onSaveTravelTimes
           ? allStores
             .filter(otherStore => otherStore.id !== store.id && !isSameTravelGroup(updatedStore, otherStore))
@@ -215,7 +218,7 @@ export function StoreEditModal({
         }
       } else {
         // 新規作成モード：formDataをそのまま渡す
-        await onSave(formData as Store)
+        await onSave({ ...formData, public_name: formData.public_name?.trim() || null } as Store)
       }
       onClose()
     } catch (error) {
@@ -353,6 +356,20 @@ export function StoreEditModal({
                           シナリオ一覧やスケジュール画面で表示される短い店舗名
                         </p>
                       </div>
+                    </div>
+
+                    {/* お客様向けの名前（予約サイト・マイページ・メールに出る名前） */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">お客様向けの名前</label>
+                      <Input
+                        type="text"
+                        value={formData.public_name || ''}
+                        onChange={(e) => handleInputChange('public_name', e.target.value)}
+                        placeholder="空欄なら自動（例: クインズワルツ高田馬場店 → 高田馬場店）"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        予約サイト・マイページ・グループページ・メールでお客様に見せる店舗名。空欄なら店舗名から組織名を外した名前になります。スタッフ向けの画面は店舗名・略称のままです。
+                      </p>
                     </div>
 
                     {/* ステータス・店舗タイプ・地域 */}

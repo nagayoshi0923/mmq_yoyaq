@@ -15,7 +15,7 @@ export interface PrivateBookingRequestProps {
   participationFee: number
   participationCosts?: ParticipationCost[]
   maxParticipants: number
-  /** 平日等の公演所要（分）。未指定時は表示・保存計算で180分相当の既定を用いる */
+  /** 平日等の公演所要（分）。参考値。候補の終了時刻は DB の空き判定が返した値を使い、これで計算し直さない */
   scenarioDuration?: number
   /** 土日祝の公演所要（分） */
   weekendDuration?: number | null

@@ -52,16 +52,15 @@ EXCEPTION WHEN OTHERS THEN
   END IF;
 END $$;
 
--- 3. calculate_cancellation_fee
+-- 3. calculate_cancellation_fee（20261012140000 で削除。キャンセル料は予約時に固定した規定と
+--    src/lib/cancellationPolicy.ts で計算する。動かない古い版を作り直していないかを確かめる）
 DO $$
 BEGIN
-  PERFORM calculate_cancellation_fee('00000000-0000-0000-0000-000000000000'::uuid);
-  INSERT INTO _smoke_results VALUES ('calculate_cancellation_fee', 'PASS', NULL);
-EXCEPTION WHEN OTHERS THEN
-  IF SQLSTATE LIKE '42%' THEN
-    INSERT INTO _smoke_results VALUES ('calculate_cancellation_fee', 'FAIL', SQLERRM);
+  IF to_regprocedure('public.calculate_cancellation_fee(uuid)') IS NULL THEN
+    INSERT INTO _smoke_results VALUES ('calculate_cancellation_fee', 'PASS', 'removed (20261012140000)');
   ELSE
-    INSERT INTO _smoke_results VALUES ('calculate_cancellation_fee', 'PASS', 'expected error: ' || SQLERRM);
+    INSERT INTO _smoke_results VALUES ('calculate_cancellation_fee', 'FAIL',
+      'removed in 20261012140000; fee is calculated from the reservation snapshot (src/lib/cancellationPolicy.ts)');
   END IF;
 END $$;
 

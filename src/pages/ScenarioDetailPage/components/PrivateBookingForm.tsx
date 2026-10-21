@@ -6,6 +6,11 @@ import { StoreSelector } from './StoreSelector'
 import { PrivateBookingSlotGrid } from '@/components/private-booking/PrivateBookingSlotGrid'
 import type { PrivateBookingSlot } from '@/lib/computePrivateBookingSlots'
 import type { CandidateSlotAvailability } from '@/lib/candidateSlotAvailability'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { PrivateBookingHorizonNotice } from '@/components/private-booking/PrivateBookingHorizonNotice'
+import type { PrivateBookingHorizonState } from '@/lib/privateBookingHorizon'
 
 interface Store {
   id: string
@@ -46,6 +51,11 @@ interface PrivateBookingFormProps {
   loading?: boolean
   /** 予約受付締切（公演日の何日前まで申込可能か）。設定 > 予約設定の値 */
   deadlineDays?: number
+  /** 空き状況を読めなかったときの文面（通信失敗など）。「空きなし」と区別して赤い案内と再読み込みを出す */
+  availabilityError?: string | null
+  onRetryAvailability?: () => void
+  /** 受付範囲。days が null（読み込み中・読めなかった）の間は日付・枠を出さず、確認中・再試行を出す（Codex 点検 不具合 5） */
+  horizon?: PrivateBookingHorizonState
 }
 
 export const PrivateBookingForm = memo(function PrivateBookingForm({
@@ -63,6 +73,9 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   isNextMonthDisabled = false,
   loading = false,
   deadlineDays = 14,
+  availabilityError = null,
+  onRetryAvailability,
+  horizon,
 }: PrivateBookingFormProps) {
   const gridSelectedSlots = useMemo(() =>
     selectedSlots.map(s => ({
@@ -112,6 +125,32 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         </p>
       )}
 
+      {horizon && horizon.days === null ? (
+        <PrivateBookingHorizonNotice horizon={horizon} className="mt-2" />
+      ) : availabilityError ? (
+        // 読めなかったときは日付・枠を出さない（空きが無いように見えるため）。予約確認の取消規定（#1084）と同じ形
+        <Card className="border-2 border-red-300 bg-red-50" data-testid="private-booking-availability-error">
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-start gap-2 text-red-800" role="alert">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" aria-hidden="true" />
+              <p className="text-sm font-bold">空き状況を読み込めませんでした。通信を確認して再読み込みしてください</p>
+            </div>
+            {onRetryAvailability && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full min-h-11"
+                onClick={onRetryAvailability}
+                disabled={loading}
+                data-testid="private-booking-availability-retry"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2${loading ? ' animate-spin' : ''}`} aria-hidden="true" />
+                {loading ? '読み込み中…' : '空き状況を再読み込み'}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
       <PrivateBookingSlotGrid
         currentMonth={currentMonth}
         onMonthChange={onMonthChange}
@@ -128,6 +167,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         isTooSoon={isTooSoon}
         loading={loading}
       />
+      )}
     </div>
   )
 })

@@ -1,4 +1,4 @@
-/** 公演前アンケートの未回答者へのリマインドメールの文面（普段のリマインドメールと同じ形） */
+/** 事前配役アンケートの未回答者へのリマインドメールの文面（普段のリマインドメールと同じ形） */
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土']
 
 function jstParts(date: Date) {
@@ -28,14 +28,14 @@ export function buildSurveyReminderEmail(input: SurveyReminderInput) {
   const deadline = formatJstDate(input.deadlineAt)
   const url = `${(input.siteUrl || 'https://mmq.game').replace(/\/$/, '')}/group/invite/${encodeURIComponent(input.inviteCode)}?tab=survey`
   const time = input.startTime ? ` ${input.startTime.slice(0, 5)}開演` : ''
-  const subject = `【アンケートのお願い】${input.scenarioTitle} - ${date} | ${input.companyName}`
+  const subject = `【事前配役アンケートのお願い】${input.scenarioTitle} - ${date} | ${input.companyName}`
   const lines = [
     `${input.toName} 様`,
     '',
-    `${date}の貸切公演「${input.scenarioTitle}」について、公演前アンケートへのご回答をお願いいたします。`,
+    `${date}の貸切公演「${input.scenarioTitle}」について、事前配役アンケートへのご回答をお願いいたします。`,
     '当日の準備に使わせていただきます。',
     '',
-    '■ アンケートのご回答',
+    '■ 事前配役アンケートのご回答',
     `回答期限: ${deadline}まで`,
     `回答はこちら: ${url}`,
     '',

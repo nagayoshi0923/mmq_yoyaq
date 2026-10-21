@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { getPerStoreSlotsForDate, type BusinessHoursSettingRow } from './privateGroupCandidateSlots'
+import { getPublicPrivateBookingSlotOptions } from './publicPrivateBookingSlots'
 import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
 
 const db = new PGlite()
@@ -71,6 +72,22 @@ describe('保存側の営業枠と既存画面の一致', () => {
       }
     })
   }
+  // issue #1203: 公開入口が作品選択へ渡す店舗は、渡す店舗の数で DB が合成するか（p_allow_missing = 1 店だけ）を決めても、同じ枠を受け付ける
+  it('公開入口が渡す店舗は、DB でも同じ枠を持つ（営業設定なしの店が複数でも食い違わない）', async () => {
+    const none = (id: string): BusinessHoursSettingRow => ({ store_id: id, opening_hours: null })
+    const sapporo = { ...cases.find(c => c.name === '平日朝を無効')!.row!, store_id: 'sapporo' }
+    const sets: BusinessHoursSettingRow[][] = [[none('n1')], [none('n1'), none('n2')], [none('n1'), sapporo], [none('n1'), none('n2'), sapporo], [sapporo]]
+    for (const date of ['2030-01-08', '2030-01-12']) for (const rows of sets) for (const slot of ['morning', 'afternoon', 'evening'] as const) {
+      const hours = new Map(rows.map(r => [r.store_id, r]))
+      const passed = getPublicPrivateBookingSlotOptions(date, slot, rows.map(r => r.store_id), hours, [], [], () => false).map(o => o.storeId)
+      for (const storeId of passed) {
+        const { rows: dbRows } = await db.query<{ slot_key: string }>('SELECT slot_key FROM private_booking_store_day_slots($1,$2,$3,$4)',
+          [date, hours.get(storeId)?.opening_hours ? JSON.stringify(hours.get(storeId)) : null, isJapaneseHoliday(date), passed.length === 1])
+        expect(dbRows.map(r => r.slot_key), `${date} ${slot} ${rows.map(r => r.store_id).join(',')} → ${passed.join(',')}`).toContain(slot)
+      }
+      if (rows.filter(r => !r.opening_hours).length > 1 && !rows.some(r => r.opening_hours)) expect(passed, `${date} ${slot} 未設定のみ複数`).toEqual([])
+    }
+  })
   it('ブラウザから内部ヘルパーを直接呼べない', async () => {
     await db.exec('SET ROLE authenticated')
     try {

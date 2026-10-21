@@ -116,6 +116,18 @@ export const STATIC_PUBLIC_META: Record<string, { title: string; description: st
       'マーダーミステリー（マダミス）の遊び方と、MMQでの公演の探し方・予約手順。初めての方向けガイドです。',
     path: '/guide',
   },
+  'guide-private': {
+    title: '貸切の流れ | マーダーミステリー貸切予約 MMQ',
+    description:
+      'マーダーミステリーを友だちと貸切で遊ぶ流れ。グループ作り、メンバーの招待、候補日の調整、店舗への申込から当日・公演後まで、MMQでの進め方を案内します。',
+    path: '/guide/private',
+  },
+  'private-booking-start': {
+    title: '貸切を始める | マーダーミステリー貸切予約 MMQ',
+    description:
+      'マーダーミステリーを友だちと貸切で遊ぶ。参加店舗を選び、その店舗で貸切できる作品から選んで、貸切グループを作れます。',
+    path: '/private-booking/select-organization',
+  },
   faq: {
     title: 'よくある質問 | マーダーミステリー予約 MMQ',
     description: 'マーダーミステリー公演の予約・キャンセル・初めての参加について、よくある質問に答えます。',

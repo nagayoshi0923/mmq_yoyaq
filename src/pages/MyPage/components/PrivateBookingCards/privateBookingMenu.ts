@@ -36,7 +36,7 @@ export interface PrivateBookingMenuContext {
   hasGroup: boolean
   /** 紐づく申込・予約がある（取り下げ・キャンセルの対象） */
   hasReservation: boolean
-  /** 公演前アンケートがある（確定後のみ意味がある） */
+  /** 事前配役アンケートがある（確定後のみ意味がある） */
   hasSurvey: boolean
   /** 自分が未回答の候補日がある（メンバーのみ） */
   hasUnansweredDates: boolean
@@ -51,7 +51,7 @@ const LABELS: Record<PrivateBookingMenuItemId, string> = {
   manage_members: 'メンバーを管理',
   cancel_handover: '引き継ぎの依頼を取り消す',
   answer_dates: '日程に回答する',
-  view_survey: 'アンケートを見る',
+  view_survey: '事前配役アンケートを見る',
   contact_store: '店舗に問い合わせる',
   close_group: 'グループを閉じる',
   withdraw: '申込を取り下げる',
@@ -136,10 +136,11 @@ export function privateBookingConfirmText(action: PrivateBookingDangerAction, im
         confirmLabel: 'グループを閉じる',
       }
     case 'withdraw':
+      // 取り下げはグループを残すか選ぶ専用のダイアログ（withdrawRequestText）。ここは閉じる場合の文面
       return {
-        title: '申込を取り下げますか？',
-        message: `店舗への申込を取り消し、グループも閉じます。${notifyText(impact.otherMembers)}日程確定前なのでキャンセル料はかかりません。取り下げは元に戻せません。`,
-        confirmLabel: '申込を取り下げる',
+        title: '申込を取り下げますか',
+        message: `店舗への申込を取り下げ、グループも閉じます。${notifyText(impact.otherMembers)}キャンセル料はかかりません。`,
+        confirmLabel: '取り下げてグループを閉じる',
       }
     case 'cancel': {
       const when = impact.confirmedDate ? `${formatJstMonthDay(impact.confirmedDate, true)}の` : ''
@@ -155,6 +156,35 @@ export function privateBookingConfirmText(action: PrivateBookingDangerAction, im
         message: `あなたの日程の回答は消え、このグループのチャットや日程は見られなくなります。参加メンバーは ${impact.otherMembers + 1} 名から ${impact.otherMembers} 名になります。${leaveStoreNotice(impact.phase)}`,
         confirmLabel: 'グループから抜ける',
       }
+  }
+}
+
+/** 申込の取り下げで、グループを残すか（既定）閉じるか（2026-10-20 社長決定） */
+export type WithdrawRequestMode = 'keep_group' | 'close_group'
+
+export interface WithdrawRequestText {
+  title: string
+  message: string
+  confirmLabel: string
+  options: Array<{ mode: WithdrawRequestMode; label: string; note: string }>
+}
+
+/**
+ * 「申込を取り下げる」のダイアログの文面（選んだ方で確定ボタンの文言が変わる）。
+ * グループの無い旧い貸切予約は選択肢を出さない（取り下げるだけ）。
+ */
+export function withdrawRequestText(mode: WithdrawRequestMode, impact: { hasGroup: boolean; otherMembers: number }): WithdrawRequestText {
+  if (!impact.hasGroup) {
+    return { title: '申込を取り下げますか', message: '店舗への申込を取り下げます。キャンセル料はかかりません。', confirmLabel: '申込を取り下げる', options: [] }
+  }
+  return {
+    title: '申込を取り下げますか',
+    message: '店舗への申込を取り下げます。キャンセル料はかかりません。',
+    confirmLabel: mode === 'keep_group' ? '申込を取り下げる' : '取り下げてグループを閉じる',
+    options: [
+      { mode: 'keep_group', label: '申込だけ取り下げる', note: 'グループは残します。候補日を直して、もう一度申し込めます' },
+      { mode: 'close_group', label: 'グループも閉じる', note: impact.otherMembers > 0 ? `メンバー ${impact.otherMembers} 名に知らせます。閉じたグループは元に戻せません` : 'メンバーに知らせます。閉じたグループは元に戻せません' },
+    ],
   }
 }
 
@@ -181,6 +211,10 @@ export interface PrivateGroupInquiryInfo {
   /** いまの状態（例「人集め中」「店舗の返事待ち」「確定 10/25(土)」） */
   statusLabel: string
   inviteCode: string | null
+  /** 公演日時（例「10/29(木) 19:00 開演」）。通常の予約の問い合わせで入れる */
+  datetimeLabel?: string | null
+  /** 会場名 */
+  storeName?: string | null
 }
 
 /** 問い合わせ本文の初期値。予約情報を先頭に入れ、その下にお客様が書く欄を空けておく */
@@ -188,6 +222,8 @@ export function buildInquiryMessage(info: PrivateGroupInquiryInfo): string {
   const lines = ['【予約情報】']
   if (info.reservationNumber) lines.push(`予約番号: ${info.reservationNumber}`)
   lines.push(`作品: ${info.title || '-'}`)
+  if (info.datetimeLabel) lines.push(`日時: ${info.datetimeLabel}`)
+  if (info.storeName) lines.push(`会場: ${info.storeName}`)
   lines.push(`状態: ${info.statusLabel}`)
   if (info.inviteCode) lines.push(`招待コード: ${info.inviteCode}`)
   lines.push('', '【お問い合わせ内容】', '')

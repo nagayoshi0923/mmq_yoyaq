@@ -1,5 +1,5 @@
 -- 正規ソース: supabase/schemas/private_groups.sql
--- 最終更新: 2026-04-10
+-- 最終更新: 2026-10-12
 CREATE TABLE public.private_groups (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   organization_id UUID NOT NULL REFERENCES public.organizations(id),
@@ -17,7 +17,9 @@ CREATE TABLE public.private_groups (
   total_price INTEGER,
   per_person_price INTEGER,
   character_assignment_method TEXT,
-  character_assignments JSONB
+  character_assignments JSONB,
+  -- migration 20260411000000: scenario_id の後継（トリガーで両方を同期）
+  scenario_master_id UUID REFERENCES public.scenario_masters(id) ON DELETE SET NULL
 );
 
 -- Indexes
@@ -25,4 +27,5 @@ CREATE INDEX idx_private_groups_invite_code ON public.private_groups USING btree
 CREATE INDEX idx_private_groups_organization_id ON public.private_groups USING btree (organization_id);
 CREATE INDEX idx_private_groups_organizer_id ON public.private_groups USING btree (organizer_id);
 CREATE INDEX idx_private_groups_scenario_id ON public.private_groups USING btree (scenario_id);
+CREATE INDEX idx_private_groups_scenario_master_id ON public.private_groups USING btree (scenario_master_id);
 CREATE INDEX idx_private_groups_status ON public.private_groups USING btree (status);

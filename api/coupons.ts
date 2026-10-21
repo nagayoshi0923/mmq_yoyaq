@@ -7,10 +7,11 @@ import { requireAuth, requireStaff, ApiError, type AuthUser } from './_lib/auth.
 import { handleAvailable, handleAll, handleUsages } from './_lib/coupons/customerReads.js'
 import { handleCurrentReservations } from './_lib/coupons/currentReservations.js'
 import { handleCampaigns, handleCampaignStats, handleCustomerUsages, handleAdminUsages, handleCampaignCoupons, handleSearchCustomers, handleCustomerCoupons } from './_lib/coupons/adminReads.js'
+import { handleReservationCoupons } from './_lib/coupons/reservationCoupons.js'
 import { handleCreateCampaign, handleUpdateCampaign, handleToggleCampaignActive } from './_lib/coupons/campaigns.js'
 import { handleGrantRegistrationCoupon, handleGrantCouponToCustomer, handleRedeemCouponByCode } from './_lib/coupons/grants.js'
 import { handleRevokeCoupon, handleAdjustCouponUses, handleRestoreCouponUsage } from './_lib/coupons/adjustments.js'
-import { handlePreviewBooking, handleUseCoupon } from './_lib/coupons/usage.js'
+import { handlePreviewBooking, handleUseCoupon, handleRedeemCouponUsage } from './_lib/coupons/usage.js'
 import { setCors } from './_lib/coupons/common.js'
 
 // クーポン API の入口。処理は api/_lib/coupons/ に分けてある（整備 Phase 3、#774）。
@@ -115,6 +116,10 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
     requireStaff(user)
     return handleCustomerCoupons(req, res, user)
   }
+  if (type === 'reservation-coupons') {
+    requireStaff(user)
+    return handleReservationCoupons(req, res, user)
+  }
 
   return res.status(400).json({ error: `unknown type: ${type}` })
 }
@@ -130,6 +135,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
   if (action === 'use' || action === 'preview-use') {
     return handleUseCoupon(req, res, user)
   }
+  if (action === 'redeem-usage') return handleRedeemCouponUsage(req, res, user)
   if (action === 'grant-registration') {
     return handleGrantRegistrationCoupon(req, res, user)
   }

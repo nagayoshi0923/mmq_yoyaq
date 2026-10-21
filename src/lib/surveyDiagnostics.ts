@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { getPrivateGroupGuestToken } from '@/lib/privateGroupGuestSession'
 
 /**
- * 公演前アンケートを開いた参加者の画面の状態を記録する（2026-10-05、ゲストが回答できない報告の原因特定用）。
+ * 事前配役アンケートを開いた参加者の画面の状態を記録する（2026-10-05、ゲストが回答できない報告の原因特定用）。
  * 回答の中身は送らない。記録に失敗しても画面の動きは止めない。1 画面あたりの送信数に上限を付ける。
  */
 export type SurveyClientEvent = 'open' | 'loaded' | 'load_error' | 'layout' | 'submit' | 'submitted' | 'submit_error' | 'js_error'

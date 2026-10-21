@@ -12,6 +12,7 @@ import { getOrganizationBySlug } from '@/lib/organization'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { NotificationDropdown } from './NotificationDropdown'
 import type { Organization } from '@/types'
+import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
 
 // 訪問組織のlocalStorageキー
 const VISITED_ORG_KEY = 'mmq_visited_organization'
@@ -288,16 +289,19 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
                 <button 
                   className="inline-flex items-center gap-1 h-8 px-3 text-xs bg-white text-[#E60012] hover:bg-white/90 font-medium transition-colors"
                   onClick={() => {
-                    window.location.href = '/login'
+                    // 今見ている画面に戻れるよう戻り先を付ける（トップ・認証画面なら付かない）
+                    window.location.href = buildAuthUrl('login', currentPathWithSearch())
                   }}
                 >
-                  <User className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">ログイン</span>
+                  <User className="h-3.5 w-3.5" aria-hidden="true" />
+                  {/* スマホでも文字を出す（点検 29） */}
+                  <span>ログイン</span>
                 </button>
                 <button 
                   className="inline-flex items-center gap-1 h-8 px-3 text-xs bg-white/20 text-white hover:bg-white/30 font-medium transition-colors"
                   onClick={() => {
-                    window.location.href = '/signup'
+                    // 今見ている画面に戻れるよう戻り先を付ける（トップ・認証画面なら付かない）
+                    window.location.href = buildAuthUrl('signup', currentPathWithSearch())
                   }}
                 >
                   <span>新規登録</span>

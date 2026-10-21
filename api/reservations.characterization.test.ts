@@ -1372,7 +1372,7 @@ describe('PATCH update-participants-with-lock / recalculate-prices', () => {
     `)
   })
 
-  it.each(['P0050', 'P0006', 'P0007', 'P0008', 'P0010', 'P0011', '42501', 'XX000'])('人数変更の RPC エラー %s の変換', async code => {
+  it.each(['P0050', 'P0006', 'P0007', 'P0008', 'P0010', 'P0011', 'P0056', '42501', 'XX000'])('人数変更の RPC エラー %s の変換', async code => {
     mock.user = { ...CUSTOMER }
     mock.rpcResults.update_reservation_participants = { data: null, error: { code, message: `fixture ${code}` } }
     const r = await call('PATCH', { action: 'update-participants-with-lock', id: 'r1' }, { new_count: 5 })

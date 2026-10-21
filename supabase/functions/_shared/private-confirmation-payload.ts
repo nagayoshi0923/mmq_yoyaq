@@ -39,7 +39,7 @@ export function privateGroupGuideText(groupUrl: string): string {
 ${groupUrl}
 
 ・グループに入室していない方は、クーポンを利用できません。
-・事前配役やアンケートのご案内は、このグループで行います。
+・事前配役アンケートのご案内は、このグループで行います。
 ・参加される方へ、このページのURLを共有してください。`
 }
 
@@ -138,7 +138,7 @@ export function buildPrivateConfirmationPayload(bookingData: PrivateBookingConfi
     <p style="margin: 0 0 10px 0;"><a href="${htmlData.groupUrl}" style="color: #6d28d9; font-weight: bold;">グループページを開く</a></p>
     <ul style="margin: 0; padding-left: 20px; color: #4c1d95;">
       <li style="margin-bottom: 6px;">グループに入室していない方は、クーポンを利用できません。</li>
-      <li style="margin-bottom: 6px;">事前配役やアンケートのご案内は、このグループで行います。</li>
+      <li style="margin-bottom: 6px;">事前配役アンケートのご案内は、このグループで行います。</li>
       <li style="margin-bottom: 6px;">参加される方へ、このページのURLを共有してください。</li>
     </ul>
   </div>

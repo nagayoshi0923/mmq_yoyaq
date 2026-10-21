@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/Header'
 import { AdminSidebar } from '@/components/layout/AdminSidebar'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { LoadingScreen } from '@/components/layout/LoadingScreen'
+import { RequireLogin } from '@/components/auth/RequireLogin'
 import { AdminOnlyNotice } from '@/components/layout/AdminOnlyNotice'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -34,9 +35,9 @@ import {
   ScenarioMasterAdmin, ScenarioMasterEdit, OrganizationSettings, OrganizationRegister, OrgSignup, LandingPage,
   ForBusinessPage, AuthorDashboard, AuthorLogin, ExternalReportForm, RentalReportForm,
   LicensePartnerReportForm, PlatformScenarioSearch, PlatformTop, DesignPreview, ComponentGallery, ProjectGuide,
-  LearnFromThisSystem, NotFoundPage, PrivateGroupCreate, PrivateGroupInvite, PrivateGroupManage,
+  LearnFromThisSystem, NotFoundPage, PrivateBookingStart, PrivateGroupCreate, PrivateGroupInvite, PrivateGroupManage,
   CouponManagement, BlogDetailPage, BlogManagement, TermsPage, PrivacyPage, SecurityPage, LegalPage,
-  ContactPage, OrganizationContactPage, FAQPage, GuidePage, CancelPolicyPage, StoreListPage, AboutPage,
+  ContactPage, OrganizationContactPage, FAQPage, GuidePage, PrivateGuidePage, CancelPolicyPage, StoreListPage, AboutPage,
   PricingPage, GettingStartedPage,
 } from './adminDashboardPages'
 import { ADMIN_PATHS, parsePath } from './adminDashboardRouting'
@@ -368,6 +369,14 @@ export function AdminDashboard() {
     )
   }
   
+  if (currentPage === 'private-booking-start') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <PrivateBookingStart />
+      </Suspense>
+    )
+  }
+
   if (currentPage === 'private-booking-request') {
     return (
       <Suspense fallback={<LoadingScreen message="貸切予約リクエストを読み込み中..." />}>
@@ -467,9 +476,11 @@ export function AdminDashboard() {
     return (
       <div className="min-h-screen bg-background">
         <Header onPageChange={handlePageChange} />
-        <Suspense fallback={<LoadingScreen message="予約詳細を読み込み中..." />}>
-          <ReservationDetailPage />
-        </Suspense>
+        <RequireLogin loadingMessage="予約詳細を読み込み中...">
+          <Suspense fallback={<LoadingScreen message="予約詳細を読み込み中..." />}>
+            <ReservationDetailPage />
+          </Suspense>
+        </RequireLogin>
       </div>
     )
   }
@@ -511,9 +522,11 @@ export function AdminDashboard() {
         <div className="flex flex-1">
           {shouldShowNavigation && <AdminSidebar />}
           <div className="flex-1">
-            <Suspense fallback={<LoadingScreen message="マイページを読み込み中..." />}>
-              <MyPage />
-            </Suspense>
+            <RequireLogin loadingMessage="マイページを読み込み中...">
+              <Suspense fallback={<LoadingScreen message="マイページを読み込み中..." />}>
+                <MyPage />
+              </Suspense>
+            </RequireLogin>
           </div>
         </div>
       </div>
@@ -667,7 +680,15 @@ export function AdminDashboard() {
   if (currentPage === 'guide') {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
-        <GuidePage />
+        <GuidePage organizationSlug={pathOrganizationSlug} />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'guide-private') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <PrivateGuidePage organizationSlug={pathOrganizationSlug} />
       </Suspense>
     )
   }

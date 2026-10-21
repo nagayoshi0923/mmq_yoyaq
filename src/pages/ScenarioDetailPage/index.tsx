@@ -39,6 +39,8 @@ import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorati
 import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { scenarioPageDescription, scenarioPageTitle } from '@/lib/seo'
+import { loginUrlWithIntent } from '@/lib/authReturn'
+import { parseStoreIdsParam, privateGroupCreatePath } from '@/pages/PrivateBookingStart/paths'
 
 interface ScenarioDetailPageProps {
   scenarioId: string
@@ -151,6 +153,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     isNextMonthDisabled,
     isLoadingEvents,
     isAvailabilityReady,
+    availabilityError,
+    reloadAvailability,
+    horizon: privateBookingHorizon,
     slotAvailability,
     monthDates: privateDates,
     showMonthOf,
@@ -160,6 +165,12 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     toggleTimeSlot,
     getTimeSlotsForDate
   } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationId, isCustomHoliday, isActive: activeTab === 'private' })
+
+  // 貸切グループ作成へ引き継ぐ希望店舗（どの入口のボタンでも同じ。貸切タブで選んでいる店舗のうち、この作品を受け付ける店舗）
+  const privateStoreIdsForLinks = useMemo(
+    () => selectedStoreIds.filter((id) => availableStores.some((s) => s.id === id)),
+    [selectedStoreIds, availableStores]
+  )
 
   const privateCandidateFees = useMemo(() => scenario ? calculatePrivateCandidateFees(
     scenario.participation_fee, scenario.participation_costs, selectedTimeSlots, isCustomHoliday,
@@ -214,6 +225,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     }
   }, [scheduleStores, scheduleStoreFilter.length, events])
 
+  /** ?stores= の希望店舗を反映済みか（作品と店舗の組で 1 回だけ） */
+  const appliedPreferredStoresRef = useRef('')
   useEffect(() => {
     // URLパラメータを処理
     const urlParams = new URLSearchParams(window.location.search)
@@ -247,6 +260,16 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         })
       } else {
         setPrivateBookingUrlPending(null)
+        // 貸切を始めるページで選んだ希望店舗（?stores=ID,ID）。作品ごとに 1 回だけ反映する（あとはお客様の選択を優先）
+        const preferred = parseStoreIdsParam(urlParams.get('stores'))
+        const appliedKey = `${scenarioId}:${preferred.join(',')}`
+        if (preferred.length > 0 && stores.length > 0 && appliedPreferredStoresRef.current !== appliedKey) {
+          const valid = preferred.filter((id) => availableStores.some((s) => s.id === id))
+          if (valid.length > 0) {
+            appliedPreferredStoresRef.current = appliedKey
+            setSelectedStoreIds(valid)
+          }
+        }
       }
     } else {
       setPrivateBookingUrlPending(null)
@@ -270,7 +293,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       }
       }
     }
-  }, [scenarioId, stores, events, setSelectedStoreIds, setSelectedTimeSlots, setSelectedEventId, acceptsPrivateBooking])
+  }, [scenarioId, stores, events, setSelectedStoreIds, setSelectedTimeSlots, setSelectedEventId, acceptsPrivateBooking, availableStores])
 
   // URL の slot=morning|afternoon|evening を、カレンダーと同じ getTimeSlotsForDate の実時刻に変換して反映
   useEffect(() => {
@@ -556,6 +579,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               organizationSlug={organizationSlug}
               stores={stores}
               showPrivateBookingCta={acceptsPrivateBooking}
+              privateBookingStoreIds={privateStoreIdsForLinks}
             />
             
             {/* あらすじ・シナリオ情報 */}
@@ -630,16 +654,16 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       variant="outline"
                       className="w-full gap-2 border-purple-300 text-purple-700 hover:bg-purple-100"
                       onClick={() => {
-                        const params = new URLSearchParams()
-                        const scenarioIdToUse = scenario.scenario_master_id
-                        if (scenarioIdToUse) params.set('scenarioId', scenarioIdToUse)
-                        if (organizationSlug) params.set('org', organizationSlug)
-                        params.set('mode', 'no-dates')
-                        const groupCreateUrl = `/group/create?${params.toString()}`
-                        
+                        // いま選んでいる希望店舗をグループ作成の初期値にする（ヒーロー・料金パネルのボタンと同じ。?stores= で来たときもその店舗）
+                        const groupCreateUrl = privateGroupCreatePath({
+                          scenarioMasterId: scenario.scenario_master_id,
+                          organizationSlug,
+                          storeIds: privateStoreIdsForLinks,
+                          noDates: true,
+                        })
+
                         if (!user) {
-                          sessionStorage.setItem('returnUrl', groupCreateUrl)
-                          navigate('/login')
+                          navigate(loginUrlWithIntent('login', groupCreateUrl, `「${scenario.scenario_title}」の貸切グループ作成`))
                           return
                         }
                         navigate(groupCreateUrl)
@@ -665,6 +689,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     isNextMonthDisabled={isNextMonthDisabled}
                     loading={isLoadingEvents}
                     deadlineDays={privateBookingDeadlineDays}
+                    availabilityError={availabilityError}
+                    onRetryAvailability={reloadAvailability}
+                    horizon={privateBookingHorizon}
                   />
                   
                   {/* 選択された時間枠の表示 */}
@@ -705,6 +732,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               <div className="mt-4">
                 {activeTab === 'schedule' && (
                   <BookingPanel
+                    scenarioTitle={scenario.scenario_title}
                     participantCount={participantCount}
                     maxParticipants={scenario.player_count_max}
                     participationFee={calculatedParticipationFee}
@@ -764,11 +792,12 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                         selectedTimeSlotsCount={selectedTimeSlots.length}
                         isLoggedIn={!!user}
                         availabilityReady={isAvailabilityReady}
-                        onRequestBooking={() => handlePrivateBookingRequest(!!user)}
+                        onRequestBooking={() => { void handlePrivateBookingRequest(!!user, `「${scenario.scenario_title}」の貸切リクエスト`) }}
                         reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
                         hasPreReading={scenario.has_pre_reading}
                         scenarioId={scenario.scenario_master_id}
                         organizationSlug={organizationSlug}
+                        preferredStoreIds={privateStoreIdsForLinks}
                       />
                     </div>
                   )
@@ -800,6 +829,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
       {/* フッター */}
       <Footer organizationSlug={organizationSlug} minimal />
+      {/* スマホで予約ボタンを画面下に固定している間、フッターが隠れないよう空ける（点検 18） */}
+      {activeTab === 'schedule' && selectedEventId && <div className="h-24 md:hidden" aria-hidden="true" />}
     </div>
   )
 }

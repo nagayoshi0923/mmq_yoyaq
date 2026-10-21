@@ -5,7 +5,7 @@
  * organization_id はサーバー側で JWT から取得するため、クライアントからは渡さない。
  * 顧客向け / 管理者向けの両方を含む。
  */
-import { apiClient } from '../apiClient'
+import { apiClient, ApiClientError } from '../apiClient'
 import { logger } from '@/utils/logger'
 import type {
   CustomerCoupon,
@@ -113,7 +113,8 @@ export async function grantRegistrationCoupon(
 }
 
 /**
- * クーポンを使用（もぎる）
+ * 予約したあとで既存の予約にクーポンを使う（マイページの「この予約に使う」）。
+ * 公演当日（日本時間）だけ使える。当日でなければサーバーが断り、code='not_performance_day' を返す（20261020190000）。
  * @param customerCouponId 顧客クーポンID
  * @param reservationId 紐づける予約ID（任意）
  * @returns 使用結果
@@ -121,9 +122,9 @@ export async function grantRegistrationCoupon(
 export async function useCoupon(
   customerCouponId: string,
   reservationId?: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<UseCouponResult> {
   try {
-    return await apiClient.post<{ success: boolean; error?: string }>(
+    return await apiClient.post<UseCouponResult>(
       '/api/coupons?action=use',
       {
         customer_coupon_id: customerCouponId,
@@ -133,7 +134,66 @@ export async function useCoupon(
   } catch (err) {
     logger.error('クーポン使用エラー:', err)
     const message = err instanceof Error ? err.message : 'クーポン使用に失敗しました'
-    return { success: false, error: message }
+    const code = err instanceof ApiClientError && typeof err.body?.code === 'string' ? err.body.code : undefined
+    return { success: false, error: message, code }
+  }
+}
+
+/** 予約後のクーポン使用の結果。code はサーバーが断った理由（'not_performance_day' = 公演当日ではない） */
+export interface UseCouponResult {
+  success: boolean
+  error?: string
+  code?: string
+}
+
+/**
+ * 予約に適用済みのクーポンを来店時に「もぎる」（来店確認の印を付ける。消費は予約時のまま）。
+ * 既に確認済みなら成功で何もしない。
+ */
+export async function redeemCouponUsage(
+  usageId: string
+): Promise<RedeemCouponUsageResult> {
+  try {
+    return await apiClient.post<RedeemCouponUsageResult>(
+      '/api/coupons?action=redeem-usage',
+      { usage_id: usageId }
+    )
+  } catch (err) {
+    logger.error('来店確認エラー:', err)
+    const message = err instanceof Error ? err.message : '来店確認を記録できませんでした'
+    const code = err instanceof ApiClientError && typeof err.body?.code === 'string' ? err.body.code : undefined
+    return { success: false, error: message, code }
+  }
+}
+
+/** 来店確認（もぎる）の結果。code はサーバーが断った理由（'not_performance_day' = 公演当日ではない） */
+export interface RedeemCouponUsageResult {
+  success: boolean
+  redeemed_at?: string
+  already_redeemed?: boolean
+  error?: string
+  code?: string
+}
+
+/** スタッフ向け: 予約に付いたクーポンと来店確認の状態 */
+export interface ReservationCouponStatus {
+  usage_id: string
+  reservation_id: string
+  discount_amount: number
+  campaign_name: string | null
+  used_at: string | null
+  redeemed_at: string | null
+  redeemed_source: string | null
+}
+
+export async function getReservationCouponStatuses(reservationIds: string[]): Promise<ReservationCouponStatus[]> {
+  if (reservationIds.length === 0) return []
+  try {
+    const params = new URLSearchParams({ type: 'reservation-coupons', reservation_ids: reservationIds.join(',') })
+    return await apiClient.get<ReservationCouponStatus[]>(`/api/coupons?${params}`)
+  } catch (err) {
+    logger.error('予約のクーポン取得エラー:', err)
+    return []
   }
 }
 

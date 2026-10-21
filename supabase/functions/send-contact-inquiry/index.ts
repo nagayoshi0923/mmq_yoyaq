@@ -182,6 +182,12 @@ serve(async (req) => {
       'cancel': 'キャンセルについて',
       'scenario': 'シナリオについて',
       'private': '貸切について',
+      'reservation': '予約について',
+      'account': 'アカウントについて',
+      'store': '店舗について',
+      'bug': '不具合の報告',
+      'suggestion': 'ご意見・ご要望',
+      'partnership': 'MMQ への参加（店舗の方）',
       'other': 'その他',
     }
     const typeLabel = typeLabels[type] || type

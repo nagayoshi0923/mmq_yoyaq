@@ -442,7 +442,7 @@ describe('api/scenarios.ts 統計の出力（分割前の現状を固定）', ()
         "public": [
           "staff: select(status) | eq("user_id", "actor") | eq("organization_id", "org-1")",
           "organizations: select(id) | eq("id", "org-1") | eq("is_active", true)",
-          "organization_scenarios_with_master: select(id, title, key_visual_url, author, duration, synopsis, player_count_min, player_count_max,) | eq("status", "available") | eq("organization_id", "org-1") | order("title", {"ascending":true})",
+          "organization_scenarios_with_master: select(id, slug, title, key_visual_url, author, duration, synopsis, player_count_min, player_coun) | eq("status", "available") | eq("organization_id", "org-1") | order("title", {"ascending":true})",
         ],
         "slug": [
           "staff: select(status) | eq("user_id", "actor") | eq("organization_id", "org-1")",

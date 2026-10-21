@@ -6,7 +6,8 @@ import { usePrivateGroupSnapshot } from './usePrivateGroupSnapshot'
 import { readPrivateGroup, type PrivateGroupSnapshot } from '@/lib/privateGroupRead'
 const auth = vi.hoisted(() => ({ user: null as { id: string } | null }))
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => auth }))
-vi.mock('@/lib/privateGroupRead', () => ({ readPrivateGroup: vi.fn() }))
+vi.mock('@/lib/supabase', () => ({ supabase: {} }))
+vi.mock('@/lib/privateGroupRead', async importOriginal => ({ ...(await importOriginal<object>()), readPrivateGroup: vi.fn() }))
 const snapshot = (id: string, access: 'preview' | 'member' = 'preview') => ({
   group: { id, members: access === 'preview' ? [] : [{ id: 'guest', date_responses: [{ candidate_date_id: 'date', response: 'available' }] }] },
   access_level: access, current_member_id: access === 'preview' ? null : 'guest',
@@ -59,14 +60,33 @@ describe('貸切スナップショットの認証切替', () => {
     expect(result.accessLevel).toBe('preview')
   })
   it('定期取得の権限エラーは古い内容を消し、再取得で回復する', async () => {
-    vi.mocked(readPrivateGroup).mockResolvedValueOnce(snapshot('a', 'member')).mockRejectedValueOnce(new Error('expired')).mockResolvedValueOnce(snapshot('a', 'member'))
+    vi.mocked(readPrivateGroup).mockResolvedValueOnce(snapshot('a', 'member')).mockRejectedValueOnce(Object.assign(new Error('expired'), { code: '42501', status: 403 })).mockResolvedValueOnce(snapshot('a', 'member'))
     await render()
     await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
     expect(result.group).toBe(null)
     expect(result.error).toBe('expired')
+    expect(result.reconnecting).toBe(false)
     await act(async () => { await result.refetch() })
     expect(result.accessLevel).toBe('member')
     expect(result.error).toBe(null)
+  })
+  it('定期取得の一時的な通信失敗では古い内容を残し、次に読めたら再試行中の知らせを消す', async () => {
+    vi.mocked(readPrivateGroup).mockResolvedValueOnce(snapshot('a', 'member')).mockRejectedValueOnce({ message: 'TypeError: Failed to fetch', code: '', status: 0 }).mockResolvedValueOnce(snapshot('a', 'member'))
+    await render()
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+    expect(result.group?.id).toBe('a')
+    expect(result.error).toBe(null)
+    expect(result.reconnecting).toBe(true)
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+    expect(result.reconnecting).toBe(false)
+    expect(result.accessLevel).toBe('member')
+  })
+  it('初回の取得が失敗したときは（残す内容が無いので）エラーにする', async () => {
+    vi.mocked(readPrivateGroup).mockRejectedValueOnce({ message: 'TypeError: Failed to fetch', code: '', status: 0 })
+    await render()
+    expect(result.group).toBe(null)
+    expect(result.error).toBe('グループを取得できませんでした')
+    expect(result.reconnecting).toBe(false)
   })
   it('遅い初回取得を定期取得が追い越さない', async () => {
     let resolve!: (value: PrivateGroupSnapshot) => void

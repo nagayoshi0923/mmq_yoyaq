@@ -1,4 +1,4 @@
-// 公演前アンケートの画面の状態の記録: 本人だけが書ける・種類と大きさの制限・1日の上限・画面からは読めない・正規ソース一致・rollback
+// 事前配役アンケートの画面の状態の記録: 本人だけが書ける・種類と大きさの制限・1日の上限・画面からは読めない・正規ソース一致・rollback
 import fs from 'node:fs'
 import assert from 'node:assert/strict'
 import { PGlite } from '@electric-sql/pglite'

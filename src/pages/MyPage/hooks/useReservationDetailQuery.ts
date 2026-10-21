@@ -5,9 +5,17 @@ import { reservationApi } from '@/lib/reservationApi'
 import { invalidateEverywhere } from '@/lib/queryInvalidation'
 import { PRIVATE_REQUEST_WITHDRAWN_REASON } from '@/lib/constants/reservationStatus'
 import { logger } from '@/utils/logger'
+import { trackPendingNotification } from '@/lib/pendingNotifications'
+import type { Reservation } from '@/types'
 import type { MyPageData } from './useMyPageDataQuery'
 import {
+  feeStepsText,
+  freeSelfCancelDeadline,
+  freeSelfCancelHours,
+} from '@/lib/cancellationSummary'
+import {
   canCustomerSelfCancel,
+  parseJstPerformanceStart,
   resolveCancellationPolicy,
   resolveCustomerCancelDeadlineHours,
   type CalculableCancellationPolicy,
@@ -17,9 +25,42 @@ import {
   DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
 } from '@/constants/cancellationPolicyDefaults'
 
+/**
+ * 保存が済んだ時点（onSaved）で解決し、残り（通知）は裏で続ける。
+ * 保存前の失敗はそのまま失敗として返す。続きはタブを閉じようとしたら確認を出す。
+ */
+export function resolveWhenSaved<T>(run: (onSaved: (value: T) => void) => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let saved = false
+    const work = run((value) => { saved = true; resolve(value) })
+    trackPendingNotification(work).then(
+      (value) => { if (!saved) resolve(value) },
+      (error) => {
+        if (!saved) reject(error)
+        else logger.warn('保存後の通知処理でエラー（保存は完了）:', error)
+      },
+    )
+  })
+}
+
 export const reservationDetailKeys = {
   detail: (reservationId: string) => ['reservation-detail', reservationId] as const,
   seats: (scheduleEventId: string) => ['reservation-detail', 'seats', scheduleEventId] as const,
+}
+
+/** 人数変更の期限の既定（店舗設定の既定値と同じ 24 時間前） */
+export const DEFAULT_RESERVATION_CHANGE_DEADLINE_HOURS = 24
+
+async function loadScenario(scenarioMasterId: string | null | undefined, organizationId: string | null | undefined) {
+  if (!scenarioMasterId) return null
+  if (organizationId) {
+    const { data: viewData } = await myPageReservationReadApi.findOrganizationScenarioView(scenarioMasterId, organizationId)
+    if (viewData) return { ...viewData, slug: viewData.slug ?? viewData.id }
+  }
+  const { data: sd } = await myPageReservationReadApi.findScenarioMaster(scenarioMasterId)
+  return sd
+    ? { id: sd.id, title: sd.title, slug: sd.id, key_visual_url: sd.key_visual_url, duration: sd.official_duration ?? null, player_count_min: sd.player_count_min, player_count_max: sd.player_count_max }
+    : null
 }
 
 export function useReservationDetailQuery(reservationId: string | undefined) {
@@ -34,14 +75,24 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
         return null
       }
 
+      // 公演・組織・作品は互いに依存しないので同時に取る（点検 36: 直列の待ちを減らす）
+      const organizationPromise = resData.organization_id
+        ? myPageReservationReadApi.findOrganization(resData.organization_id)
+        : Promise.resolve({ data: null })
+      const scenarioPromise = loadScenario(resData.scenario_master_id, resData.organization_id)
+      const eventResult = resData.schedule_event_id
+        ? await myPageReservationReadApi.findPublicEvent(resData.schedule_event_id)
+        : null
+
       let scheduleEvent = null
       let eventStoreId: string | null = null
-      if (resData.schedule_event_id) {
-        const { data: eventData, error: eventError } = await myPageReservationReadApi.findPublicEvent(resData.schedule_event_id)
+      if (eventResult) {
+        const { data: eventData, error: eventError } = eventResult
         if (!eventError && eventData) {
           scheduleEvent = {
             date: eventData.date,
             start_time: eventData.start_time,
+            end_time: eventData.end_time ?? null,
             is_private_booking: eventData.category === 'private',
             current_participants: eventData.current_participants,
             max_participants: eventData.max_participants,
@@ -58,9 +109,11 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
       let openDeadlineHours = DEFAULT_OPEN_CANCEL_DEADLINE_HOURS
       let privateDeadlineHours = DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS
       if (storeIdToUse) {
-        const { data: storeData } = await myPageReservationReadApi.findStore(storeIdToUse)
+        const [{ data: storeData }, { data: settingsData }] = await Promise.all([
+          myPageReservationReadApi.findStore(storeIdToUse),
+          myPageReservationReadApi.findReservationSettings(storeIdToUse),
+        ])
         if (storeData) store = storeData
-        const { data: settingsData } = await myPageReservationReadApi.findReservationSettings(storeIdToUse)
         if (settingsData) {
           cancellationPolicy = settingsData.cancellation_policy || null
           openDeadlineHours = settingsData.cancellation_deadline_hours
@@ -70,33 +123,15 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
         }
       }
 
-      let organization = null
-      if (resData.organization_id) {
-        const { data: orgData } = await myPageReservationReadApi.findOrganization(resData.organization_id)
-        if (orgData) organization = orgData
-      }
-
-      let scenario = null
-      const scenarioMasterId = resData.scenario_master_id
-      if (scenarioMasterId) {
-        if (resData.organization_id) {
-          const { data: viewData } = await myPageReservationReadApi.findOrganizationScenarioView(scenarioMasterId, resData.organization_id)
-          if (viewData) {
-            scenario = { ...viewData, slug: viewData.slug ?? viewData.id }
-          } else {
-            const { data: sd } = await myPageReservationReadApi.findScenarioMaster(scenarioMasterId)
-            if (sd) scenario = { id: sd.id, title: sd.title, slug: sd.id, key_visual_url: sd.key_visual_url, duration: sd.official_duration ?? null, player_count_min: sd.player_count_min, player_count_max: sd.player_count_max }
-          }
-        } else {
-          const { data: sd } = await myPageReservationReadApi.findScenarioMaster(scenarioMasterId)
-          if (sd) scenario = { id: sd.id, title: sd.title, slug: sd.id, key_visual_url: sd.key_visual_url, duration: sd.official_duration ?? null, player_count_min: sd.player_count_min, player_count_max: sd.player_count_max }
-        }
-      }
+      const [{ data: orgData }, scenario] = await Promise.all([organizationPromise, scenarioPromise])
+      const organization = orgData ?? null
 
       const isPrivate = Boolean(scheduleEvent?.is_private_booking || resData.private_group_id)
       const resolvedPolicy = resolveCancellationPolicy(reservation)
       let cancelDeadlineHours = isPrivate ? privateDeadlineHours : openDeadlineHours
       let canCancelByPolicy = false
+      let freeCancelDeadline: string | null = null
+      let cancelFeeSteps = ''
 
       if (resolvedPolicy.status === 'pending') {
         // 未完成 snapshot は顧客セルフ操作不可
@@ -112,6 +147,12 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
           : resolvedPolicy
 
         cancelDeadlineHours = resolveCustomerCancelDeadlineHours(policyForCustomer)
+        // 「無料で取消できる期限」と料金の段（点検 39・41）。取消判定と同じ規定から出す
+        const freeHours = freeSelfCancelHours(cancelDeadlineHours, policyForCustomer.fees)
+        freeCancelDeadline = freeSelfCancelDeadline(
+          parseJstPerformanceStart(scheduleEvent.date, scheduleEvent.start_time.slice(0, 5)), freeHours,
+        ).toISOString()
+        cancelFeeSteps = feeStepsText(policyForCustomer.fees)
         const participantTotal = reservation.final_price
           ?? reservation.total_price
           ?? ((reservation.unit_price || 0) * (reservation.participant_count || 0))
@@ -134,9 +175,19 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
       const changeDeadline = changeHours == null || !Number.isFinite(performanceStart)
         ? null : new Date(performanceStart - changeHours * 3600000).toISOString()
       const canChangeByPolicy = changeHours == null || (changeDeadline !== null && Date.now() < Date.parse(changeDeadline))
+      // 人数を減らせる期限はキャンセルポリシーの「人数変更は24時間前まで」に合わせる（社長決定 2026-10-11、点検 5）。
+      // 予約時に固定した変更期限が無い旧い予約は既定の 24 時間前。
+      const decreaseHours = changeHours ?? DEFAULT_RESERVATION_CHANGE_DEADLINE_HOURS
+      const decreaseDeadline = Number.isFinite(performanceStart)
+        ? new Date(performanceStart - decreaseHours * 3600000).toISOString() : null
+      const canDecreaseByPolicy = decreaseDeadline !== null && Date.now() < Date.parse(decreaseDeadline)
       return {
         changeDeadline,
         canChangeByPolicy,
+        decreaseDeadline,
+        canDecreaseByPolicy,
+        freeCancelDeadline,
+        cancelFeeSteps,
         reservation,
         store,
         organization,
@@ -167,7 +218,9 @@ export function useCurrentSeatsQuery(scheduleEventId: string | undefined, partic
 export function useCancelReservationMutation(reservationId: string, onSuccess: () => void) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: () => reservationApi.cancel(reservationId, 'お客様によるキャンセル'),
+    // 取消の保存が済んだ時点で画面を進める。確認メール・キャンセル待ちへの通知は同じ順で裏で続ける（点検 36）
+    mutationFn: () => resolveWhenSaved<Reservation>((onSaved) =>
+      reservationApi.cancel(reservationId, 'お客様によるキャンセル', { onSaved })),
     onSuccess: async (cancelledReservation) => {
       // 取消前の取得結果が後着して保存済み状態を上書きしないよう、先に停止する。
       await Promise.all([
@@ -210,10 +263,11 @@ export function useCancelReservationMutation(reservationId: string, onSuccess: (
 export function useUpdateParticipantCountMutation(reservationId: string, scheduleEventId: string | null | undefined, organizationId: string | null | undefined) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ newCount, oldCount, reservation }: { newCount: number; oldCount: number; reservation: any }) => {
-      await reservationApi.updateParticipantCount(reservationId, newCount)
+    // 人数の保存が済んだ時点で画面を進める。確認メール・キャンセル待ちへの通知は裏で続ける（点検 36）
+    mutationFn: ({ newCount, oldCount, reservation }: { newCount: number; oldCount: number; reservation: any }) => {
       const countDiff = newCount - oldCount
-      if (countDiff < 0 && scheduleEventId) {
+      const notifyWaitlist = async () => {
+        if (countDiff >= 0 || !scheduleEventId) return
         try {
           const { data: eventData } = await myPageReservationReadApi.findPublicEventForNotice(scheduleEventId)
           const orgId = organizationId || eventData?.organization_id
@@ -226,8 +280,26 @@ export function useUpdateParticipantCountMutation(reservationId: string, schedul
           logger.error('キャンセル待ち通知エラー:', waitlistError)
         }
       }
+      return resolveWhenSaved<void>((onSaved) =>
+        reservationApi.updateParticipantCount(reservationId, newCount, true, { onSaved: () => onSaved(undefined), afterSaved: notifyWaitlist })
+          .then(() => undefined))
     },
-    onSuccess: () => {
+    onSuccess: (_data, { newCount, reservation }) => {
+      // 再取得を待たずに人数と合計を画面へ出す（点検 36: 不要な待ちを減らす）
+      queryClient.setQueryData<NonNullable<ReturnType<typeof useReservationDetailQuery>['data']>>(
+        reservationDetailKeys.detail(reservationId),
+        (cached) => cached ? {
+          ...cached,
+          reservation: {
+            ...cached.reservation,
+            participant_count: newCount,
+            // 割引のある予約はサーバーが割引を付け直すので、金額は再取得を待つ（単価×人数で上書きしない）
+            ...(reservation?.unit_price && !(Number(reservation?.discount_amount) > 0)
+              ? { final_price: reservation.unit_price * newCount, total_price: reservation.unit_price * newCount }
+              : {}),
+          },
+        } : cached,
+      )
       queryClient.invalidateQueries({ queryKey: reservationDetailKeys.detail(reservationId) })
       invalidateEverywhere(queryClient, ['mypage-data'])
     },
@@ -237,18 +309,24 @@ export function useUpdateParticipantCountMutation(reservationId: string, schedul
   })
 }
 
-/** 申込中の貸切リクエスト（公演未確定）をお客様自身が取り下げる。予約とグループをまとめて取消する */
-export function useWithdrawPrivateRequestMutation(reservationId: string, onSuccess: () => void) {
+/**
+ * 申込中の貸切リクエスト（公演未確定）をお客様自身が取り下げる。
+ * keepGroup: グループは残して募集中へ戻す（候補日を直して申し込み直せる。2026-10-20 社長決定）。
+ * 省略時は従来どおり予約とグループをまとめて取消する（グループの無い直接申込もこちら）
+ */
+export function useWithdrawPrivateRequestMutation(reservationId: string, onSuccess: (detail: { groupKept: boolean }) => void) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: () => // 本人確認は DB 側が auth.uid() で行うため customer_id は不要
-      reservationApi.cancelWithGroupLock(reservationId, null, PRIVATE_REQUEST_WITHDRAWN_REASON),
-    onSuccess: async () => {
+    mutationFn: async ({ keepGroup = false }: { keepGroup?: boolean } = {}) => { // 本人確認は DB 側が auth.uid() で行うため customer_id は不要
+      await reservationApi.cancelWithGroupLock(reservationId, null, PRIVATE_REQUEST_WITHDRAWN_REASON, { keepGroup })
+      return { groupKept: keepGroup }
+    },
+    onSuccess: async (detail) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['mypage-data'] }),
         queryClient.invalidateQueries({ queryKey: reservationDetailKeys.detail(reservationId) }),
       ])
-      onSuccess()
+      onSuccess(detail)
     },
   })
 }

@@ -35,6 +35,7 @@ export const SETTINGS_PAGES: SettingsPageDefinition[] = [
   { id: 'performance-schedule', label: '標準の公演時間', scope: 'store', description: '作品未選択時の標準所要時間', effect: '選択した店舗の公演を新規作成するときに使います。作成済み公演の日時は変更しません。', related: ['organization-time-slots'] },
   { id: 'booking-cutoff', label: '通常予約の受付締切', scope: 'organization', description: '開催決定後の予約受付締切', effect: '組織共通の値をシナリオ・公演ごとに上書きできます。', related: ['private-booking', 'recruitment'] },
   { id: 'private-booking', label: '貸切予約の受付締切', scope: 'organization', description: 'シナリオ共通の受付締切と個別指定', effect: '共通設定を使うシナリオに適用します。シナリオ編集で個別に上書きできます。' },
+  { id: 'private-group-photos', label: '貸切グループの写真', scope: 'organization', description: 'グループのチャットに送れる写真の枚数', effect: 'グループ全体で送れる写真の上限です。MMQ の既定は 10 枚で、組織共通で変えられます。送った写真は期限なく残り、上限を下げても消えません。' },
   { id: 'operations-common', label: '開催判断・準備・クーポン・事前配役アンケート', scope: 'organization', description: '組織共通の判断時刻・準備時間・クーポン利用・アンケート設定', effect: '店舗・シナリオ・公演で個別指定できます。店舗の設定に値が入っている項目は、店舗の値が優先されます。', related: ['store-operations'] },
   { id: 'store-operations', label: '開催判断・準備・クーポン・事前配役アンケート', scope: 'store', description: '店舗での個別指定', effect: '組織共通を継承し、シナリオ・公演の指定があれば優先します。', related: ['operations-common'] },
   { id: 'payment-common', label: '支払い方法の案内', scope: 'organization', description: '予約時に表示する組織共通の案内', effect: '店舗・シナリオ・公演で個別指定した項目以外に適用します。店舗の設定に値が入っている項目は、店舗の値が優先されます。', related: ['reservation'] },

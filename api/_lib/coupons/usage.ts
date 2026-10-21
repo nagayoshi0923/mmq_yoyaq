@@ -30,9 +30,47 @@ export async function handleUseCoupon(req: VercelRequest, res: VercelResponse, u
     p_user: user.userId, p_coupon: body.customer_coupon_id, p_reservation: body.reservation_id,
   })
   if (error) {
-    if (error.code === 'P0028' || error.code === '22P02') return res.status(400).json({ success: false, error: error.code === '22P02' ? '指定を確認してください' : error.message })
+    // 予約後に当てるのは公演当日だけ（20261020190000）。断られた理由（not_performance_day）を code で画面へ渡す。
+    if (error.code === 'P0028' || error.code === '22P02') {
+      return res.status(400).json({ success: false, error: error.code === '22P02' ? '指定を確認してください' : error.message, code: couponErrorCode(error) })
+    }
     console.error('[coupons:use] DB error:', error)
     return res.status(500).json({ success: false, error: 'クーポンの使用に失敗しました' })
+  }
+  // 来店時にその場でもぎった使用は、そのまま「来店時に確認済み」の印を付ける（社長決定 B、2026-10-20）。
+  // 印付けに失敗してもクーポンの使用は済んでいるので成功を返す（予約に適用済みの欄から押し直せる）。
+  const usageId = (data as { usage_id?: unknown } | null)?.usage_id
+  // 来店確認は公演当日だけ（20261020180000）。先の予約に使ったときは印を付けず、理由を添えて返す（当日に「この予約に適用済み」から押す）。
+  if (req.query.action === 'use' && typeof usageId === 'string') {
+    const { error: redeemError } = await db!.rpc('redeem_coupon_usage', { p_user: user.userId, p_usage_id: usageId, p_source: 'venue_use' })
+    if (redeemError) {
+      if (redeemError.hint !== NOT_PERFORMANCE_DAY) console.warn('[coupons:use] redeem mark failed:', redeemError.message)
+      return res.status(200).json({ ...(data as Record<string, unknown>), redeemed: false, redeem_code: couponErrorCode(redeemError) })
+    }
+  }
+  return res.status(200).json(data)
+}
+
+/** 来店確認（もぎる）・予約後のクーポン使用が公演当日でないと断られたときの理由（RPC の HINT。画面はこの値で文言を出し分ける） */
+export const NOT_PERFORMANCE_DAY = 'not_performance_day'
+
+function couponErrorCode(error: { code?: string; hint?: string | null }): string {
+  return error.hint === NOT_PERFORMANCE_DAY ? NOT_PERFORMANCE_DAY : (error.code ?? 'unknown')
+}
+
+// =========================================
+// 顧客向け: 予約に適用済みのクーポンを来店時に「もぎる」（来店確認の印だけ付ける。消費は予約時のまま）
+// =========================================
+export async function handleRedeemCouponUsage(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const body = (req.body ?? {}) as { usage_id?: unknown }
+  if (typeof body.usage_id !== 'string' || !body.usage_id) return res.status(400).json({ success: false, error: 'クーポンを選択してください' })
+  const { data, error } = await db!.rpc('redeem_coupon_usage', { p_user: user.userId, p_usage_id: body.usage_id, p_source: 'customer_present' })
+  if (error) {
+    if (error.code === 'P0028' || error.code === '22P02') {
+      return res.status(400).json({ success: false, error: error.code === '22P02' ? '指定を確認してください' : error.message, code: couponErrorCode(error) })
+    }
+    console.error('[coupons:redeem-usage] DB error:', error)
+    return res.status(500).json({ success: false, error: '来店確認を記録できませんでした' })
   }
   return res.status(200).json(data)
 }

@@ -222,13 +222,17 @@ export const reservationApi = {
     })
   },
 
-  // ─── 管理者・デモ用の直接書き込み（整備 Phase 2: 画面からの直接 INSERT / UPDATE / DELETE をここに集約） ───
+  // ─── 管理者・デモ用の書き込み（参加者追加は認証・組織確認付きRPC） ───
   // RPC（create_reservation_with_lock_v2）の満員・重複判定を意図的に通さない（管理者の手動追加・デモ参加者）。
   // 表示人数（schedule_events.current_participants）は DB トリガーが再計算する（#730 の規則）。
   // 戻り値は supabase の { data, error } をそのまま返す（呼び出し側の扱いを変えないため）。
   async insertDirect(rows: Record<string, unknown> | Record<string, unknown>[], select = 'id'): Promise<{ data: Reservation[] | null; error: { message: string } | null }> {
     // select を文字列変数で渡すと型が決まらないため、呼び出し側が使う形に合わせて明示する
-    const { data, error } = await supabase.from('reservations').insert(rows).select(select)
+    // INSERT の公演確認ポリシーが reservations を再参照するため直接書かない。
+    // RPC 内で対象公演の組織に対する業務権限を確認する。
+    const { data, error } = await supabase.rpc('add_manual_reservations', {
+      p_rows: Array.isArray(rows) ? rows : [rows],
+    }).select(select)
     return { data: (data as unknown as Reservation[] | null), error }
   },
   // デモ・テストプレイ予約の後始末（ScheduleManager の修復処理）。顧客の予約には使わない。
@@ -257,12 +261,14 @@ export const reservationApi = {
 
   // 予約 + 貸切グループを同一トランザクションでキャンセル（通常キャンセル専用）
   // 却下フロー（skipGroupCancel: true）では使わず、cancelWithLock を使い続けること
-  async cancelWithGroupLock(reservationId: string, customerId: string | null, reason?: string): Promise<boolean> {
+  // options.keepGroup: 返事待ちの貸切申込の取り下げで、グループを残す（募集中へ戻す。2026-10-20 社長決定）
+  async cancelWithGroupLock(reservationId: string, customerId: string | null, reason?: string, options: { keepGroup?: boolean } = {}): Promise<boolean> {
     await apiClient.patch<{ success: boolean }>(
       `/api/reservations?action=cancel-with-group-lock&id=${encodeURIComponent(reservationId)}`,
       {
         customer_id: customerId,
         cancellation_reason: reason ?? null,
+        ...(options.keepGroup ? { keep_group: true } : {}),
       }
     )
     return true
@@ -294,7 +300,7 @@ export const reservationApi = {
   },
 
   // 参加人数を変更（顧客向けシンプルAPI）
-  async updateParticipantCount(reservationId: string, newCount: number, sendEmail: boolean = true): Promise<boolean> {
+  async updateParticipantCount(reservationId: string, newCount: number, sendEmail: boolean = true, options?: { onSaved?: () => void; afterSaved?: () => Promise<void> }): Promise<boolean> {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       throw new Error('ログインが必要です')
@@ -302,16 +308,25 @@ export const reservationApi = {
 
     logger.log('人数変更開始:', { reservationId, newCount })
 
-    // 予約情報を取得して料金を再計算
-    const { data: reservation, error: fetchError } = await supabase
-      .from('reservations')
-      .select(`
-        id, reservation_number, unit_price, schedule_event_id, participant_count, customer_id,
-        customer_email, customer_name, title, organization_id, final_price, total_price,
-        schedule_events!schedule_event_id(date, start_time, end_time, scenario, store_id)
-      `)
-      .eq('id', reservationId)
-      .single()
+    // 予約情報と顧客レコードは互いに依存しないので同時に取る（点検 36）
+    const [{ data: reservation, error: fetchError }, { data: customerRow, error: customerErr }] = await Promise.all([
+      // 予約情報を取得して料金を再計算
+      supabase
+        .from('reservations')
+        .select(`
+          id, reservation_number, unit_price, schedule_event_id, participant_count, customer_id,
+          customer_email, customer_name, title, organization_id, final_price, total_price,
+          schedule_events!schedule_event_id(date, start_time, end_time, scenario, store_id)
+        `)
+        .eq('id', reservationId)
+        .single(),
+      // user_id でプラットフォーム共通の顧客レコードを取得（organization_id は不要）
+      supabase
+        .from('customers')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+    ])
 
     if (fetchError || !reservation) {
       logger.error('予約情報取得エラー:', fetchError)
@@ -320,12 +335,6 @@ export const reservationApi = {
 
     logger.log('予約情報取得:', reservation)
 
-    // user_id でプラットフォーム共通の顧客レコードを取得（organization_id は不要）
-    const { data: customerRow, error: customerErr } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle()
     if (customerErr) {
       logger.error('顧客ID取得エラー:', customerErr)
       throw new Error('顧客情報の取得に失敗しました')
@@ -339,8 +348,8 @@ export const reservationApi = {
 
     const oldCount = reservation.participant_count
     const unitPrice = reservation.unit_price || 0
-    // 料金は常に unit_price × 人数 で計算
-    const oldPrice = unitPrice * oldCount
+    // お支払い金額はサーバー確定の final_price（クーポン割引後）。未設定の旧予約だけ単価×人数
+    const oldPrice = typeof reservation.final_price === 'number' ? reservation.final_price : unitPrice * oldCount
 
     logger.log('人数変更前の情報:', {
       oldCount,
@@ -360,23 +369,26 @@ export const reservationApi = {
     }
 
     logger.log('人数変更成功（RPC内で完了）')
+    // 人数は保存済み。画面はここで先へ進めてよい（再計算・メールはこのあと送る。点検 36）
+    try { options?.onSaved?.() } catch (callbackError) { logger.warn('人数変更保存後の画面更新に失敗:', callbackError) }
 
     // schedule_eventsのcurrent_participantsを再計算
-    // ※ RPCで既に更新されているが、念のため再計算
-    if (reservation.schedule_event_id) {
-      try {
-        await recalculateCurrentParticipants(reservation.schedule_event_id)
-        logger.log('参加者数再計算完了')
-      } catch (recalcError) {
-        logger.warn('current_participants再計算エラー:', recalcError)
-      }
-    }
+    // ※ RPCで既に更新されているが、念のため再計算。メールとは独立なので同時に進める
+    const recalc = reservation.schedule_event_id
+      ? recalculateCurrentParticipants(reservation.schedule_event_id)
+        .then(() => logger.log('参加者数再計算完了'))
+        .catch((recalcError) => logger.warn('current_participants再計算エラー:', recalcError))
+      : Promise.resolve()
+    const after = options?.afterSaved
+      ? options.afterSaved().catch((afterError) => logger.error('人数変更後の処理エラー:', afterError))
+      : Promise.resolve()
 
     // 人数変更確認メールを送信
     if (sendEmail && reservation.customer_email) {
       try {
-        // 新料金は unit_price × newCount で計算
-        const newPrice = unitPrice * newCount
+        // 新料金はサーバーが割引を付け直した final_price。読めなければ単価×人数
+        const { data: saved } = await supabase.from('reservations').select('final_price').eq('id', reservationId).maybeSingle()
+        const newPrice = typeof saved?.final_price === 'number' ? saved.final_price : unitPrice * newCount
         const priceDifference = newPrice - oldPrice
         const scheduleEventRaw = reservation.schedule_events as unknown
         const scheduleEvent = (Array.isArray(scheduleEventRaw) ? scheduleEventRaw[0] : scheduleEventRaw) as Record<string, unknown> | null | undefined
@@ -422,6 +434,7 @@ export const reservationApi = {
       }
     }
 
+    await Promise.all([recalc, after])
     return true
   },
 
@@ -527,7 +540,7 @@ export const reservationApi = {
   // メール送信 / Discord 通知 / waitlist 通知などの Edge Function 呼び出しは
   // 引き続きクライアント側で実行する（既存挙動の維持）。
   // options.cancelPrivateEvent: true のとき、紐づく貸切公演(category='private')も中止にする
-  async cancel(id: string, cancellationReason?: string, options?: { skipGroupCancel?: boolean; customEmailBody?: string; skipCancellationEmail?: boolean; cancelledBy?: 'customer' | 'store'; cancelPrivateEvent?: boolean; privateRejectionBody?: string }): Promise<Reservation> {
+  async cancel(id: string, cancellationReason?: string, options?: { skipGroupCancel?: boolean; customEmailBody?: string; skipCancellationEmail?: boolean; cancelledBy?: 'customer' | 'store'; cancelPrivateEvent?: boolean; privateRejectionBody?: string; onSaved?: (reservation: Reservation) => void }): Promise<Reservation> {
     // ⚠️ P1-12: 相関ID — キャンセル→メール→通知を一つのフローとして追跡
     const clog = createCorrelatedLogger(generateCorrelationId(), 'cancel')
     clog.info('キャンセル開始', { reservationId: id })
@@ -560,6 +573,8 @@ export const reservationApi = {
     const data = orchestrated.reservation
     const ctx = orchestrated.contextForNotifications
     const reservation = ctx.reservation
+    // 取消は保存済み。画面はここで先へ進めてよい（通知はこのあと同じ順で送る。点検 36）
+    try { options?.onSaved?.(data) } catch (callbackError) { logger.warn('取消保存後の画面更新に失敗:', callbackError) }
 
     if (reservation?.private_group_id && !options?.skipGroupCancel) {
       clog.info('予約+グループをatomicにキャンセル + システムメッセージ送信', {

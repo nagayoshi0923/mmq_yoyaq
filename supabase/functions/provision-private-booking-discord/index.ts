@@ -422,7 +422,19 @@ serve(async (req) => {
       )
     }
 
+    const gmNames = Array.isArray(event.gms) ? event.gms.filter(Boolean) : []
+    const { data: gmStaff, error: gmStaffError } = gmNames.length
+      ? await supabase
+          .from('staff')
+          .select('name, discord_user_id')
+          .eq('organization_id', reservation.organization_id)
+          .in('name', gmNames)
+      : { data: [] }
+    if (gmStaffError) console.warn('senshin_gm_staff_lookup_failed', gmStaffError.message)
     const names = buildSenshinChannelNames({
+      gms: event.gms || [],
+      gmRoles: event.gm_roles || {},
+      staffNames: (gmStaff || []).map(s => s.name),
       eventDate: String(event.date),
       startTime: String(event.start_time).slice(0, 5),
       storeName: store?.name,
@@ -430,14 +442,6 @@ serve(async (req) => {
     })
     const roleNames = buildSenshinRoleNames(reservation.id)
 
-    const gmNames = Array.isArray(event.gms) ? event.gms.filter(Boolean) : []
-    const { data: gmStaff } = gmNames.length
-      ? await supabase
-          .from('staff')
-          .select('name, discord_user_id')
-          .eq('organization_id', reservation.organization_id)
-          .in('name', gmNames)
-      : { data: [] }
     const gmUserIds = [...new Set(
       (gmStaff || [])
         .map((s) => (s.discord_user_id || '').trim())

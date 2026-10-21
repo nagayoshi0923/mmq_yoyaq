@@ -1,3 +1,25 @@
+## 2026-10-21 / リリース統合候補（staging の未反映分 ＋ main の #1202、reconcile migration 付き）（release/2026-10-integration、staging 向け PR・マージしない）
+
+- 目的: staging の未反映分（10/11〜10/21 の 118 コミット）と本番 main（179958be、#1202 = issue #1200 の hotfix）を 1 本の統合候補にし、本番へは統合 PR（staging → main）で出す。#1201（draft）の内容は #1202 経由で入る。#1014・cherry-pick の案は使わない。
+- 二重の migration: staging の `20261020210000`（＋ `20261015110000`・`20261020120000`）と main の `20261021144000` が同じ 3 関数（`create_private_group_atomic`・`create_private_booking_request`・`private_group_set_preferred_stores`）を書き換える。reconcile `20261021170000_private_booking_candidate_rule_reconcile`（rollback 同名）で本文を staging の `private_booking_assert_candidate` 経路に決め、#1202 の `private_booking_store_slot_rule` を消す。根拠: assert_candidate（→ `private_booking_slot_store_fit`）が店舗ごとに I10（店舗の平日／土日祝、特別営業日）・I2・営業時間・別枠にかかる受付停止・募集停止・公演・固定開始・所要時間を同じ 1 店舗で全部満たすかを見るので、#1202 の要件を含む（issue #1203 の P1・P2 もこれで解消）。
+- 2 起点の隔離試験（手元の使い捨て DB 2 つ。基準 ＋ 本番 / staging の実際の適用済み一覧を本番・staging の `schema_migrations` の読み取りで確認して再現。再現した 3 関数の md5 は本番・staging の実物と一致）: (a) 本番相当 → 29 本 → reconcile、(b) staging 相当 → 144000 → reconcile。3 関数の md5（`e9a9b773…`・`ee6f42bf…`・`7789faef…`）と権限、DB 構造全体（表 156・ビュー 12・関数 441）が一致。`test:rpcs` 15 本（R1〜R43、#1202 の回帰を reconcile 用に直した `private_booking_candidate_slot_rule_all_paths.sql`、データ修正、クーポン系、写真上限、`customer_notice_claim_only_ids` ほか）と yoyaq_004 が両方で合格。
+- 戻し: `scripts/test-release-rollback-scope.sh` を統合に合わせた（1 章 31 行・当てる 30 本・戻した後に 144000 を当て直す・DB 構造全体で公開前と一致を確認）。合格。staging では 144000 の rollback を単独で流さない（3 関数が本番の旧本文に戻る）。
+- 公開入口の未設定店舗（issue #1203 P2）: `getPublicPrivateBookingSlotOptions` が未設定の店を何店でも合成して渡していた → 渡す店舗が 1 店のときだけ合成（DB の `p_allow_missing` と同じ）。試験を追加（修正前で失敗を確認）。仕様同期の一覧に `publicPrivateBookingSlots.ts`・`privateGroupCandidateSlots.ts`・申込と店舗変更の RPC 正本を追加。
+- 手順書: `docs/ops/本番公開の戻し方_2026-10.md` を統合用に改訂（既存の通知は止めない・試験送信はしない・新しい定期実行 3 本と引き金 2 本は同じ取引で無効にして作る・鍵は名前と用途だけで登録は承認待ち・戻した後に 144000 を当て直す）。`docs/ops/平日朝枠の停止_2026-10.md` の cherry-pick 案を廃止。
+- 確認: `npm run verify`、vitest 全件（345 ファイル・2448 件）、`check:private-booking-rules`、`check:migration-rollbacks`、`scripts/check-db-baseline.sh`（基準 ＋ 80 本で期待構造を再現）、上の隔離試験。staging・本番の DB・Edge・secrets・Vercel には書き込んでいない（両 DB は読み取りだけ）。
+- 残り: Codex の独立レビュー → staging への取り込み（staging DB に 144000 と reconcile を続けて当て、staging.json を取り直す）→ 本番（別 GO）。CI の Drift（staging.json）は staging 適用後に取り直す。
+- 追記（Codex 先行レビュー 1b9b0417 の P1「保護が消える窓」）: 30 本を 1 本ずつ当てると `20261011200000`〜`20261020210000` の間（約 30 分）申込が I2 を見ない本文になる。
+  1 つの取引で当てる・戻す実行用スクリプトを追加: `scripts/release-bundle-2026-10.mjs`（最上位の BEGIN/COMMIT だけを外して 1 取引にまとめる。文字列・`$$`・コメントを読み飛ばす。前後の md5・履歴・新しい通知の無効を同じ取引で確かめる）、
+  `scripts/release-apply-2026-10.sh`（全体を 1 回の問い合わせで送る。前後の照合つき）、`scripts/release-state-snapshot.sql`・`scripts/release-state-compare.mjs`（定期実行・app_config・引き金・バケット・storage のポリシーの前後照合）。
+  隔離試験 `scripts/test-release-bundle-2026-10.sh`（本番相当）: 途中失敗・鍵待ち（5.1 秒で全体取り消し）で照合も構造も変わらない／当てる・戻す間に外から 0.1 秒ごとに 86〜88 回観測して公開前・公開後以外 0 回／
+  既存の定期実行 20 本・app_config・既存の引き金は不変、新しい定期実行 3 本は無効、web_push の 2 本は D／戻した後は構造・照合とも公開前と同じ（空のバケット private-group-photos だけ残る。SQL から消せない）／
+  本番と同じ SQL で取引 0.13 秒、別の接続の読み書きの待ちは最長 49 ms。
+  staging のミラー（`scripts/mirror-prod-to-staging.sh`）が引き金を一律 ENABLE にしていたのを、ミラー前の状態（tgenabled）に戻すように直した（同じ試験の 4 で確認）。
+- 追記（Codex 独立試験 8fe2360b の P1 2 件）: (1) 「日程がそろいました」の引き金 `private_group_on_date_response`（本番に無い新しい通知。鍵が無くても既存のお知らせメールで実際に送られる）を、
+  ほかの新しい通知と同じく必ず無効で作るようにした（20261010130000・作り直す 20261020110000 の直後。SQL の最後の確認と前後照合で D 必須。`--date-aligned-off` は廃止、有効化は手順書 3 章の 4 の別承認）。
+  (2) Mac の既定の bash 3.2 と日本語ロケールでは `$rc）` の全角記号が変数名の一部と読まれ、`set -u` で止まっていた（取消後の照合・成功後の表示に届かない）。
+  全角記号に接する変数を `${…}` に直した（release-apply・test-release-bundle・mirror・test-release-rollback-scope）。`LANG=ja_JP.UTF-8 /bin/bash` で隔離試験を通し、成功・途中失敗・鍵待ちとも after.tsv と照合まで到達。
+
 ## 2026-10-21 / 貸切の朝枠は店舗の枠設定で判定し、昼・夜は開店前の固定時刻でも受け付ける（issue #1200「平日に午前枠が出る」、fix/issue1200-slot-start-open-time、PR #1201・未マージ）
 
 - 旧案の取り下げ: #1201 の最初の案「どの枠も開始を開店時刻より前にしない（作品の開始時刻が開店前なら closed）」は、社長の仕様訂正（「午前」は時刻ではなく朝枠のこと／昼枠は普通に受け付けてよい）で取り下げた。migration `20261021150000_slot_start_not_before_open_time`・rollback は削除（staging・本番には未適用）。
@@ -8,12 +30,240 @@
 - 残り: 社長の確認後マージ。コードの反映に DB 操作は不要。
 - 追加（同日）: 平日朝を出さない社長の意図は設定（データ）で反映する。データ修正 `supabase/data-fixes/20261021_queens_waltz_weekday_morning_off.sql`（7 店 × 月〜金 = 35 か所の `available_slots` から朝だけを外す。退避表 `archive.business_hours_settings_backup_20261021`（public に置かないので DB 構造の記録・定期 Drift に差が出ない）・照合 `_check.sql`・比較条件付きの復旧 `_rollback.sql`）と試験 `supabase/tests/data_fix_queens_waltz_weekday_morning_off.sql`（(a)〜(i) 合格、`npm run test:rpcs` に追加）。手順書 `docs/ops/平日朝枠の停止_2026-10.md`。**マージでは適用されない。本番で手動適用するまで東京 7 店の平日朝は選べるまま。** 順序: Codex レビュー → staging で確認 → 本番に設定を先に当てて読み取り確認 → main 起点で #1201 だけを cherry-pick した hotfix PR でコードを出す。staging・本番には書き込んでいない（読み取りのみ。両環境の 7 店の値は一致）。
 
+## 2026-10-21 / 公開前再チェック 2 の R1〜R3（限定メール試験の取り出し限定・来店確認の rollback の排他・店舗公開名の書き戻し）（fix/recheck2-r1-r3、staging 向け PR）
+
+- Codex 第 2 回再レビュー（`.runtime/MMQ_公開前再チェック2_結果_2026-10-21.md`）の R1〜R3。
+- R1［P1］限定メール試験が試験相手だけに限定されない: 手順書 (7) の「ほかの送信待ちを 1 時間延期 → 送信処理を非同期で呼ぶ → 延期を戻す」は、取り出しの遅れ・延期後の新規 pending・期限切れ sending で他のお客様にも送れた。取り出し段階で限定する方式に変更。migration `20261021120000_customer_notice_claim_only_ids`（同名 rollback）で `claim_customer_notice_emails(p_limit, p_only_ids uuid[] DEFAULT NULL)`（旧 `(integer)` は消して作り直し。引数なしは従来どおり、空配列は何も取り出さない）。Edge `process-customer-notice-emails` は本文 `{"only_ids":[...]}` を `_shared/customer-notice-only-ids.ts` で読み、壊れた本文・空・ID でないものは 400（全件送信に落とさない）。手順書は ID 指定で 1 回呼ぶ形に書き換え、延期の一括加減算をやめた。expected-function-overrides: 旧版 null、新版 `2c937de7f542dca58c1c560c26acd77a`。試験: `supabase/tests/customer_notice_claim_only_ids.sql`（他顧客の pending・後から積んだ pending・期限切れ sending があっても 1 行だけ、空配列 0 行、引数なしは従来どおり 3 行）、`customer-notice-only-ids.test.ts`（deno）。
+- R2［P1］来店確認の退避前に同時更新を排他していない: `supabase/rollbacks/20261020130000_coupon_usage_redeem.sql` の冒頭（BEGIN の直後）で `SET LOCAL lock_timeout = '10s'` と `LOCK TABLE public.coupon_usages IN ACCESS EXCLUSIVE MODE`。退避 → 列削除 → COMMIT まで保持。2 接続試験 `supabase/tests/coupon_redeem_rollback_race.sh`（`npm run test:coupon-rollback-race`、手元 DB 専用）: A が 5 件目を更新して 3 秒保持 → B はロック待ちに入り、A の確定後に 5 件退避。A が 15 秒保持 → B は 10 秒で 55P03 になり何も変えない。直す前の版を `ROLLBACK_FILE` で流すと退避 4 件で失敗する（Codex の再現と同じ）。
+- R3［P2］退避した店舗公開名を書き戻していない: 手順書 (b) の書き戻し SQL に 4b（店舗 ID と組織が一致し今が空の店だけ `stores.public_name` を戻す）と、来店確認・公開名の照合 SQL を追加。`supabase/tests/coupon_redeem_rollback_backup.sql` を 20261011210000 まで戻す流れに広げ、写す → 戻す → 当て直す → 書き戻しで値が戻ることを確認。
+- staging でやること: migration 20261021120000 の適用（md5 は上）、Edge `process-customer-notice-emails` の配備（staging への merge で deploy-supabase が配備）。本番は公開手順 (4)〜(7) に含まれる。
+- 第 3 回レビュー N2［P2］: 手順書 2 章 5 の構造照合の 1 行の式は、期待差分で null（消したはずの関数）を「無い」ことまで NG にしていた（理想の構造で A 3 件・B 4 件の偽 NG）。`scripts/check-function-overrides.mjs` に置き換え（null は残っていれば NG、それ以外は存在・本文 md5・権限）。理想の構造で A・B とも 0 件、使い捨て DB に実際に当てた構造でも A（4380f874 の期待差分）133 件・B 134 件 OK。旧 claim が残る・md5 違い・権限違いは NG になることも確認。
+- 第 3 回レビュー N3［P2］: 戻す一覧に本番 hotfix 済みの 20261020100000 が入っており、戻すと札幌店の平日朝の枠が復活した。手順書を「2 章の 0 で公開前の適用済み一覧と `private_booking_store_day_slots` の md5（c0bec3c1cd17722fe446b23745ce89b8）を保存 → (c) の 3 で基準に無い版だけを新しい順に戻す → 一覧と md5 が基準どおりか確認」に変更。戻す一覧は 29 本、1 章の表の 19 は「当てない・戻さない」。`scripts/test-release-rollback-scope.sh`（使い捨て DB、約 45 秒）: 基準＋公開分以外＋hotfix → 29 本を当てる → 29 本だけ戻す → 一覧が基準と同じ・md5 が c0bec… のまま。対照で 20261020100000 の rollback を流すと md5 が af118b02… に変わる。「30 本の往復が通った＝公開直前に戻る証明」とは書かない。
+
+## 2026-10-21 / 受付範囲の取得待ちで候補追加カレンダーが 24 か月先へ進む（fix/recheck2-r5-candidate-month、Codex 第2回再レビュー R5）
+
+- Codex の第2回再レビュー（R5、P2）。`AddCandidateDates` の「選べる日が無い月は次の月へ自動で進める」処理が、受付範囲（`horizonDays`）の取得中・失敗（null）でどの月も空に見えるのを空月と取り違え、上限 24 回まで進めていた。
+- 直し: 受付範囲が null の間は自動で進めず、開いたときの「最初の月へ戻す」も範囲が分かってから行う。範囲の外（今日から N 日先より後）の月を出していたら最初の月へ戻し、自動で進めるのも範囲内まで（次の月が範囲外なら止める）。手動の「次月を表示」・月送りは従来どおり（null の間は次月ボタンも押せない）。
+- 他の画面: 作品ページの貸切フォーム（`usePrivateBooking`）、日付指定の申込、`PrivateBookingSlotGrid` には自動で月を進める処理が無いことを確認（`showMonthOf` は URL の日付の月を出すだけ）。変更は `AddCandidateDates` だけ。
+- テスト: `AddCandidateDates.test.tsx` に、受付範囲が取得中・取得失敗で開いても今月のまま、90 日と読めたら範囲内の月、を追加（修正前は 2 年後の月になり失敗）。vitest 全件、`npm run verify`。
+
+## 2026-10-21 / 古い読み込みの組織取得失敗が新しい一覧をエラー表示にする（fix/recheck2-r6-org-generation、Codex 第2回再レビュー R6）
+
+- Codex の第2回再レビュー（R6、P2）。`usePrivateGroupList` の `loadGroups` は組織 ID の解決後に読み込み順（世代）を確かめていなかったため、読み込み A の組織解決が遅れて null で終わると、後から始めて成功した読み込み B の一覧に「組織情報が取得できません」が立ち、画面がエラー側へ切り替わっていた。
+- 直し: 組織の解決直後にも既存の世代検査（`current()`）を入れ、古い呼び出しでは error も loading も触らない。
+- テスト: `usePrivateGroupList.test.tsx` に、A の組織解決を保留 → B 成功 → A が null で終わっても error が立たず B の一覧が残る、を追加（修正前は失敗）。vitest 全件、`npm run verify`。
+
+## 2026-10-21 / RPC の構成エラー（PGRST202・404）でも申込シートの入力を消していた（fix/recheck2-r4-access-lost、Codex 第2回再レビュー R4）
+
+- Codex の第2回再レビュー（R4、P2）。`isPrivateGroupAccessLost` が HTTP 404 を一律に「権限が無い・グループが無い」と判定していたため、RPC がスキーマキャッシュに無い（PGRST202、配備途中やスキーマ再読み込み待ち）だけでも申込シートの入力を消して「招待が見つかりません」に切り替えていた。
+- 判断基準: 404 という状態だけでは権限喪失とみなさない。PostgREST の 404 は「関数が見つからない」（PGRST202・42883）でも返り、グループの不存在の証拠にならないため。消すのは証拠があるときだけ: 401・403（ログイン切れ・閲覧不可）、RPC が明示的に返す 42501（閲覧不可）・P0002（見つからない）・22P02（ID の形が不正）・PGRST301〜303（ログインの鍵が無効）、成功応答でグループが空（`PRIVATE_GROUP_NOT_FOUND`）。それ以外の 404（コード無し・PGRST202・42883）は通信失敗と同じく直前の内容を残して読み直す。初回の読み込み失敗（残す内容が無い）は従来どおり。
+- テスト: `BookingRequestSheet.refetchError.test.tsx` に、PGRST202/404・42883/404・コード無し 404 で入力が残り次の成功で戻る、コード無し 403・P0002/404 で切り替わる、を追加（修正前は 3 件失敗）。vitest 全件、`npm run verify`。
+
+## 2026-10-21 / 管理画面のグループ一覧を先に出し、追加情報は後から埋める（perf/private-group-list-progressive、staging 向け PR）
+
+- Codex の点検（改善 6、P2）。貸切・予約 › グループ一覧は、グループ本体を 100 件ずつ全件取り、続けてアンケート設定・予約・履歴・公演・店舗を段階的に取り終えるまで「読み込み中」のままで、検索欄も出なかった（1,311 件の組織で再現）。
+- 直し: `readPrivateGroupList` に途中経過の受け取り（`onPage`、100 件届くたびにそこまでの分）を足し、`usePrivateGroupList` は最初の 100 件が届いた時点で一覧（グループ名・作品・状態・主催者・候補日・メンバー）と検索欄を出す。予約・履歴・アンケート設定・確定公演は従来どおり全件そろってから同じ順番・同時 3 件以内で読み、埋まるまで確定公演の行はスケルトン（`details_loaded`）。読み込み中は「読み込み中の分は検索・絞り込みの対象外」「予約番号での検索・確定公演の日程・完了公演を非表示・事前配役公演のみは読み込み完了後に有効」と注記。カードは 100 件ずつ並べ「さらに表示（残り N 件）」、条件を変えたら先頭 100 件に戻す。再読み込み時は前の読み込みの結果を捨てる。途中で失敗したら従来どおり一覧を空にしてエラー表示（欠けた値を正しい値として見せない）。DB・API・常駐処理・キャッシュの変更なし。
+- 状態・更新日順のページ分けは見送り: `private_group_read_list` が id 順のキー送りで、並べ替えたページ取得には DB 関数の変更が要るため。並びは従来どおり作成日の新しい順（読み込み中は届いた分の中で並べるので、続きが届くと上に足されることがある）。
+- 計測（手元の local-repro DB に合成グループ 1,310 件＋既存 1 件 = 1,311 件。メンバー 5・候補 3・回答 15/件、確定・申請中には予約と公演、3 件に 1 件は旧予約。スタッフ（admin@repro.test）でログイン、画面遷移からの経過、開発サーバー、各 4 回の平均）: 最初の一覧表示まで 修正前 約 2.49 秒 → 修正後 約 0.43 秒。全件完了まで 修正前 約 2.49 秒 → 修正後 約 2.47 秒（ほぼ同じ）。staging はスタッフアカウントが無く計測していない（ネットワーク往復が加わる分、全件完了までは手元より長く、先に出す効果は大きくなる見込み）。合成データは計測後に手元 DB から消した。
+- テスト: `privateGroupRead.chunks.test.ts`（100/200/250/99 件の境界で途中経過の回数と並び）、`usePrivateGroupList.test.tsx`（最初の 100 件で表示し後から埋める、追加情報待ちの間も表示、再読み込みで古い結果を捨てる）、`PrivateGroupList.test.tsx`（新規。最初の分の前だけ読み込み中、注記・スケルトン、100 件ちょうど／101 件／条件変更で先頭へ）、vitest 全件、`npm run verify`。
+## 2026-10-21 / 貸切の受付範囲を読めないと 180 日で表示を続ける（fix/private-booking-horizon-fetch-failure、Codex 点検 不具合 5）
+
+- Codex の点検。`fetchPrivateBookingHorizonDays` は `get_effective_private_booking_horizon_days` を読めないと既定の 180 日を返していたため、組織が 90 日などのときに画面では 91 日目以降を選べ、保存で DB に拒否されていた。
+- 直し: 読めないときは例外にし、180 日は「読めたが設定が無い」ときだけ。`usePrivateBookingHorizonDays` は `{ days, loading, failed, retry }` を返し、まだ分からない間は `days: null`（`privateBookingHorizonMaxYmd(null)` は昨日＝どの日も選べない）。同じセッションで一度読めていれば、読み直しの失敗では最後に読めた値を使う（React Query が前の値を保つ）。各画面（作品ページの貸切フォーム・候補日の追加・貸切リクエストの日付指定・作品選び・リクエスト入力）は `src/components/private-booking/PrivateBookingHorizonNotice.tsx` で「受付範囲を確認しています」／読めなければ再試行を出し、候補の選択と申込ボタンを止める。公開トップのカレンダー・リストは取得失敗で申込枠を出さない（30 秒ごとに読み直す）。
+- 方針の理由: 「最後に読めた値」だけでは初めて開いたときに使える値が無く、結局どこかの既定値に頼ることになる。止めて再試行を出すほうが単純で、画面と保存が食い違わない。読み直しの失敗では React Query が前の値を保つので、一度読めた画面が急に止まることも無い。
+- テスト: `privateBookingHorizon.hook.test.tsx`（失敗時に 30 日先も 120 日先も選べない・再試行で 90 日が効く・設定なしだけ 180・読み直し失敗で前の値）、`PrivateBookingForm.test.tsx`、`usePublicPrivateBookingSlots.test.tsx`、vitest 全件、`npm run verify`。
+
+## 2026-10-21 / 通信エラーが一度起きると申込シートの入力が消える（fix/private-group-snapshot-transient-error、Codex 点検 不具合 3）
+
+- Codex の点検。`usePrivateGroupSnapshot` の読み直し（15 秒ごと・画面に戻ったとき）が 1 回でも失敗すると、catch で内容を消して「招待が見つかりません」に切り替わり、開いていた申込シートの入力（候補・人数・店舗への連絡・同意）が消えていた。
+- 直し: `src/lib/privateGroupRead.ts` の `isPrivateGroupAccessLost` で失敗を見分ける。401/403/404、RPC の 42501（閲覧不可）・PGRST301〜303（ログイン切れ）・P0002/22P02、中身が空（`PRIVATE_GROUP_NOT_FOUND`）だけを「権限が無い・グループが無い」とし、画面を切り替える。それ以外（通信の切断＝status 0・5xx・時間切れ 57014・原因不明）は、直前の内容を残して `reconnecting` を立て、画面上部の小さな通知（sonner）で「接続を確認しています。再試行します」を出す。次に読めたら消える。初回の読み込み失敗（残す内容が無い）は従来どおり。入口の切り替えは `PrivateGroupInvite/inviteScreenGate.ts` に切り出し。#1171 の入力保持はそのまま。
+- テスト: `BookingRequestSheet.refetchError.test.tsx`（実際の `usePrivateGroupSnapshot` を使い、1 回失敗→成功で入力が残る・5xx/時間切れでも切り替えない・403/401/404/空で切り替わる）、`usePrivateGroupSnapshot.test.tsx`、vitest 全件、`npm run verify`。
+
+## 2026-10-21 / クーポンの当日判定が日本時間の 0 時をまたいでも切り替わらない（fix/coupon-jst-today-clock、staging 向け PR）
+
+- Codex の点検（不具合 4、P2）。マイページ › クーポンの「もぎる（来店確認）」は描画のたびに `new Date()` で当日を判定していたが、時刻の変化では再描画しないため、公演前日 23:59:59 に開いたまま 0 時を過ぎても無効のままだった（再読み込みで回復）。「この予約に使う」（#1169）も同じ。
+- 直し: 日本時間の「今日」（YYYY-MM-DD）を返す共通フック `src/hooks/useJstToday.ts` を追加。次の日本時間 0 時（+250ms）にタイマーで更新し、スリープ明けなどに備えて `visibilitychange`（表示に戻ったとき）・`focus` でも読み直す。常駐の定期処理は持たない。`AppliedCouponsSection`（もぎる）と `CouponsPage`（この予約に使う・候補の「公演当日に使えます」）の当日判定をこの時計にそろえた。`isPerformanceDay` は第 2 引数に YYYY-MM-DD も受ける。サーバー側の判定（`coupon_performance_day`）は変更なし。
+- テスト: `useJstToday.test.tsx`（0 時までの残り時間、23:59:59→00:00:01 で切り替わる、visibilitychange・focus で読み直す）、`AppliedCouponsSection.test.tsx`（開いたまま 0 時をまたぐと「もぎる」が押せる、画面復帰で切り替わる）、`CouponsPage.test.tsx`（0 時をまたいで画面に戻ると「この予約に使う」が押せ割引額の確認が走る）、vitest 全件、`npm run verify`。
+
+## 2026-10-20 / 「もぎる（来店確認）」の当日判定を公演の日付にそろえる（fix/coupon-redeem-event-date、staging 向け PR）
+
+- 不具合: #1166 の `redeem_coupon_usage` は `reservations.requested_datetime` の日本時間の日付で当日を判定していた。staging の過去 60 日の予約 1,070 件のうち 31 件は `requested_datetime` が予約を作った時刻（例 260919-8B88: 9/19 12:28、公演 10/11 13:00）で、公演当日に押しても断られる。夕方以降の公演も日本時間で翌日にずれうる。
+- DB: migration `20261020220000_coupon_redeem_use_event_date`（rollback 同名＝ 20261020180000 の本文に戻し補助関数を消す）。補助関数 `coupon_performance_day(schedule_event_id, requested_datetime)`（公演の日付、無ければ requested_datetime の日本時間の日付。service_role のみ）を足し、`redeem_coupon_usage` はそれで判定。`use_customer_coupon`（#1169）は同じ式のまま変えず、同じ予約で同じ判定になることを DB テストで確認。expected-function-overrides: redeem `b3e2236054aa3ff2662a633cef642f3f`、補助関数 `6f310d8517d6461d9f6a1929092bcf24`。
+- API・画面: `type=all` の使用履歴に予約の公演（`performance_date`・`performance_start_time`）を足し、「この予約に適用済み」の当日判定・表示日時・一覧に出す範囲を公演の日付基準に。「この予約に使う」は元から公演の日付（`type=current-reservations` の `date`）。
+- 原因の経路: 31 件はすべて `reservation_source=staff_participation`・`duration=240`・`requested_datetime≒created_at`。公演の詳細画面で GM 役割を「スタッフ参加」にした瞬間に予約を入れる旧ヘルパー `ensureStaffReservation`（`requested_datetime: new Date()`）が作っていた。#640（22dc8ef3a、2026-09-28）で削除され、#641（20260928001200）の `sync_event_staff_participations` が公演の日時（日本時間）で入れるようになったので 9/28 以降は出ていない。同じ書き方が公演の詳細画面の「保存後に追加」の参加者（追加モード）に残っていたので、公演の日付＋開始時刻（+09:00）に直し、`requested_datetime` に保存時刻を入れない検査（`requestedDatetimeSource.test.ts`）を足した。既存 31 件のデータは直していない（判定は公演の日付になったので影響しない）。
+- 確認: `supabase/tests/coupon_redeem_event_date.sql`（test:rpcs に追加。作成時刻入りでも公演当日なら可・公演の前後の日は拒否・公演の無い予約は requested_datetime・予約後の使用と同じ判定・補助関数と use の式が一致。旧関数では失敗）、`npm run test:rpcs`、`npm run test:coupon-redeem-db`、vitest 全件、`npm run verify`。
+- staging への migration 適用は発注者が行う。適用後に md5(prosrc) が期待値と一致することを確かめ、`supabase/structure/staging.json` を更新する。
+
+## 2026-10-20 / 候補の再取得で申込シート・候補日カレンダーの入力が消える（fix/candidate-refetch-keeps-input、PR #1171）
+
+- Codex の staging 点検（b47cf9377）。グループ画面は読み直しのたびに「読み込み中」に切り替えてシートを作り直していたため、申込シートの送る直前の確認（候補日の時刻が更新されました）で、選んだ候補・優先順・人数・店舗への連絡・電話番号・同意がすべて消えていた。手元 DB・手元画面（customer1、port 5193）で再現し、修正後に入力が残ることを確認。
+- 直し: `PrivateGroupInvite/index.tsx` の読み込み中はグループが無いときだけ。申込シート・`AddCandidateDates` は `src/lib/keepSelectionOnRefetch.ts` で、消えた・選べなくなった候補だけを理由付きで外す（候補日カレンダーは DB の時刻にそろえる）。外した店舗・直した電話番号・申込確認画面のお名前等（`useCustomerData`）も読み直しで上書きしない。判定は変更なし。
+- テスト: `keepSelectionOnRefetch.test.ts`・`BookingRequestSheet.test.tsx`・`useCustomerData.test.tsx`、vitest 全件、`npm run verify`。
+
+## 2026-10-20 / 店舗への申込と希望店舗の変更で受付判定の一部が抜けていた（fix/private-booking-range-gaps、PR #1168、staging 取り込み済み）
+
+- Codex の staging 点検（b47cf9377）。`create_private_booking_request` は日付（トリガー）と公演・受付停止しか見ず、店舗の曜日の枠・休業日・営業時間・作品の固定開始時刻・時間枠・上演店舗・所要時間を確かめていなかった。`private_group_set_preferred_stores` も公演・受付停止だけで候補を外していた。本店でだけ入る朝の候補を申込シートで二号店（平日の朝は無効）だけに送ると通った。
+- 直し: どちらも送る店舗（新しい希望店舗）で `private_booking_assert_candidate` を通す。migration `20261020210000_private_booking_request_full_candidate_check`（rollback 同名）。例 R34〜R36（`private_booking_rules_examples.sql`、修正前に落ちることを確認）。`yoyaq_004` の回帰 SQL に店舗の営業設定を追加。
+- staging への migration 適用は発注者が行う。適用後に staging の md5(prosrc) で `expected-function-overrides.json`（手元 DB の値で暫定）と `staging.json` を更新する。
+
+## 2026-10-20 / マイページ › クーポンの「この予約に使う」（予約後の使用）を公演当日だけにする（fix/coupon-use-same-day、staging 向け PR）
+
+- 社長決定（2026-10-20）: 予約したあとで既存の予約にクーポンを当てる操作も公演当日（日本時間）だけ。予約時にクーポンを付けるのは今までどおり日付の制限なし。
+- 経路: 画面 `CouponsPage` → `POST /api/coupons?action=use` → `use_customer_coupon`（使用履歴 `coupon_usages` を作り予約の金額を下げる）→ 続けて `redeem_coupon_usage(venue_use)`。予約時の適用は `create_reservation_with_lock_v2` が `coupon_usages` へ直接入れるので `use_customer_coupon` を通らない（呼び出し元は `action=use` だけ）。
+- DB: migration `20261020190000_coupon_use_same_day`（rollback 同名＝ 20261007110002 の本文に戻す。手元で md5 が元に戻ることを確認）。公演日は `schedule_events.date`、公演の無い予約だけ `requested_datetime` の日本時間の日付。当日でなければ P0028・HINT `not_performance_day`「公演当日にお使いください」。使用済み（already_used）の返りは日付にかかわらず変えない。expected-function-overrides の body_md5 は手元 DB で適用後の md5(prosrc)（`78fc42309474e4d064466bdb8f94ac48`。適用前は既存の期待値 `594779c5…` と一致）。
+  - `requested_datetime` を正にしなかった理由: 予約作成の関数は「日付＋開始時刻」を DB の時間帯（UTC）で解釈して入れるため、夕方以降の公演は日本時間にすると翌日になる。`redeem_coupon_usage`（20261020180000）は `requested_datetime` で判定しているので、夕方以降の公演では当日に「もぎる」が断られるおそれがある（未確認・未修正。staging の実データで `requested_datetime` と公演の日時を読み取りで照らすと確かめられる）。
+- API: `use` の断りを 400 と `code`（`not_performance_day`／DB の SQLSTATE）で返す。
+- 画面: 確認ダイアログのボタンを「もぎる」から「この予約に使う」に（来店確認の「もぎる」と分ける）。選んだ予約が当日でなければ押せず「公演当日に使えます（M/D）」、当日でない候補の下にも同じ文言。割引額の確認は当日だけ。サーバーの `not_performance_day` は「クーポンは公演当日（M/D）にお使いください」。
+- 確認: `supabase/tests/coupon_use_same_day.sql`（`test:rpcs` に追加。当日の昼・夕方は可／翌日 0:30・前日 23:30・2099 年・3 日前は拒否で履歴も金額も不変／使用済みは冪等／予約時の適用は 30 日先でも可。旧関数では失敗することも確認）、`npm run test:rpcs`、`api/coupons.test.ts`、`CouponsPage.test.tsx`、`e2e/coupon-rules.spec.ts`（手元で 4 件通過）、vitest 全件、`npm run verify`。
+- staging への migration 適用は発注者が行う。適用後に staging の md5(prosrc) が期待値と一致することを確かめ、`supabase/structure/staging.json` を更新する。
+
+## 2026-10-20 / クーポンの「もぎる（来店確認）」を公演当日だけにする（fix/coupon-redeem-same-day、staging 向け PR）
+
+- 不具合: `redeem_coupon_usage` に日付の確認が無く、先の予約（2099 年でも）に来店確認ができた。マイページの「この予約に適用済み」からも今すぐ押せた。
+- DB: migration `20261020180000_coupon_usage_redeem_same_day`（rollback 同名＝ 20261020130000 の本文に戻す）。`customer_present`／`venue_use` とも、予約の公演日（`requested_datetime` の日本時間の日付）が今日（日本時間）のときだけ。それ以外は P0028・HINT `not_performance_day`「公演当日に押してください」。確認済みの冪等な返りは変えない。expected-function-overrides の body_md5 は手元 DB で適用後の md5(prosrc)（適用前の md5 が既存の期待値と一致することを確認）。
+- API: `redeem-usage` は断りを 400 と `code`（`not_performance_day`／DB のコード）で返す。`use` で先の予約に使ったときは使用は成功のまま印を付けず `redeemed: false`・`redeem_code` を添える。
+- 画面: `AppliedCouponsSection` は当日でなければボタンを無効にし「公演当日に押せます（M/D）」。サーバーの `not_performance_day` は「来店確認は公演当日（M/D）に押してください」と表示。
+- 仕様書: `docs/COUPON_RULES.md` に「来店確認（もぎる）は公演当日のみ」。
+- 確認: `supabase/tests/coupon_usage_redeem_same_day.sql`（`test:rpcs` に追加。当日可・翌日 0:30／2099 年／前日 23:30／3 日前／venue_use の先日付は拒否・確認済みは冪等。旧関数では失敗することも確認）、`npm run test:coupon-redeem-db`（当日のみ・rollback で元に戻る）、vitest 全件、`npm run verify`。手元（`npm run dev:full`、手元 DB、375px）で試験会員 customer1 に今日と 10/25 の適用済みを仮に入れ、今日は押せて「来店時に確認済み」、10/25 は無効表示「公演当日に押せます（10/25）」、API 直叩きは 400・`not_performance_day` を確認（仮データは削除済み）。
+- staging への migration 適用は発注者が行う。適用後に staging の md5(prosrc) が期待値と一致することを確かめ、`supabase/structure/staging.json` を更新する。
+
+## 2026-10-20 / 予約詳細の「取り下げる」にもグループを残すか選ぶダイアログ（feat/mypage-withdraw-keep-group、staging 向け PR）
+
+- 社長決定（2026-10-20）: #1143 のダイアログ `WithdrawRequestDialog` を予約詳細（`/mypage/reservation/{id}`）の「申込の取り下げ」にも出す。マイページの貸切カードの「操作」は #1143 で対応済みだったので、残っていた入口はここだけ（マイページ配下で取り下げを呼ぶのは `usePrivateBookingActions` と予約詳細の 2 か所）。
+- 実装: `src/pages/MyPage/pages/reservationDetail/PrivateRequestWithdrawSection.tsx`（説明・ボタン・ダイアログ）。`useWithdrawPrivateRequestMutation` に `keepGroup` を足し、`groupKept` を返す。メンバー数は `readPrivateGroup` で読む（読めなければ人数なしの文面）。グループの無い直接申込は選択肢を出さず従来どおり。失敗時は理由を toast（従来は何も出ていなかった）。取り下げ後は従来どおり `/mypage?sub=private`。
+- ついでの修正（`buildPrivateBookingView`）: 同じグループに申込が複数ある（取り下げ→申し込み直し→また取り下げ）と、カードが先に並ぶ古い取消済みの申込に結ばれ「候補日を直して申し込み直す」にならず「申込に進む」になっていた。グループの `reservation_id` が指す申込を優先して結ぶ。
+- 確認: vitest 全件、`npm run verify`。手元（staging 接続、5191、375px）で QA 会員 A の 5DIVE グループを申込 → 予約詳細で「申込だけ取り下げる」→ マイページの貸切は「候補日を直して申し込み直す」、キャンセルのタブに「取り下げ」→ グループページの申込シートから申し込み直せた → もう一度予約詳細から取り下げ（グループは残した状態で終了）。「グループも閉じる」の実行は画面では試していない（従来の処理のまま、単体テストで受け渡しを確認）。
+## 2026-10-20 / 戦塵Discordの日付別チャンネルにメイン・サブGMを追加
+
+- [x] `gm_roles`・公演の`gms`・同組織の`staff`を照合し、`メインえるサブりんな`形式で命名。複数サブと未定を扱い、不整合・100文字超過は従来名と警告にフォールバックする。
+- 本番専用関数 `provision-private-booking-discord` v28へ承認済み配備。既存33公演66チャンネルを改名・再取得確認済み。他67件の名前、全件の権限とカテゴリは不変。予約・スタッフ割当は変更なし。
+- このPRは稼働中の変更を通常配備で保持するための保存。認可・既存ルーム再利用・取消・終了処理は変更なし。本番でテスト予約や通知は作成していない。
+
+## 2026-10-20 / マイページのクーポンで使用履歴が空になる（PGRST201）→ 予約の埋め込みに外部キー名を明示（fix/coupon-usages-embed-ambiguity、staging 向け PR）
+
+- 原因: `coupon_usages` と `reservations` の間に外部キーが 2 本ある（`coupon_usages_reservation_id_fkey`＝使用→予約、`reservations_coupon_usage_id_fkey`＝予約→使用。後者を作る記述は migration では 20260214000001 の「列が無ければ REFERENCES 付きで追加」だけで、20261012120000 には外部キーの追加は無い。本番に後者があるかは未確認（本番には触れていない）。staging と手元 DB にはある）。`coupon_usages ... reservations (...)` の素の埋め込みが PGRST201 で失敗し、`/api/coupons?type=all` が使用履歴を黙って空にしていた（使用日時が出ない・「この予約に適用済み」が出ない）。手元 DB（supabase start）でも同じく再現。
+- 直し: `api/_lib/coupons/usageSelects.ts` に select 文字列を集め、予約の埋め込みは `reservations:reservations!coupon_usages_reservation_id_fkey(...)` で書く（返却キーは従来どおり `reservations`）。お客様の一覧（`customerReads.ts`）と管理画面の使用履歴 2 か所（`adminReads.ts`、従来は列名ヒント `reservations:reservation_id`）が使う。`reservationCoupons.ts`・`adjustments.ts` は予約を埋め込んでいないので変更なし。逆向き（`reservations` から `coupon_usages`）の埋め込みは API・画面に無い。
+- 失敗時: 使用履歴が読めないときは `console.error` に code・message・details・hint を出し、各クーポンに `coupon_usages_error: true` を付けて返す。マイページ › クーポンは「使用履歴を読み込めませんでした」と「再読み込み」を出す。
+- 他の組の点検（staging の REST で埋め込みの解決だけ確認）: `coupon_usages`→`customers`（`redeemed_by_member` の 1 本）、`coupon_usages`→`customer_coupons`、`customer_coupons`→`customers`／`coupon_campaigns`／`coupon_usages`、`customers`→`reservations`／`coupon_usages`、`reservations`→`customers`／`stores` はどれも 1 本で曖昧でない。
+- テスト: `api/_lib/coupons/usageSelects.test.ts`（ヒント名が入ること、`api`・`src` のコードに外部キー名なしの埋め込みが残っていないことを走査）、`api/couponRedeem.test.ts`（ヒント付きで読む・PGRST201 で `coupon_usages_error`）、DB 側 `supabase/tests/coupon_usage_embed_hints.sql`（外部キーが 2 本でヒント名が実在し向きが正しい、読み取りのみ。`test:rpcs` に追加、手元 DB で PASS）。
+- 本番: 次の本番公開にこの修正を含めること。本番に `reservations_coupon_usage_id_fkey` があれば今も同じ現象が出ている可能性があるので、発注者が本番の外部キーを読み取りで確認する。
+## 2026-10-20 / 本番 #1140: カレンダーから 180 日より先の貸切を申し込めた → 「貸切を受け付ける範囲」を設定にして全経路で弾く（fix/private-booking-horizon-180、staging 向け PR。main 向け hotfix は hotfix/private-booking-horizon-180-main）
+
+- 事象（スタッフ報告）: 作品ページの貸切は 180 日後までだが、公開カレンダー・リストの「貸切申込」チップは先の月へいくらでも出て、申込ページ（`?date=`）にも DB の保存の検査（`assert_private_booking_candidate_date`）にも上限日が無かった。
+- 社長指示（2026-10-20）: 上限は固定値にせず設定で変える。優先順位は MMQ の既定（180）→ 組織 → 作品 → 公演。既存の運営設定（`operating_setting_overrides`・`resolve_operating_setting`）にキー `private_booking_horizon_days` として乗せる（MMQ の既定は `get_operating_setting_default`。`global_settings` は組織ごとの表なので「MMQ の既定」には使わない）。店舗では指定しない。値は 1〜180（181 以上は公開の空き取得 RPC の 180 日の範囲上限も変える必要があるため）。
+- DB: `get_effective_private_booking_horizon_days(組織, 作品, 公演)`（未ログインでも読める。作品未選択の入口は組織の値と公開中の作品の個別指定のうち最長）。`assert_private_booking_candidate_date` が今日（日本時間）+ 日数より先を「申し込めるのは今日から N 日先までです」（P0058）で弾く → 候補追加・グループ作成・日時付き申込・空き判定（理由 `too_far`、detail に文面）・作品一覧の日付理由（`too_far`）すべてに効く。空き判定と作品一覧の日付理由は staging と本番で本文が違うため、migration は今の本文に同じ置き換えをする形（同じファイルを両方で使え、再実行しても同じ）。migration `20261020150000_private_booking_horizon_days`（rollback 同名）。例 R31〜R33。
+- 画面: `src/lib/privateBookingHorizon.ts` に日付計算と読み込み（`usePrivateBookingHorizonDays`）。公開カレンダー・リストは範囲より先の日にチップを出さず、範囲が月の途中で終わる月は「貸切の申込は今日から N 日先（M/D）までです」。申込ページは `?date=` が範囲より先なら理由を出して進めない。日時から選ぶ作品一覧も同じ。作品ページ（`MAX_FUTURE_DAYS`）・申込ページ（`CANDIDATE_HORIZON_DAYS`）・グループの候補日追加の固定 180 を設定値に。設定画面は 設定 › 貸切予約の受付締切（組織）・作品編集 › ゲーム設定（作品）・公演の個別設定 › 開催判断・準備（公演）。保存したら `private-booking-horizon-days` と `public-private-slots` を無効化して読み直す。変更は管理者だけ（既存の運営設定 API が admin／license_admin に限定）。
+- 確認: 手元 DB で migration 適用（2 回流しても同じ）・rollback で元の本文（md5）に戻ることを確認・R1〜R33・空き判定テスト・smoke 通過。vitest 全件、`npm run verify`、`check:private-booking-rules`。staging・本番への適用は発注者が行う。
+- 注意: 手元 DB に別の作業（public-pages の `20261020160000_private_group_photo_limit`）が `resolve_operating_setting` を上書きしていた（このキーを含んだ版）。両方が同じ関数を全文で置き換えるので、後から取り込む方でキーの一覧を合わせること。
+## 2026-10-20 / 申込の取り下げでグループを残すか選べる（fix/withdraw-request-keep-group-option、staging 向け PR）
+
+- 社長決定（2026-10-20）: 店舗の返事待ちの「申込を取り下げる」で、グループも必ず閉じていたため日程を変えて申し込み直せなかった。確認ダイアログ `WithdrawRequestDialog`（マイページの貸切カードの「操作」とグループページの ⋮ →「操作」・申込内容の箱で共通、`usePrivateBookingActions`）で「申込だけ取り下げる（既定）」／「グループも閉じる」を選ぶ。文面は `withdrawRequestText`。
+- 残す場合: `/api/reservations?action=cancel-with-group-lock` に `keep_group: true` → 新 RPC `withdraw_private_request_keep_group`（申込者本人かつ主催者・返事待ちのみ。グループを gathering へ戻してから申込を取消、候補日・回答は残す、チャットに `booking_withdrawn` の 1 行。二重実行は P0054）。閉じる場合は従来の `cancel_reservation_and_group_with_notice`。
+- 画面: 残した場合はグループページのまま読み直し、箱とマイページのカードは「候補日を直して申し込み直す」（`rebookAfterWithdrawal`、主ボタンは申込シート）。
+- お知らせ: 主催者のベル・控えのメールは「グループはそのまま」の文面（`customer_notice_on_reservation_cancelled`）、店舗の取り下げ通知に「グループは残っています」を 1 行（`enqueue_private_request_withdrawal`）。メンバーへのベル・メールは出さない。
+- migration `20261020140000_private_request_withdraw_keep_group`（rollback 同名）。expected-function-overrides は PGlite で適用した md5(prosrc)（旧版の md5 が一致することを確認済み）。DB テスト `scripts/test-private-request-withdraw-keep-group-db.mjs`（CI に追加）。
+- 確認: vitest 全件、`npm run verify`、DB テスト（残す・権限・二重実行・状態の食い違い・失敗時の巻き戻し・閉じる流れの文面・rollback→再適用）。手元（staging 接続、5187、375px）でダイアログの表示と選択の切り替え。staging に返事待ちの QA グループが無く書き込みもできないため、実データでの取り下げは migration 適用後に発注者が確認する。
+## 2026-10-20 / クーポンの「もぎる」を予約に適用済みのクーポンにも（社長決定 B）・限定クーポンの「全店舗」誤表示（fix/coupon-tear-and-usable-stores、staging 向け PR）
+
+- 1 もぎる（社長決定 B）: 予約時に付けたクーポンは予約確定で消費される（従来どおり）。来店時にマイページのクーポンを開いても一覧に無い／「使用済み」でスタッフが混乱していた。マイページのクーポン（`src/pages/MyPage/pages/CouponsPage.tsx`）と登録後のクーポン案内（`src/pages/CouponPresent.tsx`）に「この予約に適用済みのクーポン」を出す（当日〜30 日先の確定予約に付いた使用、`src/pages/MyPage/utils/appliedCoupons.ts`）。未確認なら「もぎる（来店確認）」→確認ダイアログ→「来店時に確認済み（時刻）」。消費は増やさない。
+- DB: migration `20261020130000_coupon_usage_redeem`（rollback 同名）。`coupon_usages` に `redeemed_at`・`redeemed_by_member`（customers.id）・`redeemed_source`（customer_present／venue_use）。RPC `redeem_coupon_usage(p_user, p_usage_id, p_source)`（service_role のみ。本人のクーポン・本人の予約〔貸切の参加メンバー含む、can_use_coupon_reservation〕・確定予約のときだけ。確認済みなら成功で何もしない）。API `POST /api/coupons?action=redeem-usage`。来店時にその場でもぎる従来の使用（action=use）は、使用に続けて venue_use で印を付ける（失敗しても使用は成功）。
+- スタッフ側: `GET /api/coupons?type=reservation-coupons`（requireStaff、自組織の予約だけ）。予約一覧の行に「クーポン 来店確認済み／未確認」、展開の予約台帳と予約管理の予約詳細に「クーポン名 ¥割引・来店確認済み（時刻）」。
+- 読み取りは来店確認の列が無い DB（migration 適用前）では列なしで読み直す（`isMissingRedeemColumn`）。
+- 説明: クーポン受付対応・クーポンの種類のマニュアル（コード内の既定と seedLegacyPages）に「予約時にクーポンを付けたお客さま」を追加。FAQ 貼り替え文にはもぎるの項目が無いので変更なし。
+- 2 C1: `couponUsableStores` が対象店舗の指定ありで一致 0 件のとき「全店舗」にしていた。指定あり／なしを先に分け、一致 0 件は「利用できる店舗を確認中です」（マイページでは「使える店舗:」を付けない）。
+- 構造の期待値: `supabase/structure/expected-function-overrides.json`（redeem_coupon_usage）と `expected-table-overrides.json`（coupon_usages）を手元の「基準＋変更」の写しから追加（`scripts/check-db-baseline.sh` 通過）。
+- 確認: vitest（API・マイページ・スケジュール・マニュアル 250 件）、`npm run verify`、`npm run test:coupon-redeem-db`（PGlite: 冪等・他人のクーポン・他人の予約・取消済み・貸切メンバー・権限・rollback）、既存 `test:coupon-rules-db`。手元（staging 接続、5186）で QA 会員 A にログイン。staging の QA 会員 A はクーポン 0 枚のため、画面の API 応答だけを差し替えて表示（375px・PC 幅、未確認・確認済み・確認ダイアログ）を確認。もぎるは押していない。
+- staging への migration 適用は発注者が行う。適用後に `supabase/structure/staging.json` を更新する。
+
+## 2026-10-20 / 外部監査 R3（Discord 再送の 401）・R5（新規データを失わない戻し方）（fix/audit-r3-r5、staging 向け PR）
+
+- R3 原因: `check-performance-cancellation` が追加募集の後に `retry-discord-notifications` を `supabase.functions.invoke` で呼ぶとき、送るのは supabase-js の鍵（`sb_secret_...`）だけ。ゲートウェイが Authorization を自前の JWT に差し替える（ログの `sb_api_key_compatibility=minted`）ため、受け側の `isCronOrServiceRoleCall` は鍵の一致を確認できず 401。staging 24 時間で 133 回、本番でも 91 回（どちらも本文 25 バイト＝`{"only_recruitment":true}`）。5 分毎の cron（pg_net、`x-cron-secret`）は本番で 268 回すべて 200。
+- R3 直し: `_shared/security.ts` に `internalFunctionHeaders()`（`CRON_SECRET` を `x-cron-secret` で渡す）。呼び出し側は未設定なら呼ばずにキューへ任せ、失敗は状態コードを記録して止めない（通知は pending のまま cron が送る。受け側で止まった sending は `recover_recruitment_mail_alerts` が 5 分で戻す）。テストは `scripts/edge-security-boundary.test.mjs`。
+- R3 別件: staging には `retry-discord-notifications` の cron が無い（本番はある）。staging の Discord キューは追加募集の即時呼び出しでしか流れない。
+- R5: `docs/ops/本番公開の戻し方_2026-10.md`。rollback 3 本（`20261010100000`・`20261010130000`・`20261010160000`）は表・列を消す前に非公開スキーマ `rollback_backup` へ写す（同日の二重退避は止まる）。`check:migration-rollbacks` に「2026-10-10 以降で DROP TABLE する rollback は退避必須」を追加。手元 DB（local-repro）で 7 本を 1 取引で流して取り消し、退避 9 表・二重退避の停止・anon から読めないことを確認。
+- 本番配備時の secret: `CRON_SECRET`（本番・staging とも設定済み、`app_config.trigger_secret` と同じ値）。新しい secret は不要。
+
+## 2026-10-20 / 外部監査（staging d179ebe98）R1・C2・C3・C4（fix/audit-r1-c2-c3-c4、staging 向け PR）
+
+- R1 申込の確認画面の終了時刻: `src/pages/PrivateBookingRequest/index.tsx` の `enrichSlotEnd` が DB の終了時刻を作品の所要時間で上書きしていた（初期値・候補の追加・送信前の再検証）。特別営業日に DB が 14:00〜18:00 を返しても 14:00〜17:00 になり保存で弾かれた。`enrichSlotEnd` を消し、確認画面を開いた時点で候補の日付の空き状況を DB に問い合わせ、選べる候補は DB の時刻にそろえる（前ページの時刻から変わったら知らせる）／選べない候補は理由を出して送信させない。送信前の再検証も同じ問い合わせを取り直す。URL から来て DB で時刻が決まらなかった候補の仮の終了（`resolvePrivateBookingUrlPrefillSlot`）は空にした（enrichSlotEnd を消すと「14:00 - 14:00」と出るため）。
+- C2 グループ作成画面の店舗: `listActiveStoresForGroup` が臨時会場を一律で除いていた → 臨時会場も読み、`isStorePlayableForScenario` で絞る（上演店舗に明示した臨時会場は選べる。指定の無い臨時会場・オフィスは出さない）。
+- C3 公開停止の作品: `create_private_group_atomic` に `org_status='available'` と `scenario_kind<>'offsite_only'` を追加、文面「この作品はいま貸切を受け付けていません」。グループ作成画面の作品取得（`findScenarioForGroup`）も同じ条件で絞り、取れなければ同じ文面を出す。migration `20261020120000_private_group_create_requires_public_scenario`（rollback 同名）、DB テスト `supabase/tests/private_group_create_public_scenario.sql`（`test:rpcs` に追加）。`expected-function-overrides.json` の body_md5 を更新。近日公開（coming_soon）も受け付けない。
+- C4 DB テスト: `scripts/test-recruitment-targets-db.mjs` に現行の `get_operating_setting_default`・`resolve_operating_setting` と読む表を足した（42883 の解消）。`private_candidate_slot_availability.sql`・`private_booking_rules_examples.sql` は `supabase/tests/fixtures/private_test_group.sql` で試験用の主催者とグループを（無ければ）作る。
+- 確認: vitest 全件、`npm run verify`、PGlite の DB テスト（scripts の PGlite 72 本すべて）、新しい手元 DB（基準 + migration + seed を別の番号で 0 から起動）で `test:rpcs` の 5 ファイルすべて通過。C3 は rollback → 新テストが落ちる → 再適用で通ることを確認。C4 の 2 本は修正前に「グループを閲覧できません」「候補日を追加する権限がありません」で落ちることを確認。手元（staging 接続、5185、375px）で日時付きの申込: 選べる日（12/2 夜・11/25 午後）は DB の 19:00〜23:00・13:00〜17:00 のまま、選べない日（11/19 午後）は「この日時は選べません（他の公演と重なります）」で送信不可。staging には未来の特別営業日が無く、14:00〜18:00 の例は画面テストと DB テスト（R25）で確認。
+- staging への migration 適用は発注者が行う。適用後に `supabase/structure/staging.json` を更新する。
+
+## 2026-10-20 / staging 点検（貸切の流れ）の公開前修正 12 件（fix/release-blockers-b、staging 向け PR）
+
+- A1 日時から選ぶ作品一覧: その日に申し込めない作品も「貸切できます」で出ていた。作品ごとの日付の理由を返す DB 関数 `private_booking_scenario_date_reasons`（保存と同じ `assert_private_booking_candidate_date`）で「この日は申し込めません（作品の公演期間外です）」と出し、押せなくする。選んだ作品は `private_booking_candidate_slot_availability` で確かめ、だめなら理由をボタンの上に出して進めない（`src/pages/privateBookingSelectModel.ts`）。
+- A2 送信失敗の英字コード: `PRIVATE_BOOKING_OUTSIDE_PERFORMANCE_PERIOD` がグループ作成（`usePrivateGroup.createGroup`）からそのまま出ていた。`src/lib/privateBookingErrors.ts` に表を作り（SQLSTATE と英字のコードの両方）、申込確認・グループからの申込・候補日の保存で使う。申込確認ではエラーを送信ボタンの直上に出す。
+- A3 開始時刻の食い違い: 作品を選んだ時点で DB の開始時刻を出し（「この作品の開始時刻 18:30 で申し込みます」）、その時刻で確認画面へ渡す。
+- A4 希望店舗: `isStorePlayableForScenario` で上演できる店舗だけを出す（臨時会場・指定外の「対応不可」を並べない）。
+- B5 日程がそろった通知: 候補日ごとに数えていたため、回答のたびに飛んでいた。全員が全候補日に回答し終え、全員 ○ の日があるときに 1 回だけ。回は「候補日がいちばん最後に追加された時刻」で区切り、重複防止の鍵に入れる（列は足さない）。トリガーの WHEN (response='ok') を外す（最後の回答が × でもそろう）。「夜間」は「夜」。migration `20261020110000_private_group_dates_aligned_once`（rollback 同名）、DB テスト `supabase/tests/private_group_dates_aligned_once.sql`（`test:rpcs` に追加）。
+- C6 グループページ（スマホ）: 見出しの下をまとめて 1 つのスクロールにし、箱が見えなくなったら 1 行のバーだけ上に固定（`GroupMemberPage`）。チャットタブは従来どおり。
+- C7 候補日の追加: マイページと同じ全画面の部品 `CandidateDatesDialog`（`src/components/patterns/privateGroup/`、AddCandidateDates の dialog 版）を 1 回で開く。
+- C8 箱が縮んで表がずれる: 同じタブの間は箱の高さの最大を下限にする（回答後の読み直しで描き直しても覚えておく）。
+- D9 「候補日 N 件で申込中」は送った候補の数（申込の candidate_datetimes）。D10 概要の料金は「¥4,500 × 2 名 = ¥9,000」に、何の人数か（いまの参加人数／申込人数）を添える。D11「事前配役アンケート」に統一。D12 LINE 共有・友達を誘う文の絵文字をやめ（`src/lib/shareTexts.ts`）、マイページの画像なし・クーポン・問い合わせの絵文字をアイコン部品に。
+- 確認: vitest 全件、`npm run verify`、手元 DB で `test:rpcs` の範囲（smoke・空き判定・R1〜R27・新テスト）、rollback→旧版で新テストが落ちることを確認→再適用。手元（staging 接続、375px）で作品一覧→選択→理由・開始時刻 18:30 の表示。グループページ・通知は staging に書き込めないため、ローカル（scripts/local-repro、staging の構造）で 375px と PC 幅: 固定は 1 行のバーだけ・候補日画面が 1 回で全画面・回答 3 件で通知はベル 2 件（主催者・会員）とメール 1 件、回答し直しても増えない・箱が縮んでも表の位置が変わらない。
+- staging への migration 適用は発注者が行う。適用後に `supabase/structure/staging.json` を更新する。
+
+## 2026-10-20 / 公開前点検の止め 2 件: 絞り込みで先頭へ戻る・ログイン切れのマイページ（fix/release-blockers-a、staging 向け PR）
+
+- 1 絞り込みで先頭へ戻る: 店舗トップ `/queens-waltz` と MMQ 全体トップ `/` の「空いている公演を探す」で、今週／来週／今月・カレンダー／リスト・店舗・空席あり・初心者向けを押すたびにページ先頭へ戻っていた。原因はページ移動時に先頭へ戻す `ScrollToTop`（`src/AppRoot.tsx`）が、URL のクエリが変わるとすべて「別の画面」とみなしていたこと（除外は `event`・`count` だけ）。絞り込み条件のキー（`when`・`date`・`stores`・`avail`・`beginner`・`area`・`view`・`people`）を除外に追加。`?tab=` などの切替はこれまでどおり先頭へ戻す（「クエリだけの変更は戻さない」にするとマイページのタブ等が変わるため不採用）。`ScrollToTop` は `src/components/routing/ScrollToTop.tsx`、判定は `src/lib/scrollNavigation.ts` へ移動。
+- 店舗の選択リスト（`StorePicker`）に `hideWhenDetached`: ボタンが画面外へ出たら一覧も隠し、スマホで上部に浮いて残らないように。
+- 2 ログイン切れのマイページ: `/mypage` は予約シェルとして認証確認前から描画され、`MyPage` が未ログインでもそのまま表示して「ゲスト さん」「予約がありません」になっていた。`RequireLogin`（`src/components/auth/RequireLogin.tsx`）で包み、確認中は「読み込み中」、未ログイン確定（`isInitialized` かつ user なし、URL にトークンが残っていない）なら `/login?redirect=/mypage...` へ。予約詳細 `/mypage/reservation/...` も同じ。
+- 確認: `ScrollToTop.test.tsx`（絞り込みで scrollTo が呼ばれない／パス移動と ?tab= では呼ばれる。修正前の一覧では落ちることを確認）、`RequireLogin.test.tsx`、関連 vitest 1170 件、`npm run verify`。手元（staging 接続、5184）で 375px と PC 幅: `/queens-waltz` の各チップ・店舗選択・満席を非表示、`/` の各チップ・店舗選択でスクロール位置が変わらない。未ログインで `/mypage` を開くと `/login?redirect=%2Fmypage`。
+
+## 2026-10-15 / Codex staging 点検（56d943a46 以降）の 5 件（fix/codex-staging-review-5、手元コミットのみ・push なし）
+
+- 1 グループ作成時の空き確認: `create_private_group_atomic` は作品の時間帯しか見ず、画面で選んだ後に公演・受付停止・設定が変わっても保存できた。候補追加と共通の内部関数 `private_booking_assert_candidate`（締切・募集期間・時間帯・店舗ごとの空き・所要時間）を候補ごとに通す。候補追加 `private_group_add_candidate_dates` も同じ関数に置き換え。
+- 2 特別営業日: `private_booking_slot_store_fit` は開始時刻だけ特別営業日を土日祝の扱いにし、所要時間・作品の時間帯・作品名の特例は日付だけで決めていた。store_fit が作品の行（jsonb）を受け取り、店舗ごとに土日祝の扱いをまとめて決める（minutes 列・why=slot_not_allowed を追加）。正本 I5。
+- 3 臨時会場: 作品の上演店舗の指定が空のとき、申込ページ（`PrivateBookingRequestPage`・`PrivateBookingRequest`）は臨時会場を希望店舗に残し、DB は対象外。逆に作品ページは指定に含まれる臨時会場を出していなかった。`isStorePlayableForScenario`（`src/lib/scenarioStoreHint.ts`）に一本化。
+- 4 店舗の引き継ぎ: 作品ページの 3 つのボタン（ヒーロー・貸切タブ本文・料金パネル）を `privateGroupCreatePath`（`src/pages/PrivateBookingStart/paths.ts`）にそろえ、貸切タブで選んでいる希望店舗を常に `stores` で渡す（これまでは本文のボタンだけ、しかも `?stores=` で来たときだけ）。
+- 5 空き状況の取得エラー: 作品ページの貸切タブで、読めなかったときは枠を出さず赤い案内＋「空き状況を再読み込み」。グループの候補追加にも再読み込みボタン。
+- migration `20261015110000_private_booking_create_validate_special_open_day`（rollback 同名）。例 R25〜R27。expected-function-overrides は手元で適用した md5(prosrc)。
+- 確認: 手元 DB で migration 適用→回帰 SQL（R1〜R27）・空き状況テスト・smoke 通過、rollback→旧版で R25 が落ちることを確認→再適用。vitest 全件、`npm run verify`。staging・本番への適用と実画面の確認は未実施。
+
 ## 2026-10-15 / 作品の貸切開始時刻は絶対・本番へ #1021 #1023 を単独反映（hotfix/candidate-slot-rule-to-main、main 向け PR #1125 と staging 向け PR）
 
 - 事象: 本番の貸切候補日が古い規則（午後は夜の枠の開始までに終わる）のままで、「祝福のアルカディプス」（土日祝の午後 14:30・所要 270 分・夜 18:30）の申込が 14:00（平日 13:00）に繰り上がっていた。
 - main へ #1021・#1023 だけを cherry-pick。main の申込の確認画面（PrivateBookingRequest）とカレンダーから開く申込ページ（PrivateBookingRequestPage）が旧来の画面計算で候補時刻を見直していたため、DB の private_booking_candidate_slot_availability に置き換えた（送信前の再検証で 14:30 が 14:00 に戻らないように）。
 - 社長決定（2026-10-15）: 作品に貸切開始時刻がある枠はその時刻を絶対とし、入らなければずらさず選べない（理由 start_fixed）。private_booking_slot_store_fit に fixed 列、保存 RPC はその時刻以外を「この作品の開始時刻は HH:MM です」で弾く。migration 20261015100000_scenario_slot_start_is_absolute（rollback 同名）。例 R22〜R24。
 - 確認: 手元の使い捨て DB（基準＋migration）で構造の再現・回帰 SQL（R1〜R24）・rollback→旧テスト通過→再適用を確認。staging・本番 DB への適用は発注者が行う。
+
+## 2026-10-15 / 貸切を始めるページ: 店舗を選ぶ → 作品を選ぶを 1 ページで（fix/private-org-picker-page、staging 向け PR）
+
+- 社長指摘: #1122 の「参加店舗から選ぶ」でトップの貸切の欄の下に枠が開くのはおかしい。押したら画面遷移して。追加指示: 新しいページで希望店舗と作品まで選べるように。
+- 対応: 新ページ `/private-booking/select-organization`（`src/pages/PrivateBookingStart/`、見出し「貸切を始める」）。上で組織カードを押すと選択状態になり、複数店舗なら「希望店舗」のチップ（どれでも可／各店舗。複数可。臨時会場・オフィスは除き、お客様向けの店舗名）。下にその組織の貸切できる作品（`PrivateScenarioGrid`、検索・人数のチップ）。希望店舗を選ぶと、その店舗で上演できる作品（`available_stores`）だけに絞る。選んだ組織と店舗は URL（`?org=&stores=`）に残し、作品ページから戻ると同じ状態。
+- 作品を押すと `/{org}/scenario/{slug}?tab=private&stores=ID,ID`。作品ページは `stores` を貸切タブの希望店舗に 1 回だけ反映し、「まずはメンバーを招待して貸切グループを作成」で `/group/create?...&stores=` に渡す。グループ作成は `stores` を希望店舗の初期値にする（作品の対象外の店舗は読み込み後に外す。読み込み前は外さない）。
+- `/{org}/private-booking-select` は日付・時間帯なしなら同じページを組織を選んだ状態で開く（「別の店舗を選ぶ」は新ページへ）。カレンダーからの `?date=&slot=` の流れは従来どおり。組織が 1 つだけなら選んだ状態で開く。
+- MMQ 全体トップ: 「参加店舗から選ぶ」は新ページへのリンク。`?pick=private` の枠、`OrganizationDirectory` の `mode="private"`、`organizationCardPath`、作品一覧の `from=mmq` は削除。組織カードの材料は `buildPlatformOrganizations` / `fetchPlatformOrganizations`（公演は読まない）に分けた。
+- 経路: `adminDashboardRouting`（`private-booking-start`）、`profileGate`（見るだけのページ）、`AppRoot`（`private-booking` を全体の先頭の区切りに）、`STATIC_PUBLIC_META['private-booking-start']`、sitemap。
+- 確認: `PrivateBookingStart/index.test.tsx`（9 件）、`PlatformTop/index.test.tsx`、`PrivateBookingScenarioSelect.test.tsx`、`PrivateGroupCreate/index.test.tsx`（初期値 2 件）、`adminDashboardRouting.test.ts`、`npm run verify`。手元（staging 接続）で 375px と PC 幅: `/` →「参加店舗から選ぶ」→ 新ページ → クインズワルツ → 大塚店 → 作品 → 作品ページの貸切タブで希望店舗が大塚店 → グループ作成（未ログインなのでログイン画面の戻り先に `stores` が付くところまで）。ブラウザの戻るで組織・店舗が選ばれた状態、「別の店舗を選ぶ」で一覧に戻る。375px で横はみ出しなし。
+
+## 2026-10-15 / 全体トップの貸切の入口: 店舗を選んだら貸切できる作品の一覧へ（fix/platform-private-entry-to-scenarios、staging 向け PR）
+
+- 社長指摘: MMQ 全体トップ「友だちと貸切で遊ぶ」→「参加店舗から選ぶ」→ 店舗を選ぶと、組織のトップページに行っていた。
+- 対応: 「参加店舗から選ぶ」は、ページ内の通常の「参加店舗」へ送るのをやめ、貸切の欄のすぐ下に「貸切する店舗を選ぶ」一覧（`OrganizationDirectory` の `mode="private"`、id `private-organizations`、URL `/?pick=private`）を開いてそこへ送る。組織カードの行き先は `/{org}/private-booking-select?from=mmq`（`src/pages/PlatformTop/utils/organizationCardPath.ts`）。「今月 N 公演に空きあり」は貸切と関係ないので貸切用の一覧では出さない。「閉じる」で一覧と URL の印を消す。通常の「参加店舗」は組織トップのまま。
+- 貸切できる作品の一覧（`PrivateBookingScenarioSelect`）は `from=mmq` のときだけ「別の店舗を選ぶ」（`/?pick=private`）を出す。リンクで来たときは一覧まで送り、ブラウザの「戻る」では送らない（元の位置に戻す）。
+- 貸切の流れのページの「1. 貸切を始める」に、MMQ トップからは店舗を選ぶ→作品を選ぶ、の一言を足した。
+- 確認: `src/pages/PlatformTop/index.test.tsx`（3 件）、`PrivateBookingScenarioSelect.test.tsx`（2 件追加）、`npm run verify`、手元（staging 接続）で 375px と PC 幅: `/` →「参加店舗から選ぶ」→ クインズワルツ → 貸切できる作品 → 作品ページの貸切リクエストのタブ、「別の店舗を選ぶ」で戻ると一覧が開いた状態。375px で横はみ出しなし。
+
+## 2026-10-14 / 貸切できる作品の入口を作品カードの一覧にする（fix/private-booking-entry-page、staging 向け PR）
+
+- 社長指摘: トップ「友だちと貸切で遊ぶ」の「貸切できる作品を見る」で開く `/{org}/private-booking-select` は、日付・時間帯を選んだ人向けのページだったため、日付なしで開くと「選択された日時」が空、作品はプルダウンだけ、確認ボタンも押せなかった。
+- 対応: 日付・時間帯が無いときは見出し「貸切できる作品」で、貸切を受け付ける作品（`isScenarioAcceptingPrivateBooking`、公開用の作品一覧）を作品カード（`ScenarioCard` に `note`・`selected` を追加）の一覧で出す。作品名・作者の検索と人数のチップで絞れる。カードを押すと作品ページの貸切リクエストのタブ（`/{org}/scenario/{slug または id}?tab=private`）へ。日時あり（カレンダー・リストの貸切申込チップ）は見出し「{日付} {時間帯} の貸切: 作品を選ぶ」、同じカードの一覧から選ぶと下に人数・料金・希望店舗と確認ボタン（従来どおり）。一覧の部品は `src/components/private-booking/PrivateScenarioGrid.tsx`。
+- 公開用の作品一覧 API（`PUBLIC_FIELDS`）に `slug` を追加（DB 変更なし）。staging の配備前の手元確認では slug が無いので id で開き、作品ページが slug の URL に置き換える。
+- MMQ 全体トップの貸切の欄は、店舗ごとに申し込む案内と「参加店舗から選ぶ」（参加店舗の欄へ）にした。貸切の流れのページの「1. 貸切を始める」を新しい導線の文に直した。
+- 確認: `src/pages/PrivateBookingScenarioSelect.test.tsx`（日付なし・ありの 4 件）、全 vitest、`npm run verify`、手元（staging 接続）で 375px と PC 幅: 店舗トップ →「貸切できる作品を見る」→ 作品 → 作品ページの貸切リクエストのタブ（「まずはメンバーを招待して貸切グループを作成」あり）、カレンダーの貸切申込チップ → 作品を選ぶ → 貸切リクエスト確認ページ。
+
+## 2026-10-13 / 再送ループ対応の 2 系統の統合: Codex の #1106（main）を staging にそろえる（fix/merge-codex-retry-concurrency、staging 向け PR）
+
+- 経緯: 同じ高負荷の件に 2 系統が並走した。(a) Claude: 失敗経路の `pg_sleep(2)`（20261013120000、社長承認）＋ #1103（20261013130000 古い日程回答を飛ばして成功、API 層 `writeFailureLimiter` と画面側 `repeatFailureBackoff` の回数制限）。main には #1104 で反映。(b) Codex: #1106（main に squash 済み 470b00011）。20261013130001（advisory lock で同じ利用者・公演の並列保存を即時拒否、`pg_sleep` 除去）、20261013130002（スタッフ保存の古い expected は例外ではなく 40001＋最新内容を返し、旧画面の例外再送を止める）、画面側の再送抑制の書き換え。Codex は 130001・130002 を staging/本番 DB に先行適用済み。
+- 途中で本番 4 関数に 2 秒待ちを重ね直したが（11:15 UTC ごろ）、その後の 130002 適用（11:25 UTC ごろ）で再び外れた。社長判断で **2 秒待ちは戻さない**（本番の失敗の巻き戻しが毎秒 0 件で落ち着き、130002 で解決したため）。
+- 統合: Codex のコミット 470b00011 を staging にそのまま取り込んだ（衝突は `supabase/structure/prod.json` のみ。live の本番から読み取りで作り直した値と一致）。staging DB には適用済みなので db:push はしていない。`db:status:staging` 746 件・未適用なし、`db:drift:staging`・`db:drift:prod` とも差分なし。
+- 画面側の再送抑制は **Codex 版の `src/lib/repeatFailureBackoff.ts` を残し、呼び出し側（`apiClient` の writeWithBackoff、`privateGroupGuestSession`）は #1103 のまま**にした。同じファイルを Codex が書き換えたので、モジュールは 1 つ。理由: 「同じ要求が 3 回続けて失敗したら 10 秒空ける」は満たしたうえで、#1103 版の「待ってから古い内容を送る」をやめて即時に断る（古い回答を後から送らない）、同じ操作の同時送信を 1 件に絞る、localStorage と Web Locks で別タブ・再読み込み後も数を引き継ぐ（保存内容・認証情報は残さない）点が上回るため。API 層 `writeFailureLimiter` も Codex 版（処理中の枠を確保し finally で解放）を採用。main と staging でこれらのファイルは同一。
+- 検証: 関連 vitest（repeatFailureBackoff・writeFailureLimiter・reservations の特性テスト・privateGroup 系）、全 vitest 2203 件、`npm run verify`、`npm run test:rpcs`、`check:migration-rollbacks`、架空 DB の `scripts/test-staff-participation-seats-db.mjs`・`scripts/test-private-group-access-db.mjs`（取り下げ済み候補を含む日程回答は飛ばして成功）、`scripts/test-retry-concurrency-db.py`（docker の network none の PostgreSQL 17 で 2 接続の競合。python 標準ライブラリだけで動くので残した）。
+- main 向けの追加 PR は作らない（#1106 で取り込み済み）。
 
 ## 2026-10-13 / 再送ループの恒久対応: 古い日程回答は飛ばして成功、失敗が続く送り元を待たせる（fix/stale-writes-skip-and-rate-limit、staging 向け PR）
 
@@ -320,6 +570,17 @@
 - DB: migration 20261010170000_private_booking_candidate_slot_availability（rollback 同名、手元で戻すと保存 RPC が元の定義と一致・再適用を確認）。staging 適用済み・本番未適用。structure（staging.json・期待構造）を更新。回帰 SQL supabase/tests/private_candidate_slot_availability.sql。
 - staging で「告別詩」の 10/30・10/31 を確認: 10/30 は昼・夜とも conflict、10/31 夜は conflict で選べない表示になった。
 - 残る課題（判断待ち）: 10/31 は「午後 18:00〜23:00」が選べる判定になる（仮設①②は夜だけ受付停止で、午後枠を夜にずらすと停止を通り抜ける）。保存 RPC も同じく通すため、受付停止を時刻で見るかは別途決める。作品ページから進む申込確認画面（PrivateBookingRequest）は従来の計算で候補を見直しているので、時刻がずれる場合がある。
+## 2026-10-10 / お知らせメール送信（process-customer-notice-emails）の定期実行の合言葉を専用 secret で確かめる（fix/customer-notice-cron-secret、staging 向け PR）
+
+- 背景: 段階 3（#1017）の作業中に「staging の secrets の CRON_SECRET と DB の app_config.trigger_secret が別の値」と気づいた（上の段階 3 の項）。定期実行は x-cron-secret に trigger_secret を送るため、値が違う環境では 401 になりメールが送られない見込みだった。
+- 確認（2026-10-10 20:00、値は表示せず secrets list の digest と DB 値の sha256 を比較）: staging・本番とも CRON_SECRET の digest = trigger_secret の sha256 で一致していた（APPROVAL_DELIVERY / SURVEY_DELIVERY / RECRUITMENT / REMINDER の各 CRON_SECRET も同じ値）。段階 3 の時点で不一致だった原因は追えていない（その後に secrets が更新された可能性）。現時点では 401 は出ない。
+- 直し: 値が将来ずれても止まらないよう、send-web-push（WEB_PUSH_CRON_SECRET）と同じ形にした。_shared/customer-notice-auth.ts の isCustomerNoticeCronCall が専用の CUSTOMER_NOTICE_CRON_SECRET（= trigger_secret）を先に見て、無ければ従来の CRON_SECRET / service role（isCronOrServiceRoleCall）に落ちる。単体テスト customer-notice-auth.test.ts（recruitment-auth.test.ts と同じ形。`npx deno test --no-check --allow-env supabase/functions/_shared/customer-notice-auth.test.ts`。--no-check なしは @types/node が無く既存テストも同じく落ちる）。
+- staging: secrets に CUSTOMER_NOTICE_CRON_SECRET（DB の trigger_secret をそのまま、値は表示せず投入）を追加し、関数を配備。DB から定期実行と同じ net.http_post で呼び、net._http_response で status 200・{"success":true,"sent":0,"failed":0} を確認（request 43407）。cron 'process-customer-notice-emails' は 5 分ごとに succeeded。送信待ちは 0 件（customer_notice_email は staging も 'on'）。
+- 本番で必要な手順（本番の secrets・関数・DB は未変更）:
+  1. 本番 DB の app_config.trigger_secret を値を表示せずに読み、`supabase secrets set --project-ref cznpcewciwywcqcxktba CUSTOMER_NOTICE_CRON_SECRET=<その値>`（任意だが推奨。無くても CRON_SECRET が一致している間は動く）。
+  2. main 反映時に `npm run functions:deploy:prod`（この関数を含む）。
+  3. 反映後、本番 DB で `SELECT status_code, left(content,120), created FROM net._http_response WHERE content LIKE '%sent%' ORDER BY created DESC LIMIT 3;` などで 200 を確認。401（body「サーバーからの実行が必要です」）が出たら secrets と trigger_secret の不一致なので 1 をやり直す。
+  - 補足: 本番 DB には既に cron 'process-customer-notice-emails' と表 customer_notice_emails があり、customer_notice_email も 'on'（migration 20261009140000 は本番にも適用済みの状態。段階 4 の項の「本番未適用」は古い）。
 
 ## 2026-10-10 / 貸切グループページ刷新 段階 4 公演後の思い出・写真のサムネイル（feat/group-page-phase4、staging 向け PR・未取り込み）
 
