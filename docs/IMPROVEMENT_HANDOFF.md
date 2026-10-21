@@ -6,7 +6,7 @@
 - 画面: 公開トップのリスト・カレンダーの入口（`respectConfiguredHours`）だけが開店時刻を下限にして平日朝を落としていた（#1073）→ 下限を外し、営業設定が無い店舗の既定も DB の合成（3 枠）にそろえた。入口と DB で残る違いは、空の `available_slots`（入口は枠なし・DB は 3 枠）と、営業設定が無い店舗に作品の開始時刻を重ねない従来の動き（R42）。
 - 影響: クインズワルツ 7 店の平日朝（設定で有効・10:00）は今までどおり作品ページで選べ、入口にも出るようになる。札幌店の平日朝は不変（出ない）。作者不詳などの平日 昼 12:00 固定は選べる。報告元の店舗・作品・URL・環境は不明のまま。
 - 残り: 社長の確認後マージ。コードの反映に DB 操作は不要。
-- 追加（同日）: 平日朝を出さない社長の意図は設定（データ）で反映する。データ修正 `supabase/data-fixes/20261021_queens_waltz_weekday_morning_off.sql`（7 店 × 月〜金 = 35 か所の `available_slots` から朝だけを外す。退避表 `public.business_hours_settings_backup_20261021`・照合 `_check.sql`・比較条件付きの復旧 `_rollback.sql`）と試験 `supabase/tests/data_fix_queens_waltz_weekday_morning_off.sql`（(a)〜(h) 合格、`npm run test:rpcs` に追加）。手順書 `docs/ops/平日朝枠の停止_2026-10.md`。**マージでは適用されない。本番で手動適用するまで東京 7 店の平日朝は選べるまま。** 順序: Codex レビュー → staging で確認 → 本番に設定を先に当てて読み取り確認 → main 起点で #1201 だけを cherry-pick した hotfix PR でコードを出す。staging・本番には書き込んでいない（読み取りのみ。両環境の 7 店の値は一致）。
+- 追加（同日）: 平日朝を出さない社長の意図は設定（データ）で反映する。データ修正 `supabase/data-fixes/20261021_queens_waltz_weekday_morning_off.sql`（7 店 × 月〜金 = 35 か所の `available_slots` から朝だけを外す。退避表 `archive.business_hours_settings_backup_20261021`（public に置かないので DB 構造の記録・定期 Drift に差が出ない）・照合 `_check.sql`・比較条件付きの復旧 `_rollback.sql`）と試験 `supabase/tests/data_fix_queens_waltz_weekday_morning_off.sql`（(a)〜(i) 合格、`npm run test:rpcs` に追加）。手順書 `docs/ops/平日朝枠の停止_2026-10.md`。**マージでは適用されない。本番で手動適用するまで東京 7 店の平日朝は選べるまま。** 順序: Codex レビュー → staging で確認 → 本番に設定を先に当てて読み取り確認 → main 起点で #1201 だけを cherry-pick した hotfix PR でコードを出す。staging・本番には書き込んでいない（読み取りのみ。両環境の 7 店の値は一致）。
 
 ## 2026-10-21 / 公開前再チェック 2 の R1〜R3（限定メール試験の取り出し限定・来店確認の rollback の排他・店舗公開名の書き戻し）（fix/recheck2-r1-r3、staging 向け PR）
 

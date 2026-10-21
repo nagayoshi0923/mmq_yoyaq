@@ -6,6 +6,7 @@
 --  (b) 平日 昼 13:00・昼 12:00 固定（作者不詳相当）・夜 19:00 は変わらない  (c) 土曜 09:00 の朝は変わらない
 --  (d) 平日 open_time 10:00 の店舗（正当な朝営業）は朝が残る  (e) 他の組織（札幌相当）は不変
 --  (f) 既存の候補・予約の行は変わらない。未申込の平日朝候補は申込で拒否・店舗変更で除外  (g) 復旧で元に戻る  (h) 2 回流しても同じ
+--  (i) 退避表は archive スキーマ（public の表の一覧は不変 = DB 構造の記録に差が出ない）・ブラウザの役割から使えない・RLS 有効
 \set ON_ERROR_STOP on
 \set qw_fix `sed -E '/^[[:space:]]*(BEGIN|COMMIT)[[:space:]]*;[[:space:]]*$/d' supabase/data-fixes/20261021_queens_waltz_weekday_morning_off.sql`
 \set qw_rb `sed -E '/^[[:space:]]*(BEGIN|COMMIT)[[:space:]]*;[[:space:]]*$/d' supabase/data-fixes/20261021_queens_waltz_weekday_morning_off_rollback.sql`
@@ -123,6 +124,11 @@ BEGIN
 END $$;
 SELECT pg_temp.snapshot('1 前');
 CREATE TEMP TABLE _fp AS SELECT pg_temp.rows_fp() AS rows_before, pg_temp.hours_fp() AS hours_before;
+-- (i) public の表の一覧（DB 構造の記録 scripts/db-structure-snapshot.mjs が見る範囲: public の通常表・分割表）
+CREATE FUNCTION pg_temp.public_tables() RETURNS text LANGUAGE sql STABLE AS $$
+ SELECT string_agg(c.relname,',' ORDER BY c.relname) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='public' AND c.relkind IN ('r','p') $$;
+CREATE TEMP TABLE _pub AS SELECT pg_temp.public_tables() AS tables_before;
 
 -- 安全装置: 見込み件数が違えば中止（何も変わらない）
 SET mmq_fix.expected_days = '35';
@@ -150,8 +156,18 @@ BEGIN
  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub','00000000-0000-4000-b000-000000000011','role','authenticated')::text,true);
  -- (h) 2 回目は何も変えない・退避は 1 回目の値（3 店）
  ASSERT NOT EXISTS(SELECT 1 FROM business_hours_settings b JOIN _after1 a USING(store_id) WHERE b.opening_hours IS DISTINCT FROM a.opening_hours), '(h) 2 回目で値が変わった';
- ASSERT (SELECT count(*) FROM business_hours_settings_backup_20261021)=2, '(h) 退避が 2 店（東京相当・境界の店）でない';
- ASSERT (SELECT opening_hours FROM business_hours_settings_backup_20261021 WHERE store_id=c.st2)=tokyo, '(h) 退避が元の値でない';
+ ASSERT (SELECT count(*) FROM archive.business_hours_settings_backup_20261021)=2, '(h) 退避が 2 店（東京相当・境界の店）でない';
+ ASSERT (SELECT opening_hours FROM archive.business_hours_settings_backup_20261021 WHERE store_id=c.st2)=tokyo, '(h) 退避が元の値でない';
+ -- (i) 退避表は archive にあり public には無い。public の表の一覧は変わらない（DB 構造の記録・定期 Drift に差が出ない）
+ ASSERT to_regclass('archive.business_hours_settings_backup_20261021') IS NOT NULL, '(i) 退避表が archive に無い';
+ ASSERT to_regclass('public.business_hours_settings_backup_20261021') IS NULL, '(i) 退避表が public にできた';
+ ASSERT pg_temp.public_tables()=(SELECT tables_before FROM _pub), '(i) public の表の一覧が変わった';
+ -- (i) ブラウザの役割からは使えない: スキーマの USAGE も表の権限も無い。RLS・FORCE RLS が有効でポリシー 0
+ ASSERT NOT has_schema_privilege('anon','archive','USAGE') AND NOT has_schema_privilege('authenticated','archive','USAGE'), '(i) archive をブラウザの役割が使える';
+ ASSERT NOT EXISTS(SELECT 1 FROM unnest(ARRAY['anon','authenticated']) r, unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) p
+   WHERE has_table_privilege(r,'archive.business_hours_settings_backup_20261021',p)), '(i) 退避表にブラウザの役割の権限がある';
+ ASSERT (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='archive.business_hours_settings_backup_20261021'::regclass), '(i) 退避表の RLS が無効';
+ ASSERT NOT EXISTS(SELECT 1 FROM pg_policy WHERE polrelid='archive.business_hours_settings_backup_20261021'::regclass), '(i) 退避表にポリシーがある';
  -- 変換の結果 = staging の値から平日の朝だけを外したもの
  ASSERT (SELECT opening_hours FROM business_hours_settings WHERE store_id=c.st2)=(SELECT v FROM _qw WHERE k='expected_after'), '変換の結果が見込みと違う';
  -- (d) 正当な朝営業の店は不変。境界: 月曜（朝だけ）・火曜（定休日）は不変、水〜金だけ外れる。土日は不変
@@ -228,6 +244,8 @@ DO $$ BEGIN
  ASSERT NOT EXISTS(SELECT 1 FROM business_hours_settings b JOIN _after1 a USING(store_id) WHERE b.opening_hours IS DISTINCT FROM a.opening_hours), '(h) 当て直しの結果が 1 回目と違う';
 END $$;
 
+DO $$ BEGIN ASSERT pg_temp.public_tables()=(SELECT tables_before FROM _pub), '(i) 復旧・当て直しの後に public の表の一覧が変わった'; END $$;
+
 -- 結果の一覧（前 → 後 → 2 回目の後 → 復旧後）
 SELECT item,
   max(result) FILTER (WHERE step='1 前') AS before,
@@ -257,6 +275,6 @@ BEGIN
   ASSERT (SELECT result FROM _qw_log WHERE step='3 2回目の後' AND item=r.item)=r.a, format('2 回目 %s', r.item);
   ASSERT (SELECT result FROM _qw_log WHERE step='4 復旧後' AND item=r.item)=r.b, format('復旧後 %s: 期待 %s / 実際 %s', r.item, r.b, (SELECT result FROM _qw_log WHERE step='4 復旧後' AND item=r.item));
  END LOOP;
- RAISE NOTICE 'データ修正の試験 (a)〜(h): すべて合格';
+ RAISE NOTICE 'データ修正の試験 (a)〜(i): すべて合格';
 END $$;
 ROLLBACK;
