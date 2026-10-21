@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { scenarioApi, staffApi, storeApi } from '@/lib/api'
 import { fetchStaffWithAssignments } from '@/lib/staffAssignmentsQuery'
-import { scheduleEventKeys, fetchScheduleEventsForMonth } from './useScheduleEventsQuery'
+import { scheduleEventKeys, createScheduleMonthQueryFn } from './useScheduleEventsQuery'
 
 export function usePrefetch() {
   const queryClient = useQueryClient()
@@ -31,7 +31,7 @@ export function usePrefetch() {
     const month = target.getMonth() + 1
     queryClient.prefetchQuery({
       queryKey: scheduleEventKeys.month(year, month),
-      queryFn: () => fetchScheduleEventsForMonth(year, month),
+      queryFn: createScheduleMonthQueryFn(queryClient, year, month),
       staleTime: Infinity,
     })
   }
