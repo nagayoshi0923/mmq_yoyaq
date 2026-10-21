@@ -21,6 +21,8 @@ interface UseOrganizationResult {
   organization: Organization | null
   staff: Staff | null
   organizationId: string | null
+  /** この組織情報を取ったときの利用者 ID。利用者が替わった直後は、前の利用者の値が残っていることがある */
+  userId: string | null
   isLicenseManager: boolean
   isLoading: boolean
   error: Error | null
@@ -35,7 +37,7 @@ export const organizationKeys = {
 /**
  * 組織情報を取得する関数（React Query用）
  */
-async function fetchOrganizationData(): Promise<{ organization: Organization | null; staff: Staff | null; organizationId: string | null }> {
+async function fetchOrganizationData(): Promise<{ organization: Organization | null; staff: Staff | null; organizationId: string | null; userId: string | null }> {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError) {
     Sentry.captureException(authError, {
@@ -44,7 +46,7 @@ async function fetchOrganizationData(): Promise<{ organization: Organization | n
     })
   }
   if (!user) {
-    return { organization: null, staff: null, organizationId: null }
+    return { organization: null, staff: null, organizationId: null, userId: null }
   }
 
   // 見ている組織はサーバー・DB と同じく users.organization_id を正とする。
@@ -66,13 +68,13 @@ async function fetchOrganizationData(): Promise<{ organization: Organization | n
 
   const staffData = staffRows?.find(row => row.organization_id === currentOrgId) ?? staffRows?.[0] ?? null
   if (!staffData) {
-    return { organization: null, staff: null, organizationId: null }
+    return { organization: null, staff: null, organizationId: null, userId: user.id }
   }
 
   const organizationId = currentOrgId ?? staffData.organization_id
   if (!organizationId) {
     logger.warn('useOrganization: staff.organization_id が未設定です', { userId: user.id })
-    return { organization: null, staff: staffData as Staff, organizationId: null }
+    return { organization: null, staff: staffData as Staff, organizationId: null, userId: user.id }
   }
 
   // 組織情報を取得（DBのマイグレーションが古くてもコア列までフォールバック）
@@ -82,6 +84,7 @@ async function fetchOrganizationData(): Promise<{ organization: Organization | n
     organization: orgData,
     staff: staffData as Staff,
     organizationId,
+    userId: user.id,
   }
 }
 
@@ -115,6 +118,7 @@ export function useOrganization(): UseOrganizationResult {
     organization: data?.organization ?? null,
     staff: data?.staff ?? null,
     organizationId: data?.organizationId ?? null,
+    userId: data?.userId ?? null,
     isLicenseManager: data?.organization?.is_license_manager ?? false,
     isLoading,
     error: error as Error | null,

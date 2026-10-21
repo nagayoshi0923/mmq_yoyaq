@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { Staff } from '@/types'
 
-const mocks = vi.hoisted(() => ({ scope: 'A', calls: [] as string[] }))
+const mocks = vi.hoisted(() => ({ scope: 'A', orgScope: null as string | null, refetchOrg: vi.fn(async () => {}), calls: [] as string[] }))
 vi.mock('@/lib/shiftApi', () => ({
   shiftApi: {
     getAllStaffShifts: async (y: number, m: number) => {
@@ -17,7 +17,9 @@ vi.mock('@/lib/shiftApi', () => ({
   },
 }))
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: `user-${mocks.scope}` } }) }))
-vi.mock('@/hooks/useOrganization', () => ({ useOrganization: () => ({ organizationId: `org-${mocks.scope}` }) }))
+vi.mock('@/hooks/useOrganization', () => ({
+  useOrganization: () => ({ organizationId: `org-${mocks.orgScope ?? mocks.scope}`, userId: `user-${mocks.orgScope ?? mocks.scope}`, refetch: mocks.refetchOrg }),
+}))
 vi.mock('@/utils/logger', () => ({ logger: { log: vi.fn(), error: vi.fn() } }))
 
 import { shiftKeys, useShiftData } from './useShiftData'
@@ -37,6 +39,8 @@ const show = (month: number, scope: string) =>
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   mocks.scope = 'A'
+  mocks.orgScope = null
+  mocks.refetchOrg.mockClear()
   mocks.calls = []
   sessionStorage.clear()
   root = createRoot(document.createElement('div'))
@@ -79,4 +83,21 @@ it('同じ利用者・組織なら先読みした月はそのまま使い、取�
   await act(async () => { await qc.invalidateQueries({ queryKey: ['shifts'] }); await wait() })
   expect(mocks.calls.filter(c => c === 'A-2026-12')).toHaveLength(2)
   expect(shiftKeys.month('user-A:org-A', 2026, 12)).toEqual(['shifts', 'user-A:org-A', 2026, 12])
+})
+
+it('利用者が B に替わった直後に、前の利用者 A の組織情報が残っていたら、取得せずに組織情報を取り直す', async () => {
+  await show(11, 'A')
+  await act(async () => { await wait() })
+  mocks.scope = 'B'
+  mocks.orgScope = 'A' // 組織情報のキャッシュはまだ A のもの
+  await show(11, 'B')
+  await act(async () => { await wait() })
+  expect(mocks.calls.some(c => c.startsWith('B-'))).toBe(false)
+  expect(latest.shiftData).toEqual({})
+  expect(mocks.refetchOrg).toHaveBeenCalled()
+  mocks.orgScope = null // 取り直して B の組織情報になった
+  await show(11, 'B')
+  await act(async () => { await wait() })
+  expect(mocks.calls).toContain('B-2026-11')
+  expect(latest.shiftData['2026-11-01-morning']?.map(s => s.id)).toEqual(['B-staff'])
 })

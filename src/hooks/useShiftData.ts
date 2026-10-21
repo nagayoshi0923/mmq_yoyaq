@@ -30,9 +30,15 @@ export function useShiftData(
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth() + 1
   const { user } = useAuth()
-  const { organizationId } = useOrganization()
-  // 利用者と組織の両方が分かるまでは取得しない（分からないまま取った値を別の範囲で使わないため）
-  const scope = user?.id && organizationId ? `${user.id}:${organizationId}` : null
+  const { organizationId, userId: organizationUserId, refetch: refetchOrganization } = useOrganization()
+  // 利用者と組織の両方が分かるまでは取得しない（分からないまま取った値を別の範囲で使わないため）。
+  // 組織情報は利用者を持たないキャッシュなので、いまの利用者のために取ったものかも確かめる
+  // （利用者が替わった直後に前の利用者の組織が残っていると、別の組織の範囲になる）
+  const organizationIsCurrentUsers = !!user?.id && organizationUserId === user.id
+  const scope = user?.id && organizationId && organizationIsCurrentUsers ? `${user.id}:${organizationId}` : null
+  useEffect(() => {
+    if (user?.id && organizationUserId && organizationUserId !== user.id) void refetchOrganization()
+  }, [user?.id, organizationUserId, refetchOrganization])
   const storageKey = scope ? shiftStorageKey(scope, year, month) : null
   const storageTs = storageKey ? `${storageKey}_ts` : null
 
