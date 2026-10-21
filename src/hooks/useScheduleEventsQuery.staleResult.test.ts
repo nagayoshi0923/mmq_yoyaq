@@ -49,4 +49,15 @@ describe('月の公演一覧の古い取得結果を捨てる（2026-10-22 hotfi
     await inflight
     expect(queryClient.getQueryData<ScheduleEvent[]>(key)?.[0].gms).toEqual(['C'])
   })
+
+  it('先読み（prefetchQuery）も同じ保護付きの取得を使えば、先読みの途中に書き換えても空で上書きしない（P2-2）', async () => {
+    queryClient.setQueryData(key, [event([])])
+    const stale = deferred<ScheduleEvent[]>()
+    const prefetch = queryClient.prefetchQuery({ queryKey: key, queryFn: createScheduleMonthQueryFn(queryClient, 2026, 11, () => stale.promise), staleTime: 0 })
+    const active = queryClient.fetchQuery({ queryKey: key, queryFn: createScheduleMonthQueryFn(queryClient, 2026, 11, vi.fn()), staleTime: 0 })
+    setScheduleMonthData(queryClient, 2026, 11, [event(['A'])])
+    stale.resolve([event([])])
+    await Promise.all([prefetch, active])
+    expect(queryClient.getQueryData<ScheduleEvent[]>(key)?.[0].gms).toEqual(['A'])
+  })
 })

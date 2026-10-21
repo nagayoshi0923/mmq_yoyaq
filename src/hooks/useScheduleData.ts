@@ -14,7 +14,7 @@ import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQ
 import { useStaffQuery } from '@/pages/StaffManagement/hooks/useStaffQuery'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { createRealtimeRefetcher } from './scheduleRealtimeRefetch'
-import { useScheduleEventsQuery, invalidateScheduleMonth, setScheduleMonthData, updateScenarioModuleCache, scheduleEventKeys, fetchScheduleEventsForMonth } from './useScheduleEventsQuery'
+import { useScheduleEventsQuery, invalidateScheduleMonth, setScheduleMonthData, updateScenarioModuleCache, scheduleEventKeys, createScheduleMonthQueryFn } from './useScheduleEventsQuery'
 
 interface Store {
   id: string
@@ -66,7 +66,7 @@ export function useScheduleData(currentDate: Date) {
       const m = d.getMonth() + 1
       queryClient.prefetchQuery({
         queryKey: scheduleEventKeys.month(y, m),
-        queryFn: () => fetchScheduleEventsForMonth(y, m),
+        queryFn: createScheduleMonthQueryFn(queryClient, y, m),
         staleTime: Infinity,
       })
     }
@@ -82,7 +82,7 @@ export function useScheduleData(currentDate: Date) {
         const m = d.getMonth() + 1
         queryClient.prefetchQuery({
           queryKey: scheduleEventKeys.month(y, m),
-          queryFn: () => fetchScheduleEventsForMonth(y, m),
+          queryFn: createScheduleMonthQueryFn(queryClient, y, m),
           staleTime: Infinity,
         })
       }

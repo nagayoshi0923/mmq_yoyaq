@@ -15,12 +15,18 @@ vi.mock('@/hooks/eventOperations/eventSyncHelpers', () => ({ confirmSendPrivateB
 vi.mock('@/lib/privateBookingCustomerChangeEmail', () => ({ diffScheduleSnapshotsForCustomerEmail: mocks.diff, sendPrivateBookingCustomerChangeEmail: mocks.notify }))
 import { useEventSave } from './useEventSave'
 import type { ScheduleEvent } from '@/types/schedule'
+import { QueryClient } from '@tanstack/react-query'
+import { createScheduleMonthQueryFn, scheduleEventKeys, setScheduleMonthData } from '@/hooks/useScheduleEventsQuery'
+vi.mock('@/lib/api/scenarioAliasApi', () => ({ getScenarioAliases: vi.fn() }))
+vi.mock('@/lib/organization', () => ({ getCurrentOrganizationId: vi.fn() }))
+vi.mock('@/lib/api/scheduleHookReadApi', () => ({ scheduleEventsQueryReadApi: {} }))
 const data = { date: '2026-11-01', venue: 'store', scenario: '', category: 'open', start_time: '15:30', end_time: '18:30', capacity: 7, max_participants: 7, gms: ['A'], gm_roles: { A: 'staff' } }
 let root: Root
 let latest: ReturnType<typeof useEventSave>
 let mode: 'add' | 'edit' = 'add'
 let shown: ScheduleEvent[] = []
-const setEvents = vi.fn((u: ScheduleEvent[] | ((prev: ScheduleEvent[]) => ScheduleEvent[])) => { shown = typeof u === 'function' ? u(shown) : u })
+const localSetEvents = (u: ScheduleEvent[] | ((prev: ScheduleEvent[]) => ScheduleEvent[])) => { shown = typeof u === 'function' ? u(shown) : u }
+const setEvents = vi.fn(localSetEvents)
 function Harness() { latest = useEventSave({ events: [], setEvents, stores: [{ id: 'store', name: '店舗', short_name: '店舗' }], scenarios: [], modalMode: mode, organizationId: 'org' }); return null }
 async function setup() {
   await act(async () => { root.render(<Harness />) })
@@ -33,6 +39,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mode = 'add'
   shown = []
+  setEvents.mockImplementation(localSetEvents)
   mocks.snapshot.mockResolvedValue(null)
   mocks.read.mockResolvedValue({ data: { id: 'store', name: '店舗', date: '2026-10-01', category: 'private' } })
   mocks.confirm.mockReturnValue(true)
@@ -44,15 +51,17 @@ beforeEach(() => {
   mocks.sync.mockResolvedValue(undefined)
 })
 describe('公演保存の完了経路', () => {
-  it('本体作成後のスタッフ登録失敗は部分成功を警告し、追加モーダルを閉じる結果を返す', async () => {
-    mocks.sync.mockRejectedValue(new Error('定員超過'))
+  it('担当の保存に失敗したら公演も作られず、保存失敗を返して入力を残す（部分成功にしない）', async () => {
+    mocks.create.mockRejectedValue(new Error('定員超過'))
     const { result } = await setup()
     let saved: boolean | undefined
     await act(async () => { saved = await result.current.handleSavePerformance(data) })
-    expect(saved).toBe(true)
+    expect(saved).toBe(false)
     expect(mocks.create).toHaveBeenCalledTimes(1)
-    expect(mocks.warning).toHaveBeenCalledWith(expect.stringContaining('未完了'), expect.any(String))
-    expect(mocks.success).not.toHaveBeenCalled()
+    expect(mocks.sync).not.toHaveBeenCalled()
+    expect(shown).toEqual([])
+    expect(mocks.error).toHaveBeenCalledWith('公演の追加に失敗しました')
+    expect(mocks.warning).not.toHaveBeenCalled(); expect(mocks.success).not.toHaveBeenCalled()
   })
   it('重複警告の続行は元の保存Promiseへ成功を返す', async () => {
     mocks.neighbors.mockResolvedValue([{ ...data, id: 'neighbor', is_cancelled: false }])
@@ -105,46 +114,74 @@ function deferred<T>() { let resolve!: (value: T) => void; let reject!: (error: 
 const flush = () => new Promise(resolve => setTimeout(resolve, 0))
 const plan = { entries: [], expected: [], expectedStaff: { gms: [], gm_roles: {} } }
 
-describe('公演の追加で GM 名を消さない（2026-10-22 hotfix）', () => {
-  it('作成直後から担当の保存完了まで、入力した GM を表示し続ける', async () => {
-    const created = deferred<unknown>(); const synced = deferred<void>()
-    mocks.create.mockReturnValue(created.promise); mocks.sync.mockReturnValue(synced.promise)
+describe('公演の追加で GM 名を消さない（2026-10-22 hotfix、PR #1210）', () => {
+  it('作成と担当を 1 回で送り、別の担当同期を呼ばない。表示は保存結果の GM', async () => {
+    const created = deferred<unknown>()
+    mocks.create.mockReturnValue(created.promise)
     const { result } = await setup()
     let pending!: Promise<boolean>
     await act(async () => { pending = result.current.handleSavePerformance({ ...data, gm_roles: { A: 'main' }, staffParticipation: plan }); await flush() })
     expect(shown.map(e => e.gms)).toEqual([['A']])
-    await act(async () => { created.resolve({ ...data, gms: [], gm_roles: {}, id: 'saved', store_id: 'store', current_participants: 0 }); await flush() })
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ gms: [], gm_roles: {}, staff_assignment: { gms: ['A'], gm_roles: { A: 'main' }, entries: [] } }))
+    await act(async () => { created.resolve({ ...data, gms: ['A'], gm_roles: { A: 'main' }, id: 'saved', store_id: 'store', current_participants: 0 }); expect(await pending).toBe(true) })
     expect(shown).toMatchObject([{ id: 'saved', gms: ['A'], gm_roles: { A: 'main' } }])
-    await act(async () => { synced.resolve(); await pending })
-    expect(shown).toMatchObject([{ id: 'saved', gms: ['A'] }])
+    expect(mocks.sync).not.toHaveBeenCalled()
     expect(mocks.success).toHaveBeenCalledWith('保存しました')
   })
-  it('履歴スナップショットの取得を待たずに担当を保存する', async () => {
+  it('スタッフ参加の追加席も作成と同じ要求で送る', async () => {
+    const entries = [{ staff_id: 's2', mode: 'additional' as const, reservation_id: null }]
+    const { result } = await setup()
+    await act(async () => { await result.current.handleSavePerformance({ ...data, gms: ['B'], gm_roles: { B: 'staff' }, staffParticipation: { ...plan, entries } }) })
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ staff_assignment: { gms: ['B'], gm_roles: { B: 'staff' }, entries } }))
+    expect(mocks.sync).not.toHaveBeenCalled()
+  })
+  it('履歴スナップショットの取得を待たずに保存を終える', async () => {
     const snapshot = deferred<null>()
     mocks.snapshot.mockReturnValue(snapshot.promise)
     const { result } = await setup()
     let saved: boolean | undefined
     await act(async () => { saved = await result.current.handleSavePerformance({ ...data, gm_roles: { A: 'main' }, staffParticipation: plan }) })
     expect(saved).toBe(true)
-    expect(mocks.sync).toHaveBeenCalledTimes(1)
-    expect(mocks.sync).toHaveBeenCalledWith('saved', ['A'], { A: 'main' }, expect.any(Object), plan)
     await act(async () => { snapshot.resolve(null); await flush() })
   })
-  it('担当を保存できなかったら、保存されていない GM を表示し続けない', async () => {
-    mocks.sync.mockRejectedValue(new Error('担当スタッフを特定できません'))
+  it('GM 未指定の追加は担当を送らず、担当の同期も呼ばない', async () => {
     mocks.create.mockResolvedValue({ ...data, gms: [], gm_roles: {}, id: 'saved', store_id: 'store', current_participants: 0 })
-    const { result } = await setup()
-    await act(async () => { await result.current.handleSavePerformance({ ...data, gm_roles: { A: 'main' }, staffParticipation: plan }) })
-    expect(shown).toMatchObject([{ id: 'saved', gms: [], gm_roles: {} }])
-    expect(mocks.warning).toHaveBeenCalledWith(expect.stringContaining('未完了'), expect.any(String))
-  })
-  it('GM 未指定の追加は、何も変えない担当の同期を呼ばない', async () => {
     const { result } = await setup()
     let saved: boolean | undefined
     await act(async () => { saved = await result.current.handleSavePerformance({ ...data, gms: [], gm_roles: {}, staffParticipation: plan }) })
     expect(saved).toBe(true)
+    expect(mocks.create.mock.calls[0][0]).not.toHaveProperty('staff_assignment')
     expect(mocks.sync).not.toHaveBeenCalled()
     expect(shown).toMatchObject([{ id: 'saved', gms: [] }])
-    expect(mocks.success).toHaveBeenCalledWith('保存しました')
+  })
+  it('作成が競合で失敗しても、他端末で更新された別の公演の表示は消さない（P2-3）', async () => {
+    shown = [{ id: 'other', gms: ['B'], gm_roles: { B: 'main' } } as unknown as ScheduleEvent]
+    mocks.create.mockRejectedValue(new Error('担当スタッフが更新されました'))
+    const { result } = await setup()
+    await act(async () => { await result.current.handleSavePerformance({ ...data, gm_roles: { A: 'main' }, staffParticipation: plan }) })
+    expect(shown).toEqual([{ id: 'other', gms: ['B'], gm_roles: { B: 'main' } }])
+  })
+})
+
+describe('保存中の再取得で GM 名を消さない（実際の React Query、PR #1210 Codex レビュー P2-1）', () => {
+  it('作成の応答待ちに始まって終わった再取得（まだ公演を含まない）でも、入力した GM の公演を表示し続ける', async () => {
+    const qc = new QueryClient()
+    const key = scheduleEventKeys.month(2026, 11)
+    qc.setQueryData(key, [])
+    const bound = (u: ScheduleEvent[] | ((prev: ScheduleEvent[]) => ScheduleEvent[])) => { setScheduleMonthData(qc, 2026, 11, u); shown = qc.getQueryData<ScheduleEvent[]>(key) ?? [] }
+    setEvents.mockImplementation(bound)
+    const created = deferred<unknown>()
+    mocks.create.mockReturnValue(created.promise)
+    const { result } = await setup()
+    let pending!: Promise<boolean>
+    await act(async () => { pending = result.current.handleSavePerformance({ ...data, gm_roles: { A: 'main' }, staffParticipation: plan }); await flush() })
+    await qc.fetchQuery({ queryKey: key, queryFn: createScheduleMonthQueryFn(qc, 2026, 11, async () => []), staleTime: 0 })
+    expect(qc.getQueryData<ScheduleEvent[]>(key)?.map(e => e.gms)).toEqual([['A']])
+    await act(async () => { created.resolve({ ...data, gms: ['A'], gm_roles: { A: 'main' }, id: 'saved', store_id: 'store', current_participants: 0 }); await pending })
+    // 応答前に実 ID の公演が取得で届いていても二重に並べない
+    expect(qc.getQueryData<ScheduleEvent[]>(key)).toMatchObject([{ id: 'saved', gms: ['A'] }])
+    await qc.fetchQuery({ queryKey: key, queryFn: createScheduleMonthQueryFn(qc, 2026, 11, async () => [{ id: 'saved', gms: ['A'] } as ScheduleEvent]), staleTime: 0 })
+    expect(qc.getQueryData<ScheduleEvent[]>(key)).toEqual([{ id: 'saved', gms: ['A'] }])
+    qc.clear()
   })
 })

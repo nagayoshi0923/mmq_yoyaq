@@ -26,6 +26,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
+import { holdPendingScheduleEvent, releasePendingScheduleEvent } from '@/hooks/useScheduleEventsQuery'
 import {
   diffScheduleSnapshotsForCustomerEmail,
   sendPrivateBookingCustomerChangeEmail,
@@ -282,6 +283,14 @@ export function useEventSave({
           throw new Error('組織情報が取得できません。再ログインしてください。')
         }
         
+        // 担当（GM・スタッフ参加・追加席）は公演の作成と同じ取引で保存する（create_schedule_event_with_staff）。
+        // 以前は担当空で作成してから別の取引で保存していたため、担当の保存に失敗すると GM 空の公演が残り、
+        // それでも「保存成功」扱いになっていた（2026-10-22 hotfix、PR #1210 の Codex レビュー P1）。
+        // GM もスタッフ参加も無い作成（GM 未指定）は担当を送らず、従来の作成のまま。
+        const pendingGms = performanceData.gms || []
+        const pendingGmRoles = performanceData.gm_roles || {}
+        const staffEntries = performanceData.staffParticipation?.entries ?? []
+        const hasStaffToSave = pendingGms.length > 0 || staffEntries.length > 0
         const eventData = {
           date: performanceData.date,
           store_id: storeData.id,
@@ -292,9 +301,9 @@ export function useEventSave({
           start_time: performanceData.start_time,
           end_time: performanceData.end_time,
           capacity: performanceData.max_participants,
-          // 担当と席予約は後段のRPCで一括保存する。
           gms: [] as string[],
           gm_roles: {} as Record<string,string>,
+          ...(hasStaffToSave ? { staff_assignment: { gms: pendingGms, gm_roles: pendingGmRoles, entries: staffEntries } } : {}),
           notes: performanceData.notes || undefined,
           time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
           venue_rental_fee: performanceData.venue_rental_fee, // 場所貸し公演料金
@@ -331,24 +340,26 @@ export function useEventSave({
           notes: performanceData.notes || ''
         }
         setEvents(prev => [...prev, optimisticEvent])
+        // 保存中は、月の一覧を取り直しても入力した公演（GM 名を含む）を表示し続ける（Codex レビュー P2-1）
+        holdPendingScheduleEvent(optimisticEvent)
 
-        // Supabaseに保存
+        // Supabaseに保存（担当があれば同じ取引で保存。失敗したら公演も作られない）
         let savedEvent
         try {
           savedEvent = await scheduleApi.create(eventData)
         } catch (saveError) {
           // 楽観的 insert を rollback
+          releasePendingScheduleEvent(tempEventId)
           setEvents(prev => prev.filter(e => e.id !== tempEventId))
           throw saveError
         }
+        releasePendingScheduleEvent(tempEventId)
 
         // 楽観的 insert の temp event を即座に real event へ置き換える。
         // ここを後続処理（履歴記録・スタッフ予約同期＝ネットワーク往復）の後に
         // 置くと、その間ずっと仮ID（temp-）のセルが見えてしまい、右クリックの
         // 中止・削除が「存在しないID」で失敗する（2026-06-13 テストで発覚）
         const matchedScenario = findDisplayScenario(scenarios, savedEvent.scenario || performanceData.scenario, performanceData.scenario_master_id)
-        const pendingGms = performanceData.gms || []
-        const pendingGmRoles = performanceData.gm_roles || {}
         const effectiveMax = matchedScenario?.player_count_max || savedEvent.capacity || 8
         const formattedEvent: ScheduleEvent = {
           id: savedEvent.id,
@@ -361,10 +372,9 @@ export function useEventSave({
             title: savedEvent.scenario || performanceData.scenario || matchedScenario.title,
             player_count_max: matchedScenario.player_count_max ?? 8
           } : undefined,
-          // 担当は後段の syncStaff で保存する。保存が終わるまでは入力した担当を表示し続ける
-          // （ここで保存直後の空の担当に置き換えると、GM 名が一度消えて見える。2026-10-22 hotfix）
-          gms: pendingGms,
-          gm_roles: pendingGmRoles,
+          // 担当は作成と同じ取引で保存済み。保存結果（DB の確定値）を表示する
+          gms: savedEvent.gms || [],
+          gm_roles: savedEvent.gm_roles || {},
           start_time: savedEvent.start_time,
           end_time: savedEvent.end_time,
           category: savedEvent.category,
@@ -373,7 +383,11 @@ export function useEventSave({
           max_participants: effectiveMax,
           notes: savedEvent.notes || ''
         }
-        setEvents(prev => prev.map(e => e.id === tempEventId ? formattedEvent : e))
+        // 取り直しで実 ID の公演が先に届いていても二重に並べない
+        setEvents(prev => {
+          const others = prev.filter(e => e.id !== formattedEvent.id)
+          return others.some(e => e.id === tempEventId) ? others.map(e => e.id === tempEventId ? formattedEvent : e) : [...others, formattedEvent]
+        })
 
         // 履歴を記録（新規作成）。作成の事実だけを記録する（差分なし）ので、保存の完了を待たせない。
         // 以前はここでスナップショット取得の往復を待ってから担当を保存していた（2026-10-22 hotfix）
@@ -399,28 +413,6 @@ export function useEventSave({
           }
         })()
 
-        // 担当（GM・スタッフ参加）を保存する。担当もスタッフ参加も無い（GM 未指定）なら、
-        // 作成時点で空のまま正しいので、何も変えない同期の往復を省く
-        const hasStaffToSave = pendingGms.length > 0 || (performanceData.staffParticipation?.entries.length ?? 0) > 0
-        if (performanceData.gm_roles && hasStaffToSave) {
-          await syncStaff(
-            savedEvent.id,
-            performanceData.gms || [],
-            performanceData.gm_roles,
-            {
-              date: performanceData.date,
-              start_time: performanceData.start_time,
-              scenario_master_id: scenarioId || undefined,
-              scenario_title: performanceData.scenario,
-              store_id: storeData.id
-            },
-            performanceData.staffParticipation
-          )
-          // 保存できなかった担当を表示し続けない（DB に残っている作成時点の担当へ戻す）
-          if (staffSyncFailed) {
-            setEvents(prev => prev.map(e => e.id === savedEvent.id ? { ...e, gms: savedEvent.gms || [], gm_roles: savedEvent.gm_roles || {} } : e))
-          }
-        }
         
       } else {
         // 編集更新

@@ -5,6 +5,7 @@
  * すべてバックエンド API (/api/schedule) 経由で、organization_id は
  * サーバ側で JWT から強制される。
  */
+import type { StaffParticipationPlan } from '@/types/schedule'
 import { apiClient } from '@/lib/apiClient'
 import { supabase } from '@/lib/supabase'
 import type { ScheduleEvent } from '@/types/schedule'
@@ -100,6 +101,8 @@ export const scheduleApi = {
     capacity?: number
     gms?: string[]
     gm_roles?: Record<string, string>
+    /** 作成と同じ取引で保存する担当（GM・スタッフ参加）。省略時は担当なしで作成 */
+    staff_assignment?: { gms: string[]; gm_roles: Record<string, string>; entries: StaffParticipationPlan['entries'] }
     notes?: string
     time_slot?: string | null
     is_reservation_enabled?: boolean

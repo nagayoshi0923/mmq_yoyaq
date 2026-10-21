@@ -343,6 +343,18 @@ const localWriteCount = (year: number, month: number) => localWriteCounts.get(mo
  * いまの表示を保ったまま取り直す。以前は、担当の保存より前に始まった取得が後から届き、
  * GM 名が空の状態に戻っていた（2026-10-22 hotfix）。
  */
+// 保存中（作成の応答待ち）の公演。取得結果にまだ含まれないので、表示中ならそのまま残す（PR #1210 Codex レビュー P2-1）
+const pendingEvents = new Map<string, ScheduleEvent>()
+export function holdPendingScheduleEvent(event: ScheduleEvent): void { pendingEvents.set(event.id, event) }
+export function releasePendingScheduleEvent(eventId: string): void { pendingEvents.delete(eventId) }
+
+/** 取得結果に、いま表示している保存中の公演（入力した GM 名を含む）を残す */
+function keepPendingEvents(fetched: ScheduleEvent[], current: ScheduleEvent[] | undefined): ScheduleEvent[] {
+  if (!pendingEvents.size || !current) return fetched
+  const kept = current.filter(e => pendingEvents.has(e.id) && !fetched.some(f => f.id === e.id)).map(e => pendingEvents.get(e.id)!)
+  return kept.length ? [...fetched, ...kept] : fetched
+}
+
 export function createScheduleMonthQueryFn(
   queryClient: QueryClient,
   year: number,
@@ -352,9 +364,8 @@ export function createScheduleMonthQueryFn(
   return async () => {
     const writesAtStart = localWriteCount(year, month)
     const fetched = await fetcher(year, month)
-    if (localWriteCount(year, month) === writesAtStart) return fetched
     const current = queryClient.getQueryData<ScheduleEvent[]>(scheduleEventKeys.month(year, month))
-    if (!current) return fetched
+    if (localWriteCount(year, month) === writesAtStart || !current) return keepPendingEvents(fetched, current)
     logger.log('⏭️ 取得中に表示を更新したため、古い取得結果を捨てて取り直します')
     setTimeout(() => invalidateScheduleMonth(queryClient, year, month), 0)
     return current
