@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PerformanceModal } from './PerformanceModal'
 import type { EventFormData, ScheduleEvent } from '@/types/schedule'
 
-const api = vi.hoisted(() => ({ participation: vi.fn(), memo: vi.fn(), close: vi.fn(), save: vi.fn() }))
+const api = vi.hoisted(() => ({ participation: vi.fn(), memo: vi.fn(), close: vi.fn(), save: vi.fn(), slotsLoading: false, slotsVersion: 0 }))
 vi.mock('@/lib/reservationApi', () => ({ reservationApi: { getStaffParticipation: api.participation } }))
 vi.mock('./SlotMemoInput', () => ({ getEmptySlotMemo: api.memo, clearEmptySlotMemo: vi.fn() }))
 vi.mock('@/lib/api', () => ({ staffApi: {} }))
@@ -18,7 +18,8 @@ vi.mock('@/hooks/usePreparationSettings', () => ({ usePreparationSettings: () =>
 vi.mock('@/hooks/useOperatingSettings', () => ({ useOperatingSettings: () => ({ data: {}, loading: false, resolve: () => ({ value: 180 }) }) }))
 vi.mock('@/hooks/useTimeSlotSettings', () => {
   const getDefaultsForDate = () => ({ morning: { start_time: '10:00', end_time: '14:00' }, afternoon: { start_time: '14:30', end_time: '18:30' }, evening: { start_time: '19:00', end_time: '23:00' } })
-  return { useTimeSlotSettings: () => ({ getDefaultsForDate, isLoading: false }) }
+  const refreshedDefaults = (...args: Parameters<typeof getDefaultsForDate>) => getDefaultsForDate(...args)
+  return { useTimeSlotSettings: () => ({ getDefaultsForDate: api.slotsVersion === 0 ? getDefaultsForDate : refreshedDefaults, isLoading: api.slotsLoading }) }
 })
 vi.mock('@/components/ui/dialog', () => ({
   Dialog: ({ open, children }: { open: boolean; children: ReactNode }) => open ? <>{children}</> : null,
@@ -58,7 +59,7 @@ async function typeNotes(value: string) {
 }
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
-  vi.clearAllMocks(); api.memo.mockResolvedValue(''); api.save.mockResolvedValue(false)
+  vi.clearAllMocks(); api.slotsLoading = false; api.slotsVersion = 0; api.memo.mockResolvedValue(''); api.save.mockResolvedValue(false)
   container = document.createElement('div'); document.body.append(container); root = createRoot(container)
 })
 afterEach(async () => { await act(async () => root.unmount()); container.remove() })
@@ -77,6 +78,23 @@ describe('公演の非同期初期化と編集の境界', () => {
     expect(button('保存').disabled).toBe(false); expect(container.querySelector('textarea')?.value).toBe('Aの元メモ')
     await typeNotes('利用者が入力したメモ')
     expect(container.querySelector('textarea')?.value).toBe('利用者が入力したメモ')
+  })
+  it('編集開始後の時間帯設定の遅着は、入力済みのメモを初期化し直さない', async () => {
+    api.participation.mockResolvedValue(participation); api.slotsLoading = true
+    await render(); await typeNotes('設定を待たずに編集したメモ')
+    api.slotsLoading = false; api.slotsVersion = 1
+    await render()
+    expect(api.participation).toHaveBeenCalledTimes(1)
+    expect(container.querySelector('textarea')?.value).toBe('設定を待たずに編集したメモ')
+  })
+  it('追加は時間帯設定が揃うまで枠メモ読込も入力も開始しない', async () => {
+    api.slotsLoading = true
+    const initialData = { date: '2026-10-22', venue: 'test-store', time_slot: 'morning' }
+    await render({ mode: 'add', event: null, initialData })
+    expect(api.memo).not.toHaveBeenCalled(); expect(container.querySelector('textarea')).toBeNull()
+    api.slotsLoading = false; api.slotsVersion = 1
+    await render({ mode: 'add', event: null, initialData })
+    expect(api.memo).toHaveBeenCalledTimes(1); expect(container.querySelector('textarea')).not.toBeNull()
   })
   it('閉じて再び開いた後の入力を、閉じる前の遅着結果が上書きしない', async () => {
     const old = deferred<typeof participation>(), current = deferred<typeof participation>()
