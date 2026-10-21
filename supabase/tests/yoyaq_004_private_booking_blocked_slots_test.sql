@@ -139,6 +139,22 @@ VALUES
     ARRAY['24000000-0000-0000-0000-000000000004'::UUID]
   );
 
+-- 店舗の営業設定（毎日 09:00〜23:00・朝昼夜の標準 10:00／13:00／18:00）。申込（create_private_booking_request）も
+-- 候補の追加と同じ検査（private_booking_assert_candidate）を通すため、営業設定の無い 2 店舗だと営業時間外になる（2026-10-20）。
+INSERT INTO public.business_hours_settings (organization_id, store_id, opening_hours)
+SELECT s.organization_id, s.id, (
+  SELECT jsonb_object_agg(d, jsonb_build_object(
+    'is_open', true, 'open_time', '09:00', 'close_time', '23:00',
+    'available_slots', '["morning","afternoon","evening"]'::jsonb,
+    'slot_start_times', '{"morning":"10:00","afternoon":"13:00","evening":"18:00"}'::jsonb))
+  FROM unnest(ARRAY['monday','tuesday','wednesday','thursday','friday','saturday','sunday']) d)
+FROM public.stores s
+WHERE s.id IN (
+  '24000000-0000-0000-0000-000000000001',
+  '24000000-0000-0000-0000-000000000002',
+  '24000000-0000-0000-0000-000000000004'
+);
+
 INSERT INTO public.private_group_candidate_dates (
   id, group_id, date, time_slot, start_time, end_time, order_num, status
 )

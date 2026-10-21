@@ -169,6 +169,7 @@ function buildSlotsFromDayConfig(
 ): PerStoreSlot[] {
   // 店舗の曜日設定で有効な枠だけを使う（空・未設定なら 3 枠）。以前は朝・夜を常に足していた（2026-10-20 札幌店の平日朝）。
   // DB の private_booking_store_day_slots と同じ解釈（privateBookingStoreDaySlots.db.test.ts で照合）。
+  // ただし公開トップの入口（respectConfiguredHours）だけは、空の配列（設定画面で 3 枠とも切った曜日）を「枠なし」とする（DB は 3 枠とも有効。未整理の食い違い）。
   const availableSlots =
     dayHours.available_slots && (options?.respectConfiguredHours || dayHours.available_slots.length > 0)
       ? [...dayHours.available_slots]
@@ -207,9 +208,13 @@ function buildSlotsFromDayConfig(
   for (const key of order) {
     if (!availableSlots.includes(key)) continue
 
+    // respectConfiguredHours（公開トップの入口）は枠の終わりを閉店時刻で切る。DB でも営業中の範囲は閉店までなので、
+    // 閉店以降に始まる枠は DB の判定でも closed になる（結果は同じ）。
     const slotEnd = options?.respectConfiguredHours ? Math.min(eveningEndCap, SLOT_END_LIMITS[key]) : key === 'evening' ? eveningEndCap : SLOT_END_LIMITS[key]
 
-    const startMin = options?.respectConfiguredHours ? Math.max(startMinutes[key], dayHours.open_time ? timeToMinutes(dayHours.open_time) : 0) : startMinutes[key]
+    // 開店時刻（open_time）は枠の開始の下限にしない。枠の可否は available_slots（I2）で決める（2026-10-21 issue #1200 社長の仕様訂正。
+    // 以前は入口だけ max(開始, open_time) で、開店 13:00・朝 10:00 有効の店舗の平日朝を入口だけ落としていた）。
+    const startMin = startMinutes[key]
     if (startMin >= slotEnd) continue
 
     out.push({
@@ -232,11 +237,12 @@ function getSyntheticSlotsWhenNoRow(
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
   const isHol = isJapaneseHoliday(dateStr) || isCustomHoliday(dateStr)
   const isWeekendOrHoliday = isWeekend || isHol
+  // 営業設定が無い店舗は DB の合成と同じく 3 枠とも有効（入口も同じ。以前は入口だけ平日の朝を落としていた）
   const synthetic: DayHoursLike = {
     is_open: true,
     close_time: '23:00',
-    available_slots: respectConfiguredHours && !isWeekendOrHoliday ? ['afternoon', 'evening'] : getDefaultAvailableSlots(dayOfWeek, dateStr, isCustomHoliday),
-    open_time: respectConfiguredHours && !isWeekendOrHoliday ? '13:00' : '09:00',
+    available_slots: getDefaultAvailableSlots(dayOfWeek, dateStr, isCustomHoliday),
+    open_time: '09:00',
     slot_start_times: isWeekendOrHoliday ? defaultSlotTimesWeekend : defaultSlotTimesWeekday,
   }
   return buildSlotsFromDayConfig(

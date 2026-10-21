@@ -7,6 +7,7 @@ DECLARE
  v_user uuid:=auth.uid(); v_group public.private_groups; v_member uuid;
  v_name text; v_settings public.global_settings; v_date jsonb; v_order bigint;
  v_custom_holidays jsonb; v_weekday_slots text[]; v_weekend_slots text[]; v_cand date; v_holiday boolean; v_allowed text[];
+ v_slot text; v_start time; v_end time; v_store uuid; v_r text; v_rule text; v_busy text; v_ok boolean; v_single boolean;
 BEGIN
  IF v_user IS NULL THEN RAISE EXCEPTION 'ログインが必要です' USING ERRCODE='42501'; END IF;
  IF NOT EXISTS(SELECT 1 FROM organizations WHERE id=p_organization_id AND is_active IS TRUE) THEN
@@ -45,13 +46,42 @@ BEGIN
    RAISE EXCEPTION '候補日時の形式が不正です' USING ERRCODE='22023';
   END IF;
   -- 作品の貸切受付枠（平日・土日祝は別々。未設定は全枠受付）。候補追加時の判定と同じ。
+  -- 希望店舗があるときは、店舗ごとの平日／土日祝（特別営業日を含む）で下の private_booking_store_slot_rule が判定する（issue #1200）。
+  -- ここ（組織の平日／土日祝）で判定するのは希望店舗が空のときだけ（従来どおり）。
   v_cand:=(v_date->>'date')::date;
   v_holiday:=extract(dow FROM v_cand) IN (0,6) OR public.is_booking_calendar_holiday(v_cand) OR coalesce(v_custom_holidays ? v_cand::text,false);
   v_allowed:=CASE WHEN v_holiday THEN v_weekend_slots ELSE v_weekday_slots END;
-  IF coalesce(cardinality(v_allowed),0)>0 AND NOT EXISTS(
+  IF coalesce(cardinality(p_preferred_store_ids),0)=0 AND coalesce(cardinality(v_allowed),0)>0 AND NOT EXISTS(
    SELECT 1 FROM unnest(v_allowed) value WHERE value=ANY(CASE v_date->>'time_slot'
     WHEN '午前' THEN ARRAY['午前','朝公演','朝'] WHEN '午後' THEN ARRAY['午後','昼公演','昼'] ELSE ARRAY['夜','夜公演'] END)
   ) THEN RAISE EXCEPTION 'この作品では選択できない時間帯です' USING ERRCODE='22023'; END IF;
+  -- 希望店舗のどれか 1 店で「枠が有効（I2・I10。private_booking_store_slot_rule）AND 受付停止・募集停止・公演と重ならない」が
+  -- 成り立つ候補だけ作る（issue #1200）。店舗ごとに両方を確かめ、他店の条件を混ぜない。希望店舗が空なら店舗は見ない（従来どおり）
+  IF coalesce(cardinality(p_preferred_store_ids),0)>0 THEN
+   v_slot:=CASE v_date->>'time_slot' WHEN '午前' THEN 'morning' WHEN '午後' THEN 'afternoon' ELSE 'evening' END;
+   v_start:=(v_date->>'start_time')::time; v_end:=(v_date->>'end_time')::time;
+   v_rule:=NULL; v_busy:=NULL; v_ok:=false;
+   SELECT count(DISTINCT s)=1 INTO v_single FROM unnest(p_preferred_store_ids) s;
+   FOR v_store IN SELECT DISTINCT s FROM unnest(p_preferred_store_ids) s ORDER BY s LOOP
+    v_r:=public.private_booking_store_slot_rule(p_organization_id,p_scenario_master_id,v_store,v_cand,v_slot,v_single);
+    IF v_r IS NOT NULL THEN v_rule:=CASE WHEN v_rule='closed' OR v_r='closed' THEN 'closed' ELSE v_r END; CONTINUE; END IF;
+    IF EXISTS(SELECT 1 FROM schedule_blocked_slots b WHERE b.organization_id=p_organization_id AND b.store_id=v_store::text AND b.date=v_cand AND b.time_slot=v_slot)
+     OR public.is_store_recruitment_paused(v_store,'private',v_cand) THEN v_busy:='blocked'; CONTINUE; END IF;
+    IF EXISTS(SELECT 1 FROM schedule_events e WHERE e.organization_id=p_organization_id AND e.store_id=v_store AND e.is_cancelled=false
+     AND e.date BETWEEN v_cand-2 AND v_cand+2
+     AND e.date+e.start_time < v_cand+v_end+CASE WHEN v_end<v_start THEN interval '1 day' ELSE interval '0 days' END+make_interval(mins=>public.resolve_preparation_minutes(p_organization_id,NULL,NULL,e.id))
+     AND e.date+e.end_time+CASE WHEN e.end_time<e.start_time THEN interval '1 day' ELSE interval '0 days' END > v_cand+v_start-make_interval(mins=>public.resolve_preparation_minutes(p_organization_id,v_store,p_scenario_master_id,NULL))
+    ) THEN v_busy:=coalesce(v_busy,'conflict'); CONTINUE; END IF;
+    v_ok:=true; EXIT;
+   END LOOP;
+   IF NOT v_ok THEN
+    RAISE EXCEPTION '選択した候補日時は現在受付できません（%/% %: %）。空き状況を更新して選び直してください',
+     extract(month FROM v_cand),extract(day FROM v_cand),CASE v_date->>'time_slot' WHEN '夜間' THEN '夜' ELSE v_date->>'time_slot' END,
+     CASE WHEN v_busy='blocked' THEN '受付停止中です' WHEN v_busy='conflict' THEN '他の公演と重なります'
+      WHEN v_rule='slot_not_allowed' THEN 'この作品では選択できない時間帯です' ELSE '営業時間外です' END
+     USING ERRCODE='22023';
+   END IF;
+  END IF;
   INSERT INTO private_group_candidate_dates(group_id,date,time_slot,start_time,end_time,order_num)
   VALUES(v_group.id,(v_date->>'date')::date,v_date->>'time_slot',v_date->>'start_time',v_date->>'end_time',coalesce((v_date->>'order_num')::integer,v_order::integer));
  END LOOP;

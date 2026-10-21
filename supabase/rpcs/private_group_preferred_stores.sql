@@ -39,7 +39,9 @@ BEGIN
   -- 店舗間の公演移動の前後を混ぜて「全店満席」と誤認しない。
   SELECT EXISTS(
    SELECT 1 FROM unnest(selected) AS choice(store_id)
-   WHERE NOT EXISTS(SELECT 1 FROM public.schedule_blocked_slots b WHERE b.organization_id=g.organization_id AND b.store_id=choice.store_id::text AND b.date=cd.date AND b.time_slot=slot)
+   -- 同じ店舗で「枠が有効（I2・I10）AND 空き」が成り立つこと（issue #1200。他店の条件を混ぜない）
+   WHERE public.private_booking_store_slot_rule(g.organization_id,g.scenario_master_id,choice.store_id,cd.date,slot,cardinality(selected)=1) IS NULL
+   AND NOT EXISTS(SELECT 1 FROM public.schedule_blocked_slots b WHERE b.organization_id=g.organization_id AND b.store_id=choice.store_id::text AND b.date=cd.date AND b.time_slot=slot)
    AND NOT EXISTS(SELECT 1 FROM public.schedule_events e WHERE e.organization_id=g.organization_id AND e.store_id=choice.store_id AND e.is_cancelled=false
     AND e.date BETWEEN cd.date-2 AND cd.date+2
     AND e.date+e.start_time < v_candidate_end_at+make_interval(mins=>public.resolve_preparation_minutes(g.organization_id,NULL,NULL,e.id))
