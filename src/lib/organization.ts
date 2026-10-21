@@ -2,6 +2,7 @@
  * 組織（マルチテナント）関連のヘルパー関数
  */
 import { logger } from '@/utils/logger'
+import { currentScopeGeneration, shareInFlight } from '@/lib/api/sharedRequest'
 import { supabase } from './supabase'
 import { getOrganizationSlugFromPath } from './publicBookingPath'
 import type { Organization, Staff } from '@/types'
@@ -88,7 +89,8 @@ const STAFF_SELECT_FIELDS =
 export const QUEENS_WALTZ_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
 
 // 現在のユーザーのorganization_idキャッシュ（パフォーマンス最適化）
-let currentOrgIdCache: { userId: string; orgId: string; timestamp: number } | null = null
+// scope: 書いたときの範囲の世代（src/lib/api/sharedRequest.ts）。組織の切替などで世代が進んだら使わない
+let currentOrgIdCache: { userId: string; orgId: string; timestamp: number; scope: number } | null = null
 const CURRENT_ORG_CACHE_TTL = 60 * 1000 // 1分
 
 /**
@@ -102,8 +104,26 @@ export async function getCurrentOrganizationId(): Promise<string | null> {
   // キャッシュをチェック
   if (currentOrgIdCache && 
       currentOrgIdCache.userId === user.id && 
+      currentOrgIdCache.scope === currentScopeGeneration() &&
       Date.now() - currentOrgIdCache.timestamp < CURRENT_ORG_CACHE_TTL) {
     return currentOrgIdCache.orgId
+  }
+
+  // 画面を開いた直後は複数の部品が同時にここへ来る。キャッシュが入る前の同時呼び出しは
+  // 1 回の問い合わせを共有する（以前は users への同じ問い合わせが 5 回並んでいた）。
+  // 利用者ごとに分け、組織の切替・保存の後は相乗りしない（src/lib/api/sharedRequest.ts）
+  const userId = user.id
+  return shareInFlight(`current-organization-id:${userId}`, () => lookupOrganizationId(userId))
+}
+
+async function lookupOrganizationId(userId: string): Promise<string | null> {
+  const user = { id: userId }
+  // 問い合わせの間に組織が切り替わったら（範囲の世代が進んだら）、古い結果はキャッシュに書かない
+  const scopeAtStart = currentScopeGeneration()
+  const remember = (orgId: string) => {
+    if (scopeAtStart === currentScopeGeneration()) {
+      currentOrgIdCache = { userId: user.id, orgId, timestamp: Date.now(), scope: scopeAtStart }
+    }
   }
 
   // まず users テーブルから取得（高速・406エラー回避）
@@ -115,7 +135,7 @@ export async function getCurrentOrganizationId(): Promise<string | null> {
       .maybeSingle()
     
     if (userData?.organization_id) {
-      currentOrgIdCache = { userId: user.id, orgId: userData.organization_id, timestamp: Date.now() }
+      remember(userData.organization_id)
       return userData.organization_id
     }
   } catch (err) {
@@ -133,7 +153,7 @@ export async function getCurrentOrganizationId(): Promise<string | null> {
 
     if (staff?.status === 'inactive' || staff?.status === 'resigned') return null
     if (staff?.organization_id) {
-      currentOrgIdCache = { userId: user.id, orgId: staff.organization_id, timestamp: Date.now() }
+      remember(staff.organization_id)
       return staff.organization_id
     }
   } catch (err) {
@@ -147,7 +167,7 @@ export async function getCurrentOrganizationId(): Promise<string | null> {
     if (error) {
       logger.warn('getCurrentOrganizationId: rpc get_user_organization_id failed', error)
     } else if (orgId) {
-      currentOrgIdCache = { userId: user.id, orgId: String(orgId), timestamp: Date.now() }
+      remember(String(orgId))
       return String(orgId)
     }
   } catch (err) {

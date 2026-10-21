@@ -1,5 +1,6 @@
 import { type AssignmentSnapshot } from './staffAssignmentEdit'
 import { apiClient } from '@/lib/apiClient'
+import { getAllStaffShared } from '@/lib/api/staffShared'
 import {
   buildGmScenarioModesFromAssignments,
   type GmScenarioMode,
@@ -267,14 +268,24 @@ export const assignmentApi = {
       can_sub_gm: boolean | null
       is_experienced: boolean | null
     }
-    const allRows: BatchRow[] = []
+    // 50 件ずつの取得とスタッフ名の取得は互いに依存しないので同時に出す（以前は 1 件ずつ順番待ちで、
+    // 作品 260 件なら /api を 6 回直列に待っていた）。結果の並びは分割順のまま（Promise.all は順序を保つ）。
+    const slices: string[][] = []
     for (let i = 0; i < scenarioIds.length; i += batchSize) {
-      const slice = scenarioIds.slice(i, i + batchSize)
-      const data = await apiClient.get<BatchRow[]>(
-        `/api/assignments?scenario_ids=${encodeURIComponent(slice.join(','))}`
-      )
-      allRows.push(...(data ?? []))
+      slices.push(scenarioIds.slice(i, i + batchSize))
     }
+    type StaffRow = { id: string; name: string }
+    const staffPromise: Promise<StaffRow[]> = getAllStaffShared()
+    // 担当の取得が失敗したときに、使わないスタッフ取得の失敗が未処理の拒否にならないようにする
+    staffPromise.catch(() => undefined)
+    const batches = await Promise.all(
+      slices.map((slice) =>
+        apiClient.get<BatchRow[]>(
+          `/api/assignments?scenario_ids=${encodeURIComponent(slice.join(','))}`
+        )
+      )
+    )
+    const allRows: BatchRow[] = batches.flatMap((data) => data ?? [])
 
     const filtered = allRows.filter(
       (r) => r.can_main_gm === true || r.can_sub_gm === true || r.is_experienced === true
@@ -284,8 +295,7 @@ export const assignmentApi = {
     const uniqueStaffIds = Array.from(new Set(filtered.map((r) => r.staff_id).filter(Boolean)))
     const staffMap = new Map<string, string>()
     if (uniqueStaffIds.length > 0) {
-      type StaffRow = { id: string; name: string }
-      const allStaff = await apiClient.get<StaffRow[]>('/api/staff')
+      const allStaff = await staffPromise
       for (const s of allStaff ?? []) {
         if (uniqueStaffIds.includes(s.id)) {
           staffMap.set(s.id, s.name)
