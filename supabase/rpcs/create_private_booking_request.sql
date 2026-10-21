@@ -56,6 +56,7 @@ DECLARE
   v_player_count_min INTEGER;
   v_player_count_max INTEGER;
   v_scenario_kind TEXT;
+  v_slot_rule TEXT;
 BEGIN
   -- 20260414150000 の認可境界を維持する。SECURITY DEFINERでもanon/なりすましを許可しない。
   v_caller_user_id := auth.uid();
@@ -520,6 +521,19 @@ BEGIN
     END;
     IF v_candidate_time_slot IS NULL THEN
       RAISE EXCEPTION 'INVALID_CANDIDATE_TIME_SLOT' USING ERRCODE = 'P0041';
+    END IF;
+
+    -- 店舗の曜日ごとの枠設定（I2）・作品の時間枠（I10）: 送る店舗のどれもその日のその枠を受け付けていなければ申込全体を拒否する（issue #1200）
+    v_slot_rule := public.private_booking_candidate_slot_rule(
+      v_org_id, COALESCE(v_scenario_master_id, p_scenario_id),
+      ARRAY(SELECT (value->>'storeId')::UUID FROM jsonb_array_elements(v_trusted_candidate_datetimes->'requestedStores')),
+      v_cand_date, v_candidate_time_slot);
+    IF v_slot_rule IS NOT NULL THEN
+      RAISE EXCEPTION '選択した候補日時は現在受付できません（%/% %: %）。空き状況を更新して選び直してください',
+        extract(month FROM v_cand_date), extract(day FROM v_cand_date),
+        CASE v_candidate_time_slot WHEN 'morning' THEN '午前' WHEN 'afternoon' THEN '午後' ELSE '夜' END,
+        CASE WHEN v_slot_rule = 'slot_not_allowed' THEN 'この作品では選択できない時間帯です' ELSE '営業時間外です' END
+        USING ERRCODE = '22023';
     END IF;
 
     v_store_available := false;

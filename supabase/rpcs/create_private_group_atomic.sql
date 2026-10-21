@@ -6,7 +6,7 @@ CREATE FUNCTION public.create_private_group_atomic(
 DECLARE
  v_user uuid:=auth.uid(); v_group public.private_groups; v_member uuid;
  v_name text; v_settings public.global_settings; v_date jsonb; v_order bigint;
- v_custom_holidays jsonb; v_weekday_slots text[]; v_weekend_slots text[]; v_cand date; v_holiday boolean; v_allowed text[];
+ v_custom_holidays jsonb; v_weekday_slots text[]; v_weekend_slots text[]; v_cand date; v_holiday boolean; v_allowed text[]; v_rule text;
 BEGIN
  IF v_user IS NULL THEN RAISE EXCEPTION 'ログインが必要です' USING ERRCODE='42501'; END IF;
  IF NOT EXISTS(SELECT 1 FROM organizations WHERE id=p_organization_id AND is_active IS TRUE) THEN
@@ -52,6 +52,15 @@ BEGIN
    SELECT 1 FROM unnest(v_allowed) value WHERE value=ANY(CASE v_date->>'time_slot'
     WHEN '午前' THEN ARRAY['午前','朝公演','朝'] WHEN '午後' THEN ARRAY['午後','昼公演','昼'] ELSE ARRAY['夜','夜公演'] END)
   ) THEN RAISE EXCEPTION 'この作品では選択できない時間帯です' USING ERRCODE='22023'; END IF;
+  -- 店舗の曜日ごとの枠設定（I2）。希望店舗のどれもその日のその枠を受け付けていなければ作らない（issue #1200）
+  v_rule:=public.private_booking_candidate_slot_rule(p_organization_id,p_scenario_master_id,coalesce(p_preferred_store_ids,'{}'),v_cand,
+   CASE v_date->>'time_slot' WHEN '午前' THEN 'morning' WHEN '午後' THEN 'afternoon' ELSE 'evening' END);
+  IF v_rule IS NOT NULL THEN
+   RAISE EXCEPTION '選択した候補日時は現在受付できません（%/% %: %）。空き状況を更新して選び直してください',
+    extract(month FROM v_cand),extract(day FROM v_cand),CASE v_date->>'time_slot' WHEN '夜間' THEN '夜' ELSE v_date->>'time_slot' END,
+    CASE WHEN v_rule='slot_not_allowed' THEN 'この作品では選択できない時間帯です' ELSE '営業時間外です' END
+    USING ERRCODE='22023';
+  END IF;
   INSERT INTO private_group_candidate_dates(group_id,date,time_slot,start_time,end_time,order_num)
   VALUES(v_group.id,(v_date->>'date')::date,v_date->>'time_slot',v_date->>'start_time',v_date->>'end_time',coalesce((v_date->>'order_num')::integer,v_order::integer));
  END LOOP;

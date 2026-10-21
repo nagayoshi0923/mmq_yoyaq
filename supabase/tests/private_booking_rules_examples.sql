@@ -255,12 +255,9 @@ BEGIN
  PERFORM private_group_add_candidate_dates(c.grp,gen_random_uuid(),c.sm,two,
   jsonb_build_array(jsonb_build_object('date',w,'time_slot','afternoon','start_time','12:00','end_time','15:30'),
    jsonb_build_object('date',w,'time_slot','morning','start_time','10:00','end_time','13:30')));
- -- 朝 10:00 は本店（3 枠有効）でだけ入る。
- -- main（本番と同じ DB 関数）では、希望店舗の変更（private_group_set_preferred_stores）は店舗の枠設定（I2）を見ないので朝は外れない。
- -- staging では外れる（staging の DB 変更。本番に出たらここを staging と同じ「=1・朝が外れる」に戻す）。昼 12:00 は残る
- ASSERT private_group_set_preferred_stores(c.grp,one,two)=0, 'R39(main): 希望店舗の変更の動きが本番の DB 関数と違う（staging の DB 変更が入った？）';
- ASSERT EXISTS(SELECT 1 FROM private_group_candidate_dates WHERE group_id=c.grp AND time_slot IN ('morning','午前')), 'R39(main): 朝の候補が外れた（staging の DB 変更が入った？）';
- DELETE FROM private_group_candidate_dates WHERE group_id=c.grp AND time_slot IN ('morning','午前');
+ -- 朝 10:00 は本店（3 枠有効）でだけ入る。希望店舗を二号店だけにすると朝だけ外れ、昼 12:00 は残る
+ ASSERT private_group_set_preferred_stores(c.grp,one,two)=1, 'R39: 希望店舗の変更で朝だけが外れない';
+ ASSERT NOT EXISTS(SELECT 1 FROM private_group_candidate_dates WHERE group_id=c.grp AND time_slot IN ('morning','午前')), 'R39: 朝の候補が残った';
  ASSERT EXISTS(SELECT 1 FROM private_group_candidate_dates WHERE group_id=c.grp AND start_time::text LIKE '12:00%'), 'R39: 昼 12:00 の候補が外れた';
  ASSERT pg_temp.request(one,jsonb_build_array(jsonb_build_object('date',w,'timeSlot','午後','startTime','12:00','endTime','15:30'))) IS NOT NULL,
   'R39: 札幌相当への昼 12:00 の申込が通らない';
@@ -280,21 +277,19 @@ BEGIN
    jsonb_build_array(jsonb_build_object('date',w,'time_slot','午前','start_time','10:00','end_time','13:30')),NULL);
  EXCEPTION WHEN OTHERS THEN msg:=SQLERRM;
  END;
- -- main（本番と同じ DB 関数）では、グループ作成（create_private_group_atomic）は営業時間を確かめないので通る（staging では弾く）
- ASSERT msg IS NULL, format('R39(main): グループ作成の動きが本番の DB 関数と違う（%s）', msg);
+ ASSERT msg LIKE '%営業時間外です%', format('R39: 札幌相当の朝 10:00 でグループを作成できた（%s）', msg);
  UPDATE private_groups SET preferred_store_ids=two WHERE id=c.grp;
  PERFORM private_group_add_candidate_dates(c.grp,gen_random_uuid(),c.sm,two,
   jsonb_build_array(jsonb_build_object('date',w,'time_slot','morning','start_time','10:00','end_time','13:30')));
- -- main（本番と同じ DB 関数）では、店舗への申込（create_private_booking_request）は営業時間を確かめないので通る（staging では弾く）。
- -- 本番の申込は希望店舗とグループの希望店舗の一致を求めるので、先に二号店だけにする
+ -- main の申込は希望店舗とグループの希望店舗の一致を求める（staging は部分集合で可）ので、先に二号店だけにする
  UPDATE private_groups SET preferred_store_ids=one WHERE id=c.grp;
  msg:=NULL;
  BEGIN
   PERFORM pg_temp.request(one,jsonb_build_array(jsonb_build_object('date',w,'timeSlot','午前','startTime','10:00','endTime','13:30')));
  EXCEPTION WHEN OTHERS THEN msg:=SQLERRM;
  END;
- ASSERT msg IS NULL, format('R39(main): 申込の動きが本番の DB 関数と違う（%s）', msg);
- INSERT INTO _rule_rows VALUES('R39',w,'morning',false,'10:00','13:30','closed','main: 表示・候補の追加で弾く（グループ作成・申込・希望店舗の変更は本番の DB 関数が営業時間を見ない）',false);
+ ASSERT msg LIKE '%営業時間外です%', format('R39: 札幌相当へ朝 10:00 を申し込めた（%s）', msg);
+ INSERT INTO _rule_rows VALUES('R39',w,'morning',false,'10:00','13:30','closed','4 経路とも弾く',false);
  DELETE FROM private_group_candidate_dates WHERE group_id=c.grp;
  UPDATE private_groups SET status='gathering',reservation_id=NULL,preferred_store_ids=one WHERE id=c.grp;
 

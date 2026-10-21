@@ -2,11 +2,10 @@
 -- 全部 1 つの取引で、最後に ROLLBACK する（手元 DB は変わらない）。各ファイルの BEGIN; / COMMIT; は外して読み込む。
 -- 実行: npm run test:rpcs（または psql "$DB_URL" -X -f supabase/tests/data_fix_queens_waltz_weekday_morning_off.sql）
 -- 確かめること（PR #1201・2026-10-21）:
---  (a) 平日 朝 10:00 が 作品ページ（空き判定）・候補追加・公開入口（営業枠）で closed（main。グループ作成・申込・店舗変更は下の注記）
+--  (a) 平日 朝 10:00 が 作品ページ（空き判定）・候補追加・グループ作成・申込・店舗変更・公開入口（営業枠）のすべてで closed
 --  (b) 平日 昼 13:00・昼 12:00 固定（作者不詳相当）・夜 19:00 は変わらない  (c) 土曜 09:00 の朝は変わらない
 --  (d) 平日 open_time 10:00 の店舗（正当な朝営業）は朝が残る  (e) 他の組織（札幌相当）は不変
---  (f) 既存の候補・予約の行は変わらない。未申込の平日朝候補は、main（本番の DB 関数）では申込も店舗変更も通る（staging では拒否・除外）
---  (g) 復旧で元に戻る  (h) 2 回流しても同じ
+--  (f) 既存の候補・予約の行は変わらない。未申込の平日朝候補は申込で拒否・店舗変更で除外  (g) 復旧で元に戻る  (h) 2 回流しても同じ
 --  (i) 退避表は archive スキーマ（public の表の一覧は不変 = DB 構造の記録に差が出ない）・ブラウザの役割から使えない・RLS 有効
 \set ON_ERROR_STOP on
 \set qw_fix `sed -E '/^[[:space:]]*(BEGIN|COMMIT)[[:space:]]*;[[:space:]]*$/d' supabase/data-fixes/20261021_queens_waltz_weekday_morning_off.sql`
@@ -185,25 +184,17 @@ BEGIN
  ASSERT (SELECT opening_hours FROM business_hours_settings WHERE store_id=c.other_st)=tokyo, '(e) 別の組織の店が変わった';
  -- (f) 既存の候補・予約・グループの行は変わらない
  ASSERT pg_temp.rows_fp()=(SELECT rows_before FROM _fp), '(f) 既存の候補・予約の行が変わった';
- -- (a) 保存の 4 経路。main（本番と同じ DB 関数）では、候補追加だけが店舗の枠設定（I2）で平日朝を拒否する。
- --   グループ作成・店舗への申込・希望店舗の変更は本番の DB 関数が営業時間を確かめないので通る（外れない）。
- --   staging では 4 経路とも拒否・除外する（staging の DB 変更。本番に出たらこの試験を staging と同じに戻す）。
- --   画面（作品ページ・候補の追加・公開入口）は表示の判定で平日朝を出さないので、通常の操作では選べない。
+ -- (a) 保存の 4 経路: 候補追加・グループ作成・申込（未申込グループの平日朝候補）は拒否、店舗変更で除外
  msg:=pg_temp.err(format($q$SELECT private_group_add_candidate_dates(%L,gen_random_uuid(),%L,ARRAY[%L]::uuid[],
    jsonb_build_array(jsonb_build_object('date',%L,'time_slot','morning','start_time','10:00','end_time','13:30')))$q$,g2,c.sm,c.st2,pg_temp.day_of(5,2)));
  INSERT INTO _qw_log VALUES('2 後','候補追加 平日 朝 10:00',msg); ASSERT msg LIKE '%営業時間外です%', '(a) 候補追加で平日朝が通った: '||msg;
  msg:=pg_temp.err(format($q$SELECT create_private_group_atomic(%L,%L,'x',ARRAY[%L]::uuid[],
    jsonb_build_array(jsonb_build_object('date',%L,'time_slot','午前','start_time','10:00','end_time','13:30')),NULL)$q$,c.org,c.sm,c.st2,pg_temp.day_of(5,2)));
- INSERT INTO _qw_log VALUES('2 後','グループ作成 平日 朝 10:00（main: 本番の DB 関数は通す）',msg); ASSERT msg='no error', '(a)(main) グループ作成の動きが本番の DB 関数と違う: '||msg;
- -- main: 平日朝の候補を含む申込も通る（本番の DB 関数）。確かめたら戻す
- BEGIN
-  PERFORM pg_temp.request(g2,ARRAY[c.st2],jsonb_build_array(
-   jsonb_build_object('date',w,'timeSlot','午前','startTime','10:00','endTime','13:30'),jsonb_build_object('date',w,'timeSlot','午後','startTime','13:00','endTime','16:30')));
-  RAISE EXCEPTION 'undo' USING ERRCODE='P0099';
- EXCEPTION WHEN SQLSTATE 'P0099' THEN NULL;
- END;
- INSERT INTO _qw_log VALUES('2 後','申込（未申込グループの平日朝候補を含む。main: 本番の DB 関数は通す・確かめて戻す）','ok');
- ASSERT pg_temp.rows_fp()=(SELECT rows_before FROM _fp), '(f) 戻したはずの申込が残った';
+ INSERT INTO _qw_log VALUES('2 後','グループ作成 平日 朝 10:00',msg); ASSERT msg LIKE '%営業時間外です%', '(a) グループ作成で平日朝が通った: '||msg;
+ msg:=pg_temp.err(format($q$SELECT pg_temp.request(%L,ARRAY[%L]::uuid[],jsonb_build_array(
+   jsonb_build_object('date',%L,'timeSlot','午前','startTime','10:00','endTime','13:30'),jsonb_build_object('date',%L,'timeSlot','午後','startTime','13:00','endTime','16:30')))$q$,g2,c.st2,w,w));
+ INSERT INTO _qw_log VALUES('2 後','申込（未申込グループの平日朝候補を含む）',msg); ASSERT msg LIKE '22023%営業時間外です%', '(a)(f) 平日朝を含む申込が通った: '||msg;
+ ASSERT pg_temp.rows_fp()=(SELECT rows_before FROM _fp), '(f) 拒否された申込で行が変わった';
  -- 昼 13:00 だけなら申込める（(b) の保存側）。確かめたら戻す
  BEGIN
   PERFORM pg_temp.request(g2,ARRAY[c.st2],jsonb_build_array(jsonb_build_object('date',w,'timeSlot','午後','startTime','13:00','endTime','16:30')));
@@ -212,16 +203,16 @@ BEGIN
  END;
  ASSERT pg_temp.rows_fp()=(SELECT rows_before FROM _fp), '(f) 戻したはずの申込が残った';
  INSERT INTO _qw_log VALUES('2 後','申込（平日 昼 13:00 だけ・確かめて戻す）','ok');
- -- 店舗変更（同じ店のまま再設定）。main: 本番の DB 関数は営業時間を見ないので平日朝の候補も外れない。確かめたら戻す
+ -- 店舗変更（同じ店のまま再設定）: 平日朝の候補 1 件だけ外れ、昼 13:00 は残る。確かめたら戻す
  BEGIN
-  ASSERT private_group_set_preferred_stores(g2,ARRAY[c.st2],ARRAY[c.st2])=0, '(a)(main) 店舗変更の動きが本番の DB 関数と違う';
-  ASSERT EXISTS(SELECT 1 FROM private_group_candidate_dates WHERE group_id=g2 AND start_time LIKE '10:00%'), '(a)(main) 平日朝の候補が外れた';
+  ASSERT private_group_set_preferred_stores(g2,ARRAY[c.st2],ARRAY[c.st2])=1, '(a)(f) 店舗変更で平日朝の候補が外れない';
+  ASSERT NOT EXISTS(SELECT 1 FROM private_group_candidate_dates WHERE group_id=g2 AND start_time LIKE '10:00%'), '(f) 平日朝の候補が残った';
   ASSERT EXISTS(SELECT 1 FROM private_group_candidate_dates WHERE group_id=g2 AND start_time LIKE '13:00%'), '(f) 昼の候補が外れた';
   RAISE EXCEPTION 'undo' USING ERRCODE='P0099';
  EXCEPTION WHEN SQLSTATE 'P0099' THEN NULL;
  END;
  ASSERT pg_temp.rows_fp()=(SELECT rows_before FROM _fp), '(f) 戻したはずの店舗変更が残った';
- INSERT INTO _qw_log VALUES('2 後','店舗変更（未申込グループ・確かめて戻す。main: 本番の DB 関数は外さない）','平日朝も昼 13:00 も残る');
+ INSERT INTO _qw_log VALUES('2 後','店舗変更（未申込グループ・確かめて戻す）','平日朝 1 件除外・昼 13:00 は残る');
 END $$;
 SELECT pg_temp.snapshot('3 2回目の後');
 

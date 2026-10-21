@@ -45,6 +45,10 @@ BEGIN
     AND e.date+e.start_time < v_candidate_end_at+make_interval(mins=>public.resolve_preparation_minutes(g.organization_id,NULL,NULL,e.id))
     AND e.date+e.end_time+CASE WHEN e.end_time<e.start_time THEN interval '1 day' ELSE interval '0 days' END > v_candidate_start_at-make_interval(mins=>public.resolve_preparation_minutes(g.organization_id,choice.store_id,g.scenario_master_id,NULL)))
   ) INTO available;
+  -- 新しい希望店舗のどれもその日のその枠を受け付けていない（店舗の曜日ごとの枠設定 I2・作品の時間枠 I10）候補も外す（issue #1200）
+  IF available AND public.private_booking_candidate_slot_rule(g.organization_id,g.scenario_master_id,selected,cd.date,slot) IS NOT NULL THEN
+   available:=false;
+  END IF;
   IF NOT available THEN
    DELETE FROM public.private_group_candidate_dates WHERE id=cd.id AND group_id=g.id;
    removed:=removed+1;
