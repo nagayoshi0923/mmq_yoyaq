@@ -2,6 +2,8 @@
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { expect, it, vi } from 'vitest'
+// 枠表は理由の文面（candidateSlotAvailability）だけを使う。その中の supabase は読まない
+vi.mock('@/lib/supabase', () => ({ supabase: {} }))
 import { PrivateBookingSlotGrid } from './PrivateBookingSlotGrid'
 it.each([true,false])('追加済み・選べない枠（押すと理由）・新規選択を区別する（compact=%s）',async compact=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true})
@@ -33,5 +35,36 @@ it('枠表は内側で縦スクロールせず、月の切り替えは指定時�
  expect(host.textContent).toContain('17:30〜21:00 に調整')
  await render(false)
  expect(host.querySelector('[data-testid="slot-grid-header"]')!.className).not.toContain('sticky')
+ await act(async()=>root.unmount())
+})
+it('conflictAsFull: 他の公演と重なる枠は「満席」で押せず理由も開かない。他の理由は押すと理由を出す（2026-10-22）', async () => {
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true})
+ const host=document.createElement('div'),root=createRoot(host),toggle=vi.fn()
+ const slot={key:'evening' as const,label:'夜' as const,startTime:'19:00',endTime:'23:00'}
+ const dates=['2026-11-01','2026-11-02','2026-11-03','2026-11-04']
+ const reasons={'2026-11-01-夜':'他の公演と重なります','2026-11-02-夜':'他の公演と重なります（空き 1 時間・必要 3 時間 30 分）','2026-11-03-夜':'この店舗はこの時間帯の貸切を受け付けていません'}
+ const render=(conflictAsFull:boolean)=>act(async()=>root.render(<PrivateBookingSlotGrid currentMonth={new Date(2026,10,1)} onMonthChange={()=>{}} isPrevMonthDisabled availableDates={dates} slotsByDate={Object.fromEntries(dates.map(d=>[d,[slot]]))} selectedSlots={[]} onSlotToggle={toggle} maxSelections={100} unavailableReasons={reasons} compact conflictAsFull={conflictAsFull} />))
+ await render(true)
+ const byLabel=(l:string)=>[...host.querySelectorAll('button')].find(b=>b.getAttribute('aria-label')===l)
+ const full1=byLabel('2026-11-01 夜 満席')!,full2=byLabel('2026-11-02 夜 満席')!
+ for(const b of [full1,full2]){expect(b.disabled).toBe(true);expect(b.getAttribute('aria-disabled')).toBe('true');expect(b.textContent).toContain('満席');expect(b.textContent).not.toContain('他の公演と重なります');expect(b.className).toContain('cursor-not-allowed')}
+ await act(async()=>{full1.click();full2.click()})
+ expect(host.querySelector('[role=status]')).toBeNull();expect(toggle).not.toHaveBeenCalled()
+ const closed=byLabel('2026-11-03 夜 選択不可（この店舗はこの時間帯の貸切を受け付けていません）')!
+ expect(closed.disabled).toBe(false);expect(closed.textContent).toContain('この店舗はこの時間帯の貸切を受け付けていません')
+ await act(async()=>closed.click())
+ expect(host.querySelector('[role=status]')?.textContent).toBe('11/03 夜: この店舗はこの時間帯の貸切を受け付けていません');expect(toggle).not.toHaveBeenCalled()
+ await act(async()=>byLabel('2026-11-04 夜')!.click());expect(toggle).toHaveBeenCalledExactlyOnceWith('2026-11-04',slot)
+ // 指定しない画面（候補日の追加など）は従来どおり理由を出す
+ await render(false)
+ expect(byLabel('2026-11-01 夜 選択不可（他の公演と重なります）')).toBeTruthy();expect(host.textContent).not.toContain('満席')
+ await act(async()=>root.unmount())
+})
+it('conflictAsFull でも受付締切前の日は締切の理由を出す', async () => {
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true})
+ const host=document.createElement('div'),root=createRoot(host)
+ const slot={key:'evening' as const,label:'夜' as const,startTime:'19:00',endTime:'23:00'}
+ await act(async()=>root.render(<PrivateBookingSlotGrid currentMonth={new Date(2026,10,1)} onMonthChange={()=>{}} isPrevMonthDisabled availableDates={['2026-11-01']} slotsByDate={{'2026-11-01':[slot]}} selectedSlots={[]} onSlotToggle={()=>{}} maxSelections={100} unavailableReasons={{'2026-11-01-夜':'受付締切を過ぎています'}} isTooSoon={()=>true} compact conflictAsFull />))
+ expect(host.textContent).not.toContain('満席');expect(host.textContent).toContain('受付締切を過ぎています')
  await act(async()=>root.unmount())
 })

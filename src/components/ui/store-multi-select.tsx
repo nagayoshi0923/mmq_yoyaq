@@ -1,7 +1,8 @@
 import { memo, useState, useMemo, type CSSProperties } from 'react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { ChevronDown } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { ChevronDown, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // 都道府県の表示順序（47都道府県 + 未分類）
@@ -43,6 +44,11 @@ interface StoreMultiSelectProps {
   className?: string
   triggerClassName?: string
   triggerStyle?: CSSProperties
+  /**
+   * 選択済み店舗の見せ方。'trigger'（既定）はプルダウンのボタンに店舗名を並べる。
+   * 'badges' はボタンには件数だけ出し、ボタンの直下に 1 店舗ずつバッジ（× で解除）を並べる（貸切リクエスト画面）
+   */
+  selectedDisplay?: 'trigger' | 'badges'
 }
 
 /**
@@ -61,7 +67,8 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
   hideLabel = false,
   className = '',
   triggerClassName,
-  triggerStyle
+  triggerStyle,
+  selectedDisplay = 'trigger',
 }: StoreMultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -103,16 +110,21 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
     }
   }
 
+  const selectedStores = useMemo(
+    () => stores.filter(s => selectedStoreIds.includes(s.id)),
+    [stores, selectedStoreIds]
+  )
+
   // 選択中ラベル
   const triggerLabel = useMemo(() => {
-    const selectedStores = stores.filter(s => selectedStoreIds.includes(s.id))
     const validCount = selectedStores.length
     if (validCount === 0) return placeholder
+    if (selectedDisplay === 'badges') return `${validCount}店舗を選択中`
     if (validCount <= 5) {
       return selectedStores.map(s => s.short_name || s.name).join(', ')
     }
     return `${validCount}店舗選択中`
-  }, [stores, selectedStoreIds, placeholder])
+  }, [selectedStores, placeholder, selectedDisplay])
 
   return (
     <div className={className}>
@@ -221,6 +233,26 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
           )}
         </PopoverContent>
       </Popover>
+
+      {selectedDisplay === 'badges' && selectedStores.length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="選択中の店舗" data-testid="selected-store-badges">
+          {selectedStores.map(store => (
+            <li key={store.id} className="min-w-0 max-w-full">
+              <Badge variant="purple" className="max-w-full gap-1 py-1 pl-2.5 pr-1 font-medium">
+                <span className="min-w-0 break-all">{store.name}</span>
+                <button
+                  type="button"
+                  onClick={() => onStoreIdsChange(selectedStoreIds.filter(id => id !== store.id))}
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-purple-200"
+                  aria-label={`${store.name}を解除`}
+                >
+                  <X className="h-3 w-3" aria-hidden="true" />
+                </button>
+              </Badge>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 })

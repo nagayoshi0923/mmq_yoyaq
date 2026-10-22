@@ -22,6 +22,8 @@ function FilterButtons() {
       <button onClick={() => update({ beginnerOnly: true })}>初心者向け</button>
       <button onClick={() => setParams({ tab: 'coupons' })}>タブ</button>
       <button onClick={() => navigate('/queens-waltz/scenario/abc')}>作品へ</button>
+      <button onClick={() => navigate(1)}>進む</button>
+      <button onClick={() => navigate(-1)}>戻る</button>
     </div>
   )
 }
@@ -85,6 +87,31 @@ describe('ScrollToTop', () => {
     renderAt('/queens-waltz')
     click('作品へ')
     expect(scrollSpy).toHaveBeenCalledWith(0, 0)
+  })
+
+  it('戻る・進むで保存位置の無いページへ移ったら、前のページの位置を持ち越さず先頭から（QW-20261022-013）', () => {
+    sessionStorage.clear()
+    mount(
+      <MemoryRouter initialEntries={['/private-booking/select-organization?org=qw&stores=a', '/qw/scenario/x?tab=private&stores=a']} initialIndex={0}>
+        <ScrollToTop />
+        <FilterButtons />
+      </MemoryRouter>,
+    )
+    click('進む')
+    expect(scrollSpy).toHaveBeenCalledWith(0, 0)
+  })
+
+  it('戻るで保存位置のあるページへ移ったら、先頭へは戻さない（復元に任せる）', () => {
+    sessionStorage.clear()
+    sessionStorage.setItem('route:/private-booking/select-organization?org=qwScrollY', '1500')
+    mount(
+      <MemoryRouter initialEntries={['/private-booking/select-organization?org=qw&stores=a', '/qw/scenario/x?tab=private&stores=a']} initialIndex={1}>
+        <ScrollToTop />
+        <FilterButtons />
+      </MemoryRouter>,
+    )
+    click('戻る')
+    expect(scrollSpy).not.toHaveBeenCalled()
   })
 
   it('?tab= の切替はこれまでどおり先頭へ戻す', () => {

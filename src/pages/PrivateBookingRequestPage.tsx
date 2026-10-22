@@ -254,6 +254,16 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     window.history.back()
   }
 
+  // 確認画面で希望店舗を選び直したら、URL の store も合わせる（再読み込み・戻る→進むで同じ店舗に。
+  // 画面の移動ではないので履歴は増やさず、ルーターの遷移（先頭へのスクロール・URL からの再適用）も起こさない）
+  const handleStoreIdsChange = (ids: string[]) => {
+    const params = new URLSearchParams(window.location.search)
+    if (ids.length > 0) params.set('store', ids.join(','))
+    else params.delete('store')
+    const query = params.toString().replace(/%2C/g, ',')
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`)
+  }
+
   const handleComplete = async () => {
     // 完了後の処理（トップページへ遷移など）
     navigate(bookingBasePath)
@@ -350,6 +360,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       groupId={groupId || undefined}
       onBack={handleBack}
       onComplete={handleComplete}
+      onStoreIdsChange={handleStoreIdsChange}
     />
   )
 }
