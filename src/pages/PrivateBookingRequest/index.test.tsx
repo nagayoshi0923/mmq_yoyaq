@@ -2,14 +2,14 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const HORIZON = vi.hoisted(() => ({ days: 180 }))
 vi.mock('@/lib/privateBookingHorizon', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/privateBookingHorizon')>()),
   usePrivateBookingHorizonDays: () => ({ days: HORIZON.days, loading: false }),
 }))
 
-const mocks = vi.hoisted(() => ({ days: 90, rpc: vi.fn(), from: vi.fn(), submit: vi.fn(), create: vi.fn(), blocked: vi.fn(), holiday: () => false }))
+const mocks = vi.hoisted(() => ({ days: 90, rpc: vi.fn(), from: vi.fn(), submit: vi.fn(), create: vi.fn(), blocked: vi.fn(), holiday: () => false, submitArgs: null as null | { selectedStoreIds: string[] } }))
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }))
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'user', email: 'fixture@example.invalid' } }) }))
 vi.mock('@/components/layout/Header', () => ({ Header: () => null }))
@@ -18,8 +18,22 @@ vi.mock('../ScenarioDetailPage/components/BookingNotice', () => ({ BookingNotice
 vi.mock('@/hooks/useCustomHolidays', () => ({ useCustomHolidays: () => ({ isCustomHoliday: mocks.holiday }) }))
 vi.mock('@/hooks/usePrivateBookingDeadlineDays', () => ({ usePrivateBookingDeadlineDays: () => mocks.days }))
 vi.mock('@/hooks/usePrivateGroup', () => ({ usePrivateGroup: () => ({ createGroup: mocks.create, loading: false }) }))
-vi.mock('./hooks/usePrivateBookingSubmit', () => ({ usePrivateBookingSubmit: () => ({ handleSubmit: mocks.submit, isSubmitting: false, success: false }) }))
-vi.mock('../BookingConfirmation/hooks/useCustomerData', () => ({ useCustomerData: () => ({ customerName: 'Fixture', customerEmail: 'fixture@example.invalid', customerPhone: '00000000000', customerNickname: '', setCustomerName: vi.fn(), setCustomerEmail: vi.fn(), setCustomerPhone: vi.fn(), setCustomerNickname: vi.fn() }) }))
+vi.mock('./hooks/usePrivateBookingSubmit', () => ({ usePrivateBookingSubmit: (args: { selectedStoreIds: string[] }) => { mocks.submitArgs = args; return { handleSubmit: mocks.submit, isSubmitting: false, success: false } } }))
+// お客様情報は入力どおりに持つ（店舗の変更で消えないことを確かめる）
+vi.mock('../BookingConfirmation/hooks/useCustomerData', async () => {
+  const React = await import('react')
+  return { useCustomerData: () => {
+    const [customerName, setCustomerName] = React.useState('Fixture')
+    const [customerNickname, setCustomerNickname] = React.useState('')
+    return { customerName, setCustomerName, customerEmail: 'fixture@example.invalid', customerPhone: '00000000000', customerNickname, setCustomerNickname, setCustomerEmail: vi.fn(), setCustomerPhone: vi.fn() }
+  } }
+})
+// 店舗のプルダウン（Radix Popover）は jsdom で開閉が進まないため、中身を常に出す
+vi.mock('@/components/ui/popover', () => ({
+  Popover: ({ children }: any) => <div>{children}</div>,
+  PopoverTrigger: ({ children }: any) => <>{children}</>,
+  PopoverContent: ({ children }: any) => <div data-testid="popover-content">{children}</div>,
+}))
 vi.mock('@/lib/organization', () => ({ resolveOrgIdFromPageContext: async () => 'org' }))
 vi.mock('@/lib/supabase', () => ({ supabase: { from: mocks.from, rpc: mocks.rpc } }))
 // 時間帯のプルダウンは jsdom で操作できるように素の select にする（表示する文言と値はそのまま）
@@ -148,4 +162,106 @@ it('監査 R1: 店舗の特別営業日で DB が 14:00〜18:00 を返したら�
     { date: second, time_slot: '午後', start_time: '14:00', end_time: '18:00', order_num: 2 },
   ])
   expect(mocks.submit).toHaveBeenCalledTimes(1)
+})
+
+describe('確認ページで希望店舗を変更する（QW-20261022-013）', () => {
+  const twoStores = [
+    { id: 'store', name: '大塚店', status: 'active', ownership_type: 'owned' },
+    { id: 'store2', name: '高田馬場店', status: 'active', ownership_type: 'owned' },
+  ]
+  const onStoreIdsChange = vi.fn()
+  let conflictAtStore2 = false
+  async function renderStores() {
+    const p = { ...props, stores: twoStores, selectedStoreIds: ['store'], selectedTimeSlots: [{ date, slot: { label: '夜', startTime: '19:00', endTime: '22:00' } }], onStoreIdsChange }
+    await act(async () => root.render(<QueryClientProvider client={client}><PrivateBookingRequest {...p} /></QueryClientProvider>)); await flush()
+  }
+  beforeEach(() => {
+    mocks.days = 14; conflictAtStore2 = false; onStoreIdsChange.mockClear()
+    mocks.blocked.mockResolvedValue({ data: [], error: null })
+    mocks.rpc.mockImplementation(async (name: string, params: any) => name === 'private_booking_candidate_slot_availability'
+      ? { data: [conflictAtStore2 && params.p_store_ids.join(',') === 'store2'
+        ? { date: params.p_from, time_slot: 'evening', available: false, reason: 'conflict', start_time: null, end_time: null }
+        : { date: params.p_from, time_slot: 'evening', available: true, reason: null, start_time: '19:00', end_time: '22:00' }], error: null }
+      : mocks.blocked(params))
+    mocks.create.mockResolvedValue({ id: 'group', invite_code: 'invite' })
+  })
+  const sheet = () => document.querySelector('[data-testid="change-stores-sheet"]') as HTMLElement | null
+  const inSheet = (text: string) => [...sheet()!.querySelectorAll('button')].find((b) => b.textContent?.trim().endsWith(text) || b.getAttribute('aria-label') === text) as HTMLButtonElement
+  const shownStores = () => [...host.querySelectorAll('[data-testid="selected-stores"] .text-sm.font-medium')].map((e) => e.textContent)
+  async function chooseStore2Only() {
+    await act(async () => host.querySelector<HTMLButtonElement>('[data-testid="change-stores"]')!.click()); await flush()
+    expect(sheet()).not.toBeNull()
+    await act(async () => inSheet('高田馬場店').click())
+    await act(async () => inSheet('大塚店を解除').click()); await flush()
+  }
+  const notesBox = () => host.querySelector('textarea') as HTMLTextAreaElement
+  function typeNotes(value: string) {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(notesBox(), value)
+    notesBox().dispatchEvent(new Event('input', { bubbles: true }))
+  }
+
+  it('「希望店舗」の横の「変更」から選び直して確定すると、表示・空き判定・送信データが同じ店舗になり、入力は消えない', async () => {
+    await renderStores()
+    expect(shownStores()).toEqual(['大塚店'])
+    await act(async () => typeNotes('誕生日です'))
+    const nameInput = host.querySelector('input[placeholder="山田 太郎"]') as HTMLInputElement
+    await act(async () => setValue(nameInput, '貸切 花子'))
+    await chooseStore2Only()
+    expect(sheet()!.querySelector('[data-testid="change-stores-ok"]')).not.toBeNull()
+    await act(async () => inSheet('この店舗に変更する').click()); await flush()
+    expect(sheet()).toBeNull()
+    expect(shownStores()).toEqual(['高田馬場店'])
+    expect(onStoreIdsChange).toHaveBeenCalledWith(['store2'])
+    // 作品・候補日時・お客様情報・備考はそのまま
+    expect(host.textContent).toContain('Fixture')
+    expect(host.textContent).toContain('夜 19:00 - 22:00')
+    expect(notesBox().value).toBe('誕生日です')
+    expect((host.querySelector('input[placeholder="山田 太郎"]') as HTMLInputElement).value).toBe('貸切 花子')
+    // 空き判定も新しい店舗で
+    expect(mocks.rpc.mock.calls.some(([n, p]: any) => n === 'private_booking_candidate_slot_availability' && p.p_store_ids.join(',') === 'store2')).toBe(true)
+    // 送信データも同じ店舗
+    expect(mocks.submitArgs?.selectedStoreIds).toEqual(['store2'])
+    await act(async () => buttonByText('貸切リクエストを送信').click()); await flush()
+    expect(mocks.create).toHaveBeenCalledTimes(1)
+    expect(mocks.create.mock.calls[0][0].preferredStoreIds).toEqual(['store2'])
+    expect(mocks.submit).toHaveBeenCalledTimes(1)
+  })
+
+  it('「変更しない」で閉じたら元の店舗のまま（URL も送信データも変えない）', async () => {
+    await renderStores()
+    await chooseStore2Only()
+    await act(async () => inSheet('変更しない').click()); await flush()
+    expect(sheet()).toBeNull()
+    expect(shownStores()).toEqual(['大塚店'])
+    expect(onStoreIdsChange).not.toHaveBeenCalled()
+    expect(mocks.submitArgs?.selectedStoreIds).toEqual(['store'])
+    // もう一度開くと、取り消した選び直しは持ち越さない
+    await act(async () => host.querySelector<HTMLButtonElement>('[data-testid="change-stores"]')!.click()); await flush()
+    expect([...sheet()!.querySelectorAll('[data-testid="selected-store-badges"] li')].map((li) => li.textContent)).toEqual(['大塚店'])
+  })
+
+  it('変更先で選べなくなる候補は確定前に理由つきで知らせ、確定しても候補は消さずに送信させない', async () => {
+    conflictAtStore2 = true
+    await renderStores()
+    await chooseStore2Only()
+    const alert = sheet()!.querySelector('[data-testid="change-stores-unavailable"]')!
+    expect(alert.textContent).toContain('この店舗では選べない候補日時があります（1 件）')
+    expect(alert.textContent).toContain('夜: 他の公演と重なります')
+    expect(alert.textContent).toContain('変更しても候補は消えません')
+    await act(async () => inSheet('この店舗に変更する').click()); await flush()
+    expect(shownStores()).toEqual(['高田馬場店'])
+    expect(host.textContent).toContain('候補日時（1/6件）')
+    expect(host.querySelector('[data-testid="candidate-unavailable"]')?.textContent).toContain('この日時は選べません（他の公演と重なります）')
+    const button = buttonByText('選べない候補日時を再選択してください')
+    expect(button.disabled).toBe(true)
+    expect(mocks.create).not.toHaveBeenCalled()
+  })
+
+  it('店舗を 1 つも選ばないと確定できない', async () => {
+    await renderStores()
+    await act(async () => host.querySelector<HTMLButtonElement>('[data-testid="change-stores"]')!.click()); await flush()
+    await act(async () => inSheet('大塚店を解除').click()); await flush()
+    expect(sheet()!.querySelector('[data-testid="change-stores-empty"]')).not.toBeNull()
+    expect(inSheet('この店舗に変更する').disabled).toBe(true)
+  })
 })

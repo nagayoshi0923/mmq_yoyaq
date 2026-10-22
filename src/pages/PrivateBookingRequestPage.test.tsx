@@ -15,7 +15,12 @@ vi.mock('@/hooks/useCustomHolidays', () => ({ useCustomHolidays: () => ({ isCust
 vi.mock('@/lib/api', () => ({ scenarioApi: { getById: mocks.scenario }, storeApi: { getAllPublic: mocks.stores, getAllPublicForCustomer: mocks.stores } }))
 vi.mock('@/lib/supabase', () => ({ supabase: { from: mocks.from, rpc: mocks.rpc } }))
 vi.mock('@/lib/organization', () => ({ resolveOrganizationFromPathSegment: vi.fn() }))
-vi.mock('./PrivateBookingRequest/index', () => ({ PrivateBookingRequest: (props: any) => <output>{JSON.stringify(props.selectedTimeSlots)}</output> }))
+vi.mock('./PrivateBookingRequest/index', () => ({ PrivateBookingRequest: (props: any) => (
+  <>
+    <output>{JSON.stringify(props.selectedTimeSlots)}</output>
+    <button data-testid="change" onClick={() => props.onStoreIdsChange?.(['s2', 's3'])} />
+  </>
+) }))
 import { PrivateBookingRequestPage } from './PrivateBookingRequestPage'
 let root: Root, host: HTMLDivElement
 const scenarioId = '20000000-0000-0000-0000-000000000001'
@@ -72,4 +77,15 @@ it('設定が 90 日なら、91 日先の日付は進めず 90 日先は進め�
     await render()
     expect(host.querySelector('output')).not.toBeNull()
   } finally { HORIZON.days = 180 }
+})
+
+it('確認画面で希望店舗を変更したら、URL の store を合わせる（履歴は増やさず、他の条件は残す。QW-20261022-013）', async () => {
+  const historyState = { idx: 3, key: 'k' }
+  window.history.replaceState(historyState, '', `/test/private-booking-request?scenario=${scenarioId}&store=${storeId}&date=2026-10-19&slot=evening&time=19:30`)
+  const length = window.history.length
+  await render()
+  await act(async () => (host.querySelector('[data-testid="change"]') as HTMLButtonElement).click())
+  expect(window.location.search).toBe(`?scenario=${scenarioId}&store=s2,s3&date=2026-10-19&slot=evening&time=19%3A30`)
+  expect(window.history.length).toBe(length)
+  expect(window.history.state).toEqual(historyState)
 })

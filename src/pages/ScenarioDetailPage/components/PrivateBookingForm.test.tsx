@@ -3,8 +3,9 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-vi.mock('@/components/private-booking/PrivateBookingSlotGrid', () => ({ PrivateBookingSlotGrid: () => <div data-testid="slot-grid" /> }))
-vi.mock('./StoreSelector', () => ({ StoreSelector: () => <div /> }))
+const seen = vi.hoisted(() => ({ grid: {} as Record<string, unknown>, store: {} as Record<string, unknown> }))
+vi.mock('@/components/private-booking/PrivateBookingSlotGrid', () => ({ PrivateBookingSlotGrid: (p: Record<string, unknown>) => { seen.grid = p; return <div data-testid="slot-grid" /> } }))
+vi.mock('./StoreSelector', () => ({ StoreSelector: (p: Record<string, unknown>) => { seen.store = p; return <div /> } }))
 vi.mock('./BookingNotice', () => ({ BookingNotice: () => <div /> }))
 import { PrivateBookingForm } from './PrivateBookingForm'
 import { PrivateBookingPanel } from './PrivateBookingPanel'
@@ -33,6 +34,12 @@ it('空き状況を読めなかったときは「空きなし」に見える枠�
   expect(button.textContent).toContain('空き状況を再読み込み')
   await act(async () => button.click())
   expect(retry).toHaveBeenCalledTimes(1)
+})
+
+it('希望店舗はバッジで並べ、他の公演と重なる枠は「満席」で出す（QW-20261022-001）', async () => {
+  await act(async () => root.render(<PrivateBookingForm {...formProps} />))
+  expect(seen.store.selectedDisplay).toBe('badges')
+  expect(seen.grid.conflictAsFull).toBe(true)
 })
 
 it('読めているときは枠を出し、案内は出さない', async () => {

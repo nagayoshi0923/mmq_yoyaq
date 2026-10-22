@@ -8,7 +8,7 @@
  * 作品を押すと作品ページの貸切リクエストのタブへ（希望店舗は ?stores= で渡し、グループ作成の初期値にする）。
  * 日付・時間帯付き（カレンダーの貸切申込チップから）の流れは PrivateBookingScenarioSelect のまま。
  */
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -104,9 +104,13 @@ export function PrivateBookingStart({ organizationSlug }: PrivateBookingStartPro
 
   useReportRouteScrollRestoration('private-booking-start', { isLoading: isLoading || (Boolean(org) && scenarioQuery.isLoading) })
 
-  // 組織を選ぶと一覧が選んだカードと希望店舗に縮むので、店舗の欄の頭に合わせる（スマホで下の方のカードを押したとき用）
+  // 組織を選ぶと一覧が選んだカードと希望店舗に縮むので、店舗の欄の頭に合わせる（スマホで下の方のカードを押したとき用）。
+  // 一覧から押したときだけ。URL で組織が決まった状態で開いた・戻った（読込完了）ときは送らない。
+  // 送ると戻るの位置の復元とぶつかり、選んだ店舗や作品一覧の位置が奪われる（QW-20261022-013）
+  const scrollToOrganizationRef = useRef(false)
   useEffect(() => {
-    if (!org || fixedOrg) return
+    if (!org || fixedOrg || !scrollToOrganizationRef.current) return
+    scrollToOrganizationRef.current = false
     const el = document.getElementById('private-start-organizations')
     if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
   }, [org?.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -154,7 +158,7 @@ export function PrivateBookingStart({ organizationSlug }: PrivateBookingStartPro
             <>
               {missingOrg && <p className="mb-2 text-xs text-muted-foreground">指定の店舗が見つかりませんでした。一覧から選んでください。</p>}
               <p className="mb-2 text-xs text-muted-foreground">店舗を選ぶと、その店舗で貸切できる作品の一覧が開きます。</p>
-              <OrganizationList organizations={organizations} prefectures={prefectures} onSelect={(o) => updateParams({ org: o.slug, stores: [] })} />
+              <OrganizationList organizations={organizations} prefectures={prefectures} onSelect={(o) => { scrollToOrganizationRef.current = true; updateParams({ org: o.slug, stores: [] }) }} />
             </>
           )}
         </TopSection>

@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, MapPin, ArrowLeft, AlertCircle, Plus, X, Loader2 } from 'lucide-react'
+import { Calendar, Clock, Users, MapPin, ArrowLeft, AlertCircle, Plus, X, Loader2, Pencil } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCustomerData } from '../BookingConfirmation/hooks/useCustomerData'
 import { usePrivateBookingForm } from './hooks/usePrivateBookingForm'
@@ -22,6 +22,7 @@ import { logger } from '@/utils/logger'
 import { formatDate } from './utils/privateBookingFormatters'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
 import { PrivateBookingRequestSuccess } from './components/PrivateBookingRequestSuccess'
+import { ChangeStoresSheet, type UnavailableCandidate } from './components/ChangeStoresSheet'
 import { privateCancelNoticeText } from '@/lib/privateCancelNotice'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { usePrivateBookingDeadlineDays } from '@/hooks/usePrivateBookingDeadlineDays'
@@ -70,7 +71,8 @@ export function PrivateBookingRequest({
   organizationSlug,
   groupId,
   onBack,
-  onComplete
+  onComplete,
+  onStoreIdsChange,
 }: PrivateBookingRequestProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -118,11 +120,14 @@ export function PrivateBookingRequest({
     [displayStores, scenarioAvailableStores]
   )
 
-  // 希望店舗（前ページで選択済み、変更不可）
+  // 希望店舗（前ページで選んだ店舗。確認画面の「変更」で選び直せる。QW-20261022-013）。
+  // 表示・空き判定・送信はすべてこの 1 つから作る（表示と送信内容をずらさない）
+  const [changedStoreIds, setChangedStoreIds] = useState<string[] | null>(null)
+  const [storeSheetOpen, setStoreSheetOpen] = useState(false)
   const selectedStoreIds = useMemo(() => {
-    const filtered = initialStoreIds.filter(id => playableStores.some((s) => s.id === id))
+    const filtered = (changedStoreIds ?? initialStoreIds).filter(id => playableStores.some((s) => s.id === id))
     return filtered.length > 0 ? filtered : []
-  }, [initialStoreIds, playableStores])
+  }, [changedStoreIds, initialStoreIds, playableStores])
 
   // 貸切予約の受付締切（公演日の何日前まで申込可能か）。設定 > 予約設定の値
   const deadlineDays = usePrivateBookingDeadlineDays({ organizationSlug, scenarioId })
@@ -237,6 +242,24 @@ export function PrivateBookingRequest({
     if (moved) setCandidateTimesUpdated(true)
     setEditableTimeSlots(reconciled.updated)
   }, [candidateAvailability, editableTimeSlots])
+  /** 店舗を選び直したとき、いまの候補のうち選べなくなるもの（確認画面と同じ DB の空き判定。規則は変えない） */
+  const checkCandidatesForStores = useCallback(async (storeIds: string[]): Promise<UnavailableCandidate[]> => {
+    if (!slotOrganizationId || !scenarioId) throw new Error('空き状況を確認できません')
+    const target: CandidateSlotAvailabilityTarget = { kind: 'scenario', organizationId: slotOrganizationId, scenarioId, storeIds }
+    const dates = [...new Set(editableTimeSlots.map((c) => c.date))]
+    const rows = (await Promise.all(dates.map((d) => fetchCandidateSlotAvailability(target, d, d)))).flat()
+    const availability = buildCandidateSlotAvailability(rows)
+    return editableTimeSlots
+      .filter((c) => !availableSlotsForDate(availability, c.date).some((slot) => slot.label === c.slot.label))
+      .map((c) => ({ date: c.date, label: c.slot.label, reason: availability.unavailableReasons[`${c.date}-${c.slot.label}`] || '選択できません' }))
+  }, [slotOrganizationId, scenarioId, editableTimeSlots])
+
+  const handleConfirmStores = (storeIds: string[]) => {
+    setChangedStoreIds(storeIds)
+    setError(null)
+    onStoreIdsChange?.(storeIds)
+  }
+
   /** DB の最新の応答で選べない候補の理由（読み込み前・選べる候補は null） */
   const candidateUnavailableReason = useCallback((candidate: { date: string; slot: TimeSlot }): string | null => {
     if (!candidateAvailability || !candidateDatesKey.split(',').includes(candidate.date)) return null
@@ -638,12 +661,38 @@ export function PrivateBookingRequest({
               </div>
             </div>
 
-            {/* 希望店舗（前ページで選択済みの店舗を表示） */}
+            {/* 希望店舗（前ページで選んだ店舗。「変更」でこの画面のまま選び直せる） */}
             <div>
-              <h2 className="text-base font-semibold mb-3">希望店舗</h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-semibold">希望店舗</h2>
+                {playableStores.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setStoreSheetOpen(true)}
+                    className="text-purple-600 hover:text-purple-800 hover:bg-purple-50 h-8 px-2"
+                    data-testid="change-stores"
+                    aria-label="希望店舗を変更"
+                  >
+                    <Pencil className="w-4 h-4 mr-1" />
+                    変更
+                  </Button>
+                )}
+              </div>
+              <ChangeStoresSheet
+                open={storeSheetOpen}
+                onOpenChange={setStoreSheetOpen}
+                stores={playableStores}
+                currentStoreIds={selectedStoreIds}
+                checkCandidates={checkCandidatesForStores}
+                onConfirm={handleConfirmStores}
+              />
               <Card>
                 <CardContent className="p-4 space-y-3">
-                  <div className="space-y-2">
+                  {selectedStoreIds.length === 0 && (
+                    <p className="text-sm text-muted-foreground">希望店舗が選ばれていません。「変更」から選んでください</p>
+                  )}
+                  <div className="space-y-2" data-testid="selected-stores">
                     {displayStores
                       .filter((store) => selectedStoreIds.includes(store.id))
                       .map((store) => (

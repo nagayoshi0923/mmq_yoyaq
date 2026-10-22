@@ -116,12 +116,13 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         onStoreIdsChange={onStoreIdsChange}
         label="希望店舗を選択"
         placeholder="店舗を選択してください"
+        selectedDisplay="badges"
       />
 
       <h3 className="ts-label mt-4">希望日程を選択</h3>
       {deadlineDays > 0 && (
         <p className="text-xs text-muted-foreground mb-1">
-          貸切リクエストは公演日の{deadlineDays}日前まで受け付けています（薄く表示された日・灰色の枠は選べません。灰色の枠を押すと理由を表示します）
+          貸切リクエストは公演日の{deadlineDays}日前まで受け付けています（薄く表示された日・灰色の枠・満席の枠は選べません。満席以外の灰色の枠を押すと理由を表示します）
         </p>
       )}
 
@@ -164,6 +165,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         unavailableReasons={slotAvailability.unavailableReasons}
         isCustomHoliday={isCustomHoliday}
         colorScheme="purple"
+        conflictAsFull
         isTooSoon={isTooSoon}
         loading={loading}
       />

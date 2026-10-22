@@ -6,6 +6,7 @@ import { memo, useState, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
 import type { PrivateBookingSlot } from '@/lib/computePrivateBookingSlots'
+import { CANDIDATE_SLOT_REASON_TEXT } from '@/lib/candidateSlotAvailability'
 
 const COLUMN_LABELS: ('午前' | '午後' | '夜')[] = ['午前', '午後', '夜']
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土']
@@ -35,6 +36,16 @@ export interface PrivateBookingSlotGridProps {
   /** 月の切り替え・案内の帯・枠表の左右の余白（全幅の帯の中で文字だけ内側に寄せる） */
   insetClassName?: string
   compact?: boolean
+  /**
+   * 他の公演と重なる枠（理由 conflict）を「満席」と出し、押しても理由を開かない（貸切リクエスト画面。2026-10-22）。
+   * 選べない判定は変えない（表示と操作だけ）。他の理由は従来どおり灰色・押すと理由を出す
+   */
+  conflictAsFull?: boolean
+}
+
+/** 満席と出す理由か（DB の conflict の文面。「（空き X・必要 Y）」の補足付きも含む） */
+function isConflictReason(reason: string | undefined): boolean {
+  return !!reason && reason.startsWith(CANDIDATE_SLOT_REASON_TEXT.conflict)
 }
 
 export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
@@ -58,6 +69,7 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
   stickyHeader = false,
   insetClassName = '',
   compact = false,
+  conflictAsFull = false,
 }: PrivateBookingSlotGridProps) {
   const [notice, setNotice] = useState<string | null>(null)
   const selectedCount = selectedSlots.length
@@ -225,14 +237,16 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
     const isAvailable = !isExisting && !tooSoon && !reason && !!slot.startTime
     const isSelected = isSlotSelected(date, slot)
     const canSelect = isAvailable && (isSelected || selectedCount < maxSelections)
+    // 他の公演と重なる枠は「満席」。押せない（理由も開かない）。締切前の日は締切の理由を優先
+    const isFull = conflictAsFull && !isExisting && !tooSoon && isConflictReason(reason)
     // 選べない枠は灰色のまま押せる（理由を出すだけ）
-    const explain = !isExisting && !isAvailable ? (reason ?? (tooSoon ? '受付締切を過ぎています' : '選択できません')) : null
+    const explain = !isExisting && !isAvailable && !isFull ? (reason ?? (tooSoon ? '受付締切を過ぎています' : '選択できません')) : null
     // 前後の公演から逆算して標準からずらした時刻は「に調整」と添える
     const adjusted = !isExisting && isAvailable && slot.adjusted === true
     const timeText = slot.startTime ? `${slot.startTime}〜${slot.endTime}` : '—'
     // 2 行目: 追加済み／選べない理由（1 行）／時刻（調整したときは「に調整」）
     // 時刻の途中では折り返さない（折り返すなら「に調整」の前で）
-    const subText = isExisting ? '追加済み' : explain ?? (
+    const subText = isExisting ? '追加済み' : isFull ? '満席' : explain ?? (
       <>
         <span className="whitespace-nowrap">{timeText}</span>
         {adjusted && <> <span className="whitespace-nowrap">に調整</span></>}
@@ -250,6 +264,8 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
     }
     const stateClass = isExisting
       ? 'cursor-not-allowed border-purple-200 bg-purple-50 text-purple-800'
+      : isFull
+      ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-muted-foreground'
       : !isAvailable
       ? 'cursor-help border-gray-200 bg-gray-50 text-muted-foreground'
       : isSelected
@@ -258,7 +274,7 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
       ? hoverBg
       : 'cursor-not-allowed border-gray-100 bg-gray-50 opacity-50'
     const subColor = isSelected ? 'font-normal' : isExisting ? '' : adjusted ? 'text-amber-700' : 'text-muted-foreground'
-    const ariaLabel = `${date} ${slot.label}${isExisting ? ' 追加済み' : explain ? ` 選択不可（${explain}）` : adjusted ? ` ${timeText} に調整` : ''}`
+    const ariaLabel = `${date} ${slot.label}${isExisting ? ' 追加済み' : isFull ? ' 満席' : explain ? ` 選択不可（${explain}）` : adjusted ? ` ${timeText} に調整` : ''}`
 
     return (
       <button
@@ -267,7 +283,7 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
         className={`flex min-w-16 flex-1 flex-col items-center justify-center border px-1 text-center leading-tight transition-colors ${compact ? 'min-h-14 rounded-lg' : 'min-h-12 rounded-sm'} ${stateClass}`}
         aria-label={ariaLabel}
         aria-disabled={!canSelect}
-        disabled={isExisting || (!explain && !canSelect)}
+        disabled={isExisting || isFull || (!explain && !canSelect)}
         onClick={handleClick}
       >
         <span className="text-xs">{slot.label}</span>

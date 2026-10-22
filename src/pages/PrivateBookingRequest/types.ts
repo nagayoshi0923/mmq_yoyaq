@@ -31,5 +31,7 @@ export interface PrivateBookingRequestProps {
   groupId?: string  // 貸切グループID（グループからの申請時のみ）
   onBack: () => void
   onComplete?: () => void
+  /** 確認画面で希望店舗を選び直して確定したとき（URL の store を合わせる） */
+  onStoreIdsChange?: (storeIds: string[]) => void
 }
 
