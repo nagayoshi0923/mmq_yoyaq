@@ -127,6 +127,30 @@ describe('貸切を始める（/private-booking/select-organization）', () => {
   })
 })
 
+describe('強制スクロールしない（QW-20261022-013）', () => {
+  const above = () => vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({ top: -800 } as DOMRect)
+
+  it('URL で組織が決まった状態で開いた・戻ったとき（読込完了）は、店舗の欄へ自動で送らない', async () => {
+    const rect = above()
+    await render('/private-booking/select-organization?org=queens-waltz&stores=s1')
+    await vi.waitFor(() => expect(titles()).toEqual(['ファクター']))
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
+    // 希望店舗のチップを押しても送らない（選んだ店舗が見えたまま）
+    await act(async () => buttons('高田馬場店')[0].click())
+    expect(decodeURIComponent(where() ?? '')).toBe('/private-booking/select-organization?org=queens-waltz&stores=s1,s2')
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
+    rect.mockRestore()
+  })
+
+  it('一覧から組織を押したときだけ、店舗の欄の頭に合わせる', async () => {
+    const rect = above()
+    await render('/private-booking/select-organization')
+    await act(async () => orgCard('queens-waltz')!.click())
+    await vi.waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1))
+    rect.mockRestore()
+  })
+})
+
 describe('組織トップから（/{org}/private-booking-select、日付なし）', () => {
   it('組織を選んだ状態で開き、「別の店舗を選ぶ」は貸切を始めるページへ', async () => {
     await render('/queens-waltz/private-booking-select', 'queens-waltz')

@@ -7,6 +7,7 @@
 // その div には `data-scroll-container` 属性が付いており、本フックはそれを優先的に使用する。
 
 import { useEffect, useLayoutEffect, useRef, useCallback } from 'react'
+import { stripNonNavigationParams } from '@/lib/scrollNavigation'
 
 interface UseScrollRestorationOptions {
   pageKey?: string
@@ -14,9 +15,18 @@ interface UseScrollRestorationOptions {
   isFetching?: boolean
 }
 
+/**
+ * 保存・復元の単位。画面の中の状態だけを持つ query（希望店舗 stores・絞り込み・選んだ公演 event など。
+ * 一覧は src/lib/scrollNavigation.ts）は外す。ScrollToTop と同じ「同じ画面」の判定にそろえる。
+ * 2026-10-22（QW-20261022-013）: 外さないと、希望店舗のチップを押して URL が変わるたびに、
+ * その組み合わせで前に保存した位置へ飛び、選んだ店舗が画面の外へ追い出されていた。
+ */
 export function scrollRestorationPageKeyFromLocation(pathname: string, search: string): string {
-  return `route:${pathname}${search || ''}`
+  return `route:${pathname}${stripNonNavigationParams(search || '')}`
 }
+
+/** 利用者が自分で動かした・操作したとみなす入力（スクロールのための指・ホイール・キー、押す操作） */
+const USER_INPUT_EVENTS = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const
 
 export function saveScrollPositionForCurrentUrl(): void {
   if (typeof window === 'undefined') return
@@ -77,6 +87,26 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
   const restoringRef = useRef(false)
   const prevIsFetchingRef = useRef(false)
   const userAdjustedScrollRef = useRef(false)
+  // 利用者の入力の通し番号。この画面に来た時点・再取得を始めた時点から増えていれば、利用者が位置を決めたとみなし復元しない
+  const inputSeqRef = useRef(0)
+  const enteredSeqRef = useRef(0)
+  // この画面で初回の復元を済ませた（または利用者の操作で取りやめた）キー。読込が何度終わっても 2 回目は飛ばさない
+  const settledKeyRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const onInput = () => { inputSeqRef.current++ }
+    for (const type of USER_INPUT_EVENTS) document.addEventListener(type, onInput, { capture: true, passive: true })
+    return () => {
+      for (const type of USER_INPUT_EVENTS) document.removeEventListener(type, onInput, { capture: true })
+    }
+  }, [])
+
+  // 画面（キー）が変わった時点の入力の番号を控える。復元の effect より先に宣言する
+  useLayoutEffect(() => {
+    enteredSeqRef.current = inputSeqRef.current
+    settledKeyRef.current = null
+  }, [scrollYKey])
+  const userMovedSinceEnter = () => inputSeqRef.current !== enteredSeqRef.current
 
   // ブラウザのデフォルトのスクロール復元を無効化
   useEffect(() => {
@@ -138,14 +168,22 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     }
   }, [scrollYKey])
 
-  // 初回スクロール復元（ペイント前・データ読み込み完了後に実行）
+  // 初回スクロール復元（ペイント前・データ読み込み完了後に実行）。1 画面につき 1 回だけ。
+  // 読込の間に利用者がスクロール・操作していたら、その位置を優先して復元しない
   useLayoutEffect(() => {
     if (isLoading) return
+    if (settledKeyRef.current === scrollYKey) return
+    if (userMovedSinceEnter()) {
+      settledKeyRef.current = scrollYKey
+      return
+    }
 
     const savedY = sessionStorage.getItem(scrollYKey)
-    if (!savedY) return
-    const targetY = parseInt(savedY, 10)
-    if (targetY <= 0) return
+    const targetY = savedY ? parseInt(savedY, 10) : 0
+    if (!savedY || !(targetY > 0)) {
+      settledKeyRef.current = scrollYKey
+      return
+    }
 
     restoringRef.current = true
     let attempts = 0
@@ -155,10 +193,16 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
 
     const tryRestore = () => {
       attempts++
+      if (userMovedSinceEnter()) {
+        settledKeyRef.current = scrollYKey
+        restoringRef.current = false
+        return
+      }
       const maxScroll = target.getMaxScroll()
 
       if (maxScroll >= targetY) {
         target.scrollTo(Math.min(targetY, Math.max(0, maxScroll)))
+        settledKeyRef.current = scrollYKey
         setTimeout(() => { restoringRef.current = false }, 300)
       } else if (attempts >= maxAttempts) {
         // コンテンツ不足でタイムアウト → 0 に強制しない。ポーリングフォールバックに委ねる
@@ -176,7 +220,8 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     }
   }, [isLoading, scrollYKey])
 
-  // React Query refetch 完了時の復元
+  // React Query refetch 完了時の復元（再取得の間に利用者が操作していたら、その位置を優先して戻さない）
+  const fetchStartSeqRef = useRef(0)
   useLayoutEffect(() => {
     if (isLoading) {
       prevIsFetchingRef.current = isFetching
@@ -184,7 +229,9 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     }
     const wasFetching = prevIsFetchingRef.current
     prevIsFetchingRef.current = isFetching
+    if (!wasFetching && isFetching) fetchStartSeqRef.current = inputSeqRef.current
     if (!wasFetching || isFetching) return
+    if (inputSeqRef.current !== fetchStartSeqRef.current) return
 
     const raw = sessionStorage.getItem(scrollYKey)
     if (!raw) return
@@ -221,7 +268,7 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
   // データ読み込みに時間がかかるページ（useReportRouteScrollRestoration 未使用含む）向け。
   // コンテンツが伸びるまで 100ms ごとにチェックし、伸びたら即座に復元する。最大 10 秒。
   useEffect(() => {
-    if (isLoading) return
+    if (isLoading || settledKeyRef.current === scrollYKey) return
     const raw = sessionStorage.getItem(scrollYKey)
     if (!raw) return
     const targetY = parseInt(raw, 10)
@@ -232,8 +279,8 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     let timer: ReturnType<typeof setTimeout> | undefined
 
     const poll = () => {
-      // ユーザーが手動スクロール済み → 復元不要
-      if (userAdjustedScrollRef.current) return
+      // ユーザーが手動スクロール・操作済み、またはこの画面の復元が済んだ → 復元不要
+      if (userAdjustedScrollRef.current || userMovedSinceEnter() || settledKeyRef.current === scrollYKey) return
 
       // 他の復元処理が進行中 → 待機して再試行
       if (restoringRef.current) {
@@ -254,6 +301,7 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
           target.scrollTo(y)
           setTimeout(() => { restoringRef.current = false }, 200)
         }
+        settledKeyRef.current = scrollYKey
         // 既に正しい位置にある（useLayoutEffect が成功済み）場合も終了
         return
       }
