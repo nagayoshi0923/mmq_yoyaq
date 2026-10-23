@@ -192,7 +192,8 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     .filter(({ item }) => isPrivateBookingCandidate(privateData, organizationId, item.id, item.scenario, today))
     .map(({ item }) => ({ organizationId, scenarioId: item.id })) : []), [newArrivalPicks, privateData, organizationId, today])
   const { data: privateDays } = useQuery({
-    queryKey: ['public-top-private-booking-days', dayPairs.map((p) => p.scenarioId).join(',')],
+    // 組織・作品・今日で分ける（同じ作品 ID でも組織ごとに日数が違う。Codex 指摘 2026-10-24）
+    queryKey: ['private-booking-days', today, dayPairs.map((p) => `${p.organizationId}:${p.scenarioId}`).join(',')],
     enabled: dayPairs.length > 0,
     queryFn: () => fetchPrivateBookingDays(dayPairs),
     staleTime: 5 * 60_000,

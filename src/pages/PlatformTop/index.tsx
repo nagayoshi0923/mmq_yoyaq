@@ -164,7 +164,8 @@ export function PlatformTop() {
     .filter((o) => isPrivateBookingCandidate(privateData, o.organization_id, item.id, o, today))
     .map((o) => ({ organizationId: o.organization_id, scenarioId: item.id }))), [newArrivalPicks, privateData, today])
   const { data: privateDays } = useQuery({
-    queryKey: ['platform-top-private-booking-days', dayPairs.map((p) => `${p.organizationId}:${p.scenarioId}`).join(',')],
+    // 組織・作品・今日で分ける（組織トップと同じ形のキー）
+    queryKey: ['private-booking-days', today, dayPairs.map((p) => `${p.organizationId}:${p.scenarioId}`).join(',')],
     enabled: dayPairs.length > 0,
     queryFn: () => fetchPrivateBookingDays(dayPairs),
     staleTime: 5 * 60_000,
