@@ -44,6 +44,8 @@ export interface PlatformScenario {
   player_count_min: number
   player_count_max: number
   release_date: string | null
+  /** いずれかの組織が最初に公開一覧に加えた日時（organization_scenarios.created_at の最小。新作一覧の公開日に使う） */
+  listed_at: string | null
   is_recommended: boolean
 }
 
@@ -98,10 +100,12 @@ export async function fetchPlatformTopData(today: string): Promise<PlatformTopDa
         player_count_min: s.player_count_min ?? 1,
         player_count_max: s.player_count_max ?? 8,
         release_date: s.release_date ?? null,
+        listed_at: earlier(s.created_at ?? null, prev?.listed_at ?? null),
         is_recommended: !!s.is_recommended || !!prev?.is_recommended,
       })
-    } else if (s.is_recommended) {
-      prev.is_recommended = true
+    } else {
+      if (s.is_recommended) prev.is_recommended = true
+      prev.listed_at = earlier(s.created_at ?? null, prev.listed_at)
     }
     if (!scenarioIdsByOrg.has(s.organization_id)) scenarioIdsByOrg.set(s.organization_id, new Set())
     scenarioIdsByOrg.get(s.organization_id)!.add(s.id)
@@ -128,6 +132,13 @@ export async function fetchPlatformTopData(today: string): Promise<PlatformTopDa
 
   const { organizations, prefectures } = buildPlatformOrganizations(orgs, stores, scenarioIdsByOrg)
   return { organizations, scenarios: [...scenarioById.values()], performances, prefectures }
+}
+
+/** 早いほうの日時（片方が無ければもう片方） */
+function earlier(a: string | null, b: string | null): string | null {
+  if (!a) return b
+  if (!b) return a
+  return new Date(a).getTime() <= new Date(b).getTime() ? a : b
 }
 
 type OrganizationRow = { id: string; slug: string; name: string; logo_url?: string | null }

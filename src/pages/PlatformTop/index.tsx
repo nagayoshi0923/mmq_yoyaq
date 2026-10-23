@@ -9,6 +9,7 @@
  * 方針: docs/product-spec/トップページ刷新_2026-10.md
  * 2026-10-15 社長指摘: 「友だちと貸切で遊ぶ」→「参加店舗から選ぶ」は、トップの中に枠を開かず、貸切を始めるページ
  * （/private-booking/select-organization。店舗を選ぶ → 作品を選ぶ）へ遷移する。通常の「参加店舗」は組織トップのまま。
+ * 2026-10-23（QW-20261023-001）: 残りわずかの直後に「新作一覧」、上の帯に「カタログ」（全体カタログ /scenario）。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -23,6 +24,8 @@ import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top/InfoSections'
 import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
+import { NewArrivalsSection, type NewArrivalItem } from '@/components/public-top/NewArrivalsSection'
+import { pickNewArrivals } from '@/components/public-top/newArrivals'
 import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
 import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
 import { indexUpcoming, scenarioBrowseCard, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
@@ -135,6 +138,17 @@ export function PlatformTop() {
     })
   }, [data, cardSource, today])
 
+  // 新作一覧: 全国の公開作品を、リリース日（無ければ掲載登録日）の新しい順に。新作タグでは絞らない
+  const newArrivals = useMemo<NewArrivalItem[]>(() => {
+    const byId = new Map((data?.scenarios ?? []).map((s) => [s.id, s]))
+    const candidates = browseScenarios.map((b) => ({
+      ...b,
+      release_date: byId.get(b.id)?.release_date ?? null,
+      listed_at: byId.get(b.id)?.listed_at ?? null,
+    }))
+    return pickNewArrivals(candidates).map(({ item, date }) => ({ card: item.card, date }))
+  }, [data, browseScenarios])
+
   const openCard = useCallback((card: ScenarioCardData) => {
     saveScrollPositionForCurrentUrl()
     navigate(card.path)
@@ -156,10 +170,13 @@ export function PlatformTop() {
         onFirstTime={() => navigate('/guide')}
         onAccess={() => scrollTo('organizations')}
         onPrivate={() => scrollTo('private-booking')}
+        catalogPath="/scenario"
       />
 
       <main className="mx-auto max-w-4xl space-y-3 px-3.5 py-3 sm:px-4 md:py-5">
         <NearlyFullStrip performances={nearlyFull} source={cardSource} marks={marks} aside="全店舗・日付順" onOpen={openCard} />
+
+        <NewArrivalsSection items={newArrivals} lead="全国の公開作品から、新しい物語を見つけよう" catalogPath="/scenario" marks={marks} onOpen={openCard} />
 
         <PrivateBookingSection
           text="4〜8 人集まれば、好きな作品を好きな日に。候補日を出して、メンバーの都合を聞いて、店舗に申し込むまでサイトで完結します。貸切は店舗ごとなので、まず店舗を選び、その店舗で貸切できる作品から選びます。"

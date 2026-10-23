@@ -75,3 +75,34 @@ describe('友だちと貸切で遊ぶ →「参加店舗から選ぶ」', () => 
     expect(host.textContent).not.toContain('貸切する店舗を選ぶ')
   })
 })
+
+describe('新作一覧とカタログ（QW-20261023-001）', () => {
+  const sc = (id: string, over: Record<string, unknown>) => ({
+    id, slug: id, title: id, author: '', key_visual_url: null, genres: ['新作'], player_count_min: 4, player_count_max: 6,
+    release_date: null, listed_at: null, is_recommended: false, ...over,
+  })
+
+  it('残りわずかの直後に、公開作品をリリース日（無ければ掲載登録日）の新しい順で出す（新作タグの無い作品も含む）。すべて見る・カタログは全体カタログへ', async () => {
+    mocks.fetch.mockResolvedValue({
+      ...data,
+      scenarios: [
+        sc('古い新作', { listed_at: '2026-06-14T03:00:00Z' }),
+        sc('タグなし', { genres: [], listed_at: '2026-10-20T03:00:00Z' }),
+        sc('日付なし', {}),
+        sc('最新', { listed_at: '2026-10-13T03:00:00Z' }),
+        sc('リリース日あり', { release_date: '2026-10-01', listed_at: '2026-01-22T03:00:00Z' }),
+      ],
+    })
+    await render()
+    const titles = [...(section('new-arrivals')?.querySelectorAll('h3') ?? [])].map((h) => h.textContent)
+    expect(titles).toEqual(['タグなし', '最新', 'リリース日あり', '古い新作'])
+    expect(section('new-arrivals')?.textContent).toContain('掲載登録日：2026.10.20')
+    expect(section('new-arrivals')?.textContent).not.toContain('公開日')
+    expect(section('new-arrivals')?.textContent).toContain('全国の公開作品から、新しい物語を見つけよう')
+    expect(section('new-arrivals')?.querySelector('a')?.getAttribute('href')).toBe('/scenario')
+    const catalog = [...host.querySelectorAll('section a')].find((a) => a.textContent === 'カタログ')
+    expect(catalog?.getAttribute('href')).toBe('/scenario')
+    const order = [...host.querySelectorAll('main > section')].map((s) => s.id)
+    expect(order.indexOf('new-arrivals')).toBe(order.indexOf('private-booking') - 1)
+  })
+})
