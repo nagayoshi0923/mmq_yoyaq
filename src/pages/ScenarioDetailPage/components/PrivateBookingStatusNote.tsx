@@ -25,18 +25,18 @@ export function PrivateBookingStatusNote({ status, hasEvents, onOpenPrivate }: P
   }
   if (status !== 'accepting') return null
   return (
-    <div data-testid="private-booking-status" className="flex flex-wrap items-center gap-2 border border-purple-200 bg-purple-50 px-3 py-2">
-      <span className="shrink-0 border border-purple-300 bg-white px-1.5 py-0.5 text-xs font-bold text-purple-700">貸切受付中</span>
-      <p className="min-w-0 flex-1 text-xs text-purple-900">
+    <div data-testid="private-booking-status" className="space-y-2 border border-purple-200 bg-purple-50 px-3 py-2">
+      <span className="inline-block border border-purple-300 bg-white px-1.5 py-0.5 text-xs font-bold text-purple-700">貸切受付中</span>
+      <p className="text-xs text-purple-900">
         {hasEvents ? '公演日以外の日も、貸切リクエストで日程を相談できます。' : '公演予定はありませんが、貸切リクエストで日程を相談できます。'}
         日程はご相談のうえ決まります（空きは日程を選ぶときに確かめます）。
       </p>
       <button
         type="button"
         onClick={onOpenPrivate}
-        className="shrink-0 border border-purple-300 bg-white px-2.5 py-1 text-xs font-medium text-purple-700 hover:bg-purple-100"
+        className="w-full border border-purple-300 bg-white px-2.5 py-1.5 text-xs font-medium text-purple-700 hover:bg-purple-100"
       >
-        日程を相談する ›
+        日程を相談する（貸切リクエスト） ›
       </button>
     </div>
   )
