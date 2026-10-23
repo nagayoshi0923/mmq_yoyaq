@@ -103,17 +103,19 @@ function OrgNewArrivals({ slug }: { slug: string }) {
       entries={entries}
       loading={isLoading && scenarios.length === 0}
       failed={organizationNotFound}
+      failedText={organizationNotFound ? '指定の店舗が見つかりませんでした。' : undefined}
       fetching={isFetching}
     />
   )
 }
 
-function NewArrivalsView({ organizationSlug, scopeLabel, entries, loading, failed, fetching }: {
+function NewArrivalsView({ organizationSlug, scopeLabel, entries, loading, failed, failedText, fetching }: {
   organizationSlug: string | null
   scopeLabel: string
   entries: Entry[]
   loading: boolean
   failed: boolean
+  failedText?: string
   fetching: boolean
 }) {
   const navigate = useNavigate()
@@ -139,7 +141,7 @@ function NewArrivalsView({ organizationSlug, scopeLabel, entries, loading, faile
           トップへ戻る
         </Link>
 
-        <TopSection id="new-arrivals-all" title={`新作（掲載から ${NEW_ARRIVALS_DAYS} 日）`} aside={loading ? null : `${entries.length} 作品`}>
+        <TopSection id="new-arrivals-all" title={`新作（掲載から ${NEW_ARRIVALS_DAYS} 日）`} aside={loading || failed ? null : `${entries.length} 作品`}>
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <Link
               to={allPath}
@@ -159,7 +161,7 @@ function NewArrivalsView({ organizationSlug, scopeLabel, entries, loading, faile
           {loading ? (
             <p className="py-6 text-center text-sm text-muted-foreground">読み込み中...</p>
           ) : failed ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">作品を読み込めませんでした。時間をおいて開き直してください。</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">{failedText ?? '作品を読み込めませんでした。時間をおいて開き直してください。'}</p>
           ) : entries.length === 0 ? (
             <div data-testid="new-arrivals-empty" className="py-6 text-center">
               <p className="text-sm text-muted-foreground">いま新作はありません。</p>
