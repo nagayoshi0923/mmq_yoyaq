@@ -41,6 +41,8 @@ export interface ScenarioCard {
   favorite_count?: number   // 遊びたいリスト登録数（100以上で人気バッジ）
   release_date?: string     // リリース日（1年以上でロングセラー）
   listed_at?: string | null // この組織が公開一覧に加えた日時（organization_scenarios.created_at。新作一覧の公開日に使う）
+  available_from?: string | null // 作品の公演期間の始まり（貸切受付中の判定に使う。未設定は null）
+  available_until?: string | null // 作品の公演期間の終わり（貸切受付中の判定に使う。未設定は null）
 }
 
 type QueryRows<F extends (...args: never[]) => Promise<{ data: unknown }>> = NonNullable<Awaited<ReturnType<F>>['data']> extends (infer R)[] ? R : never
@@ -443,7 +445,9 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         is_recommended: scenario.is_recommended || false,
         favorite_count: favoriteCountMap.get(scenario.id) || 0,
         release_date: scenario.release_date,
-        listed_at: scenario.created_at ?? null
+        listed_at: scenario.created_at ?? null,
+        available_from: scenario.available_from ?? null,
+        available_until: scenario.available_until ?? null
       })
       return
     }
@@ -511,7 +515,9 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
           is_recommended: scenario.is_recommended || false,
           favorite_count: favoriteCountMap.get(scenario.id) || 0,
           release_date: scenario.release_date,
-        listed_at: scenario.created_at ?? null
+        listed_at: scenario.created_at ?? null,
+        available_from: scenario.available_from ?? null,
+        available_until: scenario.available_until ?? null
         })
       } else {
         scenarioMap.set(scenario.id, {
@@ -530,7 +536,9 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
           is_recommended: scenario.is_recommended || false,
           favorite_count: favoriteCountMap.get(scenario.id) || 0,
           release_date: scenario.release_date,
-        listed_at: scenario.created_at ?? null
+        listed_at: scenario.created_at ?? null,
+        available_from: scenario.available_from ?? null,
+        available_until: scenario.available_until ?? null
         })
       }
     } else {
@@ -550,7 +558,9 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         is_recommended: scenario.is_recommended || false,
         favorite_count: favoriteCountMap.get(scenario.id) || 0,
         release_date: scenario.release_date,
-        listed_at: scenario.created_at ?? null
+        listed_at: scenario.created_at ?? null,
+        available_from: scenario.available_from ?? null,
+        available_until: scenario.available_until ?? null
       })
     }
   })

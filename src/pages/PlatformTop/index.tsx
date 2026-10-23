@@ -26,6 +26,7 @@ import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top
 import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
 import { NewArrivalsSection, type NewArrivalItem } from '@/components/public-top/NewArrivalsSection'
 import { pickNewArrivals } from '@/components/public-top/newArrivals'
+import { fetchPrivateBookingData, fetchPrivateBookingDays, isPrivateBookingCandidate, platformPrivateBookingPath } from '@/components/public-top/privateBookingStatus'
 import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
 import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
 import { indexUpcoming, scenarioBrowseCard, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
@@ -138,16 +139,43 @@ export function PlatformTop() {
     })
   }, [data, cardSource, today])
 
-  // 新作一覧: 全国の公開作品を、リリース日（無ければ掲載登録日）の新しい順に。新作タグでは絞らない
-  const newArrivals = useMemo<NewArrivalItem[]>(() => {
+  // 新作一覧: 全国の公開作品を、リリース日（無ければ掲載登録日）から 90 日以内のものだけ新しい順に。新作タグでは絞らない
+  const newArrivalPicks = useMemo(() => {
     const byId = new Map((data?.scenarios ?? []).map((s) => [s.id, s]))
     const candidates = browseScenarios.map((b) => ({
       ...b,
       release_date: byId.get(b.id)?.release_date ?? null,
       listed_at: byId.get(b.id)?.listed_at ?? null,
+      scenario: byId.get(b.id)!,
     }))
-    return pickNewArrivals(candidates).map(({ item, date }) => ({ card: item.card, date }))
-  }, [data, browseScenarios])
+    return pickNewArrivals(candidates, today)
+  }, [data, browseScenarios, today])
+
+  // 新作一覧のカードの「貸切受付中」（その作品を公開している組織ごとに、日程の相談を始められるかを既存の判定で決める。読めない間は出さない）
+  const orgIds = useMemo(() => organizations.map((o) => o.id), [organizations])
+  const storeIds = useMemo(() => (data?.stores ?? []).map((s) => s.id), [data])
+  const { data: privateData } = useQuery({
+    queryKey: ['platform-top-private-booking', orgIds.join(','), storeIds.join(',')],
+    enabled: orgIds.length > 0,
+    queryFn: () => fetchPrivateBookingData(orgIds, storeIds),
+    staleTime: 5 * 60_000,
+  })
+  const dayPairs = useMemo(() => newArrivalPicks.flatMap(({ item }) => item.scenario.organizations
+    .filter((o) => isPrivateBookingCandidate(privateData, o.organization_id, item.id, o, today))
+    .map((o) => ({ organizationId: o.organization_id, scenarioId: item.id }))), [newArrivalPicks, privateData, today])
+  const { data: privateDays } = useQuery({
+    queryKey: ['platform-top-private-booking-days', dayPairs.map((p) => `${p.organizationId}:${p.scenarioId}`).join(',')],
+    enabled: dayPairs.length > 0,
+    queryFn: () => fetchPrivateBookingDays(dayPairs),
+    staleTime: 5 * 60_000,
+  })
+  const newArrivals = useMemo<NewArrivalItem[]>(() => {
+    const slugById = new Map(organizations.map((o) => [o.id, o.slug]))
+    return newArrivalPicks.map(({ item, date }) => ({
+      card: { ...item.card, private_booking_path: platformPrivateBookingPath(privateData, privateDays, item.scenario, slugById, data?.stores ?? null, today) },
+      date,
+    }))
+  }, [newArrivalPicks, organizations, privateData, privateDays, data, today])
 
   const openCard = useCallback((card: ScenarioCardData) => {
     saveScrollPositionForCurrentUrl()

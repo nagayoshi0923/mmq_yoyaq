@@ -46,6 +46,8 @@ export interface PlatformScenario {
   release_date: string | null
   /** いずれかの組織が最初に公開一覧に加えた日時（organization_scenarios.created_at の最小。新作一覧の公開日に使う） */
   listed_at: string | null
+  /** この作品を公開している組織と、その組織での公演期間の終わり（貸切受付中の判定に使う） */
+  organizations: Array<{ organization_id: string; available_from: string | null; available_until: string | null }>
   is_recommended: boolean
 }
 
@@ -55,6 +57,8 @@ export interface PlatformTopData {
   performances: PublicPerformance[]
   /** 店舗がある都道府県（店舗の住所から。並びは店舗数の多い順） */
   prefectures: string[]
+  /** 稼働中の組織の公開店舗（臨時会場を含む。貸切受付中の判定で上演できる店舗を出すのに使う） */
+  stores: Array<{ id: string; organization_id: string; status: string | null; is_temporary: boolean | null }>
 }
 
 export async function fetchPlatformTopData(today: string): Promise<PlatformTopData> {
@@ -101,11 +105,13 @@ export async function fetchPlatformTopData(today: string): Promise<PlatformTopDa
         player_count_max: s.player_count_max ?? 8,
         release_date: s.release_date ?? null,
         listed_at: earlier(s.created_at ?? null, prev?.listed_at ?? null),
+        organizations: [...(prev?.organizations ?? []), { organization_id: s.organization_id, available_from: s.available_from ?? null, available_until: s.available_until ?? null }],
         is_recommended: !!s.is_recommended || !!prev?.is_recommended,
       })
     } else {
       if (s.is_recommended) prev.is_recommended = true
       prev.listed_at = earlier(s.created_at ?? null, prev.listed_at)
+      prev.organizations.push({ organization_id: s.organization_id, available_from: s.available_from ?? null, available_until: s.available_until ?? null })
     }
     if (!scenarioIdsByOrg.has(s.organization_id)) scenarioIdsByOrg.set(s.organization_id, new Set())
     scenarioIdsByOrg.get(s.organization_id)!.add(s.id)
@@ -131,7 +137,10 @@ export async function fetchPlatformTopData(today: string): Promise<PlatformTopDa
   }
 
   const { organizations, prefectures } = buildPlatformOrganizations(orgs, stores, scenarioIdsByOrg)
-  return { organizations, scenarios: [...scenarioById.values()], performances, prefectures }
+  return {
+    organizations, scenarios: [...scenarioById.values()], performances, prefectures,
+    stores: stores.map((s) => ({ id: s.id, organization_id: s.organization_id as string, status: s.status ?? null, is_temporary: s.is_temporary ?? null })),
+  }
 }
 
 /** 早いほうの日時（片方が無ければもう片方） */

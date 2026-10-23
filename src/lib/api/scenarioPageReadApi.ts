@@ -70,6 +70,19 @@ export const scenarioPageReadApi = {
       .order('name')
   },
 
+  /**
+   * 作品の公演期間（作品編集 › 基本情報「公演期間」）。公開ビューで未ログインでも読める列。
+   * 作品ページの「貸切受付中」の判定に使う（公演期間が終わった作品を受付中と出さない）。
+   */
+  async findScenarioPerformancePeriod(organizationId: string, scenarioMasterId: string) {
+    return supabase
+      .from('organization_scenarios_with_master')
+      .select('available_from, available_until')
+      .eq('organization_id', organizationId)
+      .eq('id', scenarioMasterId)
+      .maybeSingle()
+  },
+
   /** 公演の現在の人数・定員（予約直前の再確認用） */
   async findEventSeats(eventId: string) {
     return supabase

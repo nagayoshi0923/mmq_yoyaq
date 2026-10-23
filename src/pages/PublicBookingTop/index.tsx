@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { logger } from '@/utils/logger'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
@@ -29,6 +30,7 @@ import { usePerformanceSearchParams } from '@/components/public-top/usePerforman
 import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
 import { NewArrivalsSection, type NewArrivalItem } from '@/components/public-top/NewArrivalsSection'
 import { pickNewArrivals } from '@/components/public-top/newArrivals'
+import { fetchPrivateBookingData, fetchPrivateBookingDays, isPrivateBookingCandidate, orgPrivateBookingPath } from '@/components/public-top/privateBookingStatus'
 import { TopHero } from '@/components/public-top/TopHero'
 import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
 import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
@@ -166,16 +168,41 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     }
   }), [scenarios, nextDates, slug, cardSource, organizationId])
 
-  // 新作一覧: この組織の公開作品を、リリース日（無ければ掲載登録日）の新しい順に。新作タグでは絞らない
-  const newArrivals = useMemo<NewArrivalItem[]>(() => {
+  // 新作一覧: この組織の公開作品を、リリース日（無ければ掲載登録日）から 90 日以内のものだけ新しい順に。新作タグでは絞らない
+  const newArrivalPicks = useMemo(() => {
     const byId = new Map(scenarios.map((s) => [s.scenario_id, s]))
     const candidates = browseScenarios.map((b) => ({
       ...b,
       release_date: byId.get(b.id)?.release_date ?? null,
       listed_at: byId.get(b.id)?.listed_at ?? null,
+      scenario: byId.get(b.id)!,
     }))
-    return pickNewArrivals(candidates).map(({ item, date }) => ({ card: item.card, date }))
-  }, [scenarios, browseScenarios])
+    return pickNewArrivals(candidates, today)
+  }, [scenarios, browseScenarios, today])
+
+  // 新作一覧のカードの「貸切受付中」（この組織で日程の相談を始められるか。既存の判定・値だけ。読めない間は出さない）
+  const storeIdsKey = stores.map((s) => s.id).join(',')
+  const { data: privateData } = useQuery({
+    queryKey: ['public-top-private-booking', organizationId, storeIdsKey],
+    enabled: Boolean(organizationId) && !isLoading,
+    queryFn: () => fetchPrivateBookingData([organizationId!], storeIdsKey ? storeIdsKey.split(',') : []),
+    staleTime: 5 * 60_000,
+  })
+  const dayPairs = useMemo(() => (organizationId ? newArrivalPicks
+    .filter(({ item }) => isPrivateBookingCandidate(privateData, organizationId, item.id, item.scenario, today))
+    .map(({ item }) => ({ organizationId, scenarioId: item.id })) : []), [newArrivalPicks, privateData, organizationId, today])
+  const { data: privateDays } = useQuery({
+    queryKey: ['public-top-private-booking-days', dayPairs.map((p) => p.scenarioId).join(',')],
+    enabled: dayPairs.length > 0,
+    queryFn: () => fetchPrivateBookingDays(dayPairs),
+    staleTime: 5 * 60_000,
+  })
+  const newArrivals = useMemo<NewArrivalItem[]>(() => newArrivalPicks.map(({ item, date }) => {
+    const path = organizationId && slug
+      ? orgPrivateBookingPath(privateData, privateDays, { id: organizationId, slug }, { id: item.id, slug: item.scenario.scenario_slug, available_from: item.scenario.available_from, available_until: item.scenario.available_until }, isLoading ? null : stores, today)
+      : null
+    return { card: { ...item.card, private_booking_path: path }, date }
+  }), [newArrivalPicks, privateData, privateDays, organizationId, slug, stores, isLoading, today])
 
   if (organizationNotFound) {
     return (
