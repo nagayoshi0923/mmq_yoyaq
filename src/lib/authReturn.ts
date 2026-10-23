@@ -44,6 +44,45 @@ export function buildSignupEmailRedirectTo(origin: string, returnTo?: string | n
   return `${origin}${buildCompleteProfilePath(returnTo)}`
 }
 
+/** ログイン・新規登録の画面か（/login・/signup・/{組織}/login・/{組織}/signup） */
+export function isAuthEntryPath(pathname: string): boolean {
+  return /^(?:\/[^/]+)?\/(?:login|signup)\/?$/.test(pathname)
+}
+
+/**
+ * メール＋パスワードでログインした後の戻り先。
+ * URL の ?redirect=（ログイン画面を開いたときに読んだもの）を正とし、無いときだけタブ内の記憶を使う。
+ * タブ内の記憶は認証の見張り（SIGNED_IN）と取り合いになり、先に消されることがある（QW-20261023-001）。
+ */
+export function resolveLoginReturnTo(fromUrl: string | null, stored: string | null): string | null {
+  return normalizeReturnTo(fromUrl) ?? normalizeReturnTo(stored)
+}
+
+/**
+ * ログイン直後（SIGNED_IN）に認証の見張りが送り直す先を決める。
+ * - ログイン・新規登録の画面にいる間は触らない（画面側が行き先を決める。タブ内の記憶も消さない）
+ * - プロフィール登録画面は ?next= を正とするので、送り直さずタブ内の記憶だけ片付ける
+ * - Google などから戻ってトップ（/）や組織トップに着いたときは、覚えていた戻り先へ送る
+ * - 同じ作品のパスでもクエリ（貸切タブ・候補日・店舗）や # が欠けていれば、覚えていた戻り先に置き換える
+ * - パス・クエリ・# まで同じときだけ送り直さない
+ */
+export function decideSignedInReturnRedirect(
+  current: { pathname: string; search: string; hash: string },
+  stored: string | null,
+): { target: string | null; consume: boolean } {
+  if (isAuthEntryPath(current.pathname)) return { target: null, consume: false }
+  if (stored === null) return { target: null, consume: false }
+  const safe = normalizeReturnTo(stored)
+  if (!safe || current.pathname === '/complete-profile') return { target: null, consume: true }
+  if (`${current.pathname}${current.search}${current.hash}` === safe) return { target: null, consume: true }
+  return { target: safe, consume: true }
+}
+
+/** 戻り先へ画面ごと移る（認証の見張りはルーターの外にいるため）。着いた画面を履歴に残さないよう置き換える */
+export function goToReturnUrl(url: string): void {
+  window.location.replace(url)
+}
+
 /** 今いる画面（パス＋クエリ） */
 export function currentPathWithSearch(): string {
   return `${window.location.pathname}${window.location.search}`

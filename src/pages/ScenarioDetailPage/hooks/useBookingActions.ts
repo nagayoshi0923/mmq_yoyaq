@@ -7,6 +7,7 @@ import type { EventSchedule } from '../utils/types'
 import { useRequireCompleteProfile } from '@/hooks/useRequireCompleteProfile'
 import { BOOKING_CONFIRM_STEP } from '@/lib/profileGate'
 import { loginUrlWithIntent } from '@/lib/authReturn'
+import { savePrivateBookingLoginDraft, type PrivateBookingDraftSlot } from '@/lib/privateBookingLoginDraft'
 
 interface UseBookingActionsProps {
   events: EventSchedule[]
@@ -164,18 +165,43 @@ export function useBookingActions({ events, onReload }: UseBookingActionsProps) 
     setSearchParams(next, { replace: true })
   }, [navigate, searchParams, setSearchParams])
 
+  // 未ログインで押したときの二重押し止め（ログイン画面への移動を 1 回にする）
+  const leavingForLoginRef = useRef(false)
+
   // 貸切リクエスト開始
-  const handlePrivateBookingRequest = useCallback(async (isLoggedIn: boolean, intentLabel?: string) => {
+  // selection: 今選んでいる候補日時・店舗。ログインやプロフィール登録で画面を離れる間だけタブ内に預け、戻ったら戻す
+  const handlePrivateBookingRequest = useCallback(async (
+    isLoggedIn: boolean,
+    intentLabel?: string,
+    selection?: { timeSlots: PrivateBookingDraftSlot[]; storeIds: string[] },
+  ) => {
     // 戻り先は貸切タブを開いた作品ページ
     const url = new URL(window.location.href)
     url.searchParams.set('tab', 'private')
     const returnTo = url.pathname + url.search
+    const keepSelection = () => {
+      if (!selection) return
+      savePrivateBookingLoginDraft({
+        pathname: url.pathname,
+        timeSlots: selection.timeSlots,
+        storeIds: selection.storeIds,
+        openRequest: true,
+      })
+    }
     if (!isLoggedIn) {
+      if (leavingForLoginRef.current) return
+      leavingForLoginRef.current = true
+      // 画面が残ったまま戻ってきた場合でも押せなくならないよう、少し後に解除する
+      window.setTimeout(() => { leavingForLoginRef.current = false }, 1500)
+      keepSelection()
       navigate(loginUrlWithIntent('login', returnTo, intentLabel))
       return
     }
-    // プロフィール登録が済んでいなければ、ここで登録へ（点検 9）
-    if (!(await requireCompleteProfile(returnTo))) return
+    // プロフィール登録が済んでいなければ、ここで登録へ（点検 9）。登録後に戻ったら選択を戻す
+    if (!(await requireCompleteProfile(returnTo))) {
+      keepSelection()
+      return
+    }
     setShowPrivateBookingRequest(true)
   }, [navigate, requireCompleteProfile])
 

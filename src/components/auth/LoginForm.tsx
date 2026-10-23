@@ -11,7 +11,6 @@ import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
 import { loginProfileReadApi, organizationReadApi } from '@/lib/api/organizationReadApi'
 import { logger } from '@/utils/logger'
-import { validateRedirectUrl } from '@/lib/utils'
 import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link, useLocation } from 'react-router-dom'
@@ -22,6 +21,7 @@ import {
   readAuthIntent,
   readReturnToFromSearch,
   rememberReturnUrl,
+  resolveLoginReturnTo,
   RETURN_URL_STORAGE_KEY,
 } from '@/lib/authReturn'
 import { 
@@ -375,6 +375,10 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         setError('')
 
         // リダイレクトは getUser の代わりに signIn 直後の user.id で1クエリにまとめる
+        // 戻り先は URL の ?redirect=（画面を開いたときに読んだ値）を正とする。タブ内の記憶は認証の見張りと
+        // 取り合いになり先に消えることがあるため、補助にだけ使う（QW-20261023-001: 貸切リクエスト後にトップへ飛ばされた）
+        const customerReturnTo = resolveLoginReturnTo(returnTo, sessionStorage.getItem(RETURN_URL_STORAGE_KEY))
+        const pathSlugAtLogin = getOrganizationSlugFromPath()
         setTimeout(async () => {
           try {
             let userProfile: {
@@ -450,28 +454,27 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                 sessionStorage.removeItem('returnUrl')
                 navigate(slug ? `/${slug}/schedule` : '/dashboard', { replace: true })
               } else {
-                const rawReturnUrl1 = sessionStorage.getItem('returnUrl')
-                if (rawReturnUrl1) {
-                  sessionStorage.removeItem('returnUrl')
-                  navigate(validateRedirectUrl(rawReturnUrl1), { replace: true })
+                forgetReturnUrl()
+                if (customerReturnTo) {
+                  navigate(customerReturnTo, { replace: true })
                   return
                 }
-                navigate(`/${slug}`, { replace: true })
+                navigate(slug ? `/${slug}` : (pathSlugAtLogin ? `/${pathSlugAtLogin}` : '/'), { replace: true })
               }
             } else {
-              const rawReturnUrl2 = sessionStorage.getItem('returnUrl')
-              if (rawReturnUrl2) {
-                sessionStorage.removeItem('returnUrl')
-                navigate(validateRedirectUrl(rawReturnUrl2), { replace: true })
+              forgetReturnUrl()
+              if (customerReturnTo) {
+                navigate(customerReturnTo, { replace: true })
                 return
               }
               // /{org}/login から入ったお客様は、その予約サイトのトップへ戻す（MMQ 全体トップへ飛ばさない）
-              const pathSlug = getOrganizationSlugFromPath()
-              navigate(pathSlug ? `/${pathSlug}` : '/', { replace: true })
+              navigate(pathSlugAtLogin ? `/${pathSlugAtLogin}` : '/', { replace: true })
             }
           } catch (err) {
             logger.error('Redirect error:', err)
-            navigate('/', { replace: true })
+            // 権限の読み取りに失敗しても、お客様の戻り先があればそこへ（トップへ飛ばさない）
+            forgetReturnUrl()
+            navigate(customerReturnTo ?? (pathSlugAtLogin ? `/${pathSlugAtLogin}` : '/'), { replace: true })
           }
         }, 0)
       }

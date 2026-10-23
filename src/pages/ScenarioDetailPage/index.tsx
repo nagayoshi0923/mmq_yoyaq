@@ -40,6 +40,7 @@ import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptanc
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { scenarioPageDescription, scenarioPageTitle } from '@/lib/seo'
 import { loginUrlWithIntent } from '@/lib/authReturn'
+import { discardPrivateBookingLoginDraft, takePrivateBookingLoginDraft } from '@/lib/privateBookingLoginDraft'
 import { parseStoreIdsParam, privateGroupCreatePath } from '@/pages/PrivateBookingStart/paths'
 
 interface ScenarioDetailPageProps {
@@ -225,6 +226,11 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     }
   }, [scheduleStores, scheduleStoreFilter.length, events])
 
+  /** ログイン・プロフィール登録から戻って、預けた貸切の選択を戻したか（QW-20261023-001） */
+  const loginDraftAppliedRef = useRef(false)
+  /** 戻した選択で貸切リクエストの確認画面を開く予定（空き状況の読み直し後に開く） */
+  const [pendingOpenPrivateRequest, setPendingOpenPrivateRequest] = useState(false)
+
   /** ?stores= の希望店舗を反映済みか（作品と店舗の組で 1 回だけ） */
   const appliedPreferredStoresRef = useRef('')
   useEffect(() => {
@@ -240,6 +246,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     
     if (tabParam === 'private' && acceptsPrivateBooking) {
       setActiveTab('private')
+      // ログインから戻って預けた選択を戻した後は、URL の事前選択で上書きしない
+      if (loginDraftAppliedRef.current) return
 
       const slotKeys: PrivateBookingUrlSlotKey[] = ['morning', 'afternoon', 'evening']
       // 日付・店舗・枠キーが揃っている場合は店舗だけ即時反映し、実時刻は getTimeSlotsForDate で後段適用
@@ -326,6 +334,37 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     isAvailabilityReady,
     slotAvailability,
   ])
+
+  // ログイン（またはプロフィール登録）から作品ページへ戻ったら、預けておいた候補日時・店舗を戻す。
+  // 預かりは 1 回で消す（再読み込み・戻るで何度も開かない）。別の作品・30 分より古い預かりは使わない
+  useEffect(() => {
+    if (loginDraftAppliedRef.current || !user || !scenario || isLoading || stores.length === 0) return
+    if (!acceptsPrivateBooking) {
+      discardPrivateBookingLoginDraft()
+      return
+    }
+    const draft = takePrivateBookingLoginDraft(window.location.pathname)
+    if (!draft) return
+    loginDraftAppliedRef.current = true
+    setPrivateBookingUrlPending(null)
+    setActiveTab('private')
+    const validStoreIds = draft.storeIds.filter((id) => availableStores.some((s) => s.id === id))
+    if (validStoreIds.length > 0) setSelectedStoreIds(validStoreIds)
+    setSelectedTimeSlots(draft.timeSlots)
+    if (draft.timeSlots[0]) showMonthOf(draft.timeSlots[0].date)
+    if (draft.openRequest && draft.timeSlots.length > 0) setPendingOpenPrivateRequest(true)
+  }, [user, scenario, isLoading, stores.length, acceptsPrivateBooking, availableStores, setSelectedStoreIds, setSelectedTimeSlots, showMonthOf])
+
+  // 空き状況を読み直して選べなくなった候補を外した後で、貸切リクエストの確認画面を開く（候補が残っていれば）
+  useEffect(() => {
+    if (!pendingOpenPrivateRequest || !scenario || !isAvailabilityReady || isLoadingEvents) return
+    setPendingOpenPrivateRequest(false)
+    if (selectedTimeSlots.length === 0) return
+    void handlePrivateBookingRequest(!!user, `「${scenario.scenario_title}」の貸切リクエスト`, {
+      timeSlots: selectedTimeSlots,
+      storeIds: privateStoreIdsForLinks,
+    })
+  }, [pendingOpenPrivateRequest, scenario, isAvailabilityReady, isLoadingEvents, selectedTimeSlots, user, handlePrivateBookingRequest, privateStoreIdsForLinks])
 
 
 
@@ -792,7 +831,12 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                         selectedTimeSlotsCount={selectedTimeSlots.length}
                         isLoggedIn={!!user}
                         availabilityReady={isAvailabilityReady}
-                        onRequestBooking={() => { void handlePrivateBookingRequest(!!user, `「${scenario.scenario_title}」の貸切リクエスト`) }}
+                        onRequestBooking={() => {
+                          void handlePrivateBookingRequest(!!user, `「${scenario.scenario_title}」の貸切リクエスト`, {
+                            timeSlots: selectedTimeSlots,
+                            storeIds: privateStoreIdsForLinks,
+                          })
+                        }}
                         reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
                         hasPreReading={scenario.has_pre_reading}
                         scenarioId={scenario.scenario_master_id}
