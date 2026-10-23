@@ -27,7 +27,7 @@ import {
 // コード分割：各ページを動的インポート（リトライ付き）
 import {
   StoreManagement, ScenarioManagement, StaffManagement, ScheduleManager, SalesManagement, ShiftSubmission,
-  ReservationManagement, PublicBookingTop, ScenarioDetailPage, ScenarioDetailGlobal, ScenarioCatalog,
+  ReservationManagement, PublicBookingTop, ScenarioDetailPage, ScenarioDetailGlobal, ScenarioCatalog, NewArrivalsPage,
   GMAvailabilityCheck, PrivateBookingScenarioSelect, PrivateBookingRequestPage, PrivateBookingManagement,
   PrivateGroupListPage, AccountManagement, CustomerManagement, UserManagement, MyPage, ReservationDetailPage,
   SettingsPage, AddDemoParticipants, ScenarioMatcher, ManualPage, DashboardHome, StoreDashboard, StaffProfile,
@@ -40,6 +40,7 @@ import {
   ContactPage, OrganizationContactPage, FAQPage, GuidePage, PrivateGuidePage, CancelPolicyPage, StoreListPage, AboutPage,
   PricingPage, GettingStartedPage,
 } from './adminDashboardPages'
+import { CatalogFilterSwitch } from './NewArrivals/CatalogFilterSwitch'
 import { ADMIN_PATHS, parsePath } from './adminDashboardRouting'
 
 function ScenarioEditRedirect({ organizationSlug, scenarioId }: { organizationSlug: string; scenarioId: string | null }) {
@@ -264,7 +265,11 @@ export function AdminDashboard() {
   if (currentPage === 'catalog') {
     return (
       <Suspense fallback={<LoadingScreen message="カタログを読み込み中..." />}>
-        <ScenarioCatalog organizationSlug={organizationSlug} />
+        {/* ?filter=new はトップの「新作一覧 › すべて見る」の行き先（新作だけ）。それ以外は全作品のカタログ */}
+        <CatalogFilterSwitch
+          newArrivals={<NewArrivalsPage organizationSlug={organizationSlug ?? undefined} />}
+          catalog={<ScenarioCatalog organizationSlug={organizationSlug} />}
+        />
       </Suspense>
     )
   }
@@ -605,7 +610,7 @@ export function AdminDashboard() {
   if (currentPage === 'scenario') {
     return (
       <Suspense fallback={<LoadingScreen message="シナリオを読み込み中..." />}>
-        <PlatformScenarioSearch />
+        <CatalogFilterSwitch newArrivals={<NewArrivalsPage />} catalog={<PlatformScenarioSearch />} />
       </Suspense>
     )
   }

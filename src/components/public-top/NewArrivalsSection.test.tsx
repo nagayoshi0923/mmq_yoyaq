@@ -9,7 +9,7 @@ const card = (id: string, title: string) => scenarioBrowseCard({ id, title, key_
 function render(items: Parameters<typeof NewArrivalsSection>[0]['items'], catalogPath = '/qw/catalog') {
   return renderToStaticMarkup(
     <MemoryRouter>
-      <NewArrivalsSection items={items} lead="この組織で遊べる、新しく掲載された作品" catalogPath={catalogPath} onOpen={() => {}} />
+      <NewArrivalsSection items={items} lead="この組織で遊べる、新しく掲載された作品" allPath={catalogPath} onOpen={() => {}} />
     </MemoryRouter>,
   )
 }

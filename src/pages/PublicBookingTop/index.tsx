@@ -29,19 +29,18 @@ import { privateGuidePath } from '@/pages/static/guide/privateGuidePath'
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
 import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
 import { NewArrivalsSection, type NewArrivalItem } from '@/components/public-top/NewArrivalsSection'
-import { pickNewArrivals } from '@/components/public-top/newArrivals'
+import { buildOrgBrowseScenarios, orgNewArrivalPicks } from '@/components/public-top/newArrivalsSource'
+import { newArrivalsPath } from '@/pages/NewArrivals/paths'
 import { fetchPrivateBookingData, fetchPrivateBookingDays, isPrivateBookingCandidate, orgPrivateBookingPath } from '@/components/public-top/privateBookingStatus'
 import { TopHero } from '@/components/public-top/TopHero'
 import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
 import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
-import { cardKey, indexUpcoming, scenarioBrowseCard, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
+import { indexUpcoming, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
 import { useBookingData } from './hooks/useBookingData'
 import { useStoreTopPerformances } from './hooks/useStoreTopPerformances'
 import { StoreSearchSection } from './components/top/StoreSearchSection'
 
 const DEFAULT_HERO_COLOR = '#1f2a2e'
-/** 遊びたいリストの登録がこの数以上なら「人気」 */
-const POPULAR_FAVORITES = 10
 
 interface PublicBookingTopProps {
   /** 旧 3 タブ時代の受け口（作品カードは URL で開くので使わない） */
@@ -139,46 +138,13 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     navigate(card.path)
   }, [navigate])
 
-  const browseScenarios = useMemo<BrowseScenario[]>(() => scenarios.map((s) => {
-    const path = `/${slug}/scenario/${s.scenario_slug || s.scenario_id}`
-    const events = cardSource.upcoming.get(cardKey({ organization_id: organizationId ?? '', scenario_id: s.scenario_id })) ?? []
-    return {
-      id: s.scenario_id,
-      title: s.scenario_title,
-      author: s.author ?? '',
-      genres: s.genre,
-      player_count_min: s.player_count_min,
-      player_count_max: s.player_count_max,
-      is_new: !!s.is_new || s.genre.includes('新作'),
-      is_popular: !!s.is_recommended || (s.favorite_count ?? 0) >= POPULAR_FAVORITES || s.genre.includes('オススメ'),
-      next_date: nextDates.get(s.scenario_id) ?? null,
-      card: scenarioBrowseCard({
-        id: s.scenario_id,
-        title: s.scenario_title,
-        key_visual_url: s.key_visual_url,
-        player_count_min: s.player_count_min,
-        player_count_max: s.player_count_max,
-        duration_minutes: s.duration,
-        fee: s.participation_fee,
-        author: s.author,
-        is_recommended: s.is_recommended,
-        favorite_count: s.favorite_count,
-        release_date: s.release_date,
-      }, events, path),
-    }
-  }), [scenarios, nextDates, slug, cardSource, organizationId])
+  const browseScenarios = useMemo<BrowseScenario[]>(
+    () => buildOrgBrowseScenarios({ scenarios, slug, organizationId, upcoming: cardSource.upcoming, nextDates }),
+    [scenarios, nextDates, slug, cardSource, organizationId],
+  )
 
   // 新作一覧: この組織の公開作品を、リリース日（無ければ掲載登録日）から 90 日以内のものだけ新しい順に。新作タグでは絞らない
-  const newArrivalPicks = useMemo(() => {
-    const byId = new Map(scenarios.map((s) => [s.scenario_id, s]))
-    const candidates = browseScenarios.map((b) => ({
-      ...b,
-      release_date: byId.get(b.id)?.release_date ?? null,
-      listed_at: byId.get(b.id)?.listed_at ?? null,
-      scenario: byId.get(b.id)!,
-    }))
-    return pickNewArrivals(candidates, today)
-  }, [scenarios, browseScenarios, today])
+  const newArrivalPicks = useMemo(() => orgNewArrivalPicks(scenarios, browseScenarios, today), [scenarios, browseScenarios, today])
 
   // 新作一覧のカードの「貸切受付中」（この組織で日程の相談を始められるか。既存の判定・値だけ。読めない間は出さない）
   const storeIdsKey = stores.map((s) => s.id).join(',')
@@ -241,7 +207,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
         <NewArrivalsSection
           items={newArrivals}
           lead="この組織で遊べる、新しく掲載された作品"
-          catalogPath={slug ? `/${slug}/catalog` : '/scenario'}
+          allPath={newArrivalsPath(slug || null)}
           marks={marks}
           onOpen={openCard}
         />
