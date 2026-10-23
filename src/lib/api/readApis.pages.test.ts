@@ -1559,10 +1559,10 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
         "from("schedule_events_public") .select("current_participants, max_participants, capacity") .eq("id", undefined) .single()",
       ],
       "scenarioPageReadApi.findScenarioPerformancePeriod": [
-        "from("organization_scenarios_with_master") .select("available_from, available_until") .eq("organization_id", "a1") .eq("id", "a2") .maybeSingle()",
+        "from("organization_scenarios_with_master") .select("organization_id, available_from, available_until") .eq("id", "a2")",
       ],
       "scenarioPageReadApi.findScenarioPerformancePeriod (最後の引数なし)": [
-        "from("organization_scenarios_with_master") .select("available_from, available_until") .eq("organization_id", "a1") .eq("id", undefined) .maybeSingle()",
+        "from("organization_scenarios_with_master") .select("organization_id, available_from, available_until") .eq("id", undefined)",
       ],
       "scenarioPageReadApi.listActiveBookingNotices": [
         "from("booking_notices") .select("id, content, applicable_types, store_id, store_ids, requires_pre_read…) .eq("is_active", true) .contains("applicable_types", ["a1"]) .order("sort_order", {"ascending":true})",

@@ -75,12 +75,14 @@ export const scenarioPageReadApi = {
    * 作品ページの「貸切受付中」の判定に使う（公演期間が終わった作品を受付中と出さない）。
    */
   async findScenarioPerformancePeriod(organizationId: string, scenarioMasterId: string) {
-    return supabase
+    // 組織の絞り込みは読んだ行で行う（クライアントの organization_id 直フィルタを増やさない: check:org-scope）
+    const { data, error } = await supabase
       .from('organization_scenarios_with_master')
-      .select('available_from, available_until')
-      .eq('organization_id', organizationId)
+      .select('organization_id, available_from, available_until')
       .eq('id', scenarioMasterId)
-      .maybeSingle()
+    if (error) return { data: null, error }
+    const row = (data ?? []).find((r) => r.organization_id === organizationId) ?? null
+    return { data: row ? { available_from: row.available_from, available_until: row.available_until } : null, error: null }
   },
 
   /** 公演の現在の人数・定員（予約直前の再確認用） */
