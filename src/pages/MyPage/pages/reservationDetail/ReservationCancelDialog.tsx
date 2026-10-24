@@ -27,7 +27,7 @@ interface Props {
 export function ReservationCancelDialog({ open, onOpenChange, summary, isPending, onConfirm }: Props) {
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!isPending) onOpenChange(next) }}>
-      <DialogContent size="sm" data-testid="reservation-cancel-dialog">
+      <DialogContent fixedSize="confirm" size="sm" data-testid="reservation-cancel-dialog">
         <DialogHeader>
           <DialogTitle className="text-base">この予約をキャンセルしますか？</DialogTitle>
           <DialogDescription className="text-sm pt-1">キャンセルは元に戻せません。キャンセルの確認メールをお送りします。</DialogDescription>
@@ -45,7 +45,7 @@ export function ReservationCancelDialog({ open, onOpenChange, summary, isPending
             </dd>
           </div>
         </dl>
-        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <div data-dialog-footer="" className="flex flex-col gap-2 sm:flex-row sm:justify-end">
           <Button variant="outline" className="h-11 text-sm sm:min-w-28" onClick={() => onOpenChange(false)} disabled={isPending}>
             やめる
           </Button>

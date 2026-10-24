@@ -85,7 +85,7 @@ export function VariableSettingDialog({ variable, storeId, organizationId, open,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent fixedSize="list-sm" className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{spec.label}</DialogTitle>
           <DialogDescription>{spec.description}</DialogDescription>
@@ -126,7 +126,7 @@ export function VariableSettingDialog({ variable, storeId, organizationId, open,
               </div>
             )}
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div data-dialog-footer="" className="flex justify-end gap-2 pt-2">
               {storeId && <Button type="button" variant="outline" disabled={saving || !data?.can_edit} onClick={async () => {
                 const inherited = state.inherited(spec.column, spec.kind === 'reasonList' ? [] : '').value
                 if (await state.save({ [spec.column]: null })) {

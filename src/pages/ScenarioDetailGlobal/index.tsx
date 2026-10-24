@@ -737,7 +737,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       <Footer />
 
       <Dialog open={isPlayedDialogOpen} onOpenChange={setIsPlayedDialogOpen}>
-        <DialogContent>
+        <DialogContent fixedSize="form">
           <DialogHeader><DialogTitle>体験済みに登録</DialogTitle></DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="text-sm text-muted-foreground">「{scenario?.title}」を体験済みに登録します。</div>

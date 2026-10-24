@@ -95,7 +95,7 @@ export function FillSeatsModal({
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) handleClose() }}>
-      <DialogContent className="max-w-sm">
+      <DialogContent fixedSize="form-sm" className="max-w-sm">
         {step === 'input' ? (
           <>
             <DialogHeader>

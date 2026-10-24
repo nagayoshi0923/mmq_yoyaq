@@ -81,7 +81,7 @@ export function TemplateEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent fixedSize="form" className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{config.title}</DialogTitle>
           <DialogDescription>送信タイミング: {config.description}</DialogDescription>
@@ -134,7 +134,7 @@ export function TemplateEditDialog({
               )}
             </div>
 
-            <div className="flex items-center justify-between pt-2">
+            <div data-dialog-footer="" className="flex items-center justify-between pt-2">
               <Button type="button" variant="outline" size="sm" onClick={handleReset} disabled={saving}>
                 標準文面を引用
               </Button>

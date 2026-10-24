@@ -27,7 +27,7 @@ interface CandidateDatesDialogProps {
 export function CandidateDatesDialog({ open, onClose, description, children, title = '候補日を追加・編集' }: CandidateDatesDialogProps) {
   return (
     <Dialog open={open} onOpenChange={next => { if (!next) onClose() }}>
-      <DialogContent className={CANDIDATE_DATES_DIALOG_CLASS} data-testid="candidate-dates-dialog">
+      <DialogContent fixedSize="form" className={CANDIDATE_DATES_DIALOG_CLASS} data-testid="candidate-dates-dialog">
         <DialogHeader className={CANDIDATE_DATES_DIALOG_HEADER_CLASS}>
           <DialogTitle className="text-base font-bold">{title}</DialogTitle>
           <DialogDescription className="truncate text-xs">{description}</DialogDescription>

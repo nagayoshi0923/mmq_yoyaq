@@ -499,7 +499,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       
       {/* 設置確認ダイアログ */}
       <Dialog open={!!deliveryConfirm} onOpenChange={(open) => !open && setDeliveryConfirm(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent fixedSize="confirm" className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Check className="h-5 w-5 text-green-600" />
@@ -521,7 +521,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                 </p>
               </div>
               
-              <div className="flex justify-end gap-2">
+              <div data-dialog-footer="" className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setDeliveryConfirm(null)}>
                   キャンセル
                 </Button>
@@ -539,7 +539,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       
       {/* ヘルプダイアログ */}
       <Dialog open={showHelp} onOpenChange={setShowHelp}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent fixedSize="form" className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <HelpCircle className="h-5 w-5" />
@@ -715,7 +715,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
             </section>
           </div>
 
-          <div className="flex justify-end mt-4">
+          <div data-dialog-footer="" className="flex justify-end mt-4">
             <Button onClick={() => setShowHelp(false)}>
               閉じる
             </Button>

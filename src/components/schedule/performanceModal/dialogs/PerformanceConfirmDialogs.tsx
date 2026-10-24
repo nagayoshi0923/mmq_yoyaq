@@ -18,7 +18,7 @@ export function ScenarioChangeConfirmDialog({
 }: ScenarioChangeConfirmDialogProps) {
   return (
     <Dialog open={pendingScenarioTitle !== null} onOpenChange={(open) => { if (!open) setPendingScenarioTitle(null) }}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent fixedSize="confirm" className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-base">シナリオを変更しますか？</DialogTitle>
           <DialogDescription className="text-sm pt-1">
@@ -67,7 +67,7 @@ export function DeleteEventConfirmDialog({
 }: DeleteEventConfirmDialogProps) {
   return (
     <Dialog open={deleteConfirming} onOpenChange={setDeleteConfirming}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent fixedSize="confirm" className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-base">この予定を削除しますか？</DialogTitle>
           <DialogDescription className="text-sm pt-1">

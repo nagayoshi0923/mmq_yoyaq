@@ -307,7 +307,7 @@ export function StoreEditModal({
   return (
     <>
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] sm:max-w-7xl max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col overflow-hidden">
+      <DialogContent fixedSize="editor" className="max-w-[95vw] sm:max-w-7xl max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col overflow-hidden">
         <DialogHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-2 sm:pb-4 border-b shrink-0">
           <DialogTitle>{store ? '店舗情報編集' : '新規店舗作成'}</DialogTitle>
           <DialogDescription>
@@ -914,7 +914,7 @@ export function StoreEditModal({
 
       {/* D-5d: 紐づきデータがある場合は削除不可の説明のみ（実行ボタンなし・閉じるのみ） */}
       <Dialog open={deleteBlockedDialogOpen} onOpenChange={setDeleteBlockedDialogOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent fixedSize="confirm" className="max-w-sm">
           <DialogHeader>
             <DialogTitle>この店舗は削除できません</DialogTitle>
           </DialogHeader>
@@ -927,7 +927,7 @@ export function StoreEditModal({
             </p>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t">
+          <div data-dialog-footer="" className="flex justify-end gap-2 pt-4 border-t">
             <Button variant="outline" onClick={() => setDeleteBlockedDialogOpen(false)}>
               閉じる
             </Button>

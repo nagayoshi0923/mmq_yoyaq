@@ -382,7 +382,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
       {/* テキストコピーダイアログ */}
       <Dialog open={textDialogOpen} onOpenChange={setTextDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent fixedSize="form" className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>売上レポート（テキスト）</span>

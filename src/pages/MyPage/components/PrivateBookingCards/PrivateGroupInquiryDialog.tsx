@@ -109,7 +109,7 @@ export function PrivateGroupInquiryDialog({ open, onOpenChange, info, replyEmail
 
   return (
     <Dialog open={open} onOpenChange={next => { if (!sending) onOpenChange(next) }}>
-      <DialogContent
+      <DialogContent fixedSize="form"
         className="max-w-md"
         onOpenAutoFocus={e => {
           // 返信先（読み取り専用）ではなく、本文の末尾（「お問い合わせ内容」の下）にカーソルを置く

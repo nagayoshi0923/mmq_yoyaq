@@ -625,7 +625,7 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
 
       {/* 作者追加・編集ダイアログ */}
       <Dialog open={isAddAuthorDialogOpen} onOpenChange={(open) => { if (!open) { setNewAuthorName(''); setEditingOldAuthorName(null) } setIsAddAuthorDialogOpen(open) }}>
-        <DialogContent>
+        <DialogContent fixedSize="form">
           <DialogHeader>
             <DialogTitle>{editingOldAuthorName !== null ? '作者名を編集' : '新しい作者を追加'}</DialogTitle>
             <DialogDescription>

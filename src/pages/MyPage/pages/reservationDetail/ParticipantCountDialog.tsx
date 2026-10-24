@@ -40,7 +40,7 @@ export function ParticipantCountDialog({
     .filter((num) => canDecrease || num >= (currentCount || 1))
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!isPending) onOpenChange(next) }}>
-      <DialogContent data-testid="participant-count-dialog">
+      <DialogContent fixedSize="form" data-testid="participant-count-dialog">
         <DialogHeader>
           <DialogTitle>参加人数を変更</DialogTitle>
           <DialogDescription>
@@ -76,7 +76,7 @@ export function ParticipantCountDialog({
             </div>
           )}
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <div data-dialog-footer="" className="flex flex-col gap-2 sm:flex-row sm:justify-end">
           <Button variant="outline" className="h-11 sm:min-w-28" onClick={() => onOpenChange(false)} disabled={isPending}>やめる</Button>
           <Button className="h-11 sm:min-w-28" onClick={onConfirm} disabled={!canSubmit || isPending || value === currentCount}>
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}

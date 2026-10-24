@@ -37,7 +37,7 @@ export function BulkEmailDialog({
 }: BulkEmailDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent fixedSize="form-sm" className="max-w-md">
         <DialogHeader>
           <DialogTitle>作者メールアドレス一括登録</DialogTitle>
           <DialogDescription>

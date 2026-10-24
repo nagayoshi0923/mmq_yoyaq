@@ -210,7 +210,7 @@ export function PartnerStores({ canEdit }: PartnerStoresProps) {
       </Card>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent>
+        <DialogContent fixedSize="form">
           <DialogHeader>
             <DialogTitle>契約店舗を追加</DialogTitle>
           </DialogHeader>
@@ -373,7 +373,7 @@ function PartnerStoreEditDialog({
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent fixedSize="form" className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{canEdit ? '契約店舗を編集' : '契約店舗の詳細'}</DialogTitle>
         </DialogHeader>

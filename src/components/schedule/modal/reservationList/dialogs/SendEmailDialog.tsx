@@ -43,7 +43,7 @@ export function SendEmailDialog({
 }: SendEmailDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="md">
+      <DialogContent fixedSize="form" size="md">
         <DialogHeader>
           <DialogTitle>メール送信</DialogTitle>
           <DialogDescription>
@@ -84,7 +84,7 @@ export function SendEmailDialog({
             </ul>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
+          <div data-dialog-footer="" className="flex justify-end gap-2 pt-4">
             <Button
               variant="outline"
               onClick={onClose}

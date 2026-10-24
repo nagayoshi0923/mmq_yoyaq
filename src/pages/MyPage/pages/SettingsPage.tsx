@@ -616,7 +616,7 @@ export function SettingsPage() {
 
       {/* プロフィール編集ダイアログ */}
       <Dialog open={activeDialog === 'profile'} onOpenChange={(open) => !open && setActiveDialog(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent fixedSize="form-sm" className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>プロフィール編集</DialogTitle>
           </DialogHeader>
@@ -700,7 +700,7 @@ export function SettingsPage() {
 
       {/* 通知設定ダイアログ */}
       <Dialog open={activeDialog === 'notification'} onOpenChange={(open) => !open && setActiveDialog(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent fixedSize="form-sm" className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>通知設定</DialogTitle>
           </DialogHeader>
@@ -750,7 +750,7 @@ export function SettingsPage() {
 
       {/* メールアドレス変更ダイアログ */}
       <Dialog open={activeDialog === 'email'} onOpenChange={(open) => !open && setActiveDialog(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent fixedSize="form-sm" className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>メールアドレス変更</DialogTitle>
             <DialogDescription>
@@ -788,7 +788,7 @@ export function SettingsPage() {
 
       {/* パスワード変更ダイアログ */}
       <Dialog open={activeDialog === 'password'} onOpenChange={(open) => !open && setActiveDialog(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent fixedSize="form-sm" className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>パスワード変更</DialogTitle>
           </DialogHeader>
@@ -838,7 +838,7 @@ export function SettingsPage() {
           if (!open) setActiveDialog(null)
         }}
       >
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent fixedSize="confirm" className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-amber-700">
               <AlertTriangle className="h-5 w-5 shrink-0" />
@@ -864,7 +864,7 @@ export function SettingsPage() {
 
       {/* 退会・アカウント削除ダイアログ */}
       <Dialog open={activeDialog === 'delete'} onOpenChange={(open) => !open && setActiveDialog(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent fixedSize="form-sm" className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />

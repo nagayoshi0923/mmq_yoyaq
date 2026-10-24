@@ -110,7 +110,7 @@ export function ConfirmationEmailOverrideDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent fixedSize="form" className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{copy.title}</DialogTitle>
           <DialogDescription>
@@ -172,7 +172,7 @@ export function ConfirmationEmailOverrideDialog({
               )}
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div data-dialog-footer="" className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
                 キャンセル
               </Button>

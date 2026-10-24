@@ -439,7 +439,7 @@ export function BookingNoticeSettings() {
 
       {/* 編集ダイアログ */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent fixedSize="form" className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {editingNotice ? '注意事項を編集' : '注意事項を追加'}

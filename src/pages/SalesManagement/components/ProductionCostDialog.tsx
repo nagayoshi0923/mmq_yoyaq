@@ -290,7 +290,7 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent fixedSize="form-sm" className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>制作費・調整を{titleLabel}</DialogTitle>
           <DialogDescription>
@@ -437,7 +437,7 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
           </div>
         </div>
 
-        <div className="flex justify-between gap-2">
+        <div data-dialog-footer="" className="flex justify-between gap-2">
           <div>
             {isEditMode && (
               <Button

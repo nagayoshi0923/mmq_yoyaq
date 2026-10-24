@@ -475,7 +475,7 @@ function MasterListManager({
 
       {/* 追加/編集ダイアログ */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) { setInputName(''); setEditingItem(null) } setDialogOpen(open) }}>
-        <DialogContent>
+        <DialogContent fixedSize="form">
           <DialogHeader>
             <DialogTitle>
               {dialogMode === 'edit' ? `${title === 'カテゴリ管理' ? 'カテゴリ' : '作者'}名を編集` : `新しい${title === 'カテゴリ管理' ? 'カテゴリ' : '作者'}を追加`}

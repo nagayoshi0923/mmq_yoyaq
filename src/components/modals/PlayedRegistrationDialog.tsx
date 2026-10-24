@@ -57,7 +57,7 @@ export function PlayedRegistrationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent fixedSize="form">
         <DialogHeader>
           <DialogTitle>体験済みに登録</DialogTitle>
         </DialogHeader>
@@ -73,7 +73,7 @@ export function PlayedRegistrationDialog({
               placeholder="日付を選択"
             />
           </div>
-          <Button
+          <Button data-dialog-footer=""
             onClick={handleSubmit}
             disabled={isSubmitting}
             className="w-full"

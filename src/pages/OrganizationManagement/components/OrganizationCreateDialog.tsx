@@ -113,7 +113,7 @@ export function OrganizationCreateDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent fixedSize="form" className="max-w-md">
         <DialogHeader>
           <DialogTitle>新規組織を追加</DialogTitle>
         </DialogHeader>
