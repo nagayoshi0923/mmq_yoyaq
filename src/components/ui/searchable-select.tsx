@@ -18,6 +18,7 @@ export interface SearchableSelectOption {
   displayInfoSearchText?: string  // displayInfoがReactNodeの場合の検索用テキスト
   renderContent?: () => React.ReactNode
   searchKeywords?: string[]  // 追加の検索キーワード（読み仮名など）
+  group?: string  // 検索後も残る候補のグループ見出し（選択不可）
 }
 
 interface SearchableSelectProps {
@@ -171,9 +172,10 @@ export function SearchableSelect({
               )}
             </div>
           ) : (
-            filteredOptions.map((option) => (
+            filteredOptions.map((option, index) => (
+              <React.Fragment key={option.value}>
+              {option.group && option.group !== filteredOptions[index - 1]?.group && <div className="px-2 pt-2 pb-1 ts-caption font-semibold text-muted-foreground">{option.group}</div>}
               <div
-                key={option.value}
                 className={cn(
                   "flex items-center px-2 py-2 cursor-pointer hover:bg-muted/50 text-sm",
                   value === option.value && "bg-muted"
@@ -206,6 +208,7 @@ export function SearchableSelect({
                   </div>
                 )}
               </div>
+              </React.Fragment>
             ))
           )}
         </div>
