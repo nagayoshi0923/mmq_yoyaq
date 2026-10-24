@@ -42,6 +42,13 @@ it('既存GM/累計公演数順と候補数・公演不可表示を維持し、�
   const unknown = buildScenarioSelectOptions(rows, '', [], [], context({ ready: false }))
   expect(renderToStaticMarkup(<>{unknown[0].displayInfo}</>)).toContain('配置数を確認できません')
 })
+it('選択中をリクエスト・新作より前へ一度だけ置き、候補にない作品を追加しない', () => {
+  const rows = [scenario('A'), scenario('B', { release_date: '2026-10-24' }), scenario('C', { release_date: '2026-10-24' }), scenario('D')]
+  const options = ['D', 'C', 'A', 'B'].map((value) => ({ value }))
+  const ctx = context({ requestedScenarioIds: new Set(['m-A', 'm-B']) })
+  expect(prioritizeScenarioOptions(options, rows, '2026-10-24', ctx, 'B').map((s) => [s.option.value, s.rank])).toEqual([['B', -1], ['A', 0], ['C', 1], ['D', 2]])
+  expect(prioritizeScenarioOptions(options, rows, '2026-10-24', ctx, 'unknown')).toHaveLength(4)
+})
 
 describe('表示月・店舗範囲の公演数', () => {
   it('組織/マスタID差を吸収し、同じ公演IDは一度だけ。0件も返す', () => {

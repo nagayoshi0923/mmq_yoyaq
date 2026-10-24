@@ -6,7 +6,7 @@ import type { Staff as StaffType, Scenario } from '@/types'
 import { toJstYmd } from '@/utils/jstDate'
 import { countScenarioPlacements, prioritizeScenarioOptions, type ScenarioPlacementContext } from './scenarioOptionPriority'
 
-export function buildScenarioSelectOptions(scenarios: Scenario[], venue: string, staff: StaffType[], allAvailableStaff: StaffType[], context?: ScenarioPlacementContext) {
+export function buildScenarioSelectOptions(scenarios: Scenario[], venue: string, staff: StaffType[], allAvailableStaff: StaffType[], context?: ScenarioPlacementContext, selectedTitle = '') {
   const options = scenarios.map(scenario => {
     // この店舗で公演可能かチェック
     const isAvailableAtCurrentVenue = !venue || 
@@ -142,9 +142,9 @@ export function buildScenarioSelectOptions(scenarios: Scenario[], venue: string,
   if (!context) return options
   const counts = countScenarioPlacements(scenarios, context)
   const groups = ['1 このセルの開催リクエスト', '2 新作（90日以内）', '3 その他（既存の表示順）']
-  return prioritizeScenarioOptions(options, scenarios, toJstYmd(new Date()), context).map(({ option, scenario, rank }) => {
+  return prioritizeScenarioOptions(options, scenarios, toJstYmd(new Date()), context, selectedTitle).map(({ option, scenario, rank }) => {
     const count = scenario ? counts.get(scenario.id) : undefined
-    return { ...option, group: groups[rank], displayInfo: <div className="space-y-0.5">
+    return { ...option, group: rank === -1 ? '選択中' : groups[rank], displayInfo: <div className="space-y-0.5">
       {option.displayInfo}
       <span className="block ts-caption text-muted-foreground">{context.ready && count ? `貸切 ${count.private}件／オープン ${count.open}件` : '配置数を確認できません'}</span>
     </div> }

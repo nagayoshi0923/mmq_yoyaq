@@ -171,8 +171,9 @@ export function PerformanceModal({
 
   // シナリオ選択用オプションをメモ化（検索パフォーマンス改善）
   // ソート順: 担当+出勤GM有 > 担当GM有 > 出勤GM有 > その他（タイトル順）
-  const optionContext = mode === 'add' ? scenarioPlacement : undefined
-  const scenarioOptions = useMemo(() => buildScenarioSelectOptions(scenarios, formData.venue, staff, allAvailableStaff, optionContext), [scenarios, formData.venue, staff, allAvailableStaff, optionContext])
+  // 追加・編集で同じ表示を使う。履歴スナップショットには現在の配置数を混ぜない。
+  const optionContext = readOnly ? undefined : scenarioPlacement
+  const scenarioOptions = useMemo(() => buildScenarioSelectOptions(scenarios, formData.venue, staff, allAvailableStaff, optionContext, formData.scenario), [scenarios, formData.venue, staff, allAvailableStaff, optionContext, formData.scenario])
 
   /** アンケートタブ用 scenario_master_id（レンダー内 IIFE + logger だと毎回ログが爆発するため useMemo） */
   const surveyTabScenarioId = useMemo(() => {

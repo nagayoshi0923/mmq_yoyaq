@@ -60,13 +60,13 @@ export function countScenarioPlacements(scenarios: readonly Scenario[], context:
 }
 
 /** 元のGM/累計公演数順を各グループ内で保ち、リクエスト兼新作も一候補だけ。 */
-export function prioritizeScenarioOptions<T extends { value: string }>(options: readonly T[], scenarios: readonly Scenario[], today: string, context: ScenarioPlacementContext) {
+export function prioritizeScenarioOptions<T extends { value: string }>(options: readonly T[], scenarios: readonly Scenario[], today: string, context: ScenarioPlacementContext, selectedTitle = '') {
   const byTitle = new Map(scenarios.map((s) => [s.title, s]))
   return options.map((option, index) => {
     const s = byTitle.get(option.value)
     const inOrganization = s && (!s.organization_id || s.organization_id === context.organizationId)
     const requested = inOrganization && scenarioAliases(s).some((id) => context.requestedScenarioIds?.has(id))
-    const rank = requested ? 0 : inOrganization && isRecentScenario(s, today) ? 1 : 2
+    const rank = option.value === selectedTitle ? -1 : requested ? 0 : inOrganization && isRecentScenario(s, today) ? 1 : 2
     return { option, scenario: s, rank, index }
   }).sort((a, b) => a.rank - b.rank || a.index - b.index)
 }

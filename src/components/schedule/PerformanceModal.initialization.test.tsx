@@ -4,8 +4,11 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PerformanceModal } from './PerformanceModal'
 import type { EventFormData, ScheduleEvent } from '@/types/schedule'
+import type { Scenario } from '@/types'
+import type { SearchableSelectOption } from '@/components/ui/searchable-select'
+import { renderToStaticMarkup } from 'react-dom/server'
 
-const api = vi.hoisted(() => ({ participation: vi.fn(), memo: vi.fn(), close: vi.fn(), save: vi.fn(), slotsLoading: false, slotsVersion: 0 }))
+const api = vi.hoisted(() => ({ participation: vi.fn(), memo: vi.fn(), close: vi.fn(), save: vi.fn(), optionsSeen: vi.fn(), slotsLoading: false, slotsVersion: 0 }))
 vi.mock('@/lib/reservationApi', () => ({ reservationApi: { getStaffParticipation: api.participation } }))
 vi.mock('./SlotMemoInput', () => ({ getEmptySlotMemo: api.memo, clearEmptySlotMemo: vi.fn() }))
 vi.mock('@/lib/api', () => ({ staffApi: {} }))
@@ -29,7 +32,7 @@ vi.mock('@/components/ui/dialog', () => ({
 }))
 vi.mock('./performanceModal/sections/StaffNotesSection', () => ({ StaffNotesSection: ({ formData, setFormData }: { formData: EventFormData; setFormData: (fn: (value: EventFormData) => EventFormData) => void }) => <textarea aria-label="備考" value={formData.notes} onChange={e => setFormData(value => ({ ...value, notes: e.target.value }))} /> }))
 vi.mock('./performanceModal/sections/DateLocationSection', () => ({ DateLocationSection: () => null }))
-vi.mock('./performanceModal/sections/PerformanceContentSection', () => ({ PerformanceContentSection: () => <button>作品を編集</button> }))
+vi.mock('./performanceModal/sections/PerformanceContentSection', () => ({ PerformanceContentSection: (props: { scenarioOptions: SearchableSelectOption[]; scenarioOptionsNote?: string; formData: EventFormData }) => { api.optionsSeen(props); return <button>作品を編集</button> } }))
 vi.mock('./performanceModal/sections/CategorySelectSection', () => ({ CategorySelectSection: () => null }))
 vi.mock('./performanceModal/sections/PerformanceSummary', () => ({ PerformanceSummary: () => null }))
 vi.mock('./performanceModal/dialogs/PerformanceConfirmDialogs', () => ({ ScenarioChangeConfirmDialog: () => null, DeleteEventConfirmDialog: () => null }))
@@ -65,6 +68,18 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove() })
 
 describe('公演の非同期初期化と編集の境界', () => {
+  it.each(['add', 'edit'] as const)('%sでも月次件数と順位を表示し、編集時の選択作品を先頭に保つ', async (mode) => {
+    api.participation.mockResolvedValue(participation)
+    await render({ mode, event: mode === 'edit' ? eventA : null, initialData: { date: eventA.date, venue: eventA.venue, time_slot: 'morning' },
+      scenarios: [{ id: 'old', title: '架空作品', created_at: '2020-01-01', organization_id: 'test-org', play_count: 0 }] as Scenario[],
+      scenarioPlacement: { organizationId: 'test-org', month: '2026-10', organizationStoreIds: ['test-store'], selectedStoreIds: [], storeLabel: '全店舗', events: [{ ...eventA, scenario_master_id: 'old' }], ready: true } })
+    const content = api.optionsSeen.mock.calls.at(-1)?.[0]
+    expect(content?.scenarioOptionsNote).toContain('2026年10月・全店舗')
+    expect(renderToStaticMarkup(<>{content?.scenarioOptions[0]?.displayInfo}</>)).toContain('貸切 0件／オープン 1件')
+    expect(content.formData.scenario).toBe(mode === 'edit' ? '架空作品' : '')
+    expect(content.scenarioOptions[0]?.group).toBe(mode === 'edit' ? '選択中' : '3 その他（既存の表示順）')
+    expect(api.save).not.toHaveBeenCalled()
+  })
   it('遅い取得中は入力・別タブ・削除・保存を開始できず、閉じる操作は使える', async () => {
     const pending = deferred<typeof participation>(); api.participation.mockReturnValue(pending.promise)
     await render()
