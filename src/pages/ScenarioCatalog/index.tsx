@@ -21,6 +21,8 @@ import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen, 
 import { logger } from '@/utils/logger'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
+import { NEW_ARRIVAL_CHIP, isNewArrivalTarget, matchesCategoryChips, newArrivalDateIfTarget, newArrivalPublicKeys, sortCatalogForNewArrivals } from '@/components/public-top/newArrivals'
+import { todayJst } from '@/lib/publicPerformanceSearch'
 
 interface ScenarioData {
   id: string
@@ -37,6 +39,10 @@ interface ScenarioData {
   release_date?: string
   is_recommended?: boolean
   available_stores?: string[]
+  /** この組織が一覧に登録した日時（組織トップの新作と同じ。「新作」のチップの判定に使う） */
+  created_at?: string | null
+  /** 新作の対象か（組織トップの新作と同じ isNewArrivalTarget。一般のカタログの絞り込みには使わない） */
+  new_arrival_target?: boolean
 }
 
 interface StoreData {
@@ -111,6 +117,12 @@ async function fetchScenarioCatalogBundle(organizationSlug?: string): Promise<{
 
   if (scenariosResult.error) throw scenariosResult.error
 
+  // 「新作」チップの対象（組織トップと同じ isNewArrivalTarget。URL の組織の、稼働中・公開キーに含まれる行）
+  const newArrivalScope = {
+    publicKeys: newArrivalPublicKeys(keysData, !!availableKeysResult.error),
+    activeOrganizationIds: new Set(pathOrg?.id ? [pathOrg.id] : orgId ? [orgId] : []),
+    organizationId: orgId,
+  }
   const availableScenarios = (scenariosResult.data || [])
     .filter((s) => {
       if (!shouldFilter) return true
@@ -119,6 +131,7 @@ async function fetchScenarioCatalogBundle(organizationSlug?: string): Promise<{
     })
     .map((s) => ({
       ...s,
+      new_arrival_target: isNewArrivalTarget(s, newArrivalScope),
       available_stores: (s.available_stores || [])
         .map((storeId: string) => storeMap.get(storeId))
         .filter((name: string | undefined): name is string => !!name),
@@ -151,7 +164,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
     gcTime: 10 * 60 * 1000,
   })
 
-  const scenarios = catalogData?.scenarios ?? []
+  const scenarios = useMemo(() => catalogData?.scenarios ?? [], [catalogData])
   const stores = catalogData?.stores ?? []
   const categories = catalogData?.categories ?? []
 
@@ -217,6 +230,11 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
       .sort((a, b) => b[1] - a[1])
       .map(([name]) => name)
   }, [categories, scenarios])
+  // チップ・カテゴリの選択肢: 先頭に「新作」（90 日の判定。ジャンルの「新作」とは重ねない）、続けて既存のカテゴリ
+  const chipGenres = useMemo(() => [NEW_ARRIVAL_CHIP, ...genres.filter((g) => g !== NEW_ARRIVAL_CHIP)], [genres])
+  // 新作の判定（トップの新作一覧と同じ関数）。今日は JST
+  const today = todayJst(new Date())
+  const newDateById = useMemo(() => new Map(scenarios.map((s) => [s.id, newArrivalDateIfTarget({ new_arrival_target: s.new_arrival_target, release_date: s.release_date ?? null, listed_at: s.created_at ?? null }, today)])), [scenarios, today])
 
   // 実際に存在する所要時間の選択肢を動的生成（シナリオのdurationから）
   const availableDurations = useMemo(() => {
@@ -284,11 +302,8 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
         if (!matchTitle && !matchAuthor && !matchGenre && !matchStore) return false
       }
       
-      // カテゴリフィルター（複数選択時はいずれかを含む）
-      if (selectedCategories.length > 0) {
-        const hit = selectedCategories.some((cat) => scenario.genre?.includes(cat))
-        if (!hit) return false
-      }
+      // カテゴリフィルター（複数選択時はいずれかを含む）。「新作」のチップは 90 日の判定
+      if (!matchesCategoryChips(scenario.genre, selectedCategories, !!newDateById.get(scenario.id))) return false
       
       // 所要時間フィルター（完全一致）
       if (selectedDuration !== 'all') {
@@ -312,7 +327,12 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
       
       return true
     })
-  }, [scenarios, searchTerm, selectedCategories, selectedDuration, selectedPlayerCount, selectedStore, stores])
+  }, [scenarios, searchTerm, selectedCategories, selectedDuration, selectedPlayerCount, selectedStore, stores, newDateById])
+  // 「新作」を選んでいるときは、新作をトップと同じ並び（基準日の新しい順）で先に
+  const sortedScenarios = useMemo(
+    () => sortCatalogForNewArrivals(filteredScenarios, selectedCategories, (s) => newDateById.get(s.id) ?? null),
+    [filteredScenarios, selectedCategories, newDateById],
+  )
 
   const handleBack = useCallback(() => {
     navigate(bookingBasePath)
@@ -439,8 +459,8 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
           </div>
           
           {/* カテゴリークイックフィルター */}
-          {genres.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-3 pb-1 overflow-x-auto">
+          {chipGenres.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-3 pb-1 overflow-x-auto" data-testid="category-chips">
               <Badge
                 variant={selectedCategories.length === 0 ? 'default' : 'outline'}
                 className={`cursor-pointer text-xs px-2 py-1 transition-all ${
@@ -449,12 +469,16 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                     : 'hover:bg-gray-100'
                 }`}
                 onClick={() => clearCategories()}
+                data-chip="すべて"
               >
                 すべて
               </Badge>
-              {genres.slice(0, 10).map((genre) => (
+              {chipGenres.slice(0, 11).map((genre) => (
                 <Badge
                   key={genre}
+                  data-chip={genre}
+                  data-selected={selectedCategories.includes(genre) || undefined}
+                  title={genre === NEW_ARRIVAL_CHIP ? 'リリース日（無ければ掲載登録日）から 90 日以内の作品' : undefined}
                   variant={selectedCategories.includes(genre) ? 'default' : 'outline'}
                   className={`cursor-pointer text-xs px-2 py-1 transition-all whitespace-nowrap ${
                     selectedCategories.includes(genre)
@@ -489,7 +513,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-72 p-2 max-h-64 overflow-y-auto" align="start">
-                  {genres.length === 0 ? (
+                  {chipGenres.length === 0 ? (
                     <p className="text-xs text-muted-foreground px-2 py-1.5">カテゴリがありません</p>
                   ) : (
                     <div className="space-y-0.5">
@@ -502,7 +526,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                           すべてクリア
                         </button>
                       )}
-                      {genres.map((g) => (
+                      {chipGenres.map((g) => (
                         <label
                           key={g}
                           className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
@@ -587,7 +611,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-            {filteredScenarios.map((scenario, index) => (
+            {sortedScenarios.map((scenario, index) => (
               <div
                 key={scenario.id}
                 className="group cursor-pointer"

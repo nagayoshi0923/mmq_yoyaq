@@ -9,6 +9,7 @@
  * 方針: docs/product-spec/トップページ刷新_2026-10.md
  * 2026-10-15 社長指摘: 「友だちと貸切で遊ぶ」→「参加店舗から選ぶ」は、トップの中に枠を開かず、貸切を始めるページ
  * （/private-booking/select-organization。店舗を選ぶ → 作品を選ぶ）へ遷移する。通常の「参加店舗」は組織トップのまま。
+ * 2026-10-23（QW-20261023-001）: 残りわずかの直後に「新作一覧」、上の帯に「カタログ」（全体カタログ /scenario）。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -23,9 +24,13 @@ import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top/InfoSections'
 import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
+import { NewArrivalsSection, type NewArrivalItem } from '@/components/public-top/NewArrivalsSection'
+import { buildPlatformBrowseScenarios, platformNewArrivalPicks } from '@/components/public-top/newArrivalsSource'
+import { newArrivalsPath } from '@/pages/NewArrivals/paths'
+import { fetchPrivateBookingData, fetchPrivateBookingDays, isPrivateBookingCandidate, platformPrivateBookingPath } from '@/components/public-top/privateBookingStatus'
 import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
 import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
-import { indexUpcoming, scenarioBrowseCard, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
+import { indexUpcoming, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
 import { TopHero } from '@/components/public-top/TopHero'
 import { TopSection } from '@/components/public-top/TopSection'
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
@@ -38,7 +43,6 @@ import {
   searchPerformances,
   todayJst,
   type DateRange,
-  type PublicPerformance,
 } from '@/lib/publicPerformanceSearch'
 import { addJstDays } from '@/utils/jstDate'
 import { fetchPlatformTopData, PLATFORM_RANGE_DAYS } from './hooks/platformTopData'
@@ -109,31 +113,40 @@ export function PlatformTop() {
   }, [performances, today, nowMs])
 
   // 作品から探す: 全国の公開作品。カードの次回公演は全店舗の予約を受け付けている公演から
-  const browseScenarios = useMemo<BrowseScenario[]>(() => {
-    const byScenario = new Map<string, PublicPerformance[]>()
-    cardSource.upcoming.forEach((list) => {
-      if (list.length === 0) return
-      const id = list[0].scenario_id
-      byScenario.set(id, [...(byScenario.get(id) ?? []), ...list])
-    })
-    const newSince = addJstDays(today, -30)
-    return (data?.scenarios ?? []).map((s) => {
-      const events = byScenario.get(s.id) ?? []
-      const next = events.filter((p) => p.available_seats > 0).reduce<string | null>((min, p) => (!min || p.date < min ? p.date : min), null)
-      return {
-        id: s.id,
-        title: s.title,
-        author: s.author,
-        genres: s.genres,
-        player_count_min: s.player_count_min,
-        player_count_max: s.player_count_max,
-        is_new: s.genres.includes('新作') || (!!s.release_date && s.release_date >= newSince),
-        is_popular: s.is_recommended || s.genres.includes('オススメ'),
-        next_date: next,
-        card: scenarioBrowseCard(s, events, `/scenario/${encodeURIComponent(s.slug)}`),
-      }
-    })
-  }, [data, cardSource, today])
+  const browseScenarios = useMemo<BrowseScenario[]>(
+    () => buildPlatformBrowseScenarios(data?.scenarios ?? [], cardSource.upcoming, today),
+    [data, cardSource, today],
+  )
+
+  // 新作一覧: 全国の公開作品を、リリース日（無ければ掲載登録日）から 90 日以内のものだけ新しい順に。新作タグでは絞らない
+  const newArrivalPicks = useMemo(() => platformNewArrivalPicks(data?.scenarios ?? [], browseScenarios, today), [data, browseScenarios, today])
+
+  // 新作一覧のカードの「貸切受付中」（その作品を公開している組織ごとに、日程の相談を始められるかを既存の判定で決める。読めない間は出さない）
+  const orgIds = useMemo(() => organizations.map((o) => o.id), [organizations])
+  const storeIds = useMemo(() => (data?.stores ?? []).map((s) => s.id), [data])
+  const { data: privateData } = useQuery({
+    queryKey: ['platform-top-private-booking', orgIds.join(','), storeIds.join(',')],
+    enabled: orgIds.length > 0,
+    queryFn: () => fetchPrivateBookingData(orgIds, storeIds),
+    staleTime: 5 * 60_000,
+  })
+  const dayPairs = useMemo(() => newArrivalPicks.flatMap(({ item }) => item.scenario.organizations
+    .filter((o) => isPrivateBookingCandidate(privateData, o.organization_id, item.id, o, today))
+    .map((o) => ({ organizationId: o.organization_id, scenarioId: item.id }))), [newArrivalPicks, privateData, today])
+  const { data: privateDays } = useQuery({
+    // 組織・作品・今日で分ける（組織トップと同じ形のキー）
+    queryKey: ['private-booking-days', today, dayPairs.map((p) => `${p.organizationId}:${p.scenarioId}`).join(',')],
+    enabled: dayPairs.length > 0,
+    queryFn: () => fetchPrivateBookingDays(dayPairs),
+    staleTime: 5 * 60_000,
+  })
+  const newArrivals = useMemo<NewArrivalItem[]>(() => {
+    const slugById = new Map(organizations.map((o) => [o.id, o.slug]))
+    return newArrivalPicks.map(({ item, date }) => ({
+      card: { ...item.card, private_booking_path: platformPrivateBookingPath(privateData, privateDays, item.scenario, slugById, data?.stores ?? null, today) },
+      date,
+    }))
+  }, [newArrivalPicks, organizations, privateData, privateDays, data, today])
 
   const openCard = useCallback((card: ScenarioCardData) => {
     saveScrollPositionForCurrentUrl()
@@ -156,10 +169,13 @@ export function PlatformTop() {
         onFirstTime={() => navigate('/guide')}
         onAccess={() => scrollTo('organizations')}
         onPrivate={() => scrollTo('private-booking')}
+        catalogPath="/scenario"
       />
 
       <main className="mx-auto max-w-4xl space-y-3 px-3.5 py-3 sm:px-4 md:py-5">
         <NearlyFullStrip performances={nearlyFull} source={cardSource} marks={marks} aside="全店舗・日付順" onOpen={openCard} />
+
+        <NewArrivalsSection items={newArrivals} lead="全国の公開作品から、新しい物語を見つけよう" allPath={newArrivalsPath()} marks={marks} onOpen={openCard} />
 
         <PrivateBookingSection
           text="4〜8 人集まれば、好きな作品を好きな日に。候補日を出して、メンバーの都合を聞いて、店舗に申し込むまでサイトで完結します。貸切は店舗ごとなので、まず店舗を選び、その店舗で貸切できる作品から選びます。"

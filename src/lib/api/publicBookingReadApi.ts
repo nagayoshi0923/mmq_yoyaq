@@ -45,6 +45,15 @@ export const publicBookingReadApi = {
       .in('store_id', storeIds)
       .eq('pause_type', 'performance')
   },
+
+  /** 店舗の貸切募集停止期間（I6。トップ・作品ページの「貸切受付中」で、上演できる店舗がすべて停止中かを見る） */
+  async listPrivatePauses(storeIds: string[]) {
+    return supabase
+      .from('store_recruitment_pauses')
+      .select('store_id, organization_id, pause_type, starts_on, ends_on')
+      .in('store_id', storeIds)
+      .eq('pause_type', 'private')
+  },
 }
 
 export const publicBookingListReadApi = {
@@ -52,7 +61,7 @@ export const publicBookingListReadApi = {
   async listAvailableScenarios(organizationId: string | null | undefined) {
     let query = supabase
       .from('organization_scenarios_with_master')
-      .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id, scenario_master_id, is_recommended, weekend_duration, participation_costs')
+      .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id, scenario_master_id, is_recommended, weekend_duration, participation_costs, created_at, available_from, available_until, master_status')
       .eq('status', 'available')
       .neq('scenario_type', 'gm_test')
 
