@@ -53,7 +53,7 @@ export function DeliveryHistoryDialog({reservationId}:{reservationId:string}) {
  return <>
   <Button variant="ghost" size="sm" onClick={()=>setOpen(true)}>通知履歴</Button>
   <Dialog open={open} onOpenChange={value=>{if(!busy){setOpen(value);setOperationError(null)}}}>
-   <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+   <DialogContent fixedSize="form" className="max-w-2xl max-h-[85vh] overflow-y-auto">
     <DialogHeader><DialogTitle>通知の送信履歴</DialogTitle></DialogHeader>
     <p className="text-sm text-muted-foreground">送信受付済みは配信サービスが受け付けた状態です。相手の受信・既読とは異なります。</p>
     {query.isLoading&&<p>読み込み中…</p>}

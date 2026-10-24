@@ -487,7 +487,7 @@ export function ReservationManagement() {
 
       {/* 予約詳細ダイアログ */}
       <Dialog open={!!selectedReservation} onOpenChange={(open) => !open && setSelectedReservation(null)}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto p-0">
+        <DialogContent fixedSize="form" className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto p-0">
           {selectedReservation && (
             <>
               <div className="p-6 pb-4">
@@ -638,7 +638,7 @@ export function ReservationManagement() {
                 </div>
               </div>
               
-              <div className="bg-gray-50 px-6 py-4 flex justify-end gap-2 border-t">
+              <div data-dialog-footer="" className="bg-gray-50 px-6 py-4 flex justify-end gap-2 border-t">
                 <Button variant="outline" onClick={() => setSelectedReservation(null)}>閉じる</Button>
                 <Button variant="default">保存</Button>
               </div>

@@ -40,7 +40,7 @@ export function EmailBodyEditDialog({
 }: EmailBodyEditDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(open) => { if (!open) { onClose() } }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent fixedSize="form" className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>送信済みメールの確認・編集</DialogTitle>
           <DialogDescription>

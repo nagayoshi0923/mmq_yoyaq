@@ -29,7 +29,7 @@ export function RejectRequestDialog({ showRejectDialog, handleRejectCancel, open
     <>
     {/* 却下ダイアログ */}
     <Dialog open={showRejectDialog} onOpenChange={(open) => !open && handleRejectCancel()}>
-      <DialogContent>
+      <DialogContent fixedSize="form">
         <DialogHeader>
           <DialogTitle>貸切リクエストの却下</DialogTitle>
         </DialogHeader>

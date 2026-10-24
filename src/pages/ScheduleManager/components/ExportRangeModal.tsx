@@ -50,7 +50,7 @@ export function ExportRangeModal({
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose() }}>
-      <DialogContent className="max-w-sm">
+      <DialogContent fixedSize="form-sm" className="max-w-sm">
         <DialogHeader>
           <DialogTitle>CSVエクスポート</DialogTitle>
         </DialogHeader>

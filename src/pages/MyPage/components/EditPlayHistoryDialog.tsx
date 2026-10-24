@@ -69,7 +69,7 @@ export function EditPlayHistoryDialog({
                     setIsEditingDate(false)
                   }
                 }}>
-                  <DialogContent className="sm:max-w-md">
+                  <DialogContent fixedSize="form-sm" className="sm:max-w-md">
                     <DialogHeader>
                       <DialogTitle>プレイ履歴の編集</DialogTitle>
                     </DialogHeader>

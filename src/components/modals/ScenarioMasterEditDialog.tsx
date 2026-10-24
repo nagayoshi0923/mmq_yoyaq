@@ -459,7 +459,7 @@ export function ScenarioMasterEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
+      <DialogContent fixedSize="editor"
         size="xl"
         overlayClassName="scenario-edit-dialog-overlay"
         className="scenario-edit-dialog-host [&>button]:hidden"

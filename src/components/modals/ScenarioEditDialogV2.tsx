@@ -695,7 +695,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
+      <DialogContent fixedSize="editor"
         size="xl"
         overlayClassName="scenario-edit-dialog-overlay"
         className="scenario-edit-dialog-host [&>button]:hidden"

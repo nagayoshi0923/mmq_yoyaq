@@ -149,7 +149,7 @@ export function CampaignStats({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent fixedSize="form" className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>キャンペーン統計</DialogTitle>
             <DialogDescription>
@@ -276,7 +276,7 @@ export function CampaignStats({
             </div>
           )}
 
-          <div className="flex justify-end pt-2">
+          <div data-dialog-footer="" className="flex justify-end pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               閉じる
             </Button>

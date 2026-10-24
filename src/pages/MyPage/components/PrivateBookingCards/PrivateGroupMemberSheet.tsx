@@ -88,7 +88,7 @@ export function PrivateGroupMemberSheet({ open, onOpenChange, groupId, members, 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] sm:max-h-[85vh] overflow-y-auto" data-testid="member-sheet">
+        <DialogContent fixedSize="list-sm" className="sm:max-w-lg max-h-[85vh] sm:max-h-[85vh] overflow-y-auto" data-testid="member-sheet">
           <DialogHeader className="text-left pr-6">
             <DialogTitle>メンバーを管理</DialogTitle>
             <DialogDescription>参加中 {members.length} 名</DialogDescription>

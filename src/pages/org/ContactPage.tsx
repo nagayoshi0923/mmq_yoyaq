@@ -352,7 +352,7 @@ export function OrganizationContactPage() {
 
       {/* 確認ダイアログ */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent>
+        <DialogContent fixedSize="form">
           <DialogHeader>
             <DialogTitle>送信先の確認</DialogTitle>
             <DialogDescription>

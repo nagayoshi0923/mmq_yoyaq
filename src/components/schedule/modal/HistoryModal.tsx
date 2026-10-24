@@ -29,7 +29,7 @@ export function HistoryModal({
 }: HistoryModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+      <DialogContent fixedSize="list-sm" className="max-w-lg max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

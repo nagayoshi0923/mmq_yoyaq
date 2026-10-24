@@ -493,7 +493,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
         setSurveyDialogOpen(open)
         if (!open) setSelectedGroupForSurvey(null)
       }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent fixedSize="form-sm" className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ClipboardList className="w-5 h-5" />
@@ -562,7 +562,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
       />
 
       <Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent fixedSize="form-sm" className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MessageCircle className="w-5 h-5" />

@@ -107,7 +107,7 @@ export function GrantCouponDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent fixedSize="form-sm" className="max-w-md">
         <DialogHeader>
           <DialogTitle>クーポンを付与</DialogTitle>
           <DialogDescription>

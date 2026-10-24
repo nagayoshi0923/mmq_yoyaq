@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, type DialogFixedSize } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { AlertCircle, CheckCircle, AlertTriangle, Info, X } from 'lucide-react'
 import { ReactNode, memo } from 'react'
@@ -81,6 +81,16 @@ const maxWidthClasses = {
   full: 'sm:max-w-full'
 }
 
+/** 用途別の固定サイズ（dialog-sizes.css）への対応。full は対象外（従来どおり） */
+const baseModalFixedSize: Record<string, DialogFixedSize | undefined> = {
+  sm: 'confirm',
+  md: 'form-sm',
+  lg: 'list-sm',
+  xl: 'form',
+  '2xl': 'form',
+  full: undefined,
+}
+
 /**
  * BaseModal - すべてのモーダルの基底コンポーネント
  * 
@@ -120,7 +130,7 @@ export const BaseModal = memo(function BaseModal({
 
   return (
     <Dialog open={open} onOpenChange={closeOnClickOutside ? onClose : undefined}>
-      <DialogContent className={maxWidthClasses[maxWidth]}>
+      <DialogContent className={maxWidthClasses[maxWidth]} fixedSize={baseModalFixedSize[maxWidth]}>
         <DialogHeader>
           <DialogTitle className={`flex items-center gap-2 ${config.titleColor}`}>
             <Icon className={`h-5 w-5 ${config.iconColor}`} />

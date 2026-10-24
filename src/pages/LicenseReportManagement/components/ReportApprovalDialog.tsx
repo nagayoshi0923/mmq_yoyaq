@@ -69,7 +69,7 @@ export function ReportApprovalDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent fixedSize="form-sm" className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {isApprove ? (

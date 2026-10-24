@@ -104,7 +104,7 @@ export function OrganizationEditDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent fixedSize="form" className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>組織を編集</DialogTitle>
         </DialogHeader>

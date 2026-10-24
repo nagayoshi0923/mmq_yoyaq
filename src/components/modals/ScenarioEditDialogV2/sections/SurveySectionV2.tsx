@@ -706,7 +706,7 @@ export function ImportQuestionsDialog({ open, onOpenChange, onImport, currentSce
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+      <DialogContent fixedSize="list-sm" className="max-w-lg max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-sm">他のシナリオからアンケート質問を読み込む</DialogTitle>
         </DialogHeader>

@@ -129,7 +129,7 @@ export function AddFromMasterDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+      <DialogContent fixedSize="form" className="max-w-3xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>マスタからシナリオを追加</DialogTitle>
           <DialogDescription>

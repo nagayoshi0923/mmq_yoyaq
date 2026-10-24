@@ -445,7 +445,7 @@ export function PrivateGroupAnnouncementHistoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col overflow-hidden gap-0 p-0 sm:p-0">
+      <DialogContent fixedSize="list-sm" className="sm:max-w-lg max-h-[85vh] flex flex-col overflow-hidden gap-0 p-0 sm:p-0">
         <DialogHeader className="shrink-0 space-y-1.5 px-4 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4 pr-12 text-left">
           <DialogTitle className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 shrink-0" />

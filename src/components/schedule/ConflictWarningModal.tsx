@@ -47,7 +47,7 @@ export function ConflictWarningModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent fixedSize="form" className="max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-6 w-6 text-amber-500" />

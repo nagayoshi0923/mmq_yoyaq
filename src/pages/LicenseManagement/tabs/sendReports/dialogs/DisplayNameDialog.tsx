@@ -42,7 +42,7 @@ export function DisplayNameDialog({
 }: DisplayNameDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent fixedSize="form" className="max-w-md">
         <DialogHeader>
           <DialogTitle>作者設定</DialogTitle>
           <DialogDescription>
