@@ -24,7 +24,8 @@ import type { Staff as StaffType, Scenario, Store } from '@/types'
 import { calcEndTime, computePlacedStartTimeWithPreparation } from '@/utils/eventOperationUtils'
 import { ScheduleEvent, EventFormData, StaffParticipationReservation } from '@/types/schedule'
 import { CATEGORY_TONE, PERF_TABS, getStaffTextColor, timeOptions } from './performanceModal/constants'
-import { buildScenarioSelectOptions } from './performanceModal/scenarioSelectOptions'
+import { buildBaseScenarioOptions, decorateScenarioOptions, orderScenarioOptions } from './performanceModal/scenarioSelectOptions'
+import type { ScenarioPlacementContext } from './performanceModal/scenarioOptionPriority'
 import { findTimeConflict } from './performanceModal/timeConflict'
 import { DEFAULT_TIME_SLOTS, buildAddFormData, buildEditFormData, findEventScenario, resolveAddEndTime, resolveEventTimeSlot } from './performanceModal/initialForm'
 import { logger } from '@/utils/logger'
@@ -54,6 +55,7 @@ interface PerformanceModalProps {
   events?: ScheduleEvent[]  // 同じ日の他の公演（準備時間考慮のため）
   /** events が組織全体の公演か、自分の担当分だけか（ダッシュボードは担当分だけ）。キット不足は組織全体で数える */
   eventsScope?: 'organization' | 'mine'
+  scenarioPlacement?: ScenarioPlacementContext
   availableStaffByScenario?: Record<string, StaffType[]>  // シナリオごとの出勤可能GM
   allAvailableStaff?: StaffType[]  // その日時に出勤している全GM
   onScenariosUpdate?: () => void  // シナリオ作成後の更新用コールバック
@@ -76,6 +78,7 @@ export function PerformanceModal({
   staff,
   events = [],
   eventsScope = 'organization',
+  scenarioPlacement,
   availableStaffByScenario = {},
   allAvailableStaff = [],
   onScenariosUpdate,
@@ -168,7 +171,12 @@ export function PerformanceModal({
 
   // シナリオ選択用オプションをメモ化（検索パフォーマンス改善）
   // ソート順: 担当+出勤GM有 > 担当GM有 > 出勤GM有 > その他（タイトル順）
-  const scenarioOptions = useMemo(() => buildScenarioSelectOptions(scenarios, formData.venue, staff, allAvailableStaff), [scenarios, formData.venue, staff, allAvailableStaff])
+  // 追加・編集で同じ表示を使う。履歴スナップショットには現在の配置数を混ぜない。
+  const optionContext = readOnly ? undefined : scenarioPlacement
+  // 作品を選ぶたびに全候補・配置数を作り直さないよう 3 段に分ける（選択の変更で走るのは並べ替えだけ）
+  const baseScenarioOptions = useMemo(() => buildBaseScenarioOptions(scenarios, formData.venue, staff, allAvailableStaff), [scenarios, formData.venue, staff, allAvailableStaff])
+  const decoratedScenarioOptions = useMemo(() => optionContext ? decorateScenarioOptions(baseScenarioOptions, scenarios, optionContext) : null, [baseScenarioOptions, scenarios, optionContext])
+  const scenarioOptions = useMemo(() => decoratedScenarioOptions ? orderScenarioOptions(decoratedScenarioOptions, formData.scenario) : baseScenarioOptions, [decoratedScenarioOptions, baseScenarioOptions, formData.scenario])
 
   /** アンケートタブ用 scenario_master_id（レンダー内 IIFE + logger だと毎回ログが爆発するため useMemo） */
   const surveyTabScenarioId = useMemo(() => {
@@ -827,6 +835,7 @@ export function PerformanceModal({
             setPendingScenarioTitle={setPendingScenarioTitle}
             applyScenarioChange={applyScenarioChange}
             scenarioOptions={scenarioOptions}
+            scenarioOptionsNote={optionContext ? `${optionContext.month.replace('-', '年')}月・${optionContext.storeLabel}の配置数（カテゴリー・GM絞り込みは適用しません）` : undefined}
             setIsScenarioDialogOpen={setIsScenarioDialogOpen}
             scenarios={scenarios}
             isScenarioAvailableAtVenue={isScenarioAvailableAtVenue}

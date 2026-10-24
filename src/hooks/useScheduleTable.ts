@@ -39,7 +39,7 @@ interface UseScheduleTableOptions {
 /**
  * スケジュールテーブルの全機能を提供する共通フック
  */
-export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTableProps {
+export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTableProps & { eventsLoading: boolean; eventsError: string | null } {
   const { currentDate, customCategoryConfig, customReservationBadgeClass } = options
 
   // データ取得
@@ -262,7 +262,9 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
       }
     },
     fetchSchedule: fetchScheduleWithKitLocations,
-    events: events
+    events: events,
+    eventsLoading: scheduleData.isLoading,
+    eventsError: scheduleData.error,
   }
 }
 
