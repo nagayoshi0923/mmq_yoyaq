@@ -112,7 +112,7 @@ describe('新作一覧とカタログ（QW-20261023-001）', () => {
     expect(section('new-arrivals')?.textContent).not.toContain('公開日')
     expect(section('new-arrivals')?.textContent).toContain('全国の公開作品から、新しい物語を見つけよう')
     // 「すべて見る」は新作だけの一覧へ（全作品のカタログではない）。一般の「カタログ」は全作品のまま
-    expect(section('new-arrivals')?.querySelector('a')?.getAttribute('href')).toBe('/scenario?filter=new')
+    expect(section('new-arrivals')?.querySelector('a')?.getAttribute('href')).toBe('/scenario?genre=%E6%96%B0%E4%BD%9C')
     const catalog = [...host.querySelectorAll('section a')].find((a) => a.textContent === 'カタログ')
     expect(catalog?.getAttribute('href')).toBe('/scenario')
     const order = [...host.querySelectorAll('main > section')].map((s) => s.id)

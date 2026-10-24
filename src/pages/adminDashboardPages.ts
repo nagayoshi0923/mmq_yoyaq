@@ -10,7 +10,6 @@ export const ScheduleManager = lazyWithRetry(() => import('./ScheduleManager/ind
 export const SalesManagement = lazyWithRetry(() => import('./SalesManagement'))
 export const ShiftSubmission = lazyWithRetry(() => import('./ShiftSubmission/index').then(m => ({ default: m.ShiftSubmission })))
 export const ReservationManagement = lazyWithRetry(() => import('./ReservationManagement').then(m => ({ default: m.ReservationManagement })))
-export const NewArrivalsPage = lazyWithRetry(() => import('./NewArrivals').then(m => ({ default: m.NewArrivalsPage })))
 export const PublicBookingTop = lazyWithRetry(() => import('./PublicBookingTop').then(m => ({ default: m.PublicBookingTop })))
 export const ScenarioDetailPage = lazyWithRetry(() => import('./ScenarioDetailPage').then(m => ({ default: m.ScenarioDetailPage })))
 export const ScenarioDetailGlobal = lazyWithRetry(() => import('./ScenarioDetailGlobal').then(m => ({ default: m.ScenarioDetailGlobal })))

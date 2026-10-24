@@ -75,7 +75,7 @@ describe('店舗トップの新作一覧とカタログ（QW-20261023-001）', (
     const section = host.querySelector('#new-arrivals')
     expect([...(section?.querySelectorAll('h3') ?? [])].map((h) => h.textContent)).toEqual(['新しいタグなし', '中間', '古い'])
     expect(section?.textContent).toContain('この組織で遊べる、新しく掲載された作品')
-    expect(section?.querySelector('a')?.getAttribute('href')).toBe('/queens-waltz/catalog?filter=new')
+    expect(section?.querySelector('a')?.getAttribute('href')).toBe('/queens-waltz/catalog?genre=%E6%96%B0%E4%BD%9C')
     const catalog = [...host.querySelectorAll('a')].find((a) => a.textContent === 'カタログ')
     expect(catalog?.getAttribute('href')).toBe('/queens-waltz/catalog')
   })

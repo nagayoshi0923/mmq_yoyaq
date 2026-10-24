@@ -19,6 +19,8 @@ import { platformPageReadApi } from '@/lib/api/platformPageReadApi'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
+import { NEW_ARRIVAL_CHIP, matchesCategoryChips, newArrivalDateIfNew, sortCatalogForNewArrivals } from '@/components/public-top/newArrivals'
+import { todayJst } from '@/lib/publicPerformanceSearch'
 import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen, Building2, RefreshCw, ChevronDown } from 'lucide-react'
 
 interface ScenarioData {
@@ -42,6 +44,8 @@ interface ScenarioData {
   available_stores?: string[] // 公演可能店舗名リスト
   available_store_ids?: string[] // 公演可能店舗IDリスト（フィルタ用）
   is_recommended?: boolean
+  /** 公開している組織のうち、いちばん早く一覧に登録した日時（全体トップの新作と同じ。「新作」のチップの判定に使う） */
+  listed_at?: string | null
 }
 
 interface CategoryData {
@@ -163,6 +167,7 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
         organization_name: org?.name || '',
         available_stores: storeNames,
         available_store_ids: storeIds,
+        listed_at: (s as { created_at?: string | null }).created_at ?? null,
       }
     })
 
@@ -178,8 +183,12 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
         existing.participation_fee ?? Infinity,
         s.participation_fee ?? Infinity
       )
+      // 新作の基準日は全体トップと同じく、公開している組織のうちいちばん早い掲載登録日
+      const listedAt = [existing.listed_at, s.listed_at].filter((v): v is string => !!v)
+        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0] ?? null
       seenMasterIds.set(key, {
         ...existing,
+        listed_at: listedAt,
         available_stores: mergedStores,
         participation_fee: isFinite(minPrice) ? minPrice : existing.participation_fee,
         // key_visual_urlは最初の非nullを優先（既存が既に入っている）
@@ -216,7 +225,7 @@ export function PlatformScenarioSearch() {
     gcTime: 10 * 60 * 1000, // 10分間メモリ保持
   })
   
-  const scenarios = data?.scenarios || []
+  const scenarios = useMemo(() => data?.scenarios || [], [data])
   const categories = data?.categories || []
   const allStores = data?.stores || []
 
@@ -298,6 +307,11 @@ export function PlatformScenarioSearch() {
   const genres = useMemo(() => {
     return categories.map(c => c.name)
   }, [categories])
+  // チップ・カテゴリの選択肢: 先頭に「新作」（90 日の判定。ジャンルの「新作」とは重ねない）、続けて既存のカテゴリ
+  const chipGenres = useMemo(() => [NEW_ARRIVAL_CHIP, ...genres.filter((g) => g !== NEW_ARRIVAL_CHIP)], [genres])
+  // 新作の判定（トップの新作一覧と同じ関数）。今日は JST
+  const today = todayJst(new Date())
+  const newDateById = useMemo(() => new Map(scenarios.map((s) => [s.id, newArrivalDateIfNew({ release_date: s.release_date ?? null, listed_at: s.listed_at ?? null }, today)])), [scenarios, today])
 
   // 地域から抽出するヘルパー関数
   const extractRegionFromAddress = (address?: string): string => {
@@ -365,11 +379,8 @@ export function PlatformScenarioSearch() {
         if (!matchTitle && !matchAuthor && !matchGenre && !matchOrg) return false
       }
       
-      // カテゴリフィルター（複数選択時はいずれかを含む）
-      if (selectedCategories.length > 0) {
-        const hit = selectedCategories.some((cat) => scenario.genre?.includes(cat))
-        if (!hit) return false
-      }
+      // カテゴリフィルター（複数選択時はいずれかを含む）。「新作」のチップは 90 日の判定
+      if (!matchesCategoryChips(scenario.genre, selectedCategories, !!newDateById.get(scenario.id))) return false
       
       // 所要時間フィルター（完全一致）
       if (selectedDuration !== 'all') {
@@ -391,7 +402,12 @@ export function PlatformScenarioSearch() {
       
       return true
     })
-  }, [scenarios, searchTerm, selectedCategories, selectedDuration, selectedPlayerCount, selectedStore])
+  }, [scenarios, searchTerm, selectedCategories, selectedDuration, selectedPlayerCount, selectedStore, newDateById])
+  // 「新作」を選んでいるときは、新作をトップと同じ並び（基準日の新しい順）で先に
+  const sortedScenarios = useMemo(
+    () => sortCatalogForNewArrivals(filteredScenarios, selectedCategories, (s) => newDateById.get(s.id) ?? null),
+    [filteredScenarios, selectedCategories, newDateById],
+  )
 
   const handleBack = useCallback(() => {
     navigate('/')
@@ -534,8 +550,8 @@ export function PlatformScenarioSearch() {
           </div>
           
           {/* カテゴリークイックフィルター */}
-          {genres.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-3 pb-1 overflow-x-auto">
+          {chipGenres.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-3 pb-1 overflow-x-auto" data-testid="category-chips">
               <Badge
                 variant={selectedCategories.length === 0 ? 'default' : 'outline'}
                 className={`cursor-pointer text-xs px-2 py-1 transition-all ${
@@ -544,12 +560,16 @@ export function PlatformScenarioSearch() {
                     : 'hover:bg-gray-100'
                 }`}
                 onClick={() => clearCategories()}
+                data-chip="すべて"
               >
                 すべて
               </Badge>
-              {genres.slice(0, 10).map((genre) => (
+              {chipGenres.slice(0, 11).map((genre) => (
                 <Badge
                   key={genre}
+                  data-chip={genre}
+                  data-selected={selectedCategories.includes(genre) || undefined}
+                  title={genre === NEW_ARRIVAL_CHIP ? 'リリース日（無ければ掲載登録日）から 90 日以内の作品' : undefined}
                   variant={selectedCategories.includes(genre) ? 'default' : 'outline'}
                   className={`cursor-pointer text-xs px-2 py-1 transition-all whitespace-nowrap ${
                     selectedCategories.includes(genre)
@@ -584,7 +604,7 @@ export function PlatformScenarioSearch() {
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-72 p-2 max-h-64 overflow-y-auto" align="start">
-                  {genres.length === 0 ? (
+                  {chipGenres.length === 0 ? (
                     <p className="text-xs text-muted-foreground px-2 py-1.5">カテゴリがありません</p>
                   ) : (
                     <div className="space-y-0.5">
@@ -597,7 +617,7 @@ export function PlatformScenarioSearch() {
                           すべてクリア
                         </button>
                       )}
-                      {genres.map((g) => (
+                      {chipGenres.map((g) => (
                         <label
                           key={g}
                           className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
@@ -684,7 +704,7 @@ export function PlatformScenarioSearch() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-            {filteredScenarios.map((scenario) => (
+            {sortedScenarios.map((scenario) => (
               <div
                 key={scenario.org_scenario_id || scenario.id}
                 className="group cursor-pointer"

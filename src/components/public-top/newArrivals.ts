@@ -60,13 +60,55 @@ export function isWithinNewArrivalPeriod(date: string, todayYmd: string): boolea
   return days >= 0 && days < NEW_ARRIVALS_DAYS
 }
 
+/**
+ * 新作か（トップの新作一覧とカタログの「新作」チップの判定はこれだけ）。
+ * 基準日 = リリース日、無ければ掲載登録日の JST の日付。経過 0〜89 日が新作、未来の基準日・日付が無い作品は新作でない。
+ * 返り値はその基準日（新作でなければ null）。
+ */
+export function newArrivalDateIfNew(item: Pick<NewArrivalCandidate, 'release_date' | 'listed_at'>, todayYmd: string): NewArrivalDate | null {
+  const date = newArrivalDate(item)
+  return date && isWithinNewArrivalPeriod(date.date, todayYmd) ? date : null
+}
+
+/** 新作の並び（基準日の新しい順 → 同じ日なら題名順）。トップとカタログで共通 */
+export function compareNewArrivals(a: { date: NewArrivalDate; title: string }, b: { date: NewArrivalDate; title: string }): number {
+  return b.date.date.localeCompare(a.date.date) || a.title.localeCompare(b.title, 'ja')
+}
+
 /** 新作一覧に出す作品と日付（期間内だけ、日付の新しい順）。todayYmd は JST の今日 */
 export function pickNewArrivals<T extends NewArrivalCandidate>(items: readonly T[], todayYmd: string, limit = NEW_ARRIVALS_LIMIT): Array<{ item: T; date: NewArrivalDate }> {
   return items
-    .map((item) => ({ item, date: newArrivalDate(item) }))
-    .filter((x): x is { item: T; date: NewArrivalDate } => x.date !== null && isWithinNewArrivalPeriod(x.date.date, todayYmd))
-    .sort((a, b) => b.date.date.localeCompare(a.date.date) || a.item.title.localeCompare(b.item.title, 'ja'))
+    .map((item) => ({ item, date: newArrivalDateIfNew(item, todayYmd) }))
+    .filter((x): x is { item: T; date: NewArrivalDate } => x.date !== null)
+    .sort((a, b) => compareNewArrivals({ date: a.date, title: a.item.title }, { date: b.date, title: b.item.title }))
     .slice(0, limit)
+}
+
+/** カタログのカテゴリのチップで「新作」を表す値（URL は既存のカテゴリと同じ ?genre=新作） */
+export const NEW_ARRIVAL_CHIP = '新作'
+
+/**
+ * カタログのカテゴリのチップの絞り込み（既存の規則のまま: 複数選べて、どれか 1 つに当てはまれば出す）。
+ * 「新作」のチップだけは作品のジャンルの「新作」ではなく、上の 90 日の判定（isNew）で当てはめる。
+ */
+export function matchesCategoryChips(genres: readonly string[] | null | undefined, selected: readonly string[], isNew: boolean): boolean {
+  if (selected.length === 0) return true
+  return selected.some((cat) => (cat === NEW_ARRIVAL_CHIP ? isNew : !!genres?.includes(cat)))
+}
+
+/**
+ * 「新作」のチップを選んでいるときのカタログの並び: 新作をトップと同じ並びで先に、残りは元の並びのまま後ろに。
+ * 選んでいなければ元の並びのまま。
+ */
+export function sortCatalogForNewArrivals<T extends { title: string }>(
+  list: readonly T[], selected: readonly string[], dateOf: (item: T) => NewArrivalDate | null,
+): T[] {
+  if (!selected.includes(NEW_ARRIVAL_CHIP)) return [...list]
+  const withDate = list.map((item, index) => ({ item, index, date: dateOf(item) }))
+  const fresh = withDate.filter((x): x is { item: T; index: number; date: NewArrivalDate } => x.date !== null)
+    .sort((a, b) => compareNewArrivals({ date: a.date, title: a.item.title }, { date: b.date, title: b.item.title }))
+  const rest = withDate.filter((x) => x.date === null)
+  return [...fresh, ...rest].map((x) => x.item)
 }
 
 /** 「掲載登録日：2026.10.13」「リリース日：2026.10.13」 */

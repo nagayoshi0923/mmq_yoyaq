@@ -27,7 +27,7 @@ import {
 // コード分割：各ページを動的インポート（リトライ付き）
 import {
   StoreManagement, ScenarioManagement, StaffManagement, ScheduleManager, SalesManagement, ShiftSubmission,
-  ReservationManagement, PublicBookingTop, ScenarioDetailPage, ScenarioDetailGlobal, ScenarioCatalog, NewArrivalsPage,
+  ReservationManagement, PublicBookingTop, ScenarioDetailPage, ScenarioDetailGlobal, ScenarioCatalog,
   GMAvailabilityCheck, PrivateBookingScenarioSelect, PrivateBookingRequestPage, PrivateBookingManagement,
   PrivateGroupListPage, AccountManagement, CustomerManagement, UserManagement, MyPage, ReservationDetailPage,
   SettingsPage, AddDemoParticipants, ScenarioMatcher, ManualPage, DashboardHome, StoreDashboard, StaffProfile,
@@ -265,11 +265,8 @@ export function AdminDashboard() {
   if (currentPage === 'catalog') {
     return (
       <Suspense fallback={<LoadingScreen message="カタログを読み込み中..." />}>
-        {/* ?filter=new はトップの「新作一覧 › すべて見る」の行き先（新作だけ）。それ以外は全作品のカタログ */}
-        <CatalogFilterSwitch
-          newArrivals={<NewArrivalsPage organizationSlug={organizationSlug ?? undefined} />}
-          catalog={<ScenarioCatalog organizationSlug={organizationSlug} />}
-        />
+        {/* 前の版の ?filter=new は「新作」のチップ（?genre=新作）を選んだカタログへ置き換える */}
+        <CatalogFilterSwitch catalog={<ScenarioCatalog organizationSlug={organizationSlug} />} />
       </Suspense>
     )
   }
@@ -610,7 +607,7 @@ export function AdminDashboard() {
   if (currentPage === 'scenario') {
     return (
       <Suspense fallback={<LoadingScreen message="シナリオを読み込み中..." />}>
-        <CatalogFilterSwitch newArrivals={<NewArrivalsPage />} catalog={<PlatformScenarioSearch />} />
+        <CatalogFilterSwitch catalog={<PlatformScenarioSearch />} />
       </Suspense>
     )
   }

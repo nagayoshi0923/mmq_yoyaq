@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NEW_ARRIVALS_DAYS, NEW_ARRIVALS_LIMIT, elapsedDays, formatNewArrivalDate, isWithinNewArrivalPeriod, newArrivalDate, pickNewArrivals } from './newArrivals'
+import { NEW_ARRIVALS_DAYS, NEW_ARRIVALS_LIMIT, elapsedDays, formatNewArrivalDate, isWithinNewArrivalPeriod, matchesCategoryChips, newArrivalDate, newArrivalDateIfNew, pickNewArrivals, sortCatalogForNewArrivals } from './newArrivals'
 
 const TODAY = '2026-10-24'
 const item = (title: string, over: Partial<{ is_new: boolean; release_date: string | null; listed_at: string | null }> = {}) => ({
@@ -99,5 +99,28 @@ describe('新作一覧の並びと抽出', () => {
     expect(picked[0].item.title).toBe('作品19')
     expect(titles([item('a', { release_date: '2026-10-01' }), item('古い', { release_date: '2026-01-01' })])).toEqual(['a'])
     expect(titles([item('古い', { release_date: '2026-01-01' })])).toEqual([])
+  })
+})
+
+describe('カタログの「新作」チップ（トップと同じ判定）', () => {
+  it('newArrivalDateIfNew は pickNewArrivals と同じ境界', () => {
+    expect(newArrivalDateIfNew(item('a', { listed_at: '2026-07-26T15:00:00Z' }), TODAY)?.date).toBe('2026-07-27')
+    expect(newArrivalDateIfNew(item('b', { listed_at: '2026-07-26T14:59:59Z' }), TODAY)).toBeNull()
+    expect(newArrivalDateIfNew(item('c', { release_date: '2026-10-25' }), TODAY)).toBeNull()
+  })
+  it('チップの組み合わせは既存の規則（どれか 1 つに当てはまれば出す）。「新作」はジャンルではなく 90 日の判定', () => {
+    expect(matchesCategoryChips(['SF'], [], false)).toBe(true)
+    expect(matchesCategoryChips(['新作'], ['新作'], false)).toBe(false)
+    expect(matchesCategoryChips([], ['新作'], true)).toBe(true)
+    expect(matchesCategoryChips(['3時間以内'], ['新作', '3時間以内'], false)).toBe(true)
+    expect(matchesCategoryChips(['SF'], ['新作', '3時間以内'], false)).toBe(false)
+  })
+  it('「新作」を選んでいるときだけ、新作をトップと同じ並びで先に、残りは元の並び', () => {
+    const list = [{ title: 'い' }, { title: '古' }, { title: 'あ' }, { title: '新' }]
+    const dates: Record<string, { date: string; kind: 'listed' } | null> = {
+      'い': { date: '2026-10-13', kind: 'listed' }, 'あ': { date: '2026-10-13', kind: 'listed' }, '新': { date: '2026-10-20', kind: 'listed' }, '古': null,
+    }
+    expect(sortCatalogForNewArrivals(list, ['新作'], (x) => dates[x.title]).map((x) => x.title)).toEqual(['新', 'あ', 'い', '古'])
+    expect(sortCatalogForNewArrivals(list, ['SF'], (x) => dates[x.title]).map((x) => x.title)).toEqual(['い', '古', 'あ', '新'])
   })
 })
