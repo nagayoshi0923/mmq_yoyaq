@@ -43,7 +43,7 @@ it('表示月と店舗の切替で件数を更新しても選択作品は変更�
 })
 it('編集相当の選択済み作品を先頭表示し、検索不一致では混ぜず、解除で先頭へ戻す', async () => {
   await act(async () => root.render(<Harness key="selected" initialValue="既存作品" />))
-  expect(host.querySelector('.scrollable-list')?.textContent).toMatch(/^選択中既存作品貸切 0件／オープン 0件2 新作/s)
+  expect(host.querySelector('.scrollable-list')?.textContent).toMatch(/^選択中既存作品貸切 0件／オープン 0件／GMテスト 0件2 新作/s)
   const input = host.querySelector('input')!
   const search = async (value: string) => act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })) })
   await search('新作')

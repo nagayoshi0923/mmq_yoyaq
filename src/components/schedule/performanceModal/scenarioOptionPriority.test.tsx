@@ -38,7 +38,7 @@ it('既存GM/累計公演数順と候補数・公演不可表示を維持し、�
   // 実行日の変化から独立して比較するため、日付計算自体は上のfixtureで検証。
   expect(options).toHaveLength(baseline.length)
   expect(options.find((o) => o.value === 'A')?.label).toContain('[公演不可]')
-  expect(renderToStaticMarkup(<>{options.find((o) => o.value === 'B')?.displayInfo}</>)).toContain('貸切 0件／オープン 0件')
+  expect(renderToStaticMarkup(<>{options.find((o) => o.value === 'B')?.displayInfo}</>)).toContain('貸切 0件／オープン 0件／GMテスト 0件')
   const unknown = buildScenarioSelectOptions(rows, '', [], [], context({ ready: false }))
   expect(renderToStaticMarkup(<>{unknown[0].displayInfo}</>)).toContain('配置数を確認できません')
 })
@@ -54,8 +54,8 @@ describe('表示月・店舗範囲の公演数', () => {
   it('組織/マスタID差を吸収し、同じ公演IDは一度だけ。0件も返す', () => {
     const events = [event('1'), event('1'), event('2', { scenario_master_id: undefined, organization_scenario_id: 'o-A', category: 'private' }), event('3', { scenario_master_id: undefined, scenarios: { id: 'm-A', title: 'A', player_count_max: 6 } })]
     const counts = countScenarioPlacements([scenario('A'), scenario('B')], context({ events }))
-    expect(counts.get('A')).toEqual({ private: 1, open: 2 })
-    expect(counts.get('B')).toEqual({ private: 0, open: 0 })
+    expect(counts.get('A')).toEqual({ private: 1, open: 2, gmtest: 0 })
+    expect(counts.get('B')).toEqual({ private: 0, open: 0, gmtest: 0 })
   })
   it('JST月境界・選択店舗に追随し、候補を選ぶだけでは増えない', () => {
     const events = [event('before', { date: '2026-10-31T14:59:59Z' }), event('start', { date: '2026-10-31T15:00:00Z' }), event('end', { date: '2026-11-30T14:59:59Z', store_id: 'store-b' }), event('after', { date: '2026-11-30T15:00:00Z' })]
@@ -64,13 +64,33 @@ describe('表示月・店舗範囲の公演数', () => {
     expect(countScenarioPlacements([scenario('A')], context({ events, month: '2026-12' })).get('A')?.open).toBe(1)
     expect(events).toHaveLength(4)
   })
-  it('中止/削除/他組織/他店舗/未配置貸切希望/他種別を除外', () => {
-    const events = [event('cancelled', { is_cancelled: true }), event('deleted', { deleted_at: '2026-11-01' }), event('foreign', { organization_id: 'elsewhere' }), event('store', { store_id: 'elsewhere' }), event('request', { is_private_request: true, category: 'private' }), ...(['gmtest', 'testplay', 'offsite', 'package', 'mtg', 'venue_rental', 'venue_rental_free'] as const).map((category) => event(category, { category }))]
-    expect(countScenarioPlacements([scenario('A')], context({ events })).get('A')).toEqual({ private: 0, open: 0 })
+  it('中止/削除/他組織/他店舗/未配置貸切希望/他種別を除外し、GMテストは別に数えてテストプレイを混ぜない', () => {
+    const events = [event('cancelled', { is_cancelled: true }), event('deleted', { deleted_at: '2026-11-01' }), event('foreign', { organization_id: 'elsewhere' }), event('store', { store_id: 'elsewhere' }), event('request', { is_private_request: true, category: 'private' }), event('gm-cancelled', { category: 'gmtest', is_cancelled: true }), event('gm-request', { category: 'gmtest', is_private_request: true }), ...(['gmtest', 'testplay', 'offsite', 'package', 'mtg', 'venue_rental', 'venue_rental_free'] as const).map((category) => event(category, { category }))]
+    expect(countScenarioPlacements([scenario('A')], context({ events })).get('A')).toEqual({ private: 0, open: 0, gmtest: 1 })
+  })
+  it('貸切・オープン・GMテストを別々に数え、同じ公演 ID は一度だけ', () => {
+    const events = [event('p1', { category: 'private' }), event('o1'), event('o2'), event('g1', { category: 'gmtest' }), event('g1', { category: 'gmtest' }), event('t1', { category: 'testplay' })]
+    expect(countScenarioPlacements([scenario('A')], context({ events })).get('A')).toEqual({ private: 1, open: 2, gmtest: 1 })
   })
   it('ID不一致をタイトルで救済せず、旧IDなしは一意な完全一致だけ', () => {
     const events = [event('wrong', { scenario_master_id: 'foreign-id' }), event('legacy', { scenario_master_id: undefined })]
     expect(countScenarioPlacements([scenario('A')], context({ events })).get('A')?.open).toBe(1)
     expect(countScenarioPlacements([scenario('A'), scenario('other', { title: 'A' })], context({ events })).get('A')?.open).toBe(0)
+  })
+})
+
+describe('作品を選んでも配置数・並びの計算をやり直さない（3 段）', () => {
+  it('選択の変更は並べ替えだけで、配置数の表示と各グループ内の順は変わらない', async () => {
+    const { buildBaseScenarioOptions, decorateScenarioOptions, orderScenarioOptions } = await import('./scenarioSelectOptions')
+    const rows = [scenario('A', { play_count: 9 }), scenario('B', { release_date: '2026-10-24', play_count: 5 }), scenario('C', { play_count: 1 })]
+    const events = [event('1'), event('2', { category: 'gmtest' })]
+    const decorated = decorateScenarioOptions(buildBaseScenarioOptions(rows, '', [], []), rows, context({ events }), '2026-10-24')
+    const none = orderScenarioOptions(decorated, '')
+    const pickC = orderScenarioOptions(decorated, 'C')
+    expect(none.map((o) => [o.value, o.group])).toEqual([['B', '2 新作（90日以内）'], ['A', '3 その他（既存の表示順）'], ['C', '3 その他（既存の表示順）']])
+    expect(pickC.map((o) => [o.value, o.group])).toEqual([['C', '選択中'], ['B', '2 新作（90日以内）'], ['A', '3 その他（既存の表示順）']])
+    expect(renderToStaticMarkup(<>{pickC.find((o) => o.value === 'A')?.displayInfo}</>)).toContain('貸切 0件／オープン 1件／GMテスト 1件')
+    // 解除すると元の並び（選択中の見出しなし）に戻る
+    expect(orderScenarioOptions(decorated, '').map((o) => o.value)).toEqual(none.map((o) => o.value))
   })
 })

@@ -37,11 +37,15 @@ function toInstant(value: string | Date | null | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d
 }
 
+// 書式の設定は固定なので、Intl.DateTimeFormat は一度だけ作って使い回す（呼ぶたびに作ると一覧の集計で重い）。出力は変わらない。
+let jstPartsFormat: Intl.DateTimeFormat | null = null
+let jstWeekdayFormat: Intl.DateTimeFormat | null = null
+
 /** JST の年月日時分・曜日を取り出す（全て2桁ゼロ埋め。weekday は「月」等） */
 export function getJstParts(value: string | Date | null | undefined) {
   const d = toInstant(value)
   if (!d) return null
-  const parts = new Intl.DateTimeFormat('en-CA', {
+  jstPartsFormat ??= new Intl.DateTimeFormat('en-CA', {
     timeZone: JST,
     year: 'numeric',
     month: '2-digit',
@@ -49,9 +53,11 @@ export function getJstParts(value: string | Date | null | undefined) {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-  }).formatToParts(d)
+  })
+  jstWeekdayFormat ??= new Intl.DateTimeFormat('ja-JP', { timeZone: JST, weekday: 'short' })
+  const parts = jstPartsFormat.formatToParts(d)
   const g = (t: string) => parts.find((p) => p.type === t)?.value ?? ''
-  const weekday = new Intl.DateTimeFormat('ja-JP', { timeZone: JST, weekday: 'short' }).format(d)
+  const weekday = jstWeekdayFormat.format(d)
   return { y: g('year'), mo: g('month'), d: g('day'), h: g('hour'), mi: g('minute'), weekday }
 }
 
