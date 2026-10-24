@@ -40,7 +40,9 @@ import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptanc
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { scenarioPageDescription, scenarioPageTitle } from '@/lib/seo'
 import { loginUrlWithIntent } from '@/lib/authReturn'
-import { discardPrivateBookingLoginDraft, takePrivateBookingLoginDraft } from '@/lib/privateBookingLoginDraft'
+import { takePrivateBookingLoginDraft, type PrivateBookingDraftSlot } from '@/lib/privateBookingLoginDraft'
+import { availableSlotsForDate } from '@/lib/candidateSlotAvailability'
+import { showToast } from '@/utils/toast'
 import { parseStoreIdsParam, privateGroupCreatePath } from '@/pages/PrivateBookingStart/paths'
 
 interface ScenarioDetailPageProps {
@@ -50,6 +52,11 @@ interface ScenarioDetailPageProps {
 }
 
 type PrivateBookingUrlSlotKey = 'morning' | 'afternoon' | 'evening'
+
+/** 表示中の作品データが URL の作品（slug または ID）のものか。作品を移った直後の古いデータで動かないため */
+function scenarioMatchesRoute(scenario: { slug?: string; scenario_master_id: string; org_scenario_id?: string }, routeId: string): boolean {
+  return scenario.slug === routeId || scenario.scenario_master_id === routeId || scenario.org_scenario_id === routeId
+}
 
 export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: ScenarioDetailPageProps) {
   const { user, isStaff } = useAuth()
@@ -226,10 +233,15 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     }
   }, [scheduleStores, scheduleStoreFilter.length, events])
 
-  /** ログイン・プロフィール登録から戻って、預けた貸切の選択を戻したか（QW-20261023-001） */
-  const loginDraftAppliedRef = useRef(false)
-  /** 戻した選択で貸切リクエストの確認画面を開く予定（空き状況の読み直し後に開く） */
-  const [pendingOpenPrivateRequest, setPendingOpenPrivateRequest] = useState(false)
+  /** ログイン・プロフィール登録から戻って、預けた貸切の選択を戻した作品ページのパス（作品ごとに数え直す。QW-20261023-001） */
+  const loginDraftAppliedPathRef = useRef<string | null>(null)
+  /** 戻した選択で貸切リクエストの確認画面を開く予定（その作品の最新の空き判定が出てから開く） */
+  const [pendingOpenPrivateRequest, setPendingOpenPrivateRequest] = useState<{
+    pathname: string
+    scenarioId: string
+    slots: PrivateBookingDraftSlot[]
+  } | null>(null)
+  const openedPendingRef = useRef<object | null>(null)
 
   /** ?stores= の希望店舗を反映済みか（作品と店舗の組で 1 回だけ） */
   const appliedPreferredStoresRef = useRef('')
@@ -247,7 +259,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     if (tabParam === 'private' && acceptsPrivateBooking) {
       setActiveTab('private')
       // ログインから戻って預けた選択を戻した後は、URL の事前選択で上書きしない
-      if (loginDraftAppliedRef.current) return
+      if (loginDraftAppliedPathRef.current === window.location.pathname) return
 
       const slotKeys: PrivateBookingUrlSlotKey[] = ['morning', 'afternoon', 'evening']
       // 日付・店舗・枠キーが揃っている場合は店舗だけ即時反映し、実時刻は getTimeSlotsForDate で後段適用
@@ -335,36 +347,79 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     slotAvailability,
   ])
 
-  // ログイン（またはプロフィール登録）から作品ページへ戻ったら、預けておいた候補日時・店舗を戻す。
-  // 預かりは 1 回で消す（再読み込み・戻るで何度も開かない）。別の作品・30 分より古い預かりは使わない
+  // ログイン（またはプロフィール登録）から作品ページへ戻ったら、預けておいた候補日時・店舗を戻す（QW-20261023-001）。
+  // 安全側の決まり: 受付の範囲を広げない（無効な店舗を「全店舗」に戻さない）。
+  // 預かりは 1 回で消す（再読み込み・戻る・StrictMode の 2 回目では何もしない）。別の作品・30 分より古い預かりは使わない。
   useEffect(() => {
-    if (loginDraftAppliedRef.current || !user || !scenario || isLoading || stores.length === 0) return
+    const pathname = window.location.pathname
+    if (loginDraftAppliedPathRef.current === pathname || !user || !scenario || isLoading || stores.length === 0) return
+    // 作品を移った直後に前の作品のデータが残っている間は触らない
+    if (!scenarioMatchesRoute(scenario, scenarioId)) return
     if (!acceptsPrivateBooking) {
-      discardPrivateBookingLoginDraft()
+      const stale = takePrivateBookingLoginDraft(pathname)
+      if (stale) {
+        loginDraftAppliedPathRef.current = pathname
+        showToast.warning('この作品は現在、貸切リクエストを受け付けていません')
+      }
       return
     }
-    const draft = takePrivateBookingLoginDraft(window.location.pathname)
+    const draft = takePrivateBookingLoginDraft(pathname)
     if (!draft) return
-    loginDraftAppliedRef.current = true
+    loginDraftAppliedPathRef.current = pathname
     setPrivateBookingUrlPending(null)
     setActiveTab('private')
     const validStoreIds = draft.storeIds.filter((id) => availableStores.some((s) => s.id === id))
-    if (validStoreIds.length > 0) setSelectedStoreIds(validStoreIds)
+    const droppedStores = draft.storeIds.length - validStoreIds.length
+    // 有効な店舗が無ければ未選択にする（初期の「全店舗」を残さない）
+    setSelectedStoreIds(validStoreIds)
     setSelectedTimeSlots(draft.timeSlots)
     if (draft.timeSlots[0]) showMonthOf(draft.timeSlots[0].date)
-    if (draft.openRequest && draft.timeSlots.length > 0) setPendingOpenPrivateRequest(true)
-  }, [user, scenario, isLoading, stores.length, acceptsPrivateBooking, availableStores, setSelectedStoreIds, setSelectedTimeSlots, showMonthOf])
+    if (validStoreIds.length === 0) {
+      showToast.warning('選んでいた店舗は現在選べません。希望店舗を選び直してください')
+      return
+    }
+    if (droppedStores > 0) {
+      // 選択が変わったので確認画面は開かず、作品ページで確かめてもらう
+      showToast.warning(`選べなくなった店舗 ${droppedStores} 件を外しました。候補を確認して「貸切リクエスト」を押してください`)
+      return
+    }
+    if (draft.openRequest && draft.timeSlots.length > 0) {
+      setPendingOpenPrivateRequest({ pathname, scenarioId, slots: draft.timeSlots })
+    }
+  }, [user, scenario, scenarioId, isLoading, stores.length, acceptsPrivateBooking, availableStores, setSelectedStoreIds, setSelectedTimeSlots, showMonthOf])
 
-  // 空き状況を読み直して選べなくなった候補を外した後で、貸切リクエストの確認画面を開く（候補が残っていれば）
+  // 戻した店舗・月の最新の空き判定が出てから、預けた候補がすべて選べると確かめられたときだけ確認画面を開く。
+  // 確かめられない（別の月にまたがる・読み取り失敗・作品を移った）ときは開かず、作品ページの選択で止める。
   useEffect(() => {
-    if (!pendingOpenPrivateRequest || !scenario || !isAvailabilityReady || isLoadingEvents) return
-    setPendingOpenPrivateRequest(false)
-    if (selectedTimeSlots.length === 0) return
+    const pending = pendingOpenPrivateRequest
+    if (!pending) return
+    if (pending.pathname !== window.location.pathname || pending.scenarioId !== scenarioId) {
+      setPendingOpenPrivateRequest(null)
+      return
+    }
+    if (availabilityError) {
+      setPendingOpenPrivateRequest(null)
+      return
+    }
+    if (!scenario || !isAvailabilityReady || isLoadingEvents) return
+    setPendingOpenPrivateRequest(null)
+    const allStillAvailable = pending.slots.every((ts) =>
+      privateDates.includes(ts.date)
+      && !!slotAvailability.slotsByDate[ts.date]
+      && availableSlotsForDate(slotAvailability, ts.date).some((s) => s.label === ts.slot.label),
+    )
+    if (!allStillAvailable) {
+      showToast.warning('候補日時の受付状況が変わりました。候補を確認して選び直してください')
+      return
+    }
+    // StrictMode で effect が 2 回走っても 1 回だけ開く
+    if (openedPendingRef.current === pending) return
+    openedPendingRef.current = pending
     void handlePrivateBookingRequest(!!user, `「${scenario.scenario_title}」の貸切リクエスト`, {
-      timeSlots: selectedTimeSlots,
+      timeSlots: pending.slots,
       storeIds: privateStoreIdsForLinks,
     })
-  }, [pendingOpenPrivateRequest, scenario, isAvailabilityReady, isLoadingEvents, selectedTimeSlots, user, handlePrivateBookingRequest, privateStoreIdsForLinks])
+  }, [pendingOpenPrivateRequest, scenario, scenarioId, isAvailabilityReady, isLoadingEvents, availabilityError, privateDates, slotAvailability, user, handlePrivateBookingRequest, privateStoreIdsForLinks])
 
 
 
