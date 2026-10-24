@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { canRequestPerformance, type PreviewPublicEvent } from './requestPlacement'
 import { requestsForSlot, prioritizeRequestedOptions } from './requestSlots'
-import { groupRequestsForPanel, type PerformanceRequest } from './model'
+import { buildPerformanceDraft, groupRequestsForPanel, type PerformanceRequest } from './model'
+import { PROTO_SCENARIOS, PROTO_STORES } from './fixtures'
 const nowMs = new Date('2026-10-24T12:00:00+09:00').getTime()
 const event: PreviewPublicEvent = { scenarioId: 's1', organizationId: 'o1', storeId: 'a', date: '2026-11-20', startTime: '13:00', published: true, cancelled: false, category: 'open', seats: 3, reservationEnabled: true }
 const check = (events: PreviewPublicEvent[], patch: object = {}) => canRequestPerformance({ loadState: 'ready', scenarioId: 's1', organizationId: null, selectedStoreIds: [], events, nowMs, ...patch })
@@ -58,4 +59,11 @@ it('店舗指定なしの1件は同組織の上演可能店舗だけに表示し
   const groups = groupRequestsForPanel([r], '2026-11', [])
   expect(groups[0].requestCount).toBe(1)
   expect(groups[0].desiredParticipants).toBe(3)
+})
+it('店舗指定なしの作成下書きは選択店舗を優先し、許可店舗外へ戻らない', () => {
+  const group = groupRequestsForPanel([{ ...request, storeIds: [] }], '2026-11', [])[0]
+  const own = PROTO_STORES.filter((s) => ['proto-store-a', 'proto-store-b'].includes(s.id))
+  expect(buildPerformanceDraft(group, PROTO_SCENARIOS[0], own, '2026-11', ['proto-store-b']).venue).toBe('proto-store-b')
+  const other = PROTO_STORES.filter((s) => s.id === 'proto-store-other')
+  expect(buildPerformanceDraft({ ...group, storeIds: ['proto-store-a'] }, PROTO_SCENARIOS[0], other, '2026-11', ['proto-store-a']).venue).toBe('proto-store-other')
 })

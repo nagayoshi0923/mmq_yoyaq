@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { MemoryRouter, useLocation } from 'react-router-dom'
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 const touches: string[] = []
 vi.mock('@/lib/supabase', () => {
@@ -14,6 +14,8 @@ import { CustomerScenarioPage } from './CustomerScenarioPage'
 import { submitRequest } from './actions'
 import { readProtoState } from './storage'
 import { __resetPrototypeBusyForTest } from './busy'
+import { addJstDays } from '@/utils/jstDate'
+import { previewToday } from './integratedFixtures'
 let host: HTMLDivElement, root: Root
 const fetchSpy = vi.fn()
 beforeEach(() => {
@@ -25,7 +27,7 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals() })
 const click = async (el?: Element | null) => { expect(el).toBeTruthy(); await act(async () => (el as HTMLElement).click()) }
 const button = (text: string) => [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === text)
-function Location() { const l = useLocation(); return <span data-location>{l.pathname}{l.search}</span> }
+function Location() { const l = useLocation(); const navigate = useNavigate(); return <><span data-location>{l.pathname}{l.search}</span><button data-history-back onClick={() => navigate(-1)}>履歴を戻す</button><button data-history-forward onClick={() => navigate(1)}>履歴を進む</button></> }
 const render = async (path: string) => act(async () => root.render(<MemoryRouter initialEntries={[path]}><Prototype /><Location /></MemoryRouter>))
 
 it.each(['platform', 'organization'])('両TOP(%s)のカードから同じ作品名入りフォームへ進み、閉じると詳細を保持する', async (scope) => {
@@ -52,6 +54,23 @@ it('新作すべて見るは12件を超えて同じ90日条件のカタログへ
   expect(host.querySelectorAll('[data-testid="preview-catalog-results"] [role="link"]')).toHaveLength(18)
   expect(host.querySelector('[data-location]')?.textContent).not.toContain('genre=')
 })
+it.each(['platform', 'organization'].flatMap((scope) => ['scheduled', 'full', 'closed'].map((schedule) => [scope, schedule])))('TOP(%s)の公演状態(%s)を保って別作品の開催希望へ進む', async (scope, schedule) => {
+  await render(`/prototype/performance-request/top?scope=${scope}&schedule=${schedule}`)
+  expect(host.querySelector('#new-arrivals [aria-label="星空のマリス"] [data-testid="performance-request-card"]')).toBeNull()
+  await click(host.querySelector('#new-arrivals [aria-label="【架空】霧の館の晩餐会"] [data-testid="performance-request-card"]'))
+  expect(document.querySelector<HTMLInputElement>('#proto-request-title')?.value).toBe('【架空】霧の館の晩餐会')
+  expect(host.querySelector('[data-location]')?.textContent).toContain('scheduleScenario=proto-scn-public')
+  expect(document.querySelector('[role="alert"]')).toBeNull()
+  expect(touches).toEqual([]); expect(fetchSpy).not.toHaveBeenCalled()
+})
+it.each(['platform', 'organization'])('公演検索カード(%s)も通常APIルートへ抜けず試作詳細で開く', async (scope) => {
+  const date = addJstDays(previewToday(), 20)
+  await render(`/prototype/performance-request/top?scope=${scope}&schedule=scheduled&when=date&date=${date}`)
+  await click(host.querySelector(`${scope === 'platform' ? '#results' : '#search'} [aria-label="星空のマリス"]`))
+  expect(host.querySelector('[data-location]')?.textContent).toContain('/prototype/performance-request?scenario=proto-scn-public')
+  expect(host.querySelector('[data-location]')?.textContent).not.toContain('/proto-org/scenario/')
+  expect(touches).toEqual([]); expect(fetchSpy).not.toHaveBeenCalled()
+})
 it('ボタンは日付を選択の既存空枠内に一つだけあり、別の開催希望カードを作らない', async () => {
   await render('/prototype/performance-request?scenario=proto-scn-public')
   const empty = host.querySelector('[data-testid="performance-request-empty"]')!
@@ -60,6 +79,26 @@ it('ボタンは日付を選択の既存空枠内に一つだけあり、別の�
   expect(empty.closest('[role="tabpanel"]')?.textContent).toContain('日付を選択')
   expect([...host.querySelectorAll('button')].filter((b) => b.textContent?.trim() === '公演をリクエストする')).toHaveLength(1)
   expect(host.textContent).not.toContain('1人からオープン公演の開催を希望できます。')
+})
+it('詳細で開く→戻る→進む→閉じると、作品と履歴内のモーダル状態を保持する', async () => {
+  await render('/prototype/performance-request?scenario=proto-scn-public')
+  await click(button('公演をリクエストする'))
+  expect(document.querySelector('[role="dialog"]')).toBeTruthy()
+  await click(host.querySelector('[data-history-back]'))
+  expect(document.querySelector('[role="dialog"]')).toBeNull()
+  await click(host.querySelector('[data-history-forward]'))
+  expect(document.querySelector<HTMLInputElement>('#proto-request-title')?.value).toBe('星空のマリス')
+  await click(document.querySelector('[aria-label="入力をやめる"]'))
+  expect(document.querySelector('[role="dialog"]')).toBeNull()
+  expect(host.querySelector('[data-location]')?.textContent).toBe('/prototype/performance-request?scenario=proto-scn-public')
+})
+it('再読込相当の新規マウントでもURLの作品フォームを開き、閉じても同じ詳細に残る', async () => {
+  await render('/prototype/performance-request?scenario=proto-scn-public&view=request')
+  expect(document.querySelector<HTMLInputElement>('#proto-request-title')?.value).toBe('星空のマリス')
+  await click(document.querySelector('[aria-label="入力をやめる"]'))
+  expect(document.querySelector('[role="dialog"]')).toBeNull()
+  expect(host.querySelector('[data-location]')?.textContent).toBe('/prototype/performance-request?scenario=proto-scn-public')
+  expect(readProtoState().requests).toHaveLength(0)
 })
 it.each(['load=loading', 'load=error', 'schedule=scheduled', 'schedule=full', 'schedule=closed'])('読込/失敗/公演あり(%s)に開催希望ボタンを出さない', async (query) => {
   await act(async () => root.render(<MemoryRouter initialEntries={[`/prototype/performance-request?scenario=proto-scn-public&${query}`]}><CustomerScenarioPage /></MemoryRouter>))

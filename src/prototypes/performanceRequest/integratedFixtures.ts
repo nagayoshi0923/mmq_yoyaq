@@ -7,7 +7,8 @@ export const previewToday = () => toJstYmd(new Date())
 export function previewSchedule(params: URLSearchParams): PreviewPublicEvent[] {
   const schedule = params.get('schedule')
   if (!schedule || schedule === 'empty') return []
-  const scenarioId = schedule ? (params.get('scenario') ?? 'proto-scn-public') : 'proto-scn-1'
+  // 選択中の詳細作品と、確認用公演の作品を区別する。TOPから移動しても同じ公演を保つ。
+  const scenarioId = params.get('scheduleScenario') ?? params.get('scenario') ?? 'proto-scn-public'
   const base: PreviewPublicEvent = { scenarioId, organizationId: PROTO_ORGANIZATION.id,
     storeId: 'proto-store-a', date: addJstDays(previewToday(), 20), startTime: '13:00',
     published: true, cancelled: false, category: 'open', seats: 3, reservationEnabled: true }
@@ -18,6 +19,8 @@ export function detailPreviewPath(scenarioId: string, params: URLSearchParams, r
   const next = new URLSearchParams()
   next.set('scenario', scenarioId)
   for (const k of ['scope', 'load', 'schedule', 'stores']) if (params.get(k)) next.set(k, params.get(k)!)
+  const scheduledScenario = previewSchedule(params)[0]?.scenarioId
+  if (scheduledScenario) next.set('scheduleScenario', scheduledScenario)
   if (request) next.set('view', 'request')
   return `${protoPaths.customer()}?${next}`
 }

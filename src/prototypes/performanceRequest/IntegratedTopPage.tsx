@@ -8,7 +8,7 @@ import { NewArrivalsSection } from '@/components/public-top/NewArrivalsSection'
 import { ScenarioBrowseSection } from '@/components/public-top/ScenarioBrowseSection'
 import { ScenarioCard } from '@/components/public-top/ScenarioCard'
 import { pickNewArrivals, newArrivalDateIfNew, matchesCategoryChips } from '@/components/public-top/newArrivals'
-import { scenarioBrowseCard, indexUpcoming } from '@/components/public-top/scenarioCards'
+import { scenarioBrowseCard, indexUpcoming, type ScenarioCardData } from '@/components/public-top/scenarioCards'
 import { PrivateBookingSection, FirstTimeSection } from '@/components/public-top/InfoSections'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { StoreSearchSection } from '@/pages/PublicBookingTop/components/top/StoreSearchSection'
@@ -35,7 +35,7 @@ export function IntegratedTopPage({ catalog = false }: { catalog?: boolean }) {
   const rows = previewCatalogRows(today).filter((s) => !orgId || s.organizationId === orgId)
   const to = (path: string, newOnly = false) => {
     const p = new URLSearchParams({ scope })
-    for (const k of ['load', 'schedule', 'stores']) if (params.get(k)) p.set(k, params.get(k)!)
+    for (const k of ['load', 'schedule', 'scheduleScenario', 'stores']) if (params.get(k)) p.set(k, params.get(k)!)
     if (newOnly) p.set('genre', '新作')
     return `${path}?${p}`
   }
@@ -66,7 +66,11 @@ export function IntegratedTopPage({ catalog = false }: { catalog?: boolean }) {
     if (genre) { if (values.has(genre)) values.delete(genre); else values.add(genre); values.forEach((v) => next.append('genre', v)) }
     return next
   })
-  const open = (card: { path: string }) => { saveScrollPositionForCurrentUrl(); navigate(card.path) }
+  const open = (card: ScenarioCardData) => {
+    saveScrollPositionForCurrentUrl()
+    // 共有の公演検索カードが通常URLを持っていても、架空作品は必ず試作ルートで開く。
+    navigate(detailPreviewPath(card.scenario_id, params, card.path === card.performance_request_path))
+  }
   const scroll = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
   const range = datePresetRange(search.preset, today, search.date)
   const results = searchPerformances(performances, { range, storeIds: search.storeIds, onlyAvailable: search.onlyAvailable }, Date.now())

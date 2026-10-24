@@ -51,7 +51,9 @@ export function AdminSchedulePage() {
   const openCreate = (group: RequestGroup) => {
     const scenario = findProtoScenario(group.scenarioId)
     if (!scenario) return
-    const draft = buildPerformanceDraft(group, scenario, PROTO_STORES, month, storeIds)
+    const eligibleStores = scopedStores.filter((s) => !scenario.availableStoreIds || scenario.availableStoreIds.includes(s.id))
+    if (!eligibleStores.length) { setPlaceholderNote('この組織には上演可能な店舗がありません。公演の作成画面は開きません。'); return }
+    const draft = buildPerformanceDraft(group, scenario, eligibleStores, month, storeIds)
     const summary = `「${scenario.title}」／希望 ${group.requestCount}件・参加希望 ${group.desiredParticipants}人／候補の月: ${formatMonthLabel(month)}${group.requestedDates.length === 0 ? '（日付の指定なし。曜日の希望から仮の日付を入れています）' : ''}`
     setDialog({ draft, summary })
   }

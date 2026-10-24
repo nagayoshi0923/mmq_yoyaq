@@ -144,7 +144,10 @@ export function buildPerformanceDraft(
   month: string,
   preferredStoreIds: string[]
 ): EventFormData {
-  const venue = group.storeIds.find((id) => preferredStoreIds.includes(id)) ?? group.storeIds[0] ?? stores[0]?.id ?? ''
+  const allowed = new Set(stores.map((s) => s.id))
+  const requested = group.storeIds.filter((id) => allowed.has(id))
+  const preferred = preferredStoreIds.filter((id) => allowed.has(id))
+  const venue = requested.find((id) => preferred.includes(id)) ?? (requested.length ? requested[0] : preferred[0]) ?? stores[0]?.id ?? ''
   const date = group.requestedDates[0] ?? firstDateMatchingWeekdays(month, group.weekdayCounts)
   return {
     id: '',
