@@ -4,7 +4,6 @@ import { supabase, type AuthUser } from '@/lib/supabase'
 import { authSessionApi } from '@/lib/api/authSessionApi'
 import { authTrace } from '@/utils/logger'
 import { maskEmail } from '@/utils/security'
-import { validateRedirectUrl } from '@/lib/utils'
 import {
   getSignOutRedirectPath,
   PASSWORD_RESET_FLAG_KEY,
@@ -12,7 +11,12 @@ import {
 } from './authContextHelpers'
 import { resolveUserFromSession, type ResolveUserDeps } from './resolveUserFromSession'
 import { reportAuthFailure } from './authDiagnostics'
-import { buildCompleteProfilePath } from '@/lib/authReturn'
+import {
+  buildCompleteProfilePath,
+  decideSignedInReturnRedirect,
+  goToReturnUrl,
+  RETURN_URL_STORAGE_KEY,
+} from '@/lib/authReturn'
 
 /**
  * AuthProvider のマウント時ライフサイクル effect を切り出したフック。
@@ -162,17 +166,17 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
             setLoading(false)
             setIsInitialized(true)  // ユーザー情報設定完了後に認証完了をマーク
             
-            // OAuthログイン後のreturnUrl処理（予約フローに戻る）
+            // Google などで外へ出て戻ったときの戻り先（予約・貸切リクエストの画面へ戻す）。
+            // メール＋パスワードはログイン画面が行き先を決めるので、ログイン画面にいる間は触らない（取り合い防止。QW-20261023-001）
             if (event === 'SIGNED_IN') {
-              const rawReturnUrl = sessionStorage.getItem('returnUrl')
-              if (rawReturnUrl) {
-                sessionStorage.removeItem('returnUrl')
-                const safeReturnUrl = validateRedirectUrl(rawReturnUrl)
-                authTrace('🔄 OAuth後のリダイレクト:', safeReturnUrl)
-                // 現在のパスと異なる場合のみリダイレクト
-                if (window.location.pathname !== safeReturnUrl && !safeReturnUrl.startsWith(window.location.pathname)) {
-                  window.location.href = safeReturnUrl
-                }
+              const decision = decideSignedInReturnRedirect(
+                { pathname: window.location.pathname, search: window.location.search, hash: window.location.hash },
+                sessionStorage.getItem(RETURN_URL_STORAGE_KEY),
+              )
+              if (decision.consume) sessionStorage.removeItem(RETURN_URL_STORAGE_KEY)
+              if (decision.target) {
+                authTrace('🔄 ログイン後のリダイレクト:', decision.target)
+                goToReturnUrl(decision.target)
               }
             }
           }).catch((err) => {
