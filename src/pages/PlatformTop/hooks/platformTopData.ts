@@ -9,6 +9,7 @@ import { storeHasRecruitmentPause, type StoreRecruitmentPausePeriod } from '@/li
 import { isPublicRegularStore, storeDisplayName, storePrefecture } from '@/lib/publicStoreName'
 import type { PublicPerformance } from '@/lib/publicPerformanceSearch'
 import { addJstDays } from '@/utils/jstDate'
+import { newArrivalBasis, newArrivalPublicKeys } from '@/components/public-top/newArrivals'
 import { logger } from '@/utils/logger'
 import { buildPublicPerformance, isPublicOpenEvent, type PerformanceScenarioRow } from '@/pages/PublicBookingTop/utils/performanceRows'
 
@@ -44,6 +45,12 @@ export interface PlatformScenario {
   player_count_min: number
   player_count_max: number
   release_date: string | null
+  /** いずれかの組織が最初に公開一覧に加えた日時（organization_scenarios.created_at の最小。新作一覧の公開日に使う） */
+  listed_at: string | null
+  /** 新作の対象か（newArrivals.ts の isNewArrivalTarget。カタログの「新作」チップと同じ） */
+  new_arrival_target: boolean
+  /** この作品を公開している組織と、その組織での公演期間の終わり（貸切受付中の判定に使う） */
+  organizations: Array<{ organization_id: string; available_from: string | null; available_until: string | null }>
   is_recommended: boolean
 }
 
@@ -53,6 +60,8 @@ export interface PlatformTopData {
   performances: PublicPerformance[]
   /** 店舗がある都道府県（店舗の住所から。並びは店舗数の多い順） */
   prefectures: string[]
+  /** 稼働中の組織の公開店舗（臨時会場を含む。貸切受付中の判定で上演できる店舗を出すのに使う） */
+  stores: Array<{ id: string; organization_id: string; status: string | null; is_temporary: boolean | null }>
 }
 
 export async function fetchPlatformTopData(today: string): Promise<PlatformTopData> {
@@ -98,13 +107,31 @@ export async function fetchPlatformTopData(today: string): Promise<PlatformTopDa
         player_count_min: s.player_count_min ?? 1,
         player_count_max: s.player_count_max ?? 8,
         release_date: s.release_date ?? null,
+        listed_at: null,
+        new_arrival_target: false,
+        organizations: [...(prev?.organizations ?? []), { organization_id: s.organization_id, available_from: s.available_from ?? null, available_until: s.available_until ?? null }],
         is_recommended: !!s.is_recommended || !!prev?.is_recommended,
       })
-    } else if (s.is_recommended) {
-      prev.is_recommended = true
+    } else {
+      if (s.is_recommended) prev.is_recommended = true
+      prev.organizations.push({ organization_id: s.organization_id, available_from: s.available_from ?? null, available_until: s.available_until ?? null })
     }
     if (!scenarioIdsByOrg.has(s.organization_id)) scenarioIdsByOrg.set(s.organization_id, new Set())
     scenarioIdsByOrg.get(s.organization_id)!.add(s.id)
+  }
+
+  // 新作の対象と基準の掲載登録日（トップ・カタログで共通の newArrivalBasis。対象は組織をまたいでいちばん早い掲載登録日）
+  const newArrivalScope = {
+    publicKeys: newArrivalPublicKeys(keys, !!keyResult.error),
+    activeOrganizationIds: new Set(orgs.map((o) => o.id)),
+    organizationId: null,
+  }
+  const rowsByMaster = new Map<string, NonNullable<typeof scenarioResult.data>>()
+  for (const s of scenarioResult.data ?? []) rowsByMaster.set(s.id, [...(rowsByMaster.get(s.id) ?? []), s])
+  for (const [id, sc] of scenarioById) {
+    const basis = newArrivalBasis(rowsByMaster.get(id) ?? [], newArrivalScope)
+    sc.listed_at = basis.listed_at
+    sc.new_arrival_target = basis.target
   }
 
   // 店舗の公演募集停止期間（予約は DB でも止まる。表示を合わせるだけ）
@@ -127,7 +154,10 @@ export async function fetchPlatformTopData(today: string): Promise<PlatformTopDa
   }
 
   const { organizations, prefectures } = buildPlatformOrganizations(orgs, stores, scenarioIdsByOrg)
-  return { organizations, scenarios: [...scenarioById.values()], performances, prefectures }
+  return {
+    organizations, scenarios: [...scenarioById.values()], performances, prefectures,
+    stores: stores.map((s) => ({ id: s.id, organization_id: s.organization_id as string, status: s.status ?? null, is_temporary: s.is_temporary ?? null })),
+  }
 }
 
 type OrganizationRow = { id: string; slug: string; name: string; logo_url?: string | null }

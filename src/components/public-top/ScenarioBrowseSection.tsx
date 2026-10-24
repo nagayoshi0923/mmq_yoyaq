@@ -93,7 +93,10 @@ export function ScenarioBrowseSection({ scenarios, catalogPath, allLabel = (n) =
     }).slice(0, GRID_COUNT)
   }, [activeTag, scenarios, term])
 
-  const allPath = activeTag?.genre ? `${catalogPath}?genre=${encodeURIComponent(activeTag.genre)}` : catalogPath
+  const [catalogBase, catalogSearch = ''] = catalogPath.split('?')
+  const allParams = new URLSearchParams(catalogSearch)
+  if (activeTag?.genre) allParams.set('genre', activeTag.genre)
+  const allPath = activeTag?.genre ? `${catalogBase}?${allParams}` : catalogPath
 
   return (
     <TopSection id="scenarios" title="作品から探す" aside={<Link to={allPath} className="hover:underline">{allLabel(scenarios.length)}</Link>}>

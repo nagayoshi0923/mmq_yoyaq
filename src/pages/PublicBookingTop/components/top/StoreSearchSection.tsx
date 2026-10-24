@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { CalendarDays, Check, List } from 'lucide-react'
 import { ChipButton } from '@/components/public-top/ChipButton'
 import { PerformanceResultList } from '@/components/public-top/PerformanceResultList'
@@ -32,6 +32,8 @@ interface StoreSearchSectionProps {
   marks?: ScenarioMarks | null
   onOpen: (card: ScenarioCardData) => void
   /** 元のカレンダー・リスト用 */
+  /** 副作用のある旧カレンダーを使わない隔離プレビュー用。通常は未指定。 */
+  classicPreview?: ReactNode
   classic: {
     organizationId: string | null
     allEvents: EnrichedPublicEvent[]
@@ -52,7 +54,7 @@ interface StoreSearchSectionProps {
  * 人数の絞り込みは置かない（2026-10-12 社長指示。空席ありは 1 名以上の空き）。
  * 初期選択は「今月」、結果は折りたたまず全部並べる（2026-10-13 社長指示）。
  */
-export function StoreSearchSection({ performances, isLoading, state, onChange, storeOptions, today, nowMs, primaryColor, source, marks, onOpen, classic }: StoreSearchSectionProps) {
+export function StoreSearchSection({ performances, isLoading, state, onChange, storeOptions, today, nowMs, primaryColor, source, marks, onOpen, classic, classicPreview }: StoreSearchSectionProps) {
   // 元のカレンダー・リストの操作（両方で共通にし、切り替えても保つ）
   const [classicStoreIds, setClassicStoreIds] = useState<string[]>([])
   const [hideSoldOut, setHideSoldOut] = useState(false)
@@ -131,8 +133,8 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
           {results.length > 0 && <p className="mt-1.5 text-xs text-muted-foreground">カードを押すと作品ページが、色付きの公演を選んだ状態で開きます。</p>}
         </>
       )}
-      {state.view === 'calendar' && <div className="mt-2"><ClassicCalendar {...classicProps} /></div>}
-      {state.view === 'list' && <div className="mt-2"><ClassicList {...classicProps} /></div>}
+      {state.view === 'calendar' && <div className="mt-2">{classicPreview ?? <ClassicCalendar {...classicProps} />}</div>}
+      {state.view === 'list' && <div className="mt-2">{classicPreview ?? <ClassicList {...classicProps} />}</div>}
     </TopSection>
   )
 }

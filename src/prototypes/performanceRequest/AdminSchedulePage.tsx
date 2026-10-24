@@ -5,6 +5,7 @@
  * 開催リクエストは表の公演セルに混ぜない。公演の予約人数・残席は架空の公演の値のまま変えない。
  */
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { CalendarDays } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
@@ -14,10 +15,11 @@ import { EmptySlot } from '@/components/schedule/EmptySlot'
 import { CATEGORY_CONFIG, generateMonthDays, getReservationBadgeClass } from '@/utils/scheduleUtils'
 import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
 import { allRequests, setStatus } from './actions'
-import { PROTO_DEFAULT_MONTH, PROTO_EVENTS, PROTO_STORES, findProtoScenario } from './fixtures'
+import { PROTO_DEFAULT_MONTH, PROTO_ORGANIZATION, PROTO_EVENTS, PROTO_STORES, findProtoScenario } from './fixtures'
 import { buildPerformanceDraft, eventsForSlot, formatMonthLabel, groupRequestsForPanel, type RequestGroup } from './model'
 import { PrototypePerformanceDialog } from './PrototypePerformanceDialog'
 import { RequestPanel } from './RequestPanel'
+import { requestsForSlot, isUnspecifiedRequest, type RequestSlot } from './requestSlots'
 import { useProtoState } from './useProtoState'
 import type { EventFormData } from '@/types/schedule'
 
@@ -29,16 +31,20 @@ function toMonth(date: Date): string {
 
 export function AdminSchedulePage() {
   const [state] = useProtoState()
+  const [params] = useSearchParams()
+  const organizationId = params.get('organization') === 'proto-other-org' ? 'proto-other-org' : PROTO_ORGANIZATION.id
+  const scopedStores = PROTO_STORES.filter((s) => (s.organizationId ?? PROTO_ORGANIZATION.id) === organizationId)
   const [currentDate, setCurrentDate] = useState(() => new Date(`${PROTO_DEFAULT_MONTH}-01T00:00:00`))
   const [storeIds, setStoreIds] = useState<string[]>([])
   const [mobileTab, setMobileTab] = useState<'schedule' | 'requests'>('schedule')
-  const [dialog, setDialog] = useState<{ draft: EventFormData; summary: string } | null>(null)
+  const [dialog, setDialog] = useState<{ draft: EventFormData; summary: string; slot?: RequestSlot } | null>(null)
   const [placeholderNote, setPlaceholderNote] = useState<string | null>(null)
 
+  const scopedRequests = useMemo(() => allRequests(state.requests).filter((r) => (r.organizationId ?? PROTO_ORGANIZATION.id) === organizationId), [state.requests, organizationId])
   const month = toMonth(currentDate)
   const monthDays = useMemo(() => generateMonthDays(currentDate), [currentDate])
-  const stores = storeIds.length === 0 ? PROTO_STORES : PROTO_STORES.filter((s) => storeIds.includes(s.id))
-  const groups = useMemo(() => groupRequestsForPanel(allRequests(state.requests), month, storeIds), [state.requests, month, storeIds])
+  const stores = storeIds.length === 0 ? scopedStores : scopedStores.filter((s) => storeIds.includes(s.id))
+  const groups = useMemo(() => groupRequestsForPanel(scopedRequests, month, storeIds), [scopedRequests, month, storeIds])
   const storeFilterLabel = storeIds.length === 0 ? 'すべての店舗' : stores.map((s) => s.short_name).join('・')
   const requestCount = groups.reduce((sum, g) => sum + g.requestCount, 0)
 
@@ -50,6 +56,17 @@ export function AdminSchedulePage() {
     setDialog({ draft, summary })
   }
 
+  const openSlot = (date: string, venue: string, slot: RequestSlot) => {
+    const matches = requestsForSlot(scopedRequests, date, venue, slot, organizationId)
+    const start = { morning: '10:00', afternoon: '13:00', evening: '19:00' }[slot]
+    const draft: EventFormData = { id: '', date, venue, scenario: '', category: 'open', start_time: start,
+      end_time: slot === 'morning' ? '14:00' : slot === 'afternoon' ? '16:30' : '22:30', max_participants: 6, capacity: 0, gms: [], gmRoles: {}, notes: '' }
+    setDialog({ draft, slot, summary: `${date}／${PROTO_STORES.find((s) => s.id === venue)?.name}／${slot}：該当希望 ${matches.length}件。作品は自動選択しません。` })
+  }
+  const dialogRequests = dialog ? requestsForSlot(scopedRequests, dialog.draft.date, dialog.draft.venue, dialog.slot ?? 'afternoon', organizationId) : []
+  const priorityTitles = [...new Set(dialogRequests.map((r) => findProtoScenario(r.scenarioId)?.title).filter((t): t is string => !!t))]
+  const unspecified = groups.flatMap((g) => [...g.dated, ...g.unscheduled]).filter(isUnspecifiedRequest)
+
   return (
     <div className="space-y-3">
       <div className="space-y-2 rounded-lg border bg-background p-3">
@@ -60,7 +77,7 @@ export function AdminSchedulePage() {
         <div className="flex flex-wrap items-end gap-3">
           <MonthSwitcher value={currentDate} onChange={setCurrentDate} />
           <div className="w-56">
-            <StoreMultiSelect stores={PROTO_STORES} selectedStoreIds={storeIds} onStoreIdsChange={setStoreIds} label="店舗" placeholder="すべての店舗" />
+            <StoreMultiSelect stores={scopedStores} selectedStoreIds={storeIds} onStoreIdsChange={setStoreIds} label="店舗" placeholder="すべての店舗" />
           </div>
         </div>
         <div className="flex gap-1 lg:hidden" role="tablist" aria-label="表示の切り替え">
@@ -102,7 +119,7 @@ export function AdminSchedulePage() {
                       {SLOTS.map((slot) => {
                         const events = eventsForSlot(PROTO_EVENTS, day.date, store.id, slot)
                         return (
-                          <TableCell key={slot} className="border-r !p-0.5 align-top">
+                          <TableCell key={slot} data-request-cell={`${day.date}:${store.id}:${slot}`} className="border-r !p-0.5 align-top">
                             {events.length > 0 ? events.map((e) => (
                               <PerformanceCard
                                 key={e.id}
@@ -113,7 +130,7 @@ export function AdminSchedulePage() {
                                 onClick={() => setPlaceholderNote(`架空の公演「${e.scenario}」（試作では公演の詳細は開きません）`)}
                               />
                             )) : (
-                              <EmptySlot date={day.date} venue={store.id} timeSlot={slot} onAddPerformance={() => setPlaceholderNote('試作: 表の「公演追加」は動きません。右の「開催リクエスト」から「公演を作成」を押してください。')} />
+                              <EmptySlot date={day.date} venue={store.id} timeSlot={slot} requestCount={requestsForSlot(scopedRequests, day.date, store.id, slot, organizationId).length} onAddPerformance={openSlot} />
                             )}
                           </TableCell>
                         )
@@ -141,11 +158,16 @@ export function AdminSchedulePage() {
         </div>
       </div>
 
+      <p className="ts-caption" data-testid="proto-unspecified-note">日付・時間帯に未指定がある希望: {unspecified.length}件。日時未指定は全セルに広げず一覧で確認。店舗指定のない希望は、同組織の上演可能店舗の検討候補として表示します（予約ではありません）。</p>
       <PrototypePerformanceDialog
+        organizationId={organizationId}
         open={dialog !== null}
         onClose={() => setDialog(null)}
         draft={dialog?.draft ?? null}
         sourceSummary={dialog?.summary ?? ''}
+        initialSlot={dialog?.slot}
+        requestedTitles={priorityTitles}
+        getRequestedTitles={(date, venue, slot) => [...new Set(requestsForSlot(scopedRequests, date, venue, slot, organizationId).map((r) => findProtoScenario(r.scenarioId)?.title).filter((t): t is string => !!t))]}
       />
     </div>
   )

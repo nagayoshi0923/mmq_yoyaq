@@ -11,6 +11,8 @@
  * - 通知の行き先は同じ origin の相対パスだけ。ログインが要るときは /login?redirect=<相対パス>（authReturn.ts と同じ方式）。
  * - 実際には送らない。作った通知はこのブラウザの localStorage にだけ入る（storage.ts）。
  */
+import { getTimeSlot } from '@/utils/scheduleUtils'
+import { requestStoreIsEligible } from './requestSlots'
 import { buildAuthUrl, normalizeReturnTo } from '@/lib/authReturn'
 import type { ProtoPerformance, ProtoScenario, ProtoStore } from './fixtures'
 import { WEEKDAY_LABELS, monthOf, weekdayOf, type PerformanceRequest } from './model'
@@ -70,6 +72,7 @@ export function isNotifiablePerformance(p: ProtoPerformance): boolean {
 export function performanceMatchesRequest(p: ProtoPerformance, r: PerformanceRequest): boolean {
   if (p.scenarioId !== r.scenarioId) return false
   if (r.storeIds.length > 0 && !r.storeIds.includes(p.storeId)) return false
+  if (r.timeSlots?.length && !r.timeSlots.includes(getTimeSlot(p.startTime))) return false
   if (r.dates.includes(p.date)) return true
   const monthOk = r.period.kind === 'anytime' || r.period.months.includes(monthOf(p.date))
   const weekdayOk = r.weekdays.length === 0 || r.weekdays.includes(weekdayOf(p.date))
@@ -137,7 +140,7 @@ export function planPerformanceNotifications(input: PlanInput): ProtoNotificatio
   for (const r of input.requests) {
     if (r.scenarioId !== p.scenarioId) continue
     // リクエストした店舗のどれかで開く公演だけ知らせる（店舗の希望を無視して送らない）
-    if (r.storeIds.length > 0 && !r.storeIds.includes(p.storeId)) continue
+    if (!requestStoreIsEligible(r, p.storeId, organizationId)) continue
     const entry = touch(r.userId)
     entry.sources.add('request')
     if (performanceMatchesRequest(p, r)) entry.near = true

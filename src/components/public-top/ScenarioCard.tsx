@@ -54,7 +54,7 @@ export const ScenarioCard = memo(function ScenarioCard({ card, onOpen, marks, cl
       className={cn('group min-w-0 cursor-pointer text-left [container-type:inline-size] [container-name:scenario-card]', className)}
       onClick={() => onOpen(card)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') onOpen(card)
+        if (e.key === 'Enter' && e.target === e.currentTarget) onOpen(card)
         else if (selected !== undefined && e.key === ' ' && e.target === e.currentTarget) { e.preventDefault(); onOpen(card) }
       }}
     >
@@ -110,6 +110,33 @@ export const ScenarioCard = memo(function ScenarioCard({ card, onOpen, marks, cl
             )}
             {!!card.fee && <span className="card-narrow:min-w-0 card-narrow:truncate">¥{card.fee.toLocaleString('ja-JP')}〜</span>}
           </div>
+
+          {/* 貸切受付中（公演日が無くても日程相談へ進めることを示す。2026-10-24 社長指示）。押すと作品ページの貸切リクエストのタブ */}
+          {card.private_booking_path && (
+            <button
+              type="button"
+              data-testid="private-booking-badge"
+              aria-label={`${card.title}の貸切リクエスト（日程相談）へ`}
+              onClick={(e) => { e.stopPropagation(); onOpen({ ...card, path: card.private_booking_path! }) }}
+              onKeyDown={(e) => e.stopPropagation()}
+              className="mb-2 inline-flex max-w-full items-center gap-1 border border-purple-200 bg-purple-50 px-1.5 py-0.5 ts-10 font-bold text-purple-700 hover:bg-purple-100 card-narrow:mb-1.5"
+            >
+              <span className="shrink-0">貸切受付中</span>
+              <span className="truncate font-normal">日程相談 ›</span>
+            </button>
+          )}
+
+          {card.performance_request_path && (
+            <button type="button" data-testid="performance-request-card" className="mb-2 w-full border border-input bg-white px-1.5 py-1.5 ts-11 hover:bg-muted"
+              onClick={(e) => { e.stopPropagation(); onOpen({ ...card, path: card.performance_request_path! }) }}
+              onKeyDown={(e) => e.stopPropagation()}>
+              公演をリクエストする
+            </button>
+          )}
+
+          {rows.length === 0 && card.private_booking_path && !note && (
+            <p className="border-t border-gray-100 pt-2 ts-11 text-muted-foreground card-narrow:pt-1.5">公演予定なし・貸切の日程はご相談のうえ決まります</p>
+          )}
 
           {rows.length > 0 && (
             <div className="space-y-1 border-t border-gray-100 pt-2 card-narrow:pt-1.5">

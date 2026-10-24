@@ -5,13 +5,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertCircle, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { StoreMultiSelect } from '@/components/ui/store-multi-select'
-import { submitRequest, subscribe } from './actions'
+import { submitRequest } from './actions'
 import { setPrototypeBusy } from './busy'
-import { PROTO_STORES, type ProtoScenario } from './fixtures'
+import { PROTO_ORGANIZATION, type ProtoScenario } from './fixtures'
 import { formatMonthLabel, REQUEST_NOT_RESERVATION_NOTICE, WEEKDAY_LABELS, type PerformanceRequest } from './model'
 import { PROTO_STORAGE_SCOPE_LABEL } from './storage'
 
@@ -21,7 +19,7 @@ const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
 interface RequestFormProps {
   scenario: ProtoScenario
   inDialog?: boolean
-  alreadySubscribed: boolean
+  organizationId?: string
   onCancel: () => void
   onSubmitted: (request: PerformanceRequest) => void
 }
@@ -40,15 +38,14 @@ function Chip({ active, onClick, children, label }: { active: boolean; onClick: 
   )
 }
 
-export function RequestForm({ scenario, alreadySubscribed, onCancel, onSubmitted, inDialog = false }: RequestFormProps) {
-  const [storeIds, setStoreIds] = useState<string[]>([])
+export function RequestForm({ scenario, onCancel, onSubmitted, inDialog = false, organizationId = PROTO_ORGANIZATION.id }: RequestFormProps) {
   const [participants, setParticipants] = useState(1)
   const [periodKind, setPeriodKind] = useState<'anytime' | 'months'>('months')
   const [months, setMonths] = useState<string[]>([])
   const [weekdays, setWeekdays] = useState<number[]>([])
+  const [timeSlots, setTimeSlots] = useState<Array<'morning' | 'afternoon' | 'evening'>>([])
   const [dates, setDates] = useState<string[]>([])
   const [dateDraft, setDateDraft] = useState('')
-  const [wantsNotice, setWantsNotice] = useState(!alreadySubscribed)
   const [showErrors, setShowErrors] = useState(false)
 
   // 入力中は「公演追加のお知らせ」のポップアップを割り込ませない
@@ -59,10 +56,9 @@ export function RequestForm({ scenario, alreadySubscribed, onCancel, onSubmitted
 
   const errors = useMemo(() => {
     const list: string[] = []
-    if (storeIds.length === 0) list.push('希望店舗を 1 つ以上選んでください')
     if (periodKind === 'months' && months.length === 0) list.push('希望の月を選ぶか「いつでも」を選んでください')
     return list
-  }, [storeIds, periodKind, months])
+  }, [periodKind, months])
 
   const toggle = <T,>(list: T[], value: T) => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value])
 
@@ -70,13 +66,14 @@ export function RequestForm({ scenario, alreadySubscribed, onCancel, onSubmitted
     if (errors.length > 0) { setShowErrors(true); return }
     const request = submitRequest({
       scenarioId: scenario.id,
-      storeIds,
+      storeIds: [],
+      organizationId,
       participants,
       period: periodKind === 'anytime' ? { kind: 'anytime' } : { kind: 'months', months: [...months].sort() },
       weekdays: [...weekdays].sort(),
       dates: [...dates].sort(),
+      timeSlots,
     })
-    if (wantsNotice && !alreadySubscribed) subscribe(scenario.id, storeIds)
     onSubmitted(request)
   }
 
@@ -95,17 +92,6 @@ export function RequestForm({ scenario, alreadySubscribed, onCancel, onSubmitted
       <div className="space-y-1">
         <Label htmlFor="proto-request-title">作品名</Label>
         <Input id="proto-request-title" value={scenario.title} disabled readOnly />
-      </div>
-
-      <div className="space-y-1">
-        <StoreMultiSelect
-          stores={PROTO_STORES}
-          selectedStoreIds={storeIds}
-          onStoreIdsChange={setStoreIds}
-          label="希望店舗（複数可）"
-          placeholder="店舗を選んでください"
-          selectedDisplay="badges"
-        />
       </div>
 
       <div className="space-y-1">
@@ -175,15 +161,14 @@ export function RequestForm({ scenario, alreadySubscribed, onCancel, onSubmitted
         ) : <p className="text-xs text-muted-foreground">日付を決めなくても送れます（曜日や月だけの希望も店舗に届きます）。</p>}
       </div>
 
-      <label className="flex items-start gap-2 text-sm">
-        <Checkbox checked={alreadySubscribed || wantsNotice} disabled={alreadySubscribed} onCheckedChange={(v) => setWantsNotice(v === true)} className="mt-0.5" />
-        <span>
-          この作品の公演が公開されたらお知らせを受け取る（作品ページのベルと同じ登録）
-          <span className="block text-xs text-muted-foreground">
-            {alreadySubscribed ? 'すでに登録しています。' : ''}試作: 架空の登録です。お知らせは{PROTO_STORAGE_SCOPE_LABEL}の見本で、実際には届きません。
-          </span>
-        </span>
-      </label>
+      <fieldset className="space-y-2"><legend className="ts-label">希望時間帯（任意・複数可）</legend>
+        <div className="flex flex-wrap gap-2">{([['morning', '午前'], ['afternoon', '午後'], ['evening', '夜']] as const).map(([slot, label]) =>
+          <button key={slot} type="button" aria-pressed={timeSlots.includes(slot)} className="border px-3 py-1.5 ts-caption" onClick={() => setTimeSlots(toggle(timeSlots, slot))}>{label}</button>)}</div>
+        <p className="ts-caption">希望日・時間帯と、この組織で作品を上演できる店舗に応じて検討します。日程未指定の希望も一覧に残ります。</p>
+      </fieldset>
+
+      <p className="ts-body" data-testid="request-notification-description">リクエストした作品の公演が追加されたら、メールとマイページでお知らせします</p>
+      <p className="ts-caption">試作では{PROTO_STORAGE_SCOPE_LABEL}への架空保存だけで、メールも通知も実際には送信しません。</p>
 
       <div role="note" className="flex gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" data-testid="proto-request-notice">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />

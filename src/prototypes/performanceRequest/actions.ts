@@ -9,7 +9,7 @@ import { readProtoState, updateProtoState } from './storage'
 export function submitRequest(input: Omit<PerformanceRequest, 'id' | 'userId' | 'createdAt'>, now = new Date()): PerformanceRequest {
   const request: PerformanceRequest = {
     ...input,
-    id: `proto-local-req-${now.getTime()}`,
+    id: `proto-local-req-${now.getTime()}-${crypto.randomUUID()}`,
     userId: PROTO_USER_ID,
     createdAt: now.toISOString(),
   }
@@ -26,7 +26,7 @@ export function subscribe(scenarioId: string, storeIds: string[], now = new Date
     ...prev,
     subscriptions: [
       ...prev.subscriptions.filter((s) => !(s.scenarioId === scenarioId && s.userId === PROTO_USER_ID)),
-      { id: `proto-sub-${scenarioId}`, userId: PROTO_USER_ID, scenarioId, organizationId: PROTO_ORGANIZATION.id, storeIds, createdAt: now.toISOString() },
+      { id: `proto-sub-${scenarioId}`, userId: PROTO_USER_ID, scenarioId, organizationId: PROTO_SCENARIOS.find((s) => s.id === scenarioId)?.organizationId ?? PROTO_ORGANIZATION.id, storeIds, createdAt: now.toISOString() },
     ],
   }))
 }

@@ -7,6 +7,7 @@
  * - 日付の指定が無い・曜日だけの希望も、月や店舗で絞ったときに消さず「日程未指定」に残す。
  */
 import type { EventFormData, ScheduleEvent } from '@/types/schedule'
+import { requestStoreIsEligible } from './requestSlots'
 import { getTimeSlot } from '@/utils/scheduleUtils'
 import type { ProtoScenario, ProtoStore } from './fixtures'
 
@@ -31,6 +32,8 @@ export interface PerformanceRequest {
   weekdays: number[]
   /** 任意の日付の指定（'YYYY-MM-DD'） */
   dates: string[]
+  timeSlots?: Array<'morning' | 'afternoon' | 'evening'>
+  organizationId?: string
   createdAt: string
 }
 
@@ -63,12 +66,13 @@ export function formatDateLabel(date: string): string {
   return `${m}/${d}(${WEEKDAY_LABELS[weekdayOf(date)]})`
 }
 
-export function describePeriod(request: Pick<PerformanceRequest, 'period' | 'weekdays' | 'dates'>): string {
+export function describePeriod(request: Pick<PerformanceRequest, 'period' | 'weekdays' | 'dates' | 'timeSlots'>): string {
   const parts: string[] = []
   if (request.period.kind === 'anytime') parts.push('いつでも')
   else parts.push(request.period.months.map(formatMonthLabel).join('・'))
   if (request.weekdays.length > 0) parts.push(`${request.weekdays.map((w) => WEEKDAY_LABELS[w]).join('・')}曜`)
   if (request.dates.length > 0) parts.push(`日付: ${request.dates.map(formatDateLabel).join('・')}`)
+  if (request.timeSlots?.length) parts.push(`時間帯: ${request.timeSlots.map((s) => ({ morning: '午前', afternoon: '午後', evening: '夜' })[s]).join('・')}`)
   return parts.join(' / ')
 }
 
@@ -82,6 +86,7 @@ export function requestMatchesMonth(request: PerformanceRequest, month: string):
 /** 選んだ店舗に関係する希望か（店舗を選んでいなければすべて） */
 export function requestMatchesStores(request: PerformanceRequest, storeIds: string[]): boolean {
   if (storeIds.length === 0) return true
+  if (request.storeIds.length === 0) return storeIds.some((id) => requestStoreIsEligible(request, id, request.organizationId))
   return request.storeIds.some((id) => storeIds.includes(id))
 }
 

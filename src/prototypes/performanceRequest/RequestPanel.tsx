@@ -54,7 +54,7 @@ export function RequestPanel({ month, groups, statuses, onStatusChange, onCreate
             <div className="space-y-0.5 text-xs">
               <p><span className="text-muted-foreground">希望の日付: </span>{group.requestedDates.length > 0 ? group.requestedDates.map(formatDateLabel).join('・') : 'なし'}</p>
               <p><span className="text-muted-foreground">希望の曜日: </span>{weekdays.length > 0 ? weekdays.map(([w, c]) => `${WEEKDAY_LABELS[Number(w)]}×${c}`).join('・') : '指定なし'}</p>
-              <p><span className="text-muted-foreground">希望店舗: </span>{group.storeIds.map((id) => findProtoStore(id)?.short_name ?? id).join('・')}</p>
+              <p><span className="text-muted-foreground">希望店舗: </span>{group.storeIds.length ? group.storeIds.map((id) => findProtoStore(id)?.short_name ?? id).join('・') : '店舗指定なし（組織の上演可能店舗で検討）'}</p>
             </div>
             <details className="text-xs">
               <summary className="cursor-pointer text-muted-foreground">内訳（日付あり {group.dated.length}件／日程未指定 {group.unscheduled.length}件）</summary>

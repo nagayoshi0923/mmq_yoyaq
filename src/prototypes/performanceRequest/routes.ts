@@ -6,6 +6,8 @@ export const PERFORMANCE_REQUEST_PROTOTYPE_BASE = '/prototype/performance-reques
 
 export type PrototypeView =
   | { view: 'customer' }
+  | { view: 'top' }
+  | { view: 'catalog' }
   | { view: 'admin' }
   | { view: 'notifications' }
   | { view: 'event'; performanceId: string }
@@ -17,6 +19,8 @@ export function resolvePrototypeView(pathname: string, enabled: boolean): Protot
   if (path === PERFORMANCE_REQUEST_PROTOTYPE_BASE) return { view: 'customer' }
   if (!path.startsWith(`${PERFORMANCE_REQUEST_PROTOTYPE_BASE}/`)) return null
   const rest = path.slice(PERFORMANCE_REQUEST_PROTOTYPE_BASE.length + 1).split('/')
+  if (rest.length === 1 && rest[0] === 'top') return { view: 'top' }
+  if (rest.length === 1 && rest[0] === 'catalog') return { view: 'catalog' }
   if (rest.length === 1 && rest[0] === 'admin') return { view: 'admin' }
   if (rest.length === 1 && rest[0] === 'notifications') return { view: 'notifications' }
   if (rest.length === 1 && rest[0] === 'login-return') return { view: 'login-return' }
@@ -25,6 +29,8 @@ export function resolvePrototypeView(pathname: string, enabled: boolean): Protot
 }
 
 export const protoPaths = {
+  top: () => `${PERFORMANCE_REQUEST_PROTOTYPE_BASE}/top`,
+  catalog: () => `${PERFORMANCE_REQUEST_PROTOTYPE_BASE}/catalog`,
   customer: (scenarioId?: string) => `${PERFORMANCE_REQUEST_PROTOTYPE_BASE}${scenarioId ? `?scenario=${encodeURIComponent(scenarioId)}` : ''}`,
   admin: () => `${PERFORMANCE_REQUEST_PROTOTYPE_BASE}/admin`,
   notifications: () => `${PERFORMANCE_REQUEST_PROTOTYPE_BASE}/notifications`,

@@ -8,6 +8,8 @@ import { useProtoState } from './useProtoState'
 import { PROTO_USER_ID } from './fixtures'
 
 const NAV = [
+  { to: `${protoPaths.top()}?scope=platform`, label: 'MMQ全体TOP', match: (p: string) => p.endsWith('/top') },
+  { to: `${protoPaths.top()}?scope=organization`, label: '組織TOP', match: (_p: string) => false },
   { to: protoPaths.customer(), label: 'お客様: 作品ページ', match: (p: string) => p === protoPaths.customer() },
   { to: protoPaths.notifications(), label: 'お客様: 通知一覧', match: (p: string) => p.endsWith('/notifications') },
   { to: protoPaths.admin(), label: '管理: スケジュール', match: (p: string) => p.endsWith('/admin') },

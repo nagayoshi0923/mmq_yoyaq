@@ -17,7 +17,8 @@ import { CATEGORY_TONE, timeOptions } from '@/components/schedule/performanceMod
 import { buildScenarioSelectOptions } from '@/components/schedule/performanceModal/scenarioSelectOptions'
 import type { Scenario, Store } from '@/types'
 import type { EventFormData } from '@/types/schedule'
-import { PROTO_SCENARIOS, PROTO_STORES } from './fixtures'
+import { prioritizeRequestedOptions } from './requestSlots'
+import { PROTO_SCENARIOS, PROTO_STORES, PROTO_ORGANIZATION } from './fixtures'
 
 type Slot = 'morning' | 'afternoon' | 'evening'
 const SLOT_DEFAULTS = {
@@ -27,10 +28,10 @@ const SLOT_DEFAULTS = {
 }
 
 // 本物の部品に渡すための架空の店舗・作品（足りない項目は使われない）
-const STORES = PROTO_STORES.map((s) => ({ ...s, status: 'active' })) as unknown as Store[]
+const STORES = PROTO_STORES.map((s) => ({ ...s, organization_id: s.organizationId ?? PROTO_ORGANIZATION.id, status: 'active' })) as unknown as Store[]
 const SCENARIOS = PROTO_SCENARIOS.map((s) => ({
-  id: s.id, title: s.title, player_count_min: s.playerMin, player_count_max: s.playerMax, duration: s.durationMinutes,
-  participation_fee: s.fee, available_stores: [], status: 'available',
+  organization_id: s.organizationId ?? PROTO_ORGANIZATION.id, id: s.id, title: s.title, player_count_min: s.playerMin, player_count_max: s.playerMax, duration: s.durationMinutes,
+  participation_fee: s.fee, available_stores: s.availableStoreIds ?? PROTO_STORES.filter((store) => (store.organizationId ?? PROTO_ORGANIZATION.id) === (s.organizationId ?? PROTO_ORGANIZATION.id)).map((store) => store.id), status: 'available',
 })) as unknown as Scenario[]
 
 export interface PrototypePerformanceDialogProps {
@@ -39,20 +40,29 @@ export interface PrototypePerformanceDialogProps {
   draft: EventFormData | null
   /** 引き継ぎ元の説明（作品・希望件数・参加希望人数・候補の月） */
   sourceSummary: string
+  organizationId?: string
+  initialSlot?: Slot
+  requestedTitles?: string[]
+  getRequestedTitles?: (date: string, venue: string, slot: Slot) => string[]
 }
 
-export function PrototypePerformanceDialog({ open, onClose, draft, sourceSummary }: PrototypePerformanceDialogProps) {
+export function PrototypePerformanceDialog({ open, onClose, draft, sourceSummary, initialSlot = 'afternoon', organizationId = PROTO_ORGANIZATION.id, requestedTitles = [], getRequestedTitles }: PrototypePerformanceDialogProps) {
   const [formData, setFormData] = useState<EventFormData | null>(draft)
   const [timeSlot, setTimeSlot] = useState<Slot>('afternoon')
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    if (open) { setFormData(draft); setTimeSlot('afternoon'); setSaveMessage(null) }
-  }, [open, draft])
+    if (open) { setFormData(draft); setTimeSlot(initialSlot); setSaveMessage(null) }
+  }, [open, draft, initialSlot])
 
   if (!formData) return null
+  const scenarios = SCENARIOS.filter((s) => s.organization_id === organizationId)
+  const stores = STORES.filter((s) => s.organization_id === organizationId)
   const setForm = setFormData as React.Dispatch<React.SetStateAction<EventFormData>>
   const tone = CATEGORY_TONE[formData.category]
+  const priorities = new Set(getRequestedTitles?.(formData.date, formData.venue, timeSlot) ?? requestedTitles)
+  const scenarioOptions = prioritizeRequestedOptions(buildScenarioSelectOptions(scenarios, formData.venue, [], []), priorities)
+    .map((o) => priorities.has(o.value) ? { ...o, displayInfo: <span className="ts-caption">リクエストあり</span> } : o)
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
@@ -80,6 +90,7 @@ export function PrototypePerformanceDialog({ open, onClose, draft, sourceSummary
               <p>{sourceSummary}</p>
               <p>参加希望人数は予約人数・残席に入りません。公演を公開しても、リクエストした方の予約にはなりません。</p>
             </div>
+            {priorities.size > 0 ? <p className="ts-caption" data-testid="proto-priority-titles">該当セルの開催希望（上位に表示）: {[...priorities].join('・')}。シナリオは選択して確定してください。</p> : null}
             {saveMessage ? (
               <p role="status" data-testid="proto-dialog-save-message" className="mb-3 rounded-md border border-slate-400 bg-background p-2 text-sm font-medium">{saveMessage}</p>
             ) : null}
@@ -89,8 +100,8 @@ export function PrototypePerformanceDialog({ open, onClose, draft, sourceSummary
                 formData={formData}
                 setFormData={setForm}
                 CATEGORY_TONE={CATEGORY_TONE}
-                getStoreName={(id) => STORES.find((s) => s.id === id)?.name ?? id}
-                stores={STORES}
+                getStoreName={(id) => stores.find((s) => s.id === id)?.name ?? id}
+                stores={stores}
                 timeSlot={timeSlot}
                 handleTimeSlotChange={(slot) => { setTimeSlot(slot); setForm((prev) => ({ ...prev, start_time: SLOT_DEFAULTS[slot].start_time, end_time: SLOT_DEFAULTS[slot].end_time })) }}
                 timeSlotDefaults={SLOT_DEFAULTS}
@@ -108,12 +119,12 @@ export function PrototypePerformanceDialog({ open, onClose, draft, sourceSummary
                 mode="add"
                 setPendingScenarioTitle={() => {}}
                 applyScenarioChange={(title) => setForm((prev) => ({ ...prev, scenario: title }))}
-                scenarioOptions={buildScenarioSelectOptions(SCENARIOS, formData.venue, [], [])}
+                scenarioOptions={scenarioOptions}
                 setIsScenarioDialogOpen={() => {}}
-                scenarios={SCENARIOS}
-                isScenarioAvailableAtVenue={() => true}
-                stores={STORES}
-                kitStoreIds={STORES.map((s) => s.id)}
+                scenarios={scenarios}
+                isScenarioAvailableAtVenue={(s) => !s.available_stores?.length || s.available_stores.includes(formData.venue)}
+                stores={stores}
+                kitStoreIds={stores.map((s) => s.id)}
                 setEditingScenarioId={() => {}}
               />
             </div>

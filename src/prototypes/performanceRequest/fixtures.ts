@@ -10,6 +10,7 @@ export interface ProtoStore {
   name: string
   short_name: string
   region: string
+  organizationId?: string
 }
 
 export interface ProtoScenario {
@@ -25,6 +26,8 @@ export interface ProtoScenario {
   synopsis: string
   keyVisualUrl?: string
   genre?: string[]
+  availableStoreIds?: string[]
+  organizationId?: string
 }
 
 export const PROTO_ORGANIZATION = { id: 'proto-org', name: '架空の組織（試作）', slug: 'proto-org' } as const
@@ -36,6 +39,7 @@ export const PROTO_STORES: ProtoStore[] = [
   { id: 'proto-store-a', name: '架空・渋谷店', short_name: '渋谷', region: '東京都' },
   { id: 'proto-store-b', name: '架空・新宿店', short_name: '新宿', region: '東京都' },
   { id: 'proto-store-c', name: '架空・横浜店', short_name: '横浜', region: '神奈川県' },
+  { id: 'proto-store-other', name: '架空・別組織店', short_name: '別組織', region: '東京都', organizationId: 'proto-other-org' },
 ]
 
 export const PROTO_SCENARIOS: ProtoScenario[] = [
@@ -74,13 +78,18 @@ export const PROTO_SCENARIOS: ProtoScenario[] = [
   },
   // 公開作品の表示見本。ID・店舗・開催希望・通知は実データと接続しない。
   {
-    id: 'proto-scn-public', title: '星空のマリス', author: 'イバラユーギ',
+    id: 'proto-scn-public', availableStoreIds: ['proto-store-a', 'proto-store-b'], title: '星空のマリス', author: 'イバラユーギ',
     playerMin: 7, playerMax: 7, durationMinutes: 210, fee: 4500, likes: 0,
     keyVisualUrl: 'https://cznpcewciwywcqcxktba.supabase.co/storage/v1/object/public/key-visuals/1761046761540-9azpt.webp',
     genre: ['ロングセラー', 'シリーズもの'],
     synopsis: '「知識は罪だ」 人類が長い時間をかけ辿り着いた、たったひとつの真実。\n知る事で憎み、知る事で争い、知る事で殺し、知る事で滅んだ。\n地下に逃げた我々は、その学びを決して忘れる事なく、否、決して思い出す事なく生きていこう。 ―――。\n朝が来ると光が差し込み、やがて空が橙色に染まり、そして静かな夜が訪れる。\nこのシステムを思いつき開発した人は、きっと素晴らしい人だろう。\nだって、朝焼けを見ていると、今日も頑張ろうって思えるから。\nだって、夕暮れを見ていると、優しい気持ちになれるから。\nだって、星空を見ていると、明日を待ち望んで眠れるから。 ―――。\nこの世界は素晴らしい物で溢れている。 作り物のように美しく、気味が悪いくらいに優しい。\nそんな悲劇が似合わない世界で。 あなたたちのお話が、はじまります。',
   },
 
+  ...Array.from({ length: 14 }, (_, i): ProtoScenario => ({
+    id: `proto-catalog-${i}`, organizationId: i === 13 ? 'proto-other-org' : PROTO_ORGANIZATION.id, availableStoreIds: i === 13 ? ['proto-store-other'] : undefined, title: `【架空】新作プレビュー ${String(i + 1).padStart(2, '0')}`,
+    author: '架空の作者', playerMin: 4, playerMax: 6, durationMinutes: 180, fee: 4000, likes: 0,
+    synopsis: '新作・カタログと開催希望の導線を確認する架空作品です。', genre: i % 2 ? ['SF'] : ['LARP'],
+  })),
 ]
 
 /** 管理画面の初期表示の月（架空データはこの月と翌月に合わせてある） */

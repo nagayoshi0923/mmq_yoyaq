@@ -3,6 +3,7 @@
  * ログイン無しで開ける。架空データとこのブラウザの localStorage だけで動き、実 API には書き込まない。
  */
 import { useLocation } from 'react-router-dom'
+import { IntegratedTopPage } from './IntegratedTopPage'
 import { AdminSchedulePage } from './AdminSchedulePage'
 import { CustomerScenarioPage } from './CustomerScenarioPage'
 import { ProtoEventPage, ProtoLoginReturnPage } from './EventAndLoginPages'
@@ -15,7 +16,9 @@ export default function PerformanceRequestPrototype() {
   const route = resolvePrototypeView(location.pathname, true)
   if (!route) return null
   return (
-    <PrototypeShell wide={route.view === 'admin'} detail={route.view === 'customer'}>
+    <PrototypeShell wide={route.view === 'admin'} detail={['customer', 'top', 'catalog'].includes(route.view)}>
+      {route.view === 'top' ? <IntegratedTopPage /> : null}
+      {route.view === 'catalog' ? <IntegratedTopPage catalog /> : null}
       {route.view === 'customer' ? <CustomerScenarioPage /> : null}
       {route.view === 'admin' ? <AdminSchedulePage /> : null}
       {route.view === 'notifications' ? <NotificationsPage /> : null}
