@@ -219,7 +219,6 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
             <Link to="/privacy" className="hover:text-gray-300 transition-colors">プライバシー</Link>
             <Link to="/security" className="hover:text-gray-300 transition-colors">セキュリティ</Link>
             <Link to="/contact" className="hover:text-gray-300 transition-colors">お問い合わせ</Link>
-            <Link to="/for-business" className="hover:text-gray-300 transition-colors">店舗の方へ</Link>
           </div>
         </div>
       </div>

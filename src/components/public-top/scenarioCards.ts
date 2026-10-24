@@ -42,6 +42,13 @@ export interface ScenarioCardData {
   path: string
   /** MMQ 全体トップで画像の左上に出す組織名 */
   organization_badge?: string
+  /**
+   * 貸切受付中のときだけ、日程相談（作品ページの貸切リクエストのタブ）へのパス。
+   * 受付していない・判定できないときは null／未指定（「貸切受付中」を出さない）。判定は privateBookingStatus.ts
+   */
+  /** 取得成功かつ対象店舗に公演未設定と確認した試作だけで渡す。貸切とは別の非拘束の開催希望。 */
+  performance_request_path?: string | null
+  private_booking_path?: string | null
 }
 
 /** 作品の補足（作者・おすすめ・遊びたい数・リリース日）。公演の行には無いので作品の一覧から引く */
@@ -50,6 +57,10 @@ export interface ScenarioCardMeta {
   is_recommended?: boolean | null
   favorite_count?: number | null
   release_date?: string | null
+  /** 貸切受付中のときの日程相談へのパス（ScenarioCardData と同じ） */
+  /** 取得成功かつ対象店舗に公演未設定と確認した試作だけで渡す。貸切とは別の非拘束の開催希望。 */
+  performance_request_path?: string | null
+  private_booking_path?: string | null
 }
 
 export type UpcomingIndex = Map<string, PublicPerformance[]>
@@ -139,6 +150,7 @@ export function groupPerformancesIntoCards(focus: readonly PublicPerformance[], 
       release_date: meta?.release_date ?? null,
       path: performanceDetailPath(first),
       organization_badge: options.showOrganization ? first.organization_name : undefined,
+      private_booking_path: meta?.private_booking_path ?? null,
     }
   })
 }
@@ -174,6 +186,7 @@ export function scenarioBrowseCard(
     favorite_count: scenario.favorite_count ?? 0,
     release_date: scenario.release_date ?? null,
     path,
+    private_booking_path: scenario.private_booking_path ?? null,
   }
 }
 

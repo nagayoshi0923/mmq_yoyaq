@@ -7,9 +7,11 @@
  * 「空いている公演を探す」のチップ: 今週・来週・今月は日付順のカード、カレンダー・リストは元の部品（2026-10-12 社長決定。見た目だけ新トップに合わせた）。旧 /{org}/calendar・/list はそれぞれのチップで開く。
  * 初期選択は「今月」で、該当する作品カードは全部並べる（2026-10-13 社長指示）。
  * 方針: docs/product-spec/トップページ刷新_2026-10.md
+ * 2026-10-23（QW-20261023-001）: 残りわずかの直後に「新作一覧」、上の帯に「カタログ」（その組織の /{org}/catalog）。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { logger } from '@/utils/logger'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
@@ -26,17 +28,19 @@ import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top
 import { privateGuidePath } from '@/pages/static/guide/privateGuidePath'
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
 import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
+import { NewArrivalsSection, type NewArrivalItem } from '@/components/public-top/NewArrivalsSection'
+import { buildOrgBrowseScenarios, orgNewArrivalPicks } from '@/components/public-top/newArrivalsSource'
+import { newArrivalsPath } from '@/pages/NewArrivals/paths'
+import { fetchPrivateBookingData, fetchPrivateBookingDays, isPrivateBookingCandidate, orgPrivateBookingPath } from '@/components/public-top/privateBookingStatus'
 import { TopHero } from '@/components/public-top/TopHero'
 import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
 import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
-import { cardKey, indexUpcoming, scenarioBrowseCard, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
+import { indexUpcoming, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
 import { useBookingData } from './hooks/useBookingData'
 import { useStoreTopPerformances } from './hooks/useStoreTopPerformances'
 import { StoreSearchSection } from './components/top/StoreSearchSection'
 
 const DEFAULT_HERO_COLOR = '#1f2a2e'
-/** 遊びたいリストの登録がこの数以上なら「人気」 */
-const POPULAR_FAVORITES = 10
 
 interface PublicBookingTopProps {
   /** 旧 3 タブ時代の受け口（作品カードは URL で開くので使わない） */
@@ -134,34 +138,38 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     navigate(card.path)
   }, [navigate])
 
-  const browseScenarios = useMemo<BrowseScenario[]>(() => scenarios.map((s) => {
-    const path = `/${slug}/scenario/${s.scenario_slug || s.scenario_id}`
-    const events = cardSource.upcoming.get(cardKey({ organization_id: organizationId ?? '', scenario_id: s.scenario_id })) ?? []
-    return {
-      id: s.scenario_id,
-      title: s.scenario_title,
-      author: s.author ?? '',
-      genres: s.genre,
-      player_count_min: s.player_count_min,
-      player_count_max: s.player_count_max,
-      is_new: !!s.is_new || s.genre.includes('新作'),
-      is_popular: !!s.is_recommended || (s.favorite_count ?? 0) >= POPULAR_FAVORITES || s.genre.includes('オススメ'),
-      next_date: nextDates.get(s.scenario_id) ?? null,
-      card: scenarioBrowseCard({
-        id: s.scenario_id,
-        title: s.scenario_title,
-        key_visual_url: s.key_visual_url,
-        player_count_min: s.player_count_min,
-        player_count_max: s.player_count_max,
-        duration_minutes: s.duration,
-        fee: s.participation_fee,
-        author: s.author,
-        is_recommended: s.is_recommended,
-        favorite_count: s.favorite_count,
-        release_date: s.release_date,
-      }, events, path),
-    }
-  }), [scenarios, nextDates, slug, cardSource, organizationId])
+  const browseScenarios = useMemo<BrowseScenario[]>(
+    () => buildOrgBrowseScenarios({ scenarios, slug, organizationId, upcoming: cardSource.upcoming, nextDates }),
+    [scenarios, nextDates, slug, cardSource, organizationId],
+  )
+
+  // 新作一覧: この組織の公開作品を、リリース日（無ければ掲載登録日）から 90 日以内のものだけ新しい順に。新作タグでは絞らない
+  const newArrivalPicks = useMemo(() => orgNewArrivalPicks(scenarios, browseScenarios, today), [scenarios, browseScenarios, today])
+
+  // 新作一覧のカードの「貸切受付中」（この組織で日程の相談を始められるか。既存の判定・値だけ。読めない間は出さない）
+  const storeIdsKey = stores.map((s) => s.id).join(',')
+  const { data: privateData } = useQuery({
+    queryKey: ['public-top-private-booking', organizationId, storeIdsKey],
+    enabled: Boolean(organizationId) && !isLoading,
+    queryFn: () => fetchPrivateBookingData([organizationId!], storeIdsKey ? storeIdsKey.split(',') : []),
+    staleTime: 5 * 60_000,
+  })
+  const dayPairs = useMemo(() => (organizationId ? newArrivalPicks
+    .filter(({ item }) => isPrivateBookingCandidate(privateData, organizationId, item.id, item.scenario, today))
+    .map(({ item }) => ({ organizationId, scenarioId: item.id })) : []), [newArrivalPicks, privateData, organizationId, today])
+  const { data: privateDays } = useQuery({
+    // 組織・作品・今日で分ける（同じ作品 ID でも組織ごとに日数が違う。Codex 指摘 2026-10-24）
+    queryKey: ['private-booking-days', today, dayPairs.map((p) => `${p.organizationId}:${p.scenarioId}`).join(',')],
+    enabled: dayPairs.length > 0,
+    queryFn: () => fetchPrivateBookingDays(dayPairs),
+    staleTime: 5 * 60_000,
+  })
+  const newArrivals = useMemo<NewArrivalItem[]>(() => newArrivalPicks.map(({ item, date }) => {
+    const path = organizationId && slug
+      ? orgPrivateBookingPath(privateData, privateDays, { id: organizationId, slug }, { id: item.id, slug: item.scenario.scenario_slug, available_from: item.scenario.available_from, available_until: item.scenario.available_until }, isLoading ? null : stores, today)
+      : null
+    return { card: { ...item.card, private_booking_path: path }, date }
+  }), [newArrivalPicks, privateData, privateDays, organizationId, slug, stores, isLoading, today])
 
   if (organizationNotFound) {
     return (
@@ -191,10 +199,18 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
         onFirstTime={() => navigate('/guide')}
         onAccess={() => scrollTo('store-access')}
         onPrivate={() => scrollTo('private-booking')}
+        catalogPath={slug ? `/${slug}/catalog` : '/scenario'}
       />
 
       <main className="mx-auto max-w-4xl space-y-3 px-3.5 py-3 sm:px-4 md:py-5">
         <NearlyFullStrip performances={nearlyFull} source={cardSource} marks={marks} onOpen={openCard} />
+        <NewArrivalsSection
+          items={newArrivals}
+          lead="この組織で遊べる、新しく掲載された作品"
+          allPath={newArrivalsPath(slug || null)}
+          marks={marks}
+          onOpen={openCard}
+        />
         <PrivateBookingSection
           text="4〜8 人集まれば、好きな作品を好きな日に。候補日を出して、メンバーの都合を聞いて、店舗に申し込むまでサイトで完結します。"
           scenariosPath={`/${slug}/private-booking-select`}

@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_DISABLE_SW?: string
   /** ウェブプッシュ（VAPID）の公開鍵。無ければ通知の案内を出さない（貸切グループ 段階 3） */
   readonly VITE_VAPID_PUBLIC_KEY?: string
+  /** 試作の画面を入れるビルドか（vite.config.ts の define が決める。本番は常に 'false'） */
+  readonly VITE_PROTOTYPES_ENABLED?: string
   readonly DEV: boolean
 }
 

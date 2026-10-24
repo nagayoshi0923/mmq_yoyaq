@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, type ReactNode } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,8 @@ interface EventListProps {
   scenarioTitle: string
   onEventSelect: (eventId: string | null) => void
   minParticipants?: number
+  loadState?: 'ready' | 'loading' | 'error'
+  emptyAction?: ReactNode
 }
 
 /**
@@ -24,13 +26,20 @@ export const EventList = memo(function EventList({
   selectedEventId,
   scenarioTitle,
   onEventSelect,
-  minParticipants = 1
+  minParticipants = 1,
+  loadState = 'ready',
+  emptyAction,
 }: EventListProps) {
+  if (loadState !== 'ready') {
+    return <Card><CardContent className="p-4 text-center text-xs text-muted-foreground" role={loadState === 'error' ? 'alert' : 'status'}>
+      {loadState === 'loading' ? '公演日程を読み込み中です…' : '公演日程を取得できませんでした。再読み込みしてご確認ください。'}
+    </CardContent></Card>
+  }
   if (events.length === 0) {
     return (
       <Card>
         <CardContent className="p-4 text-center text-xs text-muted-foreground">
-          現在予約可能な公演はありません
+          {emptyAction ? <div data-testid="performance-request-empty">{emptyAction}</div> : '現在予約可能な公演はありません'}
         </CardContent>
       </Card>
     )

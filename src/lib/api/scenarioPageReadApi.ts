@@ -70,6 +70,21 @@ export const scenarioPageReadApi = {
       .order('name')
   },
 
+  /**
+   * 作品の公演期間（作品編集 › 基本情報「公演期間」）。公開ビューで未ログインでも読める列。
+   * 作品ページの「貸切受付中」の判定に使う（公演期間が終わった作品を受付中と出さない）。
+   */
+  async findScenarioPerformancePeriod(organizationId: string, scenarioMasterId: string) {
+    // 組織の絞り込みは読んだ行で行う（クライアントの organization_id 直フィルタを増やさない: check:org-scope）
+    const { data, error } = await supabase
+      .from('organization_scenarios_with_master')
+      .select('organization_id, available_from, available_until')
+      .eq('id', scenarioMasterId)
+    if (error) return { data: null, error }
+    const row = (data ?? []).find((r) => r.organization_id === organizationId) ?? null
+    return { data: row ? { available_from: row.available_from, available_until: row.available_until } : null, error: null }
+  },
+
   /** 公演の現在の人数・定員（予約直前の再確認用） */
   async findEventSeats(eventId: string) {
     return supabase
@@ -86,7 +101,7 @@ export const scenarioCatalogReadApi = {
     let scenariosQuery = supabase
       .from('organization_scenarios_with_master')
       .select(
-        'id, org_scenario_id, slug, title, author, key_visual_url, duration, player_count_min, player_count_max, genre, participation_fee, difficulty, release_date, status, scenario_master_id, available_stores, is_recommended, scenario_type, organization_id'
+        'id, org_scenario_id, slug, title, author, key_visual_url, duration, player_count_min, player_count_max, genre, participation_fee, difficulty, release_date, status, scenario_master_id, available_stores, is_recommended, scenario_type, organization_id, created_at, master_status'
       )
       .eq('status', 'available')
       .neq('scenario_type', 'gm_test')

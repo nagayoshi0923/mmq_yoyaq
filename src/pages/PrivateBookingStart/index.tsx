@@ -19,7 +19,7 @@ import { usePageMeta } from '@/hooks/usePageMeta'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { scenarioApi } from '@/lib/api'
-import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
+import { isPrivateBookingPeriodOpen, isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
 import { STATIC_PUBLIC_META } from '@/lib/seo'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { fetchPlatformOrganizations } from '@/pages/PlatformTop/hooks/platformTopData'
@@ -38,10 +38,9 @@ function todayJst(): string {
   return new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 }
 
+/** 貸切募集期間の中か（判定はトップ・作品ページの「貸切受付中」と同じ isPrivateBookingPeriodOpen） */
 function isBookingOpen(s: PrivateScenarioRow, today: string): boolean {
-  if (s.booking_start_date && today < s.booking_start_date) return false
-  if (s.booking_end_date && today > s.booking_end_date) return false
-  return true
+  return isPrivateBookingPeriodOpen(s, today)
 }
 
 interface PrivateBookingStartProps {
