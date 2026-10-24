@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { BellRing, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { formatJstTime } from '@/utils/jstDate'
 import { claimPopup, dismissPopup, releasePopup, markRead, popupCandidatesNow, setPopupDisabled } from './actions'
 import { getPrototypeBusyReason, onPrototypeIdle } from './busy'
 import { findProtoScenario, findProtoStore } from './fixtures'
@@ -30,7 +31,7 @@ export function PopupHost({ onLog }: { onLog?: (log: PopupDebugLog) => void }) {
 
   useEffect(() => {
     const tabId = `tab-${Math.random().toString(36).slice(2, 8)}`
-    const log = (text: string) => logRef.current?.({ at: new Date().toLocaleTimeString('ja-JP'), text })
+    const log = (text: string) => logRef.current?.({ at: formatJstTime(new Date()), text })
     const coordinator = new PopupCoordinator({
       now: () => Date.now(),
       setTimer: (fn, ms) => window.setTimeout(fn, ms),
