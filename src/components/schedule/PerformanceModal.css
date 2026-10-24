@@ -93,9 +93,10 @@
 }
 
 /*
- * 公演の詳細ダイアログの大きさ（2026-10-24 承認 Figma 876:96／885:96／885:371、QW-20261023-001）。
- * ラップトップ以上: 最大 1280×700 で、大画面でもそれ以上に広げない。
- * それより小さい PC: 画面の上下左右に 16px ずつ余白を残して収め、本文だけをスクロールする（ヘッダー・フッターは固定）。
+ * 公演の詳細ダイアログの大きさ（2026-10-24 承認 Figma 876:96／885:96／885:371、2026-10-25 高さ 800 承認 Figma 901:1199、QW-20261023-001）。
+ * 通常の PC: 幅 1280 × 高さ 800 で固定し、大画面でもそれ以上に広げない。
+ * 入らない方向だけ: 画面の上下左右に 16px ずつ余白を残して縮め、本文だけをスクロールする（ヘッダー・フッターは固定）。
+ *   例: 1366×768 → 1280×736、1920×1080 → 1280×800。
  * 767px 以下（スマホ）は従来どおり全画面（ScenarioEditDialogV2.css のモバイル指定）。
  * 他の用途のダイアログ（共通の .scenario-edit-dialog-host）には適用しない。
  */
@@ -103,7 +104,7 @@
   [data-perf-modal].scenario-edit-dialog-host {
     width: min(1280px, calc(100vw - 32px)) !important;
     max-width: min(1280px, calc(100vw - 32px)) !important;
-    height: min(700px, calc(100vh - 32px)) !important;
-    max-height: min(700px, calc(100vh - 32px)) !important;
+    height: min(800px, calc(100vh - 32px)) !important;
+    max-height: min(800px, calc(100vh - 32px)) !important;
   }
 }
