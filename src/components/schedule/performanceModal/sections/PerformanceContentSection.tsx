@@ -81,6 +81,7 @@ export function PerformanceContentSection({
                   onEmptyAction={() => setIsScenarioDialogOpen(true)}
                   className="h-7 text-xs"
                   allowClear={!formData.is_private_request}
+                  tone={CATEGORY_TONE[formData.category] ? { bg: CATEGORY_TONE[formData.category].bg, selected: CATEGORY_TONE[formData.category].section, border: CATEGORY_TONE[formData.category].border } : undefined}
                   headerContent={
                     <div className="space-y-1">
                     {scenarioOptionsNote && <p className="ts-caption text-muted-foreground">{scenarioOptionsNote}</p>}

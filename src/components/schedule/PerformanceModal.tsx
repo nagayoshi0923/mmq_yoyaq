@@ -24,7 +24,7 @@ import type { Staff as StaffType, Scenario, Store } from '@/types'
 import { calcEndTime, computePlacedStartTimeWithPreparation } from '@/utils/eventOperationUtils'
 import { ScheduleEvent, EventFormData, StaffParticipationReservation } from '@/types/schedule'
 import { CATEGORY_TONE, PERF_TABS, getStaffTextColor, timeOptions } from './performanceModal/constants'
-import { buildScenarioSelectOptions } from './performanceModal/scenarioSelectOptions'
+import { buildBaseScenarioOptions, decorateScenarioOptions, orderScenarioOptions } from './performanceModal/scenarioSelectOptions'
 import type { ScenarioPlacementContext } from './performanceModal/scenarioOptionPriority'
 import { findTimeConflict } from './performanceModal/timeConflict'
 import { DEFAULT_TIME_SLOTS, buildAddFormData, buildEditFormData, findEventScenario, resolveAddEndTime, resolveEventTimeSlot } from './performanceModal/initialForm'
@@ -173,7 +173,10 @@ export function PerformanceModal({
   // ソート順: 担当+出勤GM有 > 担当GM有 > 出勤GM有 > その他（タイトル順）
   // 追加・編集で同じ表示を使う。履歴スナップショットには現在の配置数を混ぜない。
   const optionContext = readOnly ? undefined : scenarioPlacement
-  const scenarioOptions = useMemo(() => buildScenarioSelectOptions(scenarios, formData.venue, staff, allAvailableStaff, optionContext, formData.scenario), [scenarios, formData.venue, staff, allAvailableStaff, optionContext, formData.scenario])
+  // 作品を選ぶたびに全候補・配置数を作り直さないよう 3 段に分ける（選択の変更で走るのは並べ替えだけ）
+  const baseScenarioOptions = useMemo(() => buildBaseScenarioOptions(scenarios, formData.venue, staff, allAvailableStaff), [scenarios, formData.venue, staff, allAvailableStaff])
+  const decoratedScenarioOptions = useMemo(() => optionContext ? decorateScenarioOptions(baseScenarioOptions, scenarios, optionContext) : null, [baseScenarioOptions, scenarios, optionContext])
+  const scenarioOptions = useMemo(() => decoratedScenarioOptions ? orderScenarioOptions(decoratedScenarioOptions, formData.scenario) : baseScenarioOptions, [decoratedScenarioOptions, baseScenarioOptions, formData.scenario])
 
   /** アンケートタブ用 scenario_master_id（レンダー内 IIFE + logger だと毎回ログが爆発するため useMemo） */
   const surveyTabScenarioId = useMemo(() => {
