@@ -15,7 +15,8 @@ import { fetchPlatformTopData } from './platformTopData'
 
 const row = (over: Record<string, unknown>) => ({
   id: 'm1', slug: 'm1', title: '作品', author: '', key_visual_url: null, genre: ['新作'], player_count_min: 4, player_count_max: 6,
-  release_date: null, is_recommended: false, organization_id: 'o1', scenario_master_id: 'm1', created_at: '2026-10-13T03:00:00Z', ...over,
+  release_date: null, is_recommended: false, organization_id: 'o1', scenario_master_id: 'm1', created_at: '2026-10-13T03:00:00Z',
+  status: 'available', scenario_type: 'normal', master_status: 'approved', ...over,
 })
 
 beforeEach(() => {

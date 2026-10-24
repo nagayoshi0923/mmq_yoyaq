@@ -61,7 +61,7 @@ export const publicBookingListReadApi = {
   async listAvailableScenarios(organizationId: string | null | undefined) {
     let query = supabase
       .from('organization_scenarios_with_master')
-      .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id, scenario_master_id, is_recommended, weekend_duration, participation_costs, created_at, available_from, available_until')
+      .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id, scenario_master_id, is_recommended, weekend_duration, participation_costs, created_at, available_from, available_until, master_status')
       .eq('status', 'available')
       .neq('scenario_type', 'gm_test')
 

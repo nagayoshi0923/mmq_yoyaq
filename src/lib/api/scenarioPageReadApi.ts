@@ -101,7 +101,7 @@ export const scenarioCatalogReadApi = {
     let scenariosQuery = supabase
       .from('organization_scenarios_with_master')
       .select(
-        'id, org_scenario_id, slug, title, author, key_visual_url, duration, player_count_min, player_count_max, genre, participation_fee, difficulty, release_date, status, scenario_master_id, available_stores, is_recommended, scenario_type, organization_id, created_at'
+        'id, org_scenario_id, slug, title, author, key_visual_url, duration, player_count_min, player_count_max, genre, participation_fee, difficulty, release_date, status, scenario_master_id, available_stores, is_recommended, scenario_type, organization_id, created_at, master_status'
       )
       .eq('status', 'available')
       .neq('scenario_type', 'gm_test')

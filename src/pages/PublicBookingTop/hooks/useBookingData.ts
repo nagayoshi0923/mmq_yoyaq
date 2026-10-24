@@ -5,6 +5,7 @@ import { publicBookingListReadApi } from '@/lib/api/publicBookingReadApi'
 import { platformPageReadApi } from '@/lib/api/platformPageReadApi'
 import { publicBookingReadApi } from '@/lib/api/publicBookingReadApi'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
+import { isNewArrivalTarget, newArrivalPublicKeys } from '@/components/public-top/newArrivals'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
 import { readBookingDataSnapshot, writeBookingDataSnapshot } from '../utils/bookingDataSnapshot'
@@ -42,6 +43,7 @@ export interface ScenarioCard {
   release_date?: string     // リリース日（1年以上でロングセラー）
   listed_at?: string | null // この組織が公開一覧に加えた日時（organization_scenarios.created_at。新作一覧の公開日に使う）
   available_from?: string | null // 作品の公演期間の始まり（貸切受付中の判定に使う。未設定は null）
+  new_arrival_target?: boolean // 新作の対象か（newArrivals.ts の isNewArrivalTarget。カタログの「新作」チップと同じ）
   available_until?: string | null // 作品の公演期間の終わり（貸切受付中の判定に使う。未設定は null）
 }
 
@@ -118,6 +120,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   let orgThemeColor: string | null = null
   let orgPublicBookingHeroDescription: string | null = null
   const organizationNotFound = false
+  let orgIsActive = false
   
   if (organizationSlug) {
     // 認証チェックと org 解決を並列実行（直列だと 2 往復分のレイテンシ）
@@ -144,6 +147,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     }
 
     orgId = orgData.id
+    orgIsActive = orgData.is_active !== false
     orgName = orgData.name
     orgHeaderImageUrl = orgData.header_image_url ?? null
     orgThemeColor = orgData.theme_color ?? null
@@ -248,6 +252,12 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   })
   
   const shouldFilterByOrgStatus = !availableOrgResult.error && availableOrgKeysData.length > 0
+  // 新作の対象（トップ・カタログで共通の isNewArrivalTarget。その組織の、稼働中・公開キーに含まれる・ガイド用でない・承認済みの行）
+  const newArrivalScope = {
+    publicKeys: newArrivalPublicKeys(availableOrgKeysData, !!availableOrgResult.error),
+    activeOrganizationIds: new Set(orgId && orgIsActive ? [orgId] : []),
+    organizationId: orgId,
+  }
   
   // 遊びたいリスト数をMapに変換（🚀 RPC結果を使用、エラー時はフォールバック）
   const favoriteCountMap = new Map<string, number>()
@@ -446,6 +456,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         favorite_count: favoriteCountMap.get(scenario.id) || 0,
         release_date: scenario.release_date,
         listed_at: scenario.created_at ?? null,
+        new_arrival_target: isNewArrivalTarget(scenario, newArrivalScope),
         available_from: scenario.available_from ?? null,
         available_until: scenario.available_until ?? null
       })
@@ -516,6 +527,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
           favorite_count: favoriteCountMap.get(scenario.id) || 0,
           release_date: scenario.release_date,
         listed_at: scenario.created_at ?? null,
+        new_arrival_target: isNewArrivalTarget(scenario, newArrivalScope),
         available_from: scenario.available_from ?? null,
         available_until: scenario.available_until ?? null
         })
@@ -537,6 +549,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
           favorite_count: favoriteCountMap.get(scenario.id) || 0,
           release_date: scenario.release_date,
         listed_at: scenario.created_at ?? null,
+        new_arrival_target: isNewArrivalTarget(scenario, newArrivalScope),
         available_from: scenario.available_from ?? null,
         available_until: scenario.available_until ?? null
         })
@@ -559,6 +572,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         favorite_count: favoriteCountMap.get(scenario.id) || 0,
         release_date: scenario.release_date,
         listed_at: scenario.created_at ?? null,
+        new_arrival_target: isNewArrivalTarget(scenario, newArrivalScope),
         available_from: scenario.available_from ?? null,
         available_until: scenario.available_until ?? null
       })

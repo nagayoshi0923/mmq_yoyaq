@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NEW_ARRIVALS_DAYS, NEW_ARRIVALS_LIMIT, elapsedDays, formatNewArrivalDate, isWithinNewArrivalPeriod, matchesCategoryChips, newArrivalDate, newArrivalDateIfNew, pickNewArrivals, sortCatalogForNewArrivals } from './newArrivals'
+import { NEW_ARRIVALS_DAYS, NEW_ARRIVALS_LIMIT, elapsedDays, formatNewArrivalDate, isNewArrivalTarget, isWithinNewArrivalPeriod, matchesCategoryChips, newArrivalBasis, newArrivalDate, newArrivalDateIfNew, newArrivalDateIfTarget, newArrivalPublicKeys, pickNewArrivals, sortCatalogForNewArrivals } from './newArrivals'
 
 const TODAY = '2026-10-24'
 const item = (title: string, over: Partial<{ is_new: boolean; release_date: string | null; listed_at: string | null }> = {}) => ({
@@ -122,5 +122,34 @@ describe('カタログの「新作」チップ（トップと同じ判定）', (
     }
     expect(sortCatalogForNewArrivals(list, ['新作'], (x) => dates[x.title]).map((x) => x.title)).toEqual(['新', 'あ', 'い', '古'])
     expect(sortCatalogForNewArrivals(list, ['SF'], (x) => dates[x.title]).map((x) => x.title)).toEqual(['い', '古', 'あ', '新'])
+  })
+})
+
+describe('新作の対象（トップ・全体カタログ・組織カタログで共通）', () => {
+  const ok = { organization_id: 'o1', scenario_master_id: 'm1', status: 'available', scenario_type: 'normal', master_status: 'approved' }
+  const scope = { publicKeys: new Set(['o1_m1', 'o2_m1']), activeOrganizationIds: new Set(['o1', 'o2']), organizationId: null }
+  it('公開中・ガイド用でない・承認済み・稼働中の組織・公開キーに含まれる行だけ', () => {
+    expect(isNewArrivalTarget(ok, scope)).toBe(true)
+    expect(isNewArrivalTarget({ ...ok, scenario_type: 'gm_test' }, scope)).toBe(false)
+    expect(isNewArrivalTarget({ ...ok, master_status: 'pending' }, scope)).toBe(false)
+    expect(isNewArrivalTarget({ ...ok, status: 'unavailable' }, scope)).toBe(false)
+    expect(isNewArrivalTarget({ ...ok, organization_id: 'o3' }, scope)).toBe(false)
+    expect(isNewArrivalTarget({ ...ok, scenario_master_id: 'm9' }, scope)).toBe(false)
+    expect(isNewArrivalTarget({ ...ok, organization_id: 'o2' }, { ...scope, organizationId: 'o1' })).toBe(false)
+  })
+  it('公開キーを読めない・空なら、既存と同じく公開キーでは絞らない', () => {
+    expect(newArrivalPublicKeys([], false)).toBeNull()
+    expect(newArrivalPublicKeys([{ organization_id: 'o1', scenario_master_id: 'm1' }], true)).toBeNull()
+    expect(isNewArrivalTarget({ ...ok, scenario_master_id: 'm9' }, { ...scope, publicKeys: null })).toBe(true)
+  })
+  it('基準の掲載登録日は対象の行のうちいちばん早い日。対象が無ければ新作にしない', () => {
+    expect(newArrivalBasis([
+      { ...ok, created_at: '2026-10-18T03:00:00Z', organization_id: 'o2' },
+      { ...ok, created_at: '2026-10-05T03:00:00Z' },
+      { ...ok, created_at: '2026-01-01T03:00:00Z', scenario_type: 'gm_test' },
+    ], scope)).toEqual({ target: true, listed_at: '2026-10-05T03:00:00Z' })
+    expect(newArrivalBasis([{ ...ok, created_at: '2026-10-22T03:00:00Z', scenario_type: 'gm_test' }], scope)).toEqual({ target: false, listed_at: null })
+    expect(newArrivalDateIfTarget({ new_arrival_target: false, release_date: '2026-10-20', listed_at: null }, TODAY)).toBeNull()
+    expect(newArrivalDateIfTarget({ new_arrival_target: true, release_date: '2026-10-20', listed_at: null }, TODAY)?.date).toBe('2026-10-20')
   })
 })

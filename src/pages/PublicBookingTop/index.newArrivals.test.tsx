@@ -25,7 +25,7 @@ import { PublicBookingTop } from './index'
 const scenario = (id: string, over: Record<string, unknown>) => ({
   scenario_id: id, scenario_slug: id, scenario_title: id, key_visual_url: null, author: '', duration: 180,
   player_count_min: 4, player_count_max: 6, genre: [], participation_fee: 4000, status: 'available', is_new: false,
-  release_date: undefined, listed_at: '2026-10-20T03:00:00Z', available_from: null, available_until: null, ...over,
+  release_date: undefined, listed_at: '2026-10-20T03:00:00Z', available_from: null, available_until: null, new_arrival_target: true, ...over,
 })
 const row = (id: string, over: Record<string, unknown> = {}) => ({ id, accepts_private_booking: true, scenario_kind: 'regular', booking_start_date: null, booking_end_date: null, available_stores: [], ...over })
 

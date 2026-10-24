@@ -21,7 +21,7 @@ import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen, 
 import { logger } from '@/utils/logger'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
-import { NEW_ARRIVAL_CHIP, matchesCategoryChips, newArrivalDateIfNew, sortCatalogForNewArrivals } from '@/components/public-top/newArrivals'
+import { NEW_ARRIVAL_CHIP, isNewArrivalTarget, matchesCategoryChips, newArrivalDateIfTarget, newArrivalPublicKeys, sortCatalogForNewArrivals } from '@/components/public-top/newArrivals'
 import { todayJst } from '@/lib/publicPerformanceSearch'
 
 interface ScenarioData {
@@ -41,6 +41,8 @@ interface ScenarioData {
   available_stores?: string[]
   /** この組織が一覧に登録した日時（組織トップの新作と同じ。「新作」のチップの判定に使う） */
   created_at?: string | null
+  /** 新作の対象か（組織トップの新作と同じ isNewArrivalTarget。一般のカタログの絞り込みには使わない） */
+  new_arrival_target?: boolean
 }
 
 interface StoreData {
@@ -115,6 +117,12 @@ async function fetchScenarioCatalogBundle(organizationSlug?: string): Promise<{
 
   if (scenariosResult.error) throw scenariosResult.error
 
+  // 「新作」チップの対象（組織トップと同じ isNewArrivalTarget。URL の組織の、稼働中・公開キーに含まれる行）
+  const newArrivalScope = {
+    publicKeys: newArrivalPublicKeys(keysData, !!availableKeysResult.error),
+    activeOrganizationIds: new Set(pathOrg?.id ? [pathOrg.id] : orgId ? [orgId] : []),
+    organizationId: orgId,
+  }
   const availableScenarios = (scenariosResult.data || [])
     .filter((s) => {
       if (!shouldFilter) return true
@@ -123,6 +131,7 @@ async function fetchScenarioCatalogBundle(organizationSlug?: string): Promise<{
     })
     .map((s) => ({
       ...s,
+      new_arrival_target: isNewArrivalTarget(s, newArrivalScope),
       available_stores: (s.available_stores || [])
         .map((storeId: string) => storeMap.get(storeId))
         .filter((name: string | undefined): name is string => !!name),
@@ -225,7 +234,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   const chipGenres = useMemo(() => [NEW_ARRIVAL_CHIP, ...genres.filter((g) => g !== NEW_ARRIVAL_CHIP)], [genres])
   // 新作の判定（トップの新作一覧と同じ関数）。今日は JST
   const today = todayJst(new Date())
-  const newDateById = useMemo(() => new Map(scenarios.map((s) => [s.id, newArrivalDateIfNew({ release_date: s.release_date ?? null, listed_at: s.created_at ?? null }, today)])), [scenarios, today])
+  const newDateById = useMemo(() => new Map(scenarios.map((s) => [s.id, newArrivalDateIfTarget({ new_arrival_target: s.new_arrival_target, release_date: s.release_date ?? null, listed_at: s.created_at ?? null }, today)])), [scenarios, today])
 
   // 実際に存在する所要時間の選択肢を動的生成（シナリオのdurationから）
   const availableDurations = useMemo(() => {

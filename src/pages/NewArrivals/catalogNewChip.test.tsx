@@ -60,16 +60,16 @@ const ALL: Fx[] = [
 const view = (f: Fx, org = 'o1') => ({
   id: f.id, org_scenario_id: `${org}-${f.id}`, slug: f.id, title: f.id, author: '', key_visual_url: null, duration: 180,
   player_count_min: 4, player_count_max: 6, genre: f.genre ?? [], participation_fee: 4000, difficulty: null, release_date: f.release ?? null,
-  organization_id: org, status: 'available', scenario_master_id: f.id, available_stores: [], created_at: f.listed, is_recommended: false, scenario_type: 'normal',
+  organization_id: org, status: 'available', scenario_master_id: f.id, available_stores: [], created_at: f.listed, is_recommended: false, scenario_type: 'normal', master_status: 'approved',
   organizations: { slug: org === 'o1' ? 'aaa' : 'bbb', name: org },
 })
 const platformScenario = (f: Fx) => ({
   id: f.id, slug: f.id, title: f.id, author: '', key_visual_url: null, genres: f.genre ?? [], player_count_min: 4, player_count_max: 6,
-  release_date: f.release ?? null, listed_at: f.listed, organizations: [{ organization_id: 'o1', available_from: null, available_until: null }], is_recommended: false,
+  release_date: f.release ?? null, listed_at: f.listed, organizations: [{ organization_id: 'o1', available_from: null, available_until: null }], is_recommended: false, new_arrival_target: true,
 })
 const orgScenario = (f: Fx) => ({
   scenario_id: f.id, scenario_slug: f.id, scenario_title: f.id, key_visual_url: null, author: '', duration: 180, player_count_min: 4, player_count_max: 6,
-  genre: f.genre ?? [], participation_fee: 4000, status: 'available', is_new: false, release_date: f.release ?? undefined, listed_at: f.listed, available_from: null, available_until: null,
+  genre: f.genre ?? [], participation_fee: 4000, status: 'available', is_new: false, release_date: f.release ?? undefined, listed_at: f.listed, available_from: null, available_until: null, new_arrival_target: true,
 })
 
 let root: Root

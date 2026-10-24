@@ -23,6 +23,8 @@ export const NEW_ARRIVALS_DAYS = 90
 
 export interface NewArrivalCandidate {
   title: string
+  /** 新作の対象か（isNewArrivalTarget / newArrivalBasis）。false なら新作にしない。未指定は対象（単体の計算用） */
+  new_arrival_target?: boolean
   /** 作品マスタのリリース日（YYYY-MM-DD） */
   release_date: string | null
   /** 組織が作品を一覧に登録した日時（ISO。organization_scenarios.created_at） */
@@ -78,10 +80,80 @@ export function compareNewArrivals(a: { date: NewArrivalDate; title: string }, b
 /** 新作一覧に出す作品と日付（期間内だけ、日付の新しい順）。todayYmd は JST の今日 */
 export function pickNewArrivals<T extends NewArrivalCandidate>(items: readonly T[], todayYmd: string, limit = NEW_ARRIVALS_LIMIT): Array<{ item: T; date: NewArrivalDate }> {
   return items
-    .map((item) => ({ item, date: newArrivalDateIfNew(item, todayYmd) }))
+    .map((item) => ({ item, date: item.new_arrival_target === false ? null : newArrivalDateIfNew(item, todayYmd) }))
     .filter((x): x is { item: T; date: NewArrivalDate } => x.date !== null)
     .sort((a, b) => compareNewArrivals({ date: a.date, title: a.item.title }, { date: b.date, title: b.item.title }))
     .slice(0, limit)
+}
+
+/** 新作の対象を決める作品の行（公開ビュー organization_scenarios_with_master の列） */
+export interface NewArrivalSourceRow {
+  organization_id?: string | null
+  scenario_master_id?: string | null
+  status?: string | null
+  scenario_type?: string | null
+  master_status?: string | null
+}
+
+/** 新作の対象の範囲（トップ・全体カタログ・組織カタログで同じものを渡す） */
+export interface NewArrivalScope {
+  /** 公開キー（get_public_available_scenario_keys の `${organization_id}_${scenario_master_id}`）。読めなかった・空なら null（既存と同じく絞らない） */
+  publicKeys: ReadonlySet<string> | null
+  /** 稼働中の組織 */
+  activeOrganizationIds: ReadonlySet<string>
+  /** 組織のトップ・カタログならその組織。全体なら null */
+  organizationId: string | null
+}
+
+/** 公開キーの集合（既存の扱いと同じく、読めなかった・空なら null＝公開キーでは絞らない） */
+export function newArrivalPublicKeys(
+  keys: ReadonlyArray<{ organization_id: string; scenario_master_id: string }> | null | undefined,
+  failed: boolean,
+): ReadonlySet<string> | null {
+  if (failed || !keys || keys.length === 0) return null
+  return new Set(keys.map((k) => `${k.organization_id}_${k.scenario_master_id}`))
+}
+
+/**
+ * 新作の対象か（トップの新作一覧・全体カタログ・組織カタログの「新作」チップで共通。Codex 最終レビュー 2026-10-24）。
+ * 公開中・ガイド用（gm_test）でない・承認済みのマスタ・稼働中の組織・公開キーに含まれる・（組織なら）その組織の行。
+ * 一般のカタログ（すべて・ほかのチップ）の対象は変えない。新作の判定に入る前にだけ通す。
+ */
+export function isNewArrivalTarget(row: NewArrivalSourceRow, scope: NewArrivalScope): boolean {
+  if (row.status !== 'available') return false
+  if (row.scenario_type === 'gm_test') return false
+  if (row.master_status !== 'approved') return false
+  const org = row.organization_id
+  if (!org || !scope.activeOrganizationIds.has(org)) return false
+  if (scope.organizationId && org !== scope.organizationId) return false
+  if (scope.publicKeys && (!row.scenario_master_id || !scope.publicKeys.has(`${org}_${row.scenario_master_id}`))) return false
+  return true
+}
+
+/**
+ * 新作の対象かと、基準に使う掲載登録日時（対象の行のうちいちばん早い created_at。全体は組織をまたいで、組織はその組織の行）。
+ * トップ・全体カタログ・組織カタログで、作品（作品マスタ）ごとの行を渡して使う。
+ */
+export function newArrivalBasis(
+  rows: ReadonlyArray<NewArrivalSourceRow & { created_at?: string | null }>,
+  scope: NewArrivalScope,
+): { target: boolean; listed_at: string | null } {
+  let target = false
+  let best: string | null = null
+  for (const r of rows) {
+    if (!isNewArrivalTarget(r, scope)) continue
+    target = true
+    if (r.created_at && (best === null || new Date(r.created_at).getTime() < new Date(best).getTime())) best = r.created_at
+  }
+  return { target, listed_at: best }
+}
+
+/** 新作の対象の作品だけ判定する（対象外は、リリース日があっても新作にしない） */
+export function newArrivalDateIfTarget(
+  item: { new_arrival_target?: boolean; release_date: string | null; listed_at: string | null },
+  todayYmd: string,
+): NewArrivalDate | null {
+  return item.new_arrival_target ? newArrivalDateIfNew(item, todayYmd) : null
 }
 
 /** カタログのカテゴリのチップで「新作」を表す値（URL は既存のカテゴリと同じ ?genre=新作） */

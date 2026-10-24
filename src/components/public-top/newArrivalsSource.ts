@@ -95,7 +95,7 @@ export function platformNewArrivalPicks(
   const byId = new Map(scenarios.map((s) => [s.id, s]))
   const candidates = browse.filter((b) => byId.has(b.id)).map((b) => {
     const s = byId.get(b.id)!
-    return { ...b, release_date: s.release_date ?? null, listed_at: s.listed_at ?? null, scenario: s }
+    return { ...b, release_date: s.release_date ?? null, listed_at: s.listed_at ?? null, new_arrival_target: s.new_arrival_target === true, scenario: s }
   })
   return pickNewArrivals(candidates, today, limit)
 }
@@ -107,7 +107,7 @@ export function orgNewArrivalPicks(
   const byId = new Map(scenarios.map((s) => [s.scenario_id, s]))
   const candidates = browse.filter((b) => byId.has(b.id)).map((b) => {
     const s = byId.get(b.id)!
-    return { ...b, release_date: s.release_date ?? null, listed_at: s.listed_at ?? null, scenario: s }
+    return { ...b, release_date: s.release_date ?? null, listed_at: s.listed_at ?? null, new_arrival_target: s.new_arrival_target === true, scenario: s }
   })
   return pickNewArrivals(candidates, today, limit)
 }

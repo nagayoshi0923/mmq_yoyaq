@@ -89,7 +89,7 @@ describe('友だちと貸切で遊ぶ →「参加店舗から選ぶ」', () => 
 describe('新作一覧とカタログ（QW-20261023-001）', () => {
   const sc = (id: string, over: Record<string, unknown>) => ({
     id, slug: id, title: id, author: '', key_visual_url: null, genres: ['新作'], player_count_min: 4, player_count_max: 6,
-    release_date: null, listed_at: null, organizations: [{ organization_id: 'o1', available_from: null, available_until: null }], is_recommended: false, ...over,
+    release_date: null, listed_at: null, organizations: [{ organization_id: 'o1', available_from: null, available_until: null }], is_recommended: false, new_arrival_target: true, ...over,
   })
 
   it('残りわずかの直後に、公開作品をリリース日（無ければ掲載登録日）から 90 日以内だけ新しい順で出す（新作タグの無い作品も含む）。すべて見る・カタログは全体カタログへ', async () => {
@@ -123,7 +123,7 @@ describe('新作一覧とカタログ（QW-20261023-001）', () => {
 describe('全体トップの貸切受付中（QW-20261023-001。架空の組織 o1・o2）', () => {
   const sc = (id: string, orgs: string[]) => ({
     id, slug: id, title: id, author: '', key_visual_url: null, genres: [], player_count_min: 4, player_count_max: 6,
-    release_date: '2026-10-20', listed_at: null, organizations: orgs.map((o) => ({ organization_id: o, available_from: null, available_until: null })), is_recommended: false,
+    release_date: '2026-10-20', listed_at: null, organizations: orgs.map((o) => ({ organization_id: o, available_from: null, available_until: null })), is_recommended: false, new_arrival_target: true,
   })
   const row = (id: string, over: Record<string, unknown> = {}) => ({ id, accepts_private_booking: true, scenario_kind: 'regular', booking_start_date: null, booking_end_date: null, available_stores: [], ...over })
 

@@ -19,7 +19,7 @@ import { platformPageReadApi } from '@/lib/api/platformPageReadApi'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
-import { NEW_ARRIVAL_CHIP, matchesCategoryChips, newArrivalDateIfNew, sortCatalogForNewArrivals } from '@/components/public-top/newArrivals'
+import { NEW_ARRIVAL_CHIP, matchesCategoryChips, newArrivalBasis, newArrivalDateIfTarget, newArrivalPublicKeys, sortCatalogForNewArrivals } from '@/components/public-top/newArrivals'
 import { todayJst } from '@/lib/publicPerformanceSearch'
 import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen, Building2, RefreshCw, ChevronDown } from 'lucide-react'
 
@@ -44,8 +44,10 @@ interface ScenarioData {
   available_stores?: string[] // 公演可能店舗名リスト
   available_store_ids?: string[] // 公演可能店舗IDリスト（フィルタ用）
   is_recommended?: boolean
-  /** 公開している組織のうち、いちばん早く一覧に登録した日時（全体トップの新作と同じ。「新作」のチップの判定に使う） */
+  /** 新作の基準の掲載登録日時（newArrivals.ts の newArrivalBasis。全体トップの新作と同じ） */
   listed_at?: string | null
+  /** 新作の対象か（全体トップの新作と同じ isNewArrivalTarget。一般のカタログの絞り込みには使わない） */
+  new_arrival_target?: boolean
 }
 
 interface CategoryData {
@@ -167,7 +169,6 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
         organization_name: org?.name || '',
         available_stores: storeNames,
         available_store_ids: storeIds,
-        listed_at: (s as { created_at?: string | null }).created_at ?? null,
       }
     })
 
@@ -183,12 +184,8 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
         existing.participation_fee ?? Infinity,
         s.participation_fee ?? Infinity
       )
-      // 新作の基準日は全体トップと同じく、公開している組織のうちいちばん早い掲載登録日
-      const listedAt = [existing.listed_at, s.listed_at].filter((v): v is string => !!v)
-        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0] ?? null
       seenMasterIds.set(key, {
         ...existing,
-        listed_at: listedAt,
         available_stores: mergedStores,
         participation_fee: isFinite(minPrice) ? minPrice : existing.participation_fee,
         // key_visual_urlは最初の非nullを優先（既存が既に入っている）
@@ -198,6 +195,24 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
     seenMasterIds.set(key, s)
     return true
   }).map(s => seenMasterIds.get(s.scenario_master_id || s.id) ?? s)
+
+  // 「新作」チップの対象と基準日（全体トップと同じ newArrivalBasis。一般のカタログの対象とは別に、取得したすべての行から決める）
+  const newArrivalScope = {
+    publicKeys: newArrivalPublicKeys(availableKeys, !!keysError),
+    activeOrganizationIds: new Set((scenariosResult.data || [])
+      .filter((s) => !!(s.organizations as { slug?: string } | null)?.slug && !!s.organization_id)
+      .map((s) => s.organization_id as string)),
+    organizationId: null,
+  }
+  const rowsByMaster = new Map<string, NonNullable<typeof scenariosResult.data>>()
+  for (const s of scenariosResult.data || []) {
+    const key = s.scenario_master_id || s.id
+    rowsByMaster.set(key, [...(rowsByMaster.get(key) ?? []), s])
+  }
+  const scenariosWithNewArrival = filteredScenarios.map((s) => {
+    const basis = newArrivalBasis(rowsByMaster.get(s.scenario_master_id || s.id) ?? [], newArrivalScope)
+    return { ...s, listed_at: basis.listed_at, new_arrival_target: basis.target }
+  })
   
   // 店舗データに組織名を補完（RPCから取得できない場合のフォールバック）
   const storesWithOrgName = (storesResult.data || []).map((store: any) => ({
@@ -206,7 +221,7 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
   }))
   
   return {
-    scenarios: filteredScenarios,
+    scenarios: scenariosWithNewArrival,
     categories: categoriesResult.data || [],
     stores: storesWithOrgName
   }
@@ -311,7 +326,7 @@ export function PlatformScenarioSearch() {
   const chipGenres = useMemo(() => [NEW_ARRIVAL_CHIP, ...genres.filter((g) => g !== NEW_ARRIVAL_CHIP)], [genres])
   // 新作の判定（トップの新作一覧と同じ関数）。今日は JST
   const today = todayJst(new Date())
-  const newDateById = useMemo(() => new Map(scenarios.map((s) => [s.id, newArrivalDateIfNew({ release_date: s.release_date ?? null, listed_at: s.listed_at ?? null }, today)])), [scenarios, today])
+  const newDateById = useMemo(() => new Map(scenarios.map((s) => [s.id, newArrivalDateIfTarget({ new_arrival_target: s.new_arrival_target, release_date: s.release_date ?? null, listed_at: s.listed_at ?? null }, today)])), [scenarios, today])
 
   // 地域から抽出するヘルパー関数
   const extractRegionFromAddress = (address?: string): string => {

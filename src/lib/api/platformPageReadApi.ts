@@ -20,7 +20,7 @@ export const platformPageReadApi = {
         id, org_scenario_id, slug, title, author, key_visual_url,
         duration, player_count_min, player_count_max,
         genre, participation_fee, difficulty, release_date,
-        organization_id, status, scenario_master_id, available_stores, created_at,
+        organization_id, status, scenario_master_id, available_stores, created_at, scenario_type, master_status,
         organizations:organization_id (slug, name)
       `)
       .eq('status', 'available')

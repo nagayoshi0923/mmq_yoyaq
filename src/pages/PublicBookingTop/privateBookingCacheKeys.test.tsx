@@ -35,7 +35,7 @@ function bookingFor(key: 'a' | 'b') {
     scenarios: [{
       scenario_id: 'm1', scenario_slug: 'm1', scenario_title: '共通作品', key_visual_url: null, author: '', duration: 180,
       player_count_min: 4, player_count_max: 6, genre: [], participation_fee: 4000, status: 'available', is_new: false,
-      listed_at: '2026-10-20T03:00:00Z', available_from: '2026-12-01', available_until: null,
+      listed_at: '2026-10-20T03:00:00Z', available_from: '2026-12-01', available_until: null, new_arrival_target: true,
     }],
     allEvents: [], blockedSlots: [], stores: [{ id: o.store, organization_id: o.id, status: 'active', is_temporary: false }],
     privateBookingDeadlineDays: 14, isLoading: false, isFetching: false, loadData: () => Promise.resolve(), organizationNotFound: false,
@@ -46,7 +46,7 @@ const platformData = {
   prefectures: [], performances: [],
   organizations: Object.values(ORGS).map((o) => ({ id: o.id, slug: o.slug, name: o.slug, logo_url: null, store_names: [], stores: [{ id: o.store, name: o.store }], store_count: 1, prefectures: [], scenario_count: 1 })),
   stores: Object.values(ORGS).map((o) => ({ id: o.store, organization_id: o.id, status: 'active', is_temporary: false })),
-  scenarios: [{ id: 'm1', slug: 'm1', title: '共通作品', author: '', key_visual_url: null, genres: [], player_count_min: 4, player_count_max: 6, release_date: null, listed_at: '2026-10-20T03:00:00Z', is_recommended: false,
+  scenarios: [{ id: 'm1', slug: 'm1', title: '共通作品', author: '', key_visual_url: null, genres: [], player_count_min: 4, player_count_max: 6, release_date: null, listed_at: '2026-10-20T03:00:00Z', is_recommended: false, new_arrival_target: true,
     organizations: [{ organization_id: 'org-a', available_from: '2026-12-01', available_until: null }] }],
 }
 
