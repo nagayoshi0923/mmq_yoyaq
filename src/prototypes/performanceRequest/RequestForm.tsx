@@ -20,6 +20,7 @@ const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
 
 interface RequestFormProps {
   scenario: ProtoScenario
+  inDialog?: boolean
   alreadySubscribed: boolean
   onCancel: () => void
   onSubmitted: (request: PerformanceRequest) => void
@@ -39,7 +40,7 @@ function Chip({ active, onClick, children, label }: { active: boolean; onClick: 
   )
 }
 
-export function RequestForm({ scenario, alreadySubscribed, onCancel, onSubmitted }: RequestFormProps) {
+export function RequestForm({ scenario, alreadySubscribed, onCancel, onSubmitted, inDialog = false }: RequestFormProps) {
   const [storeIds, setStoreIds] = useState<string[]>([])
   const [participants, setParticipants] = useState(1)
   const [periodKind, setPeriodKind] = useState<'anytime' | 'months'>('months')
@@ -80,7 +81,7 @@ export function RequestForm({ scenario, alreadySubscribed, onCancel, onSubmitted
   }
 
   return (
-    <section aria-labelledby="proto-request-form-title" className="space-y-4 rounded-lg border bg-background p-4" data-testid="proto-request-form">
+    <section aria-labelledby="proto-request-form-title" className={inDialog ? 'space-y-4' : 'space-y-4 rounded-lg border bg-background p-4'} data-testid="proto-request-form">
       <div className="flex items-start justify-between gap-2">
         <div>
           <h2 id="proto-request-form-title" className="text-base font-semibold">公演をリクエスト</h2>

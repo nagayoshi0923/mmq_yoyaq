@@ -5,7 +5,7 @@
  */
 import { act, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { MemoryRouter, useLocation } from 'react-router-dom'
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // 実 API の入口。触れたら記録する（試作では 1 回も触れないこと）
@@ -36,6 +36,7 @@ const fetchSpy = vi.fn()
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   vi.stubGlobal('fetch', fetchSpy)
+  vi.stubGlobal('IntersectionObserver', class { observe() {} unobserve() {} disconnect() {} })
   window.localStorage.clear()
   supabaseTouches.length = 0
   fetchSpy.mockClear()
@@ -53,18 +54,69 @@ const click = async (el: Element | null | undefined) => {
   if (!el) throw new Error('要素が見つかりません')
   await act(async () => { (el as HTMLElement).click() })
 }
-const byText = (text: string, selector = 'button') => [...host.querySelectorAll(selector)].find((b) => b.textContent?.trim() === text)
+const byText = (text: string, selector = 'button') => [...document.querySelectorAll(selector)].find((b) => b.textContent?.trim() === text)
 
 describe('お客様: 公演をリクエスト', () => {
+  it('現行の表示部品を使う作品詳細から、選択作品を保持した入力モーダルを開閉する', async () => {
+    await act(async () => root.render(<MemoryRouter initialEntries={['/prototype/performance-request?scenario=proto-scn-public']}><CustomerScenarioPage /><HistoryControls /></MemoryRouter>))
+    expect(host.querySelector('[data-testid="scenario-detail-columns"]')).not.toBeNull()
+    expect(host.textContent).toContain('あらすじ')
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    await click(byText('公演をリクエスト'))
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull()
+    expect(document.querySelector<HTMLInputElement>('#proto-request-title')?.value).toBe('星空のマリス')
+    expect(host.querySelector('[data-testid="location"]')?.textContent).toContain('view=request')
+    await click(byText('試験用に戻る'))
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(host.querySelector('[data-testid="location"]')?.textContent).toContain('scenario=proto-scn-public')
+    await click(byText('試験用に進む'))
+    expect(document.querySelector<HTMLInputElement>('#proto-request-title')?.value).toBe('星空のマリス')
+    await click(document.querySelector('[aria-label="入力をやめる"]'))
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    await click(byText('公演をリクエスト'))
+    expect(document.querySelector<HTMLInputElement>('#proto-request-title')?.value).toBe('星空のマリス')
+    expect(readProtoState().requests).toHaveLength(0)
+    expect(supabaseTouches).toEqual([])
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('モーダルの直接URL・再読込相当でも作品を保持し、閉じても詳細から離れない', async () => {
+    const entry = '/prototype/performance-request?scenario=proto-scn-2&view=request'
+    await act(async () => root.render(<MemoryRouter initialEntries={[entry]}><CustomerScenarioPage /><HistoryControls /></MemoryRouter>))
+    expect(document.querySelector<HTMLInputElement>('#proto-request-title')?.value).toBe('【架空】時計塔の約束')
+    await click(document.querySelector('[aria-label="入力をやめる"]'))
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(host.querySelector('[data-testid="location"]')?.textContent).toBe('/prototype/performance-request?scenario=proto-scn-2')
+    await click(byText('公演をリクエスト'))
+    await click(byText('やめる'))
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(readProtoState().requests).toHaveLength(0)
+    expect(supabaseTouches).toEqual([])
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('貸切タブは開催希望モーダルと別で、試作から本番の申込へ進まない', async () => {
+    await act(async () => root.render(<MemoryRouter initialEntries={['/prototype/performance-request?scenario=proto-scn-public']}><CustomerScenarioPage /><HistoryControls /></MemoryRouter>))
+    await click(byText('貸切リクエストを作成'))
+    expect(host.querySelector('[data-testid="location"]')?.textContent).toContain('tab=private')
+    expect(host.textContent).toContain('オープン公演の開催希望とは別')
+    await click(byText('貸切で遊ぶ'))
+    expect(host.textContent).toContain('実予約・公演作成・通知は行いません')
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(readProtoState().requests).toHaveLength(0)
+    expect(supabaseTouches).toEqual([])
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
   it('送信の前に注意文を正確に出し、送信はこのブラウザに保存するだけ（実 API を呼ばない）', async () => {
     await act(async () => root.render(<MemoryRouter initialEntries={['/prototype/performance-request']}><CustomerScenarioPage /></MemoryRouter>))
     expect(host.textContent).toContain('公演をリクエスト')
-    expect(host.textContent).toContain('貸切で遊ぶ')
+    expect(host.textContent).toContain('貸切リクエスト')
     await click(byText('公演をリクエスト'))
-    const notice = host.querySelector('[data-testid="proto-request-notice"]')
+    const notice = document.querySelector('[data-testid="proto-request-notice"]')
     expect(notice?.querySelector('p')?.textContent).toBe(REQUEST_NOT_RESERVATION_NOTICE)
     // 作品名は自動で入り、変更できない
-    const title = host.querySelector<HTMLInputElement>('#proto-request-title')!
+    const title = document.querySelector<HTMLInputElement>('#proto-request-title')!
     expect(title.disabled).toBe(true)
     expect(title.value).toBe('【架空】霧の館の晩餐会')
 
@@ -72,10 +124,10 @@ describe('お客様: 公演をリクエスト', () => {
     await click(byText('リクエストを送る（このブラウザに保存）'))
     expect(readProtoState().requests).toHaveLength(0)
 
-    const storeOption = [...host.querySelectorAll('[data-testid="popover-content"] button')].find((b) => b.textContent?.trim().endsWith('架空・渋谷店'))
+    const storeOption = [...document.querySelectorAll('[data-testid="proto-request-form"] [data-testid="popover-content"] button')].find((b) => b.textContent?.trim().endsWith('架空・渋谷店'))
     await click(storeOption)
     await click(byText('2026年11月'))
-    await click(host.querySelector('[aria-label="土曜日"]'))
+    await click(document.querySelector('[aria-label="土曜日"]'))
     await click(byText('リクエストを送る（このブラウザに保存）'))
 
     const saved = readProtoState()
@@ -132,6 +184,11 @@ describe('管理: スケジュールの開催リクエストのパネル', () =>
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
+
+function HistoryControls() {
+  const navigate = useNavigate()
+  return <><LocationProbe /><button onClick={() => navigate(-1)}>試験用に戻る</button><button onClick={() => navigate(1)}>試験用に進む</button></>
+}
 
 function LocationProbe() {
   const location = useLocation()

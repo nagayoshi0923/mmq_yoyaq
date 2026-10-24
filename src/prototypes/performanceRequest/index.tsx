@@ -15,7 +15,7 @@ export default function PerformanceRequestPrototype() {
   const route = resolvePrototypeView(location.pathname, true)
   if (!route) return null
   return (
-    <PrototypeShell wide={route.view === 'admin'}>
+    <PrototypeShell wide={route.view === 'admin'} detail={route.view === 'customer'}>
       {route.view === 'customer' ? <CustomerScenarioPage /> : null}
       {route.view === 'admin' ? <AdminSchedulePage /> : null}
       {route.view === 'notifications' ? <NotificationsPage /> : null}

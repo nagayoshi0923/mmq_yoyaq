@@ -1,6 +1,6 @@
 /**
- * 開催リクエスト試作の架空データ。実在の作品・店舗・お客様・公演とは関係ない。
- * 試作の画面は実 API・実 DB を使わず、ここにある値と、このブラウザの localStorage だけで動く。
+ * 開催リクエスト試作の架空データ。星空のマリスの表示見本のみ公開作品情報を利用。
+ * 受付・店舗・お客様・公演はすべて架空。試作は実 API・実 DB を使わず、ここにある値と、このブラウザの localStorage だけで動く。
  */
 import type { ScheduleEvent } from '@/types/schedule'
 import type { PerformanceRequest } from './model'
@@ -23,6 +23,8 @@ export interface ProtoScenario {
   /** 参考表示用の「いいね」数（既存の scenario_likes を将来使う案の見本） */
   likes: number
   synopsis: string
+  keyVisualUrl?: string
+  genre?: string[]
 }
 
 export const PROTO_ORGANIZATION = { id: 'proto-org', name: '架空の組織（試作）', slug: 'proto-org' } as const
@@ -70,6 +72,15 @@ export const PROTO_SCENARIOS: ProtoScenario[] = [
     likes: 12,
     synopsis: '海辺のアトリエで見つかった未完成の絵（試作用の架空のあらすじ）',
   },
+  // 公開作品の表示見本。ID・店舗・開催希望・通知は実データと接続しない。
+  {
+    id: 'proto-scn-public', title: '星空のマリス', author: 'イバラユーギ',
+    playerMin: 7, playerMax: 7, durationMinutes: 210, fee: 4500, likes: 0,
+    keyVisualUrl: 'https://cznpcewciwywcqcxktba.supabase.co/storage/v1/object/public/key-visuals/1761046761540-9azpt.webp',
+    genre: ['ロングセラー', 'シリーズもの'],
+    synopsis: '「知識は罪だ」 人類が長い時間をかけ辿り着いた、たったひとつの真実。\n知る事で憎み、知る事で争い、知る事で殺し、知る事で滅んだ。\n地下に逃げた我々は、その学びを決して忘れる事なく、否、決して思い出す事なく生きていこう。 ―――。\n朝が来ると光が差し込み、やがて空が橙色に染まり、そして静かな夜が訪れる。\nこのシステムを思いつき開発した人は、きっと素晴らしい人だろう。\nだって、朝焼けを見ていると、今日も頑張ろうって思えるから。\nだって、夕暮れを見ていると、優しい気持ちになれるから。\nだって、星空を見ていると、明日を待ち望んで眠れるから。 ―――。\nこの世界は素晴らしい物で溢れている。 作り物のように美しく、気味が悪いくらいに優しい。\nそんな悲劇が似合わない世界で。 あなたたちのお話が、はじまります。',
+  },
+
 ]
 
 /** 管理画面の初期表示の月（架空データはこの月と翌月に合わせてある） */
