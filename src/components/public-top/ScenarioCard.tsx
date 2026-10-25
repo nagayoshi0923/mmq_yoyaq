@@ -127,7 +127,7 @@ export const ScenarioCard = memo(function ScenarioCard({ card, onOpen, marks, cl
           )}
 
           {rows.length === 0 && card.private_booking_path && !note && (
-            <p className="border-t border-gray-100 pt-2 ts-11 text-muted-foreground card-narrow:pt-1.5">公演予定なし・貸切の日程はご相談のうえ決まります</p>
+            <p className="border-t border-gray-100 pt-2 ts-11 text-muted-foreground card-narrow:pt-1.5">公演予定未定</p>
           )}
 
           {rows.length > 0 && (

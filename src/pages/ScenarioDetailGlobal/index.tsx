@@ -715,7 +715,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                     })}
                     {availableOrganizations.filter(org => !eventsByOrg.some(e => e.org.slug === org.slug)).map(org => (
                       <div key={org.slug} className="p-4 border border-gray-200" style={{ borderRadius: 0 }}>
-                        <div className="mb-3"><h4 className="font-medium text-gray-900">{org.name}</h4><p className="text-sm text-gray-500">公演予定なし</p></div>
+                        <div className="mb-3"><h4 className="font-medium text-gray-900">{org.name}</h4><p className="text-sm text-gray-500">公演予定未定</p></div>
                         <div className="flex gap-2">
                           <button onClick={() => { saveScrollPositionForCurrentUrl(); navigate(`/${org.slug}`) }} className="flex-1 py-2 px-3 text-sm text-gray-700 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2" style={{ borderRadius: 0 }}>
                             <Building2 className="w-4 h-4" />店舗トップ
