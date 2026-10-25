@@ -91,13 +91,15 @@ export function AddPlayHistoryDialog({
                               allowClear={true}
                             />
                           </div>
-                          <Button data-dialog-footer=""
-                            onClick={handleAddManualHistory}
-                            disabled={addManualHistoryMutation.isPending || !newScenarioId}
-                            className="w-full"
-                          >
-                            {addManualHistoryMutation.isPending ? '追加中...' : '追加'}
-                          </Button>
+                          <div data-dialog-footer="">
+                            <Button
+                              onClick={handleAddManualHistory}
+                              disabled={addManualHistoryMutation.isPending || !newScenarioId}
+                              className="w-full"
+                            >
+                              {addManualHistoryMutation.isPending ? '追加中...' : '追加'}
+                            </Button>
+                          </div>
                         </div>
                       </DialogContent>
                     </Dialog>
