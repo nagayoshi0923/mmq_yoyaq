@@ -14,7 +14,7 @@ import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
 import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
 import { logger } from '@/utils/logger'
 import type { DateResponse } from '@/types'
-import { useCustomHolidays } from '@/hooks/useCustomHolidays'
+import { knownCustomHoliday, useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { memberInvitationCap } from '@/lib/privateGroupPlayerCap'
 import { GroupChatSheets } from './components/GroupChatSheets'
 import { GroupInviteView } from './components/GroupInviteView'
@@ -80,7 +80,8 @@ export function PrivateGroupInvite() {
   }, [groupReconnecting])
   const { joinGroup, submitDateResponses, leaveGroup, loading: actionLoading } = usePrivateGroup()
   // group が宣言された後で呼ぶ（organization_id を参照するため）
-  const { isCustomHoliday } = useCustomHolidays({ organizationId: group?.organization_id })
+  // 料金用。独自休日を読み込み中・読み込めなかったときは null（平日の候補の料金を出さない）
+  const isCustomHoliday = knownCustomHoliday(useCustomHolidays({ organizationId: group?.organization_id }))
 
   /** 店舗承認後はチャットに「日程確定」が出ても、グループ行の status が未同期のことがあるため予約 status も見る */
   const isScheduleConfirmedUi = useMemo(

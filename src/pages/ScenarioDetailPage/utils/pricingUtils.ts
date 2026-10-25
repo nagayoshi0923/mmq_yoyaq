@@ -140,6 +140,34 @@ export function participationFeeRange(
   return { min: Math.min(...fees), max: Math.max(...fees) }
 }
 
+/**
+ * 1 日の料金。組織の独自休日が分からない（null = 読み込み中・読み込めなかった）ときは、
+ * 「独自休日である／ない」の両方で計算し、同じなら確定、違えば null（平日の料金で代わりに出さない。2026-10-25 Codex レビュー）。
+ * 土日でも weekend の設定が無く holiday だけある作品は独自休日かどうかで変わるので、曜日だけでは決めない。
+ */
+export function feeIfHolidayKnown(
+  baseFee: number,
+  costs: ParticipationCost[] | undefined,
+  date: string | undefined,
+  isCustomHoliday: ((date: string) => boolean) | null | undefined,
+  startTime?: string,
+): number | null {
+  if (isCustomHoliday !== null) return calculateParticipationFee(baseFee, costs, date, isCustomHoliday, startTime)
+  const notHoliday = calculateParticipationFee(baseFee, costs, date, () => false, startTime)
+  return notHoliday === calculateParticipationFee(baseFee, costs, date, () => true, startTime) ? notHoliday : null
+}
+
+/** 候補日ごとの料金（feeIfHolidayKnown）。どれか 1 つでも未確定なら null */
+export function candidateFeesIfKnown(
+  baseFee: number,
+  costs: ParticipationCost[] | undefined,
+  candidates: Array<{ date: string; slot: { startTime: string } }>,
+  isCustomHoliday: ((date: string) => boolean) | null | undefined,
+): number[] | null {
+  const fees = candidates.map(c => feeIfHolidayKnown(baseFee, costs, c.date, isCustomHoliday, c.slot.startTime))
+  return fees.some(f => f === null) ? null : fees as number[]
+}
+
 /** 貸切候補日ごとの見積もり。候補順は受付SQLと同じまま保持する。 */
 export function calculatePrivateCandidateFees(
   baseFee: number,

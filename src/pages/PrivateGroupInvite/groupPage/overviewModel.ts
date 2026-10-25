@@ -1,7 +1,7 @@
 /**
  * 概要タブ（刷新）で使う計算。画面から切り離して単体テストする。
  */
-import { calculatePrivateCandidateFees, participationFeeRange, type ParticipationCost } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
+import { candidateFeesIfKnown, participationFeeRange, type ParticipationCost } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
 import type { PrivateBookingPhase } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingMenu'
 import type { ScenarioCharacter } from '@/pages/ScenarioDetailPage/utils/types'
 
@@ -128,7 +128,7 @@ interface PriceInput {
   confirmed: { date: string; startTime: string } | null
   /** 確定時にグループへ保存された 1 人あたりの金額（あればそれを正とする） */
   savedPerPerson: number | null
-  isCustomHoliday?: (date: string) => boolean
+  isCustomHoliday?: ((date: string) => boolean) | null  // null = 独自休日を読み込み中・読み込めなかった（平日の候補の料金は出さない）
 }
 
 /**
@@ -145,9 +145,10 @@ export function priceSummary(input: PriceInput): PriceSummary | null {
   if (!input.fee || input.fee <= 0 || !people) return null
   const dates = input.phase === 'confirmed' && input.confirmed ? [input.confirmed] : input.candidates
   const fees = dates.length
-    ? calculatePrivateCandidateFees(input.fee, input.costs, dates.map(d => ({ date: d.date, slot: { startTime: d.startTime } })), input.isCustomHoliday)
+    ? candidateFeesIfKnown(input.fee, input.costs, dates.map(d => ({ date: d.date, slot: { startTime: d.startTime } })), input.isCustomHoliday)
     // 候補日がまだ無いときは平日の料金だけを出さず、曜日・祝日で変わる幅を出す（2026-10-25 社長報告）
     : Object.values(participationFeeRange(input.fee, input.costs))
+  if (!fees) return null
   const min = Math.min(...fees)
   const max = Math.max(...fees)
   return { perPersonMin: min, perPersonMax: max, people, totalMin: min * people, totalMax: max * people }

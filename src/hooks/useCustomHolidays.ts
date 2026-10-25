@@ -141,3 +141,11 @@ export function useCustomHolidays(options?: UseCustomHolidaysOptions) {
     getHolidayType
   }
 }
+
+/**
+ * 料金の計算に渡す独自休日の判定。読み込み中・読み込めなかったときは null（平日の料金で代わりに出さないため。2026-10-25）。
+ * 枠・所要時間など料金以外の判定には使わない（従来どおり isCustomHoliday を使う）。
+ */
+export function knownCustomHoliday(holidays: Pick<ReturnType<typeof useCustomHolidays>, 'isLoading' | 'error' | 'isCustomHoliday'>): ((date: string) => boolean) | null {
+  return holidays.isLoading || holidays.error ? null : holidays.isCustomHoliday
+}

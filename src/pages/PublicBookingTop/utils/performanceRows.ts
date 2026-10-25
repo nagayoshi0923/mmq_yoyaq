@@ -5,7 +5,7 @@
 import { getAvailableSeats } from '@/lib/participantUtils'
 import { isBeginnerFriendly, type PublicPerformance } from '@/lib/publicPerformanceSearch'
 import { storeDisplayName, storePrefecture, storeShortDisplayName, type StoreAreaSource, type StoreNameSource } from '@/lib/publicStoreName'
-import { calculateParticipationFee, isWeekendOrHoliday, type ParticipationCost } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
+import { feeIfHolidayKnown, isWeekendOrHoliday, type ParticipationCost } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
 
 export interface PerformanceEventRow {
   id: string
@@ -76,8 +76,8 @@ export function buildPublicPerformance(
   const duration = (isWeekend && scenario.weekend_duration) ? scenario.weekend_duration : (scenario.duration ?? null)
   const baseFee = scenario.participation_fee ?? null
   const costs = Array.isArray(scenario.participation_costs) ? (scenario.participation_costs as ParticipationCost[]) : undefined
-  const holidayUnknown = isCustomHoliday === null && !isWeekend
-  const fee = baseFee === null || holidayUnknown ? null : calculateParticipationFee(baseFee, costs, row.date, isCustomHoliday ?? undefined, row.start_time ?? undefined)
+  // 独自休日が分からず、独自休日かどうかで料金が変わる日は null（feeIfHolidayKnown）
+  const fee = baseFee === null ? null : feeIfHolidayKnown(baseFee, costs, row.date, isCustomHoliday, row.start_time ?? undefined)
   const genres = scenario.genre ?? []
   return {
     id: row.id,

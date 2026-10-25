@@ -19,6 +19,8 @@ interface BookingPanelProps {
   participantCount: number
   maxParticipants: number
   participationFee: number
+  /** 料金が未確定（組織の独自休日を読み込み中・読み込めなかった）ときに金額の代わりに出す文。null なら金額を出す */
+  feeUnknownText?: string | null
   selectedEventId: string | null
   isLoggedIn: boolean
   events: EventSchedule[]
@@ -33,6 +35,7 @@ export const BookingPanel = memo(function BookingPanel({
   participantCount,
   maxParticipants,
   participationFee,
+  feeUnknownText = null,
   selectedEventId,
   isLoggedIn,
   events,
@@ -137,7 +140,7 @@ export const BookingPanel = memo(function BookingPanel({
               <span className="ts-muted">
                 参加費（1名{isWeekendOrHolidayDate ? '・土日祝' : ''}）
               </span>
-              <span className="ts-body font-medium">¥{participationFee.toLocaleString()}</span>
+              <span className="ts-body font-medium">{feeUnknownText ?? `¥${participationFee.toLocaleString()}`}</span>
             </div>
             <div className="flex justify-between">
               <span className="ts-muted">人数</span>
@@ -147,7 +150,7 @@ export const BookingPanel = memo(function BookingPanel({
               <div className="flex justify-between items-center">
                 <span className="ts-muted">合計</span>
                 <span className="ts-emph" style={{ color: preset.primary }}>
-                  ¥{(participationFee * participantCount).toLocaleString()}
+                  {feeUnknownText ?? `¥${(participationFee * participantCount).toLocaleString()}`}
                 </span>
               </div>
               <p className="ts-caption mt-1" data-testid="scenario-price-note">{PRICE_NOTE}</p>
@@ -175,7 +178,7 @@ export const BookingPanel = memo(function BookingPanel({
         {selectedEventId && (
           <p className="mb-1 flex items-center justify-between ts-caption md:hidden">
             <span>{participantCount}名</span>
-            <span className="font-medium text-foreground">合計 ¥{(participationFee * participantCount).toLocaleString()}（税込）</span>
+            <span className="font-medium text-foreground">{feeUnknownText ? `合計 ${feeUnknownText}` : `合計 ¥${(participationFee * participantCount).toLocaleString()}（税込）`}</span>
           </p>
         )}
         <Button 

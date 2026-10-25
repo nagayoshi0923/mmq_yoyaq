@@ -13,13 +13,13 @@ import { getOptimizedImageUrl } from '@/utils/imageUtils'
 import { formatJstDateJa, toJstYmd } from '@/utils/jstDate'
 
 // 分離された型定義
-import { calculateParticipationFee, calculatePrivateCandidateFees } from './utils/pricingUtils'
+import { calculateParticipationFee, candidateFeesIfKnown, feeIfHolidayKnown } from './utils/pricingUtils'
 
 // 分離されたフック
 import { useScenarioDetail } from './hooks/useScenarioDetail'
 import { usePrivateBooking } from './hooks/usePrivateBooking'
 import { useBookingActions } from './hooks/useBookingActions'
-import { useCustomHolidays } from '@/hooks/useCustomHolidays'
+import { knownCustomHoliday, useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { useOrgThemePreset } from '@/hooks/useOrgThemePreset'
 import { usePrivateBookingDeadlineDays } from '@/hooks/usePrivateBookingDeadlineDays'
 
@@ -143,7 +143,11 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   
   // カスタム休日フック（usePrivateBookingより先に呼ぶ必要がある）
   // 公開ページではorganizationSlugから組織IDを取得して休日を取得
-  const { isCustomHoliday } = useCustomHolidays({ organizationSlug })
+  const holidays = useCustomHolidays({ organizationSlug })
+  const { isCustomHoliday } = holidays
+  // 料金用。独自休日を読み込み中・読み込めなかったときは null（平日の料金を出さない。枠・所要時間には従来どおり isCustomHoliday）
+  const priceHoliday = knownCustomHoliday(holidays)
+  const feePendingText = holidays.error ? '確認できません' : '確認中'
 
   // 貸切予約の受付締切（公演日の何日前まで申込可能か）
   const privateBookingDeadlineDays = usePrivateBookingDeadlineDays({ organizationId, organizationSlug, scenarioId: scenario?.scenario_master_id })
@@ -177,9 +181,10 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     [selectedStoreIds, availableStores]
   )
 
-  const privateCandidateFees = useMemo(() => scenario ? calculatePrivateCandidateFees(
-    scenario.participation_fee, scenario.participation_costs, selectedTimeSlots, isCustomHoliday,
-  ) : [], [scenario, selectedTimeSlots, isCustomHoliday])
+  const knownPrivateFees = useMemo(() => scenario ? candidateFeesIfKnown(
+    scenario.participation_fee, scenario.participation_costs, selectedTimeSlots, priceHoliday,
+  ) : [], [scenario, selectedTimeSlots, priceHoliday])
+  const privateCandidateFees = knownPrivateFees ?? []
 
   // 選択されたイベントの日付に応じた参加費を計算
   const calculatedParticipationFee = useMemo(() => {
@@ -193,10 +198,12 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       scenario.participation_fee,
       scenario.participation_costs,
       eventDate,
-      isCustomHoliday,
+      priceHoliday ?? undefined,
       selectedEvent?.start_time
     )
-  }, [scenario, selectedEventId, events, isCustomHoliday])
+  }, [scenario, selectedEventId, events, priceHoliday])
+  // オープン公演の選んだ日の料金が独自休日しだいで変わり、独自休日が分からなければ未確定
+  const openFeeUnknownText = scenario && selectedEvent && feeIfHolidayKnown(scenario.participation_fee, scenario.participation_costs, selectedEvent.date, priceHoliday, selectedEvent.start_time) === null ? feePendingText : null
 
   // 公演日程タブ用の店舗リスト
   // 「公演が実在する店舗（events の store_id）」∪「available_stores（availableStores）」の和集合。
@@ -358,6 +365,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         maxParticipants={selectedEvent.max_participants}
         currentParticipants={selectedEvent.current_participants}
         participationFee={calculatedParticipationFee}
+        feeUnknownText={openFeeUnknownText}
         initialParticipantCount={participantCount}
         organizationSlug={organizationSlug}
         onBack={handleBackFromBooking}
@@ -751,6 +759,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     participantCount={participantCount}
                     maxParticipants={scenario.player_count_max}
                     participationFee={calculatedParticipationFee}
+                    feeUnknownText={openFeeUnknownText}
                     selectedEventId={selectedEventId}
                     isLoggedIn={!!user}
                     events={events}
@@ -803,6 +812,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       <PrivateBookingPanel
                         participationFee={privateCandidateFees.length ? Math.min(...privateCandidateFees) : scenario.participation_fee}
                         maxParticipationFee={privateCandidateFees.length ? Math.max(...privateCandidateFees) : undefined}
+                        feeUnknownText={knownPrivateFees ? null : feePendingText}
                         maxParticipants={scenario.player_count_max}
                         selectedTimeSlotsCount={selectedTimeSlots.length}
                         isLoggedIn={!!user}

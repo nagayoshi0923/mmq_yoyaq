@@ -27,3 +27,12 @@ describe('トップの公演の料金', () => {
     expect(buildPublicPerformance(row('2026-11-03'), scenario, null, org, null)?.fee).toBe(5000)
   })
 })
+
+describe('weekend の設定が無く holiday だけある作品', () => {
+  it('独自休日が分からなければ日曜の公演も料金を出さない', () => {
+    const holidayOnly = { ...scenario, participation_costs: [{ time_slot: 'normal', amount: 4500, type: 'fixed' }, { time_slot: 'holiday', amount: 5000, type: 'fixed' }] }
+    expect(buildPublicPerformance(row('2026-10-25'), holidayOnly, null, org, null)?.fee).toBeNull()
+    expect(buildPublicPerformance(row('2026-10-25'), holidayOnly, null, org, () => false)?.fee).toBe(4500)
+    expect(buildPublicPerformance(row('2026-11-03'), holidayOnly, null, org, null)?.fee).toBe(5000)
+  })
+})

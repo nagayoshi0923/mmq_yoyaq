@@ -41,3 +41,31 @@ describe('日付が決まる前の料金の幅', () => {
     expect(participationFeeRange(4500, undefined)).toEqual({ min: 4500, max: 4500 })
   })
 })
+
+describe('独自休日が分からないとき（読み込み中・読み込めなかった = null）', () => {
+  it('平日の候補があれば料金は未確定（null）、土日・祝日だけなら確定、分かれば通常どおり', async () => {
+    const { candidateFeesIfKnown } = await import('./pricingUtils')
+    const wd = { date: '2026-10-21', slot: { startTime: '14:00' } }
+    const sun = { date: '2026-10-25', slot: { startTime: '14:00' } }
+    const hol = { date: '2026-11-03', slot: { startTime: '14:00' } }
+    expect(candidateFeesIfKnown(4500, costs, [wd, sun], null)).toBeNull()
+    expect(candidateFeesIfKnown(4500, costs, [sun, hol], null)).toEqual([5000, 5000])
+    expect(candidateFeesIfKnown(4500, costs, [wd, sun], (d) => d === '2026-10-21')).toEqual([5000, 5000])
+    expect(candidateFeesIfKnown(4500, costs, [wd], () => false)).toEqual([4500])
+  })
+})
+
+describe('weekend の設定が無く holiday だけある作品（Codex レビュー 2026-10-25）', () => {
+  const holidayOnly: ParticipationCost[] = [{ time_slot: 'normal', amount: 4500, type: 'fixed' }, { time_slot: 'holiday', amount: 5000, type: 'fixed' }]
+  it('日曜でも独自休日かどうかで料金が変わるので、独自休日が分からなければ未確定', async () => {
+    const { feeIfHolidayKnown, candidateFeesIfKnown } = await import('./pricingUtils')
+    expect(calculateParticipationFee(4500, holidayOnly, '2026-10-25', () => false, '14:00')).toBe(4500)
+    expect(calculateParticipationFee(4500, holidayOnly, '2026-10-25', () => true, '14:00')).toBe(5000)
+    expect(feeIfHolidayKnown(4500, holidayOnly, '2026-10-25', null, '14:00')).toBeNull()
+    expect(candidateFeesIfKnown(4500, holidayOnly, [{ date: '2026-10-25', slot: { startTime: '14:00' } }], null)).toBeNull()
+    // 祝日（11/3）は独自休日かどうかに関わらず holiday の料金で確定
+    expect(feeIfHolidayKnown(4500, holidayOnly, '2026-11-03', null, '14:00')).toBe(5000)
+    // 曜日で変わらない作品は分からなくても確定
+    expect(feeIfHolidayKnown(4500, [{ time_slot: 'normal', amount: 4500, type: 'fixed' }], '2026-10-21', null, '14:00')).toBe(4500)
+  })
+})

@@ -43,7 +43,7 @@ interface GroupOverviewTabProps {
   onGoDates: () => void
   onGoMembers: () => void
   onInquiry: () => void
-  isCustomHoliday?: (date: string) => boolean
+  isCustomHoliday?: ((date: string) => boolean) | null  // null = 独自休日を読み込み中・読み込めなかった（平日の候補の料金は出さない）
 }
 
 export function GroupOverviewTab(props: GroupOverviewTabProps) {

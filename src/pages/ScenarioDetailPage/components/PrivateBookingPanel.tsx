@@ -10,6 +10,8 @@ import { privateGroupCreatePath } from '@/pages/PrivateBookingStart/paths'
 interface PrivateBookingPanelProps {
   participationFee: number
   maxParticipationFee?: number
+  /** 料金が未確定（組織の独自休日を読み込み中・読み込めなかった）ときに金額の代わりに出す文。null なら金額を出す */
+  feeUnknownText?: string | null
   maxParticipants: number
   selectedTimeSlotsCount: number
   isLoggedIn: boolean
@@ -26,6 +28,7 @@ interface PrivateBookingPanelProps {
 export const PrivateBookingPanel = memo(function PrivateBookingPanel({
   participationFee,
   maxParticipationFee,
+  feeUnknownText = null,
   maxParticipants,
   selectedTimeSlotsCount,
   isLoggedIn,
@@ -79,7 +82,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
           <CardContent className="p-4 space-y-2">
             <div className="flex justify-between">
               <span className="ts-muted">参加費（1名）</span>
-              <span className="ts-body font-medium">¥{participationFee.toLocaleString()}{maxParticipationFee != null && maxParticipationFee !== participationFee ? `〜¥${maxParticipationFee.toLocaleString()}` : selectedTimeSlotsCount === 0 ? '〜' : ''}</span>
+              <span className="ts-body font-medium">{feeUnknownText ?? `¥${participationFee.toLocaleString()}${maxParticipationFee != null && maxParticipationFee !== participationFee ? `〜¥${maxParticipationFee.toLocaleString()}` : selectedTimeSlotsCount === 0 ? '〜' : ''}`}</span>
             </div>
             <div className="flex justify-between">
               <span className="ts-muted">人数</span>
@@ -89,7 +92,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
               <div className="flex justify-between items-center">
                 <span className="ts-muted">合計</span>
                 <span className="ts-emph text-purple-600">
-                  ¥{(participationFee * maxParticipants).toLocaleString()}{maxParticipationFee != null && maxParticipationFee !== participationFee ? `〜¥${(maxParticipationFee * maxParticipants).toLocaleString()}` : selectedTimeSlotsCount === 0 ? '〜' : ''}
+                  {feeUnknownText ?? `¥${(participationFee * maxParticipants).toLocaleString()}${maxParticipationFee != null && maxParticipationFee !== participationFee ? `〜¥${(maxParticipationFee * maxParticipants).toLocaleString()}` : selectedTimeSlotsCount === 0 ? '〜' : ''}`}
                 </span>
               </div>
               <p className="ts-caption mt-1">
