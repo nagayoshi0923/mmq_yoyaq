@@ -124,7 +124,7 @@ const DialogContent = React.forwardRef<
         {/* Title がない場合でも a11y を満たす（視覚的には非表示） */}
         {needsTitleFallback && <DialogTitle className="sr-only">Dialog</DialogTitle>}
         {children}
-        <DialogPrimitive.Close className="absolute right-2 top-2 sm:right-4 sm:top-4 opacity-70 transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+        <DialogPrimitive.Close className="absolute z-10 right-2 top-2 sm:right-4 sm:top-4 opacity-70 transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>

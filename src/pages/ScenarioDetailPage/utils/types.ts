@@ -65,6 +65,11 @@ export interface ScenarioDetail {
   scenario_kind?: string | null
   /** 貸切受付フラグ（false=休止中） */
   accepts_private_booking?: boolean | null
+  /**
+   * 貸切受付中の判定に要る列（accepts_private_booking・scenario_kind・booking_start_date・booking_end_date・available_stores）が
+   * 公開 API の応答にすべてあったか。上の値は既定値で埋めているので、欠けていたら「貸切受付中」を出さない
+   */
+  private_booking_fields_complete?: boolean
   characters?: ScenarioCharacter[]  // キャラクター情報
 }
 

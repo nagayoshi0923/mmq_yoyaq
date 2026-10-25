@@ -73,13 +73,15 @@ export function PlayedRegistrationDialog({
               placeholder="日付を選択"
             />
           </div>
-          <Button data-dialog-footer=""
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="w-full"
-          >
-            {isSubmitting ? '登録中...' : '登録する'}
-          </Button>
+          <div data-dialog-footer="">
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="w-full"
+            >
+              {isSubmitting ? '登録中...' : '登録する'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

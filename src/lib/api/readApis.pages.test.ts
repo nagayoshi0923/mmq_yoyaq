@@ -1313,6 +1313,12 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       "publicBookingReadApi.listPerformancePauses (最後の引数なし)": [
         "from("store_recruitment_pauses") .select("store_id, pause_type, starts_on, ends_on") .in("store_id", undefined) .eq("pause_type", "performance")",
       ],
+      "publicBookingReadApi.listPrivatePauses": [
+        "from("store_recruitment_pauses") .select("store_id, organization_id, pause_type, starts_on, ends_on") .in("store_id", "a1") .eq("pause_type", "private")",
+      ],
+      "publicBookingReadApi.listPrivatePauses (最後の引数なし)": [
+        "from("store_recruitment_pauses") .select("store_id, organization_id, pause_type, starts_on, ends_on") .in("store_id", undefined) .eq("pause_type", "private")",
+      ],
       "publicBookingReadApi.listScenarioLikes": [
         "from("scenario_likes") .select("scenario_id")",
       ],
@@ -1551,6 +1557,12 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       ],
       "scenarioPageReadApi.findEventSeats (最後の引数なし)": [
         "from("schedule_events_public") .select("current_participants, max_participants, capacity") .eq("id", undefined) .single()",
+      ],
+      "scenarioPageReadApi.findScenarioPerformancePeriod": [
+        "from("organization_scenarios_with_master") .select("organization_id, available_from, available_until") .eq("id", "a2")",
+      ],
+      "scenarioPageReadApi.findScenarioPerformancePeriod (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("organization_id, available_from, available_until") .eq("id", undefined)",
       ],
       "scenarioPageReadApi.listActiveBookingNotices": [
         "from("booking_notices") .select("id, content, applicable_types, store_id, store_ids, requires_pre_read…) .eq("is_active", true) .contains("applicable_types", ["a1"]) .order("sort_order", {"ascending":true})",
