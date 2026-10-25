@@ -16,6 +16,8 @@ export interface PrivateScenario {
   player_count_max: number
   key_visual_url?: string | null
   participation_fee?: number | null
+  /** 日付が決まっていないとき、曜日・祝日で料金が変わる作品の最高額（participation_fee が最安）。日付が決まっていれば出さない */
+  participation_fee_max?: number | null
   /** 募集期間の外（いまは貸切を受け付けていない）・選んだ日に申し込めない。押せない */
   closed?: boolean
   /** closed のときカードに出す理由（無ければ「現在は受け付けていません」） */
@@ -116,7 +118,7 @@ export function PrivateScenarioGrid({ scenarios, loading, pathFor, onOpen, selec
                 className={s.closed ? 'cursor-not-allowed opacity-60' : undefined}
                 note={
                   <div className="space-y-0.5 ts-11">
-                    {!!s.participation_fee && <p className="text-muted-foreground">1 人あたり ¥{s.participation_fee.toLocaleString('ja-JP')}</p>}
+                    {!!s.participation_fee && <p className="text-muted-foreground">1 人あたり ¥{s.participation_fee.toLocaleString('ja-JP')}{s.participation_fee_max && s.participation_fee_max > s.participation_fee ? `〜¥${s.participation_fee_max.toLocaleString('ja-JP')}` : ''}</p>}
                     {s.closed
                       ? <p className="font-bold text-muted-foreground" data-testid="private-scenario-closed">{s.closedLabel || '現在は受け付けていません'}</p>
                       : <p className="font-bold text-purple-700">貸切できます</p>}

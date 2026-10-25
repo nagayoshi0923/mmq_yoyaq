@@ -120,6 +120,26 @@ export function getPricingLabel(
   return '参加費（1名）'
 }
 
+/**
+ * 日付が決まる前に出す 1 人あたりの料金の幅（平日・土日・祝日（独自休日を含む）× 午前・午後・夜の最安〜最高）。
+ * 平日の料金だけを出すと、土日祝の料金が高い作品で安く見えてしまう（2026-10-25 社長報告）。
+ */
+export function participationFeeRange(
+  baseFee: number,
+  costs: ParticipationCost[] | undefined,
+): { min: number; max: number } {
+  const fees: number[] = []
+  // 2030-01-09 は水曜（祝日でない）、2030-01-13 は日曜。祝日は「独自休日」として平日に当てる
+  for (const date of ['2030-01-09', '2030-01-13']) {
+    for (const holiday of [false, true]) {
+      for (const time of ['10:00', '14:00', '19:00']) {
+        fees.push(calculateParticipationFee(baseFee, costs, date, holiday ? () => true : undefined, time))
+      }
+    }
+  }
+  return { min: Math.min(...fees), max: Math.max(...fees) }
+}
+
 /** 貸切候補日ごとの見積もり。候補順は受付SQLと同じまま保持する。 */
 export function calculatePrivateCandidateFees(
   baseFee: number,

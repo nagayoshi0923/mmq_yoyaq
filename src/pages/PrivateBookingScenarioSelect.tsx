@@ -20,7 +20,9 @@ import { PrivateBookingStart } from './PrivateBookingStart'
 import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
 import { fetchScenarioDateReasons, type CandidateSlotAvailabilityTarget } from '@/lib/candidateSlotAvailability'
 import { useCandidateSlotAvailability } from '@/hooks/useCandidateSlotAvailability'
-import { selectedSlotCheck } from './privateBookingSelectModel'
+import { privateSelectFee, selectedSlotCheck, slotPricingTime } from './privateBookingSelectModel'
+import { getPricingLabel, type ParticipationCost } from './ScenarioDetailPage/utils/pricingUtils'
+import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { isBeyondPrivateBookingHorizon, PRIVATE_BOOKING_HORIZON_CHECKING_TEXT, privateBookingTooFarText, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
 import { PrivateBookingHorizonNotice } from '@/components/private-booking/PrivateBookingHorizonNotice'
 
@@ -36,6 +38,7 @@ interface Scenario {
   synopsis?: string
   genre?: string[]
   participation_fee?: number
+  participation_costs?: ParticipationCost[] | null
   available_stores?: string[]
   booking_start_date?: string | null
   booking_end_date?: string | null
@@ -124,6 +127,12 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
   const entryHorizonDays = entryHorizon.days
   const dateTooFar = isBeyondPrivateBookingHorizon(preselectedDate, entryHorizonDays)
 
+  // 料金は選んだ日の曜日・祝日・組織の独自休日で決める（平日の基本料金のまま出さない）
+  const holidays = useCustomHolidays({ organizationId: organizationId ?? undefined })
+  const holidayState = useMemo(() => ({ loading: holidays.isLoading, error: holidays.error, isCustomHoliday: holidays.isCustomHoliday }), [holidays.isLoading, holidays.error, holidays.isCustomHoliday])
+  const feePendingText = holidays.error ? '確認できません' : '確認中'
+  const listPricingTime = slotPricingTime(preselectedSlot, preselectedTime)
+
   const dateTimeLabel = `${formatJstDateJa(preselectedDate, true) || preselectedDate} ${slotLabels[preselectedSlot] || preselectedSlot}`
   const basePath = organizationSlug ? `/${organizationSlug}` : ''
 
@@ -135,11 +144,12 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
         : dateTooFar ? privateBookingTooFarText(entryHorizonDays) : dateReasons[s.id]
       return {
         ...s,
+        participation_fee: privateSelectFee(s, preselectedDate, listPricingTime, holidayState),
         closed: !open || Boolean(dayReason),
         closedLabel: open && dayReason ? `この日は申し込めません（${dayReason}）` : null,
       }
     }),
-    [scenarios, dateReasons, dateTooFar, entryHorizonDays],
+    [scenarios, dateReasons, dateTooFar, entryHorizonDays, preselectedDate, listPricingTime, holidayState],
   )
   const scenarioPagePath = (s: PrivateScenario) => `${basePath}/scenario/${encodeURIComponent(s.slug || s.id)}?tab=private`
 
@@ -346,11 +356,12 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
               const scenario = scenarios.find(s => s.id === selectedScenarioId)
               if (!scenario) return null
               
-              const participationFee = scenario.participation_fee || 0
+              const participationFee = privateSelectFee(scenario, preselectedDate,
+                slotPricingTime(preselectedSlot, preselectedTime, slotCheck.kind === 'available' ? slotCheck.startTime : null), holidayState)
               const isVariablePlayerCount = scenario.player_count_min !== scenario.player_count_max
               // 可変人数の場合は選択された人数、固定の場合は最大人数を使用
               const participantCount = selectedParticipantCount || scenario.player_count_max
-              const totalPrice = participationFee * participantCount
+              const totalPrice = participationFee == null ? null : participationFee * participantCount
               
               return (
                 <>
@@ -459,8 +470,8 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
                     <h3 className="text-sm font-medium text-purple-800">料金</h3>
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">参加費（1名）</span>
-                        <span>¥{participationFee.toLocaleString()}</span>
+                        <span className="text-muted-foreground">{getPricingLabel(preselectedDate, holidays.isCustomHoliday)}</span>
+                        <span>{participationFee == null ? feePendingText : `¥${participationFee.toLocaleString()}`}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">人数</span>
@@ -468,9 +479,12 @@ function PrivateBookingDateScenarioSelect({ organizationSlug }: PrivateBookingSc
                       </div>
                       <div className="flex justify-between pt-2 border-t border-purple-200">
                         <span className="font-medium">合計</span>
-                        <span className="text-purple-600 font-bold">¥{totalPrice.toLocaleString()}</span>
+                        <span className="text-purple-600 font-bold">{totalPrice == null ? feePendingText : `¥${totalPrice.toLocaleString()}`}</span>
                       </div>
                     </div>
+                    {holidays.error && (
+                      <p className="text-xs text-destructive" data-testid="private-select-fee-error">休日の設定を読み込めず、料金を確認できません。画面を再読み込みしてください。</p>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       ※ 実際の料金は店舗との調整により変動する場合があります
                     </p>
