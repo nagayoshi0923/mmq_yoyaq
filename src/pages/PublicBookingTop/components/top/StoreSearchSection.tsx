@@ -31,6 +31,14 @@ interface StoreSearchSectionProps {
   source: ScenarioCardSource
   marks?: ScenarioMarks | null
   onOpen: (card: ScenarioCardData) => void
+  /** 「もっと見る」を押した回数 + 1（今日から windows × 30 日を出す） */
+  windows: number
+  onMore: () => void
+  /** 「もっと見る」を出す最後の日（予約を受け付けている公開の公演のうち、いちばん先の日付。無ければ出さない） */
+  moreUntil: string | null
+  /** カードの期間のうち、先の月を読み足している途中か・読めなかったか */
+  extraState: 'ready' | 'loading' | 'error'
+  onRetryExtra: () => void
   /** 元のカレンダー・リスト用 */
   classic: {
     organizationId: string | null
@@ -42,23 +50,28 @@ interface StoreSearchSectionProps {
     organizationName: string | null
     privateBookingDeadlineDays: number
     onCardClick: (scenarioId: string) => void
+    lastMonth: Date | null
+    onVisibleMonthChange: (month: Date) => void
+    monthStatus: (month: Date) => 'loading' | 'error' | 'ready'
+    onRetryMonth: (month: Date) => void
   }
 }
 
 /**
  * 店舗トップ「空いている公演を探す」。
- * チップ「今週／来週／今月」は日付順のカード（店舗・空席あり・初心者向けで絞れる）、
- * 「カレンダー」「リスト」は元の部品（年月・店舗・満席を非表示の操作）を出す（2026-10-12 社長決定）。
+ * 既定は今日から 30 日の日付順のカード（店舗・空席あり・初心者向けで絞れる）。末尾の「もっと見る」で次の 30 日を足す
+ * （2026-10-25 社長指示「今月バッジ廃止、予定公演を30日分、末尾にもっとみる」。件数では切らない）。
+ * チップ「今週／来週」はその週のカード、「カレンダー」「リスト」は元の部品（年月・店舗・満席を非表示の操作）を出す（2026-10-12 社長決定）。
+ * 選んでいるチップをもう一度押すと既定（今日から 30 日のカード）に戻る。
  * 人数の絞り込みは置かない（2026-10-12 社長指示。空席ありは 1 名以上の空き）。
- * 初期選択は「今月」、結果は折りたたまず全部並べる（2026-10-13 社長指示）。
  */
-export function StoreSearchSection({ performances, isLoading, state, onChange, storeOptions, today, nowMs, primaryColor, source, marks, onOpen, classic }: StoreSearchSectionProps) {
+export function StoreSearchSection({ performances, isLoading, state, onChange, storeOptions, today, nowMs, primaryColor, source, marks, onOpen, windows, onMore, moreUntil, extraState, onRetryExtra, classic }: StoreSearchSectionProps) {
   // 元のカレンダー・リストの操作（両方で共通にし、切り替えても保つ）
   const [classicStoreIds, setClassicStoreIds] = useState<string[]>([])
   const [hideSoldOut, setHideSoldOut] = useState(false)
   const [hidePlayed, setHidePlayed] = useState(false)
   const isCards = state.view === 'cards'
-  // カレンダー・リストから日付のチップに戻るときは「今月」から（日付の指定は持ち越さない）
+  // 店舗トップに日付の指定は無い（?when=date は既定で開く）
   const preset = state.preset === 'date' ? DEFAULT_DATE_PRESET : state.preset
   const { range, results } = useMemo(() => {
     const search = (r: ReturnType<typeof resolvePresetRange>) => searchPerformances(performances, {
@@ -67,10 +80,12 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
       beginnerOnly: state.beginnerOnly,
       storeIds: state.storeIds,
     }, nowMs)
-    // 「今月」が 0 件なら来月、「今週」が 0 件なら「来週」に切り替える（読み込み中は切り替えない）
-    const r = resolvePresetRange(preset, today, null, (cand) => (isLoading ? 1 : search(cand).length))
+    // 「今週」が 0 件なら「来週」に切り替える（読み込み中は切り替えない）。既定は今日から windows × 30 日
+    const r = resolvePresetRange(preset, today, null, (cand) => (isLoading ? 1 : search(cand).length), windows)
     return { range: r, results: search(r) }
-  }, [performances, preset, today, isLoading, state.onlyAvailable, state.beginnerOnly, state.storeIds, nowMs])
+  }, [performances, preset, today, isLoading, state.onlyAvailable, state.beginnerOnly, state.storeIds, nowMs, windows])
+  // 先に予約を受け付けている公開の公演があるときだけ「もっと見る」
+  const canShowMore = preset === DEFAULT_DATE_PRESET && !!moreUntil && range.to < moreUntil
   const hasBeginner = useMemo(() => performances.some((p) => p.beginner_friendly), [performances])
   const classicProps = {
     ...classic,
@@ -89,14 +104,14 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
       {/* 見本 Top.dc.html の .chips: 1 行の横スクロール（折り返さない）。絞り込みのチップは下の行で折り返してよい */}
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 scroll-row" role="group" aria-label="日付・見方">
         {DATE_PRESETS.map((d) => (
-          <ChipButton key={d.value} selected={isCards && preset === d.value} primaryColor={primaryColor} onClick={() => onChange({ preset: d.value, view: 'cards' })}>
+          <ChipButton key={d.value} selected={isCards && preset === d.value} primaryColor={primaryColor} onClick={() => onChange({ preset: isCards && preset === d.value ? DEFAULT_DATE_PRESET : d.value, view: 'cards' })}>
             {d.label}
           </ChipButton>
         ))}
-        <ChipButton selected={state.view === 'calendar'} primaryColor={primaryColor} onClick={() => onChange({ view: 'calendar' })}>
+        <ChipButton selected={state.view === 'calendar'} primaryColor={primaryColor} onClick={() => onChange(state.view === 'calendar' ? { view: 'cards', preset: DEFAULT_DATE_PRESET } : { view: 'calendar' })}>
           <CalendarDays className="h-4 w-4" aria-hidden />カレンダー
         </ChipButton>
-        <ChipButton selected={state.view === 'list'} primaryColor={primaryColor} onClick={() => onChange({ view: 'list' })}>
+        <ChipButton selected={state.view === 'list'} primaryColor={primaryColor} onClick={() => onChange(state.view === 'list' ? { view: 'cards', preset: DEFAULT_DATE_PRESET } : { view: 'list' })}>
           <List className="h-4 w-4" aria-hidden />リスト
         </ChipButton>
       </div>
@@ -128,6 +143,17 @@ export function StoreSearchSection({ performances, isLoading, state, onChange, s
             onOpen={onOpen}
             empty={<>条件に合う公演がありません。日付や条件を変えてみてください。</>}
           />
+          {extraState === 'loading' && <p className="mt-2 text-sm text-muted-foreground" role="status" data-testid="performance-search-extra-loading">先の公演を読み込み中…</p>}
+          {extraState === 'error' && (
+            <p className="mt-2 text-sm text-destructive" role="alert" data-testid="performance-search-extra-error">
+              先の公演を読み込めませんでした。<button type="button" className="underline" onClick={onRetryExtra}>もう一度読み込む</button>
+            </p>
+          )}
+          {canShowMore && (
+            <div className="mt-3 flex justify-center">
+              <ChipButton onClick={onMore} data-testid="performance-search-more">もっと見る（次の 30 日）</ChipButton>
+            </div>
+          )}
           {results.length > 0 && <p className="mt-1.5 text-xs text-muted-foreground">カードを押すと作品ページが、色付きの公演を選んだ状態で開きます。</p>}
         </>
       )}

@@ -18,8 +18,13 @@ interface BookingFiltersProps {
   hidePlayed?: boolean
   onHidePlayedChange?: (value: boolean) => void
   isLoggedIn?: boolean
-  /** 選べる月の数（今月から） */
+  /** 選べる月の数（今月から）。lastMonth があればそちらを使う */
   monthCount?: number
+  /**
+   * 選べる最後の月（その月の 1 日）。予約を受け付けている公開の公演がある最後の月（既定の 3 か月より短くはしない）。
+   * 固定の月数で止めると、公開済みの先の公演に月送りで行けない（2026-10-25 社長報告「12 月以降に切り替えられない」）
+   */
+  lastMonth?: Date | null
   primaryColor: string
 }
 
@@ -43,12 +48,16 @@ export function BookingFilters({
   onHidePlayedChange,
   isLoggedIn = false,
   monthCount = 3,
+  lastMonth = null,
   primaryColor,
 }: BookingFiltersProps) {
   const [monthOpen, setMonthOpen] = useState(false)
   const thisMonth = monthStart(new Date())
   const current = monthStart(currentMonth)
-  const months = Array.from({ length: monthCount }, (_, i) => new Date(thisMonth.getFullYear(), thisMonth.getMonth() + i, 1))
+  const count = lastMonth
+    ? Math.max(1, (lastMonth.getFullYear() - thisMonth.getFullYear()) * 12 + lastMonth.getMonth() - thisMonth.getMonth() + 1)
+    : monthCount
+  const months = Array.from({ length: count }, (_, i) => new Date(thisMonth.getFullYear(), thisMonth.getMonth() + i, 1))
   const isFirst = current.getTime() <= thisMonth.getTime()
   const isLast = current.getTime() >= months[months.length - 1].getTime()
   const label = `${current.getFullYear()}年${current.getMonth() + 1}月`

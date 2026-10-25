@@ -8,7 +8,9 @@ import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import { isNewArrivalTarget, newArrivalPublicKeys } from '@/components/public-top/newArrivals'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
+import { addJstDays } from '@/utils/jstDate'
 import { readBookingDataSnapshot, writeBookingDataSnapshot } from '../utils/bookingDataSnapshot'
+import { defaultBookingRangeEnd } from '../utils/bookingRange'
 import { getAvailableSeats, getAvailabilityStatus } from '@/lib/participantUtils'
 import { storeHasRecruitmentPause, type StoreRecruitmentPausePeriod } from '@/lib/storeRecruitmentPause'
 
@@ -92,7 +94,19 @@ export interface BookingDataResult {
   /** DB の public_booking_hero_description（空ならフロントでデフォルト） */
   organizationPublicBookingHeroDescription: string | null
   organizationNotFound: boolean
+  /** 公演を読めた期間の終わり（YYYY-MM-DD）。読めなかったときは今日の前日（どの月も「読んでいない」扱い） */
+  loadedUntil?: string
+  /** 公演の取得に失敗した（空の月と区別する） */
+  eventsError?: boolean
+  /** 予約を受け付けている公開の公演のうち、いちばん先の日付（無ければ null）。月送り・「もっと見る」の上限 */
+  latestPublicDate?: string | null
+  /** latestPublicDate を読めなかった（上限が分からない） */
+  latestPublicDateError?: boolean
+  /** 公開中の作品の行（先の月を月ごとに読んだ公演に作品の情報を付けるのに使う。控えには残さない） */
+  scenarioRows?: PublicScenarioRow[]
 }
+
+
 
 /**
  * 一般客はアクティブな組織のみ。スタッフ/管理者は RLS で許可された行なら非アクティブ組織も表示（404防止）。
@@ -106,6 +120,97 @@ async function requireActiveOrgForPublicBookingUrl(): Promise<boolean> {
   const { data: staffRow } = await publicBookingReadApi.findStaffId(user.id)
   if (staffRow) return false
   return true
+}
+
+/**
+ * 公演の行を、表示する公演（オープン・出張。作品・店舗の情報付き）と、貸切申込を止めるだけの公演に分ける。
+ * 最初の 3 か月（fetchBookingData）と、先の月を月ごとに読んだ分（useExtraBookingMonths）で同じ決まりを使う。
+ */
+export function buildPublicEvents(
+  allEventsData: PublicEventRow[],
+  scenariosData: PublicScenarioRow[],
+  storesData: PublicStoreRow[],
+  performancePauses: StoreRecruitmentPausePeriod[],
+): { enriched: EnrichedPublicEvent[]; blocked: PublicEventRow[] } {
+  // 予約可能な通常公演のみフィルタリング
+  const now = new Date()
+  const nowJST = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }))
+  const todayStr = formatDateJST(now)
+  const nowHour = nowJST.getHours()
+  const nowMinute = nowJST.getMinutes()
+
+  const publicEvents = allEventsData.filter((event) => {
+    // 貸切公演は予約サイトには表示しない
+    const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
+    if (isPrivateBooking) return false
+    // 非公開イベントは表示しない
+    if (event.published === false) return false
+    // 店舗の公演募集停止期間中は表示しない
+    if (event.store_id && event.date && storeHasRecruitmentPause(event.date, event.store_id, 'performance', performancePauses)) return false
+
+    // 通常公演・出張公演: category='open' or 'offsite' かつ is_reservation_enabled=true
+    const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open' || event.category === 'offsite')
+
+    // 今日の公演で開始時間を過ぎたものは非表示
+    if (event.date === todayStr && event.start_time) {
+      const [h, m] = event.start_time.split(':').map(Number)
+      if (h < nowHour || (h === nowHour && m <= nowMinute)) {
+        return false
+      }
+    }
+
+    return isOpenAndEnabled
+  })
+
+  // GMテスト・MTG・貸切公演等（非公開でも貸切申込を受け付けないカテゴリ）
+  const blockedSlotsData = allEventsData.filter((event) => {
+    const isBlocked = event.category === 'gmtest'
+      || event.category === 'testplay'
+      || event.category === 'mtg'
+      || event.category === 'private'
+      || event.category === 'venue_rental'
+      || event.category === 'venue_rental_free'
+      || event.category === 'package'
+      || event.is_private_booking === true
+    return isBlocked
+  })
+
+  // 最適化: シナリオデータをMapに変換
+  const scenarioDataMap = new Map<string, (typeof scenariosData)[number]>()
+  scenariosData.forEach((scenario) => {
+    scenarioDataMap.set(scenario.id, scenario)
+    if (scenario.title) scenarioDataMap.set(scenario.title, scenario)
+  })
+
+  // storesをMapに変換（ID→店舗データ）
+  const storesMap = new Map<string, (typeof storesData)[number]>()
+  storesData.forEach((store) => {
+    storesMap.set(store.id, store)
+  })
+
+  // イベントを加工
+  const enrichedEvents = publicEvents.map((event): EnrichedPublicEvent => {
+    const scenarioFromMap = scenarioDataMap.get(event.scenario_master_id) ||
+                            scenarioDataMap.get(event.scenario)
+
+    const player_count_max = scenarioFromMap?.player_count_max || 8
+    const key_visual_url = scenarioFromMap?.key_visual_url
+
+    // 店舗情報を追加
+    const store = storesMap.get(event.store_id)
+
+    return {
+      ...event,
+      player_count_max,
+      key_visual_url,
+      scenario_data: scenarioFromMap,
+      store_name: store?.name || event.venue,
+      store_short_name: store?.short_name,
+      store_color: store?.color
+    }
+  })
+
+  return { enriched: enrichedEvents, blocked: blockedSlotsData }
 }
 
 /**
@@ -154,14 +259,11 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     orgPublicBookingHeroDescription = orgData.public_booking_hero_description ?? null
   }
   
-  // 今日から3ヶ月分のデータを取得
+  // 今日から 3 か月分（今月を含む）。それより先の月は、月送り・「もっと見る」で要るときに月ごとに読む（useExtraBookingMonths）
   const currentDate = new Date()
   const todayJST = formatDateJST(currentDate)
-  const year = currentDate.getFullYear()
-  const month = currentDate.getMonth() + 1
   const startDate = todayJST
-  const endMonthDate = new Date(year, month + 2, 0) // 3ヶ月後の月末
-  const endDate = formatDateJST(endMonthDate)
+  const endDate = defaultBookingRangeEnd(todayJST)
 
   // 🚀 パフォーマンス最適化: 全クエリを並列実行
   const [
@@ -170,7 +272,8 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     settingsResult,
     availableOrgResult,
     likesCountResult,
-    eventsResult
+    eventsResult,
+    latestResult
   ] = await Promise.all([
     // 1. シナリオ取得（organization_scenarios_with_master: 基本情報 + 組織固有設定）
     (async () => {
@@ -238,6 +341,18 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         logger.error('schedule_events query error:', err)
         return { data: [], error: err }
       }
+    })(),
+
+    // 7. 予約を受け付けている公開の公演のうち、いちばん先の日付（月送り・「もっと見る」の上限）
+    (async () => {
+      try {
+        const result = await publicBookingListReadApi.latestPublicOpenEventDate(orgId, startDate)
+        if (result.error) logger.error('latest public event query failed:', result.error)
+        return result
+      } catch (err) {
+        logger.error('latest public event query error:', err)
+        return { date: null, error: err }
+      }
     })()
   ])
   
@@ -291,7 +406,8 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   
   const storesData = storesResult?.data || []
   const privateBookingDeadlineDays = typeof settingsResult?.data === 'number' ? settingsResult.data : 14
-  const allEventsData = eventsResult?.data || []
+  // 途中のページで失敗したら、読めた途中までの行は使わない（読めなかった期間として月ごとに読み直す。重なりを作らない）
+  const allEventsData = eventsResult?.error ? [] : (eventsResult?.data || [])
 
   // 店舗の公演募集停止期間（QW-20260909-011）。停止中の日の公演は予約一覧に出さない。
   // 予約作成の関数でも拒否しているので、ここは表示を合わせるだけ（取得に失敗しても予約は守られる）。
@@ -303,90 +419,15 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     else performancePauses = (pauseRows || []) as StoreRecruitmentPausePeriod[]
   }
   
-  // 予約可能な通常公演のみフィルタリング
-  const now = new Date()
-  const nowJST = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }))
-  const todayStr = formatDateJST(now)
-  const nowHour = nowJST.getHours()
-  const nowMinute = nowJST.getMinutes()
+  // 表示する公演（オープン・出張）と、貸切申込を止めるだけの公演に分け、作品・店舗の情報を付ける
+  const { enriched: enrichedEvents, blocked: blockedSlotsData } = buildPublicEvents(allEventsData, scenariosData, storesData, performancePauses)
 
-  const publicEvents = allEventsData.filter((event) => {
-    // 貸切公演は予約サイトには表示しない
-    const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
-    if (isPrivateBooking) return false
-    // 非公開イベントは表示しない
-    if (event.published === false) return false
-    // 店舗の公演募集停止期間中は表示しない
-    if (event.store_id && event.date && storeHasRecruitmentPause(event.date, event.store_id, 'performance', performancePauses)) return false
-
-    // 通常公演・出張公演: category='open' or 'offsite' かつ is_reservation_enabled=true
-    const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open' || event.category === 'offsite')
-
-    // 今日の公演で開始時間を過ぎたものは非表示
-    if (event.date === todayStr && event.start_time) {
-      const [h, m] = event.start_time.split(':').map(Number)
-      if (h < nowHour || (h === nowHour && m <= nowMinute)) {
-        return false
-      }
-    }
-    
-    return isOpenAndEnabled
-  })
-  
-  // GMテスト・MTG・貸切公演等（非公開でも貸切申込を受け付けないカテゴリ）
-  const blockedSlotsData = allEventsData.filter((event) => {
-    const isBlocked = event.category === 'gmtest'
-      || event.category === 'testplay'
-      || event.category === 'mtg'
-      || event.category === 'private'
-      || event.category === 'venue_rental'
-      || event.category === 'venue_rental_free'
-      || event.category === 'package'
-      || event.is_private_booking === true
-    return isBlocked
-  })
-  
   // 最適化: 店舗データをMapに変換
   const storeMap = new Map<string, (typeof storesData)[number]>()
   storesData.forEach((store) => {
     storeMap.set(store.id, store)
     if (store.short_name) storeMap.set(store.short_name, store)
     if (store.name) storeMap.set(store.name, store)
-  })
-  
-  // 最適化: シナリオデータをMapに変換
-  const scenarioDataMap = new Map<string, (typeof scenariosData)[number]>()
-  scenariosData.forEach((scenario) => {
-    scenarioDataMap.set(scenario.id, scenario)
-    if (scenario.title) scenarioDataMap.set(scenario.title, scenario)
-  })
-  
-  // storesをMapに変換（ID→店舗データ）
-  const storesMap = new Map<string, (typeof storesData)[number]>()
-  storesData.forEach((store) => {
-    storesMap.set(store.id, store)
-  })
-  
-  // イベントを加工
-  const enrichedEvents = publicEvents.map((event): EnrichedPublicEvent => {
-    const scenarioFromMap = scenarioDataMap.get(event.scenario_master_id) ||
-                            scenarioDataMap.get(event.scenario)
-    
-    const player_count_max = scenarioFromMap?.player_count_max || 8
-    const key_visual_url = scenarioFromMap?.key_visual_url
-    
-    // 店舗情報を追加
-    const store = storesMap.get(event.store_id)
-    
-    return {
-      ...event,
-      player_count_max,
-      key_visual_url,
-      scenario_data: scenarioFromMap,
-      store_name: store?.name || event.venue,
-      store_short_name: store?.short_name,
-      store_color: store?.color
-    }
   })
   
   // イベントをシナリオIDでインデックス化
@@ -592,7 +633,13 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     organizationHeaderImageUrl: orgHeaderImageUrl,
     organizationThemeColor: orgThemeColor,
     organizationPublicBookingHeroDescription: orgPublicBookingHeroDescription,
-    organizationNotFound
+    organizationNotFound,
+    // 公演を読めなかったときは「どの月も読んでいない」（空の月と区別する）
+    loadedUntil: eventsResult?.error ? addJstDays(todayJST, -1) : endDate,
+    eventsError: !!eventsResult?.error,
+    latestPublicDate: latestResult.error ? null : latestResult.date,
+    latestPublicDateError: !!latestResult.error,
+    scenarioRows: scenariosData,
   }
 }
 
@@ -607,6 +654,7 @@ export function useBookingData(organizationSlug?: string) {
     () => (organizationSlug ? readBookingDataSnapshot(organizationSlug) : null),
     [organizationSlug]
   )
+  const defaultEnd = defaultBookingRangeEnd(formatDateJST(new Date()))
 
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['booking-data', organizationSlug],
@@ -620,8 +668,10 @@ export function useBookingData(organizationSlug?: string) {
   })
 
   useEffect(() => {
-    if (data && organizationSlug && !data.organizationNotFound) {
-      writeBookingDataSnapshot(organizationSlug, data)
+    // 公演を読めなかった結果は控えない。作品の行（scenarioRows）は控えに残さない（大きいので。最新の取得で付く）
+    if (data && organizationSlug && !data.organizationNotFound && !data.eventsError) {
+      const { scenarioRows: _rows, ...rest } = data
+      writeBookingDataSnapshot(organizationSlug, rest)
     }
   }, [data, organizationSlug])
 
@@ -639,6 +689,15 @@ export function useBookingData(organizationSlug?: string) {
     organizationName: data?.organizationName ?? null,
     organizationHeaderImageUrl: data?.organizationHeaderImageUrl ?? null,
     organizationThemeColor: data?.organizationThemeColor ?? null,
-    organizationPublicBookingHeroDescription: data?.organizationPublicBookingHeroDescription ?? null
+    organizationPublicBookingHeroDescription: data?.organizationPublicBookingHeroDescription ?? null,
+    /** 読めた期間の終わり（前回の控えに無いときは既定の終わり） */
+    loadedUntil: data?.loadedUntil ?? defaultEnd,
+    /** 最初の 3 か月の公演を読めなかった */
+    eventsError: !!data?.eventsError,
+    /** 先の月を月ごとに読むときに使う作品の行（最新の取得のときだけある） */
+    scenarioRows: data?.scenarioRows ?? null,
+    /** 予約を受け付けている公開の公演のうち、いちばん先の日付（読めなければ null） */
+    latestPublicDate: data?.latestPublicDate ?? null,
+    latestPublicDateError: !!data?.latestPublicDateError,
   }
 }

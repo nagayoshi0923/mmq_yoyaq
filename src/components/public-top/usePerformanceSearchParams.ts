@@ -13,10 +13,16 @@ export interface PerformanceSearchState {
   area: string | null
   /** 店舗トップの見方（一覧＝カード／カレンダー／リスト＝時間割） */
   view: SearchView
+  /** 既定の「今日から 30 日」を何回分出すか（「もっと見る」で 1 ずつ増える。?more=）。作品ページから戻ったときも同じ期間で開く */
+  windows: number
 }
 
+/** ?more= の上限（1 回 30 日 × 24 = 約 2 年） */
+const MAX_WINDOWS = 24
+
 /**
- * 絞り込みを URL（?when=&date=&stores=&avail=&beginner=&area=&view=）に持つ。初期表示は「今月・空席あり」（2026-10-13 社長指示で「今週」から変更）。
+ * 絞り込みを URL（?when=&date=&stores=&avail=&beginner=&area=&view=&more=）に持つ。初期表示は「今日から 30 日・空席あり」
+ * （2026-10-25 社長指示で「今月」をやめた。「もっと見る」で伸ばした期間も ?more= に持ち、戻ったときに同じ期間で開く）。
  * 作品ページから戻ったときに同じ条件で開き直せ、旧 /calendar からも ?when=date で渡せる。
  * 人数（?people=）は 2026-10-12 に絞り込みごと外した。古いリンクに残っていても無視し、次の操作で URL から消す。
  */
@@ -36,6 +42,7 @@ export function usePerformanceSearchParams() {
       storeIds: stores,
       area: params.get('area') || null,
       view: params.get('view') === 'calendar' ? 'calendar' : params.get('view') === 'list' ? 'list' : 'cards',
+      windows: Math.min(MAX_WINDOWS, Math.max(1, Number.parseInt(params.get('more') ?? '1', 10) || 1)),
     }
   }, [params])
 
@@ -52,6 +59,9 @@ export function usePerformanceSearchParams() {
       if (patch.area !== undefined) set('area', patch.area)
       if (patch.view !== undefined) set('view', patch.view === 'cards' ? null : patch.view)
       if (patch.preset !== undefined && patch.preset !== 'date') next.delete('date')
+      // 日付のチップ・見方を変えたら「もっと見る」の期間は最初に戻す（店舗・空席などの絞り込みは保つ）
+      if (patch.windows !== undefined) set('more', patch.windows > 1 ? String(Math.min(MAX_WINDOWS, patch.windows)) : null)
+      else if (patch.preset !== undefined || patch.view !== undefined) next.delete('more')
       return next
     }, { replace: true })
   }, [setParams])

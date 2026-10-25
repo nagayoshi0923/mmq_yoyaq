@@ -39,11 +39,15 @@ import {
   datesWithOpenings,
   isBookableNow,
   nearlyFullPerformances,
+  DEFAULT_DATE_PRESET,
   resolvePresetRange,
   searchPerformances,
   todayJst,
+  upcomingRange,
   type DateRange,
 } from '@/lib/publicPerformanceSearch'
+import { extraMonthsToLoad, uniqueById } from '@/pages/PublicBookingTop/utils/bookingRange'
+import { useExtraPlatformMonths } from './hooks/useExtraPlatformMonths'
 import { addJstDays } from '@/utils/jstDate'
 import { fetchPlatformTopData, PLATFORM_RANGE_DAYS } from './hooks/platformTopData'
 import { PlatformSearchSection } from './components/PlatformSearchSection'
@@ -69,30 +73,43 @@ export function PlatformTop() {
     queryFn: () => fetchPlatformTopData(today),
     staleTime: 2 * 60 * 1000,
   })
-  useReportRouteScrollRestoration('platform-top', { isLoading, isFetching })
 
   const performances = useMemo(() => data?.performances ?? [], [data])
   const organizations = useMemo(() => data?.organizations ?? [], [data])
   const prefectures = data?.prefectures ?? []
   const { state: search, update: updateSearch } = usePerformanceSearchParams()
+  // 「もっと見る」の回数 + 1（今日から windows × 30 日。URL の ?more= に持ち、戻ったときも同じ期間）
+  const cardWindows = search.windows
+  // 最初に読む 55 日より先は、「もっと見る」で要る月だけ月ごとに読む。上限は予約を受け付けている公開の公演のいちばん先の日
+  // （読めなかったときは今日から 1 年。月ごとに読むので取りすぎない）
+  const moreUntil = data ? (data.latestPublicDateError ? addJstDays(today, 365) : data.latestPublicDate) : null
+  const cardsUntilRaw = search.preset === DEFAULT_DATE_PRESET ? upcomingRange(today, cardWindows).to : null
+  const cardsUntil = cardsUntilRaw && moreUntil && cardsUntilRaw > moreUntil ? moreUntil : cardsUntilRaw
+  const loadedUntil = data?.loadedUntil ?? addJstDays(today, PLATFORM_RANGE_DAYS)
+  const extraMonths = useMemo(() => (data?.context ? extraMonthsToLoad(loadedUntil, cardsUntil) : []), [data, loadedUntil, cardsUntil])
+  const extra = useExtraPlatformMonths({ months: extraMonths, today, loadedUntil, context: data?.context ?? null })
+  // 同じ公演が最初の取得と月ごとの取得の両方に入っても 1 件にする（id で一意）
+  const searchable = useMemo(() => uniqueById(performances, extra.performances), [performances, extra.performances])
+  // 「もっと見る」で読み足す月が揃うまで、戻ったときのスクロール位置を戻さない（先に戻すと後から伸びてずれる）
+  useReportRouteScrollRestoration('platform-top', { isLoading: isLoading || extra.state === 'loading', isFetching })
   const primaryColor = BOOKING_THEME.primary
   const { marks, dialog: marksDialog } = useScenarioMarks()
 
   const { range, results } = useMemo(() => {
-    const find = (r: DateRange) => searchPerformances(performances, {
+    const find = (r: DateRange) => searchPerformances(searchable, {
       range: r, onlyAvailable: search.onlyAvailable, prefecture: search.area,
       beginnerOnly: search.beginnerOnly, storeIds: search.storeIds,
     }, nowMs)
-    // 「今月」が 0 件なら来月、「今週」が 0 件なら「来週」に切り替える（読み込み中は切り替えない）
-    const r = resolvePresetRange(search.preset, today, search.date, (cand) => (isLoading ? 1 : find(cand).length))
+    // 「今週」が 0 件なら「来週」に切り替える（読み込み中は切り替えない）。既定は今日から windows × 30 日
+    const r = resolvePresetRange(search.preset, today, search.date, (cand) => (isLoading ? 1 : find(cand).length), cardWindows)
     return { range: r, results: find(r) }
-  }, [performances, search.preset, search.date, today, isLoading, search.onlyAvailable, search.area, search.beginnerOnly, search.storeIds, nowMs])
+  }, [searchable, search.preset, search.date, today, isLoading, search.onlyAvailable, search.area, search.beginnerOnly, search.storeIds, nowMs, cardWindows])
   const nearlyFull = useMemo(() => nearlyFullPerformances(performances, nowMs), [performances, nowMs])
   // 作品カード（本番の見た目）の材料。全体トップでは画像の左上に組織名の帯を出す
   const cardSource = useMemo<ScenarioCardSource>(() => {
     const meta = new Map<string, ScenarioCardMeta>((data?.scenarios ?? []).map((s) => [s.id, s]))
-    return { upcoming: indexUpcoming(performances, nowMs), meta: (id) => meta.get(id), showOrganization: true }
-  }, [data, performances, nowMs])
+    return { upcoming: indexUpcoming(searchable, nowMs), meta: (id) => meta.get(id), showOrganization: true }
+  }, [data, searchable, nowMs])
   const openDates = useMemo(() => datesWithOpenings(
     search.area ? performances.filter((p) => p.prefecture === search.area) : performances, nowMs,
   ), [performances, search.area, nowMs])
@@ -198,6 +215,10 @@ export function PlatformTop() {
           source={cardSource}
           marks={marks}
           onOpen={openCard}
+          canShowMore={search.preset === DEFAULT_DATE_PRESET && !!moreUntil && range.to < moreUntil}
+          onMore={() => updateSearch({ windows: cardWindows + 1 })}
+          extraState={search.preset === DEFAULT_DATE_PRESET ? extra.state : 'ready'}
+          onRetryExtra={extra.retry}
         />
 
         {browseScenarios.length > 0 && (

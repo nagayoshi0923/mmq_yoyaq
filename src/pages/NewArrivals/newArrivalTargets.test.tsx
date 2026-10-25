@@ -106,6 +106,7 @@ beforeEach(() => {
     'list.listPublicStores': vi.fn(() => ok([])),
     'list.listAllPublicEventsInRange': vi.fn(() => ok([])),
     'list.listPublicEventsInRange': vi.fn(() => ok([])),
+    'list.latestPublicOpenEventDate': vi.fn(async () => ({ date: null, error: null })),
     'booking.listPerformancePauses': vi.fn(() => ok([])),
     'booking.listPrivatePauses': vi.fn(() => ok([])),
     'booking.getPrivateBookingDeadlineDays': vi.fn(() => ok(14)),
