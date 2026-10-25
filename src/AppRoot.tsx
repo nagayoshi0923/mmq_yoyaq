@@ -13,6 +13,7 @@ import { RouteScrollRestorationProvider } from '@/contexts/RouteScrollRestoratio
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { supabase } from '@/lib/supabase'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
+import { PERFORMANCE_REQUEST_PROTOTYPE_BASE, resolvePrototypeView } from '@/prototypes/performanceRequest/routes'
 import { isCustomerProfileComplete } from '@/utils/customerProfileGate'
 import { isBrowseOnlyPage } from '@/lib/profileGate'
 import { buildCompleteProfilePath, readReturnToFromSearch } from '@/lib/authReturn'
@@ -44,6 +45,13 @@ const CouponPresent = lazyWithRetry(() =>
 )
 
 const RecruitmentResponse = lazyWithRetry(() => import('@/pages/RecruitmentResponse'))
+
+// 試作の画面（/prototype/...）。本番ビルドでは VITE_PROTOTYPES_ENABLED が定数 'false' になり、
+// この読み込みとルートは成果物から取り除かれる（src/prototypes/prototypeFlag.ts）。
+const PROTOTYPES_ENABLED = import.meta.env.VITE_PROTOTYPES_ENABLED === 'true'
+const PerformanceRequestPrototype = PROTOTYPES_ENABLED
+  ? lazyWithRetry(() => import('@/prototypes/performanceRequest'))
+  : null
 
 // QueryClient の設定
 const queryClient = new QueryClient({
@@ -325,7 +333,9 @@ function AppRoutes() {
     // 見るだけのページ（トップ・作品ページ・店舗一覧など）は登録前でも見せる。予約などを押した時に求める（点検 9）
     const isBrowseOnly = isBrowseOnlyPage(location.pathname, location.search)
 
-    if (location.pathname === '/coupon-claim' || location.pathname === '/recruitment-response' || !user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage || isInvitePage || isPartnerReportPage || isBrowseOnly) {
+    const isPrototypePage = PROTOTYPES_ENABLED && location.pathname.startsWith(PERFORMANCE_REQUEST_PROTOTYPE_BASE)
+
+    if (isPrototypePage || location.pathname === '/coupon-claim' || location.pathname === '/recruitment-response' || !user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage || isInvitePage || isPartnerReportPage || isBrowseOnly) {
       setIsProfileCheckRunning(false)
       return
     }
@@ -379,6 +389,11 @@ function AppRoutes() {
   // プロフィール設定ページ（新規登録メール確認後）
   // PKCE フローでは onAuthStateChange でセッションが非同期確立されるため、
   // CompleteProfile に判断を委ねる（LoginForm を表示しない）
+  // 試作の画面（ログイン無し・架空データのみ）。試作が無効なビルドでは常に null
+  if (PerformanceRequestPrototype && resolvePrototypeView(location.pathname, PROTOTYPES_ENABLED)) {
+    return <Suspense fallback={<FullPageSpinner />}><PerformanceRequestPrototype /></Suspense>
+  }
+
   if (location.pathname === '/recruitment-response') {
     return <Suspense fallback={<FullPageSpinner />}><RecruitmentResponse /></Suspense>
   }

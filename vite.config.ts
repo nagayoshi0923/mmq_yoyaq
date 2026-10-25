@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import path from 'path'
 import { copyFileSync, unlinkSync } from 'node:fs'
+import { prototypesDefine } from './src/prototypes/prototypeFlag'
 
 // 0.0.0.0 は LAN 公開に便利だが、OS によっては os.networkInterfaces() が失敗し Vite 起動が落ちる（uv_interface_addresses 等）
 const devHost = process.env.VITE_DEV_HOST === 'all' ? '0.0.0.0' : '127.0.0.1'
@@ -10,6 +11,8 @@ const apiTarget = process.env.VITE_API_TARGET || 'https://mmq-yoyaq-git-staging-
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // 試作の画面（/prototype/...）を入れるか。本番では 'false' 固定になり、試作のコードは成果物から消える
+  define: prototypesDefine({ mode, env: process.env }),
   // 本番ビルドでは console.* / debugger を成果物から除去する。
   // logger 経由の出力も内部で console を呼ぶため本番では消える（logger.ts 側の環境判定と重複しても無害）。
   esbuild: {
