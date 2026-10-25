@@ -179,19 +179,20 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
               MMQ
             </h1>
             
-            {/* 組織がある場合は組織ボタンを表示 */}
+            {/* 組織がある場合は組織ボタンを表示。名前は空いている幅（最大 160px）まで使い、入らないときだけ省略
+                （以前のスマホ 80px 固定では「クインズワルツ札幌店」が「クインズワ…」と切れて見分けられなかった） */}
             {displayOrganization && (
               <>
                 <ChevronRight className="h-3 w-3 text-white/50 hidden sm:block" />
                 <button
                   onClick={handleOrgClick}
-                  className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 hover:bg-white/10 transition-colors cursor-pointer rounded"
+                  className="flex min-w-0 items-center gap-1 px-1.5 sm:px-2 py-0.5 hover:bg-white/10 transition-colors cursor-pointer rounded"
                   style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
                   title={`${displayOrganization.name}の予約サイトへ`}
                 >
                   <Building2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" />
                   <span 
-                    className="text-xs sm:text-sm font-medium text-white truncate max-w-[80px] sm:max-w-[120px] md:max-w-[160px]"
+                    className="min-w-0 text-xs sm:text-sm font-medium text-white truncate max-w-[160px]"
                     {...devDb('organizations.name')}
                   >
                     {displayOrganization.name}
