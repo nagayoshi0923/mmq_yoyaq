@@ -3,6 +3,7 @@
  * 仕様の正本: docs/product-spec/貸切受付ルール.md
  */
 import type { CandidateSlotAvailability } from '@/lib/candidateSlotAvailability'
+import { calculateParticipationFee, type ParticipationCost } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
 
 const SLOT_LABEL: Record<string, string> = { morning: '午前', afternoon: '午後', evening: '夜' }
 
@@ -40,4 +41,26 @@ export function selectedSlotCheck(input: {
     ? `この作品の開始時刻 ${slot.startTime} で申し込みます（${label} ${slot.startTime}〜${slot.endTime}）。選んだ ${picked}〜 とは開始時刻が変わります。`
     : `この作品は ${label} ${slot.startTime}〜${slot.endTime} で申し込みます。`
   return { kind: 'available', label, startTime: slot.startTime, endTime: slot.endTime, changed, message }
+}
+
+/** 料金の時間帯を決める時刻。DB が決めた時刻 → URL の時刻 → 時間帯の代表の時刻（午前 10 時・午後 2 時・夜 7 時） */
+const SLOT_PRICING_TIME: Record<string, string> = { morning: '10:00', afternoon: '14:00', evening: '19:00' }
+export function slotPricingTime(slotKey: string, urlTime?: string | null, decidedTime?: string | null): string | undefined {
+  return decidedTime || urlTime || SLOT_PRICING_TIME[slotKey] || undefined
+}
+
+/**
+ * 選んだ日時での 1 人あたりの料金（作品ページ・申込画面・DB の受付と同じ calculateParticipationFee）。
+ * 土日祝・独自休日の料金を使い、基本料金（平日）のまま出さない（2026-10-25 社長報告: 日曜の貸切が平日料金で案内された）。
+ * 独自休日を読み込み中・読み込めなかった（error）、または料金が無ければ null（金額を出さない）。
+ * 読み込めないまま平日の料金を出すと、独自休日の料金を安く案内してしまう（Codex レビュー 2026-10-25）。
+ */
+export function privateSelectFee(
+  scenario: { participation_fee?: number | null; participation_costs?: ParticipationCost[] | null },
+  date: string,
+  startTime: string | undefined,
+  holidays: { loading: boolean; error?: string | null; isCustomHoliday: (date: string) => boolean },
+): number | null {
+  if (scenario.participation_fee == null || holidays.loading || holidays.error) return null
+  return calculateParticipationFee(scenario.participation_fee, scenario.participation_costs ?? undefined, date || undefined, holidays.isCustomHoliday, startTime)
 }

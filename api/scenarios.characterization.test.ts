@@ -451,6 +451,14 @@ describe('api/scenarios.ts 統計の出力（分割前の現状を固定）', ()
       }
     `)
   })
+  it('GET public: 料金の区分は返すが、スタッフ向けの gmtest・独自の項目は返さない（2026-10-25 土日祝料金の表示用）', async () => {
+    mock.tables.organizations = [{ id: ORG }]
+    mock.tables.organization_scenarios_with_master = [{ id: MASTER, title: 'A', status: 'available', organization_id: ORG, participation_fee: 4500,
+      participation_costs: [{ time_slot: 'normal', amount: 4500, type: 'fixed' }, { time_slot: 'gmtest', amount: 4000, type: 'fixed' }, { time_slot: 'weekend', amount: 5000, type: 'fixed' }, { time_slot: 'holiday', amount: 5000, type: 'fixed' }, { time_slot: 'スタッフ割', amount: 1, type: 'fixed' }] }]
+    const { status, body } = await call({ type: 'public' })
+    expect(status).toBe(200)
+    expect((body as Array<{ participation_costs: Array<{ time_slot: string }> }>)[0].participation_costs.map((c) => c.time_slot)).toEqual(['normal', 'weekend', 'holiday'])
+  })
   it('GET paginated: ページ範囲と hasMore の計算（page / pageSize の境界）', async () => {
     mock.tables.organization_scenarios_with_master = Array.from({ length: 5 }, (_, i) => ({ id: 's' + i }))
     const first = await call({ type: 'paginated', page: '0', pageSize: '2' })

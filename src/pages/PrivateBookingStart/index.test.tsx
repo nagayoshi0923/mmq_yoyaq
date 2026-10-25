@@ -163,6 +163,20 @@ describe('組織トップから（/{org}/private-booking-select、日付なし�
   })
 })
 
+describe('日付が決まる前の料金（2026-10-25 社長報告）', () => {
+  it('平日と土日祝で料金が違う作品は幅で出す（平日の料金だけを出さない）', async () => {
+    mocks.scenarios.mockResolvedValue([
+      { ...scenarios[0], participation_costs: [{ time_slot: 'normal', amount: 4500, type: 'fixed' }, { time_slot: 'weekend', amount: 5000, type: 'fixed' }] },
+      { ...scenarios[1], participation_fee: 3000 },
+    ])
+    await render('/queens-waltz/private-booking-select', 'queens-waltz')
+    await vi.waitFor(() => expect(titles()).toEqual(['ファクター', '馬場だけ']))
+    expect(scenarioCards()[0].textContent).toContain('1 人あたり ¥4,500〜¥5,000')
+    expect(scenarioCards()[1].textContent).toContain('1 人あたり ¥3,000')
+    expect(scenarioCards()[1].textContent).not.toContain('〜¥')
+  })
+})
+
 describe('部品', () => {
   it('作品ページの URL と stores の読み取り', () => {
     expect(privateScenarioTabPath('qw', { id: 'x', slug: 'a b' })).toBe('/qw/scenario/a%20b?tab=private')

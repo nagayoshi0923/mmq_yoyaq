@@ -1,6 +1,6 @@
 // api/scenarios.ts の GET（一覧・単体・公開・ページング・累計回数）（整備 Phase 3、#774。元の行をそのまま移した。ロジックの変更なし）
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { LEGACY_SCENARIO_FIELDS, PUBLIC_DETAIL_FIELDS, PUBLIC_FIELDS, SELECT_FIELDS, STATS_SCHEDULE_EVENT_COUNT_FIELDS, db } from './common.js'
+import { LEGACY_SCENARIO_FIELDS, PUBLIC_DETAIL_FIELDS, PUBLIC_FIELDS, SELECT_FIELDS, STATS_SCHEDULE_EVENT_COUNT_FIELDS, db, publicParticipationCosts } from './common.js'
 import { handleGetScenarioStats, handleGetAllScenarioStats } from './stats.js'
 
 // ─── GET ルーティング ─────────────────────────────────────────────────────────
@@ -163,7 +163,8 @@ export async function handleGetPublic(res: VercelResponse, orgId: string) {
     console.error('[scenarios:public] DB error:', error)
     return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
   }
-  return res.status(200).json(data ?? [])
+  const rows = (data ?? []) as unknown as Array<Record<string, unknown>>
+  return res.status(200).json(rows.map((row) => ({ ...row, participation_costs: publicParticipationCosts(row.participation_costs) })))
 }
 
 // ページネーション

@@ -120,6 +120,54 @@ export function getPricingLabel(
   return '参加費（1名）'
 }
 
+/**
+ * 日付が決まる前に出す 1 人あたりの料金の幅（平日・土日・祝日（独自休日を含む）× 午前・午後・夜の最安〜最高）。
+ * 平日の料金だけを出すと、土日祝の料金が高い作品で安く見えてしまう（2026-10-25 社長報告）。
+ */
+export function participationFeeRange(
+  baseFee: number,
+  costs: ParticipationCost[] | undefined,
+): { min: number; max: number } {
+  const fees: number[] = []
+  // 2030-01-09 は水曜（祝日でない）、2030-01-13 は日曜。祝日は「独自休日」として平日に当てる
+  for (const date of ['2030-01-09', '2030-01-13']) {
+    for (const holiday of [false, true]) {
+      for (const time of ['10:00', '14:00', '19:00']) {
+        fees.push(calculateParticipationFee(baseFee, costs, date, holiday ? () => true : undefined, time))
+      }
+    }
+  }
+  return { min: Math.min(...fees), max: Math.max(...fees) }
+}
+
+/**
+ * 1 日の料金。組織の独自休日が分からない（null = 読み込み中・読み込めなかった）ときは、
+ * 「独自休日である／ない」の両方で計算し、同じなら確定、違えば null（平日の料金で代わりに出さない。2026-10-25 Codex レビュー）。
+ * 土日でも weekend の設定が無く holiday だけある作品は独自休日かどうかで変わるので、曜日だけでは決めない。
+ */
+export function feeIfHolidayKnown(
+  baseFee: number,
+  costs: ParticipationCost[] | undefined,
+  date: string | undefined,
+  isCustomHoliday: ((date: string) => boolean) | null | undefined,
+  startTime?: string,
+): number | null {
+  if (isCustomHoliday !== null) return calculateParticipationFee(baseFee, costs, date, isCustomHoliday, startTime)
+  const notHoliday = calculateParticipationFee(baseFee, costs, date, () => false, startTime)
+  return notHoliday === calculateParticipationFee(baseFee, costs, date, () => true, startTime) ? notHoliday : null
+}
+
+/** 候補日ごとの料金（feeIfHolidayKnown）。どれか 1 つでも未確定なら null */
+export function candidateFeesIfKnown(
+  baseFee: number,
+  costs: ParticipationCost[] | undefined,
+  candidates: Array<{ date: string; slot: { startTime: string } }>,
+  isCustomHoliday: ((date: string) => boolean) | null | undefined,
+): number[] | null {
+  const fees = candidates.map(c => feeIfHolidayKnown(baseFee, costs, c.date, isCustomHoliday, c.slot.startTime))
+  return fees.some(f => f === null) ? null : fees as number[]
+}
+
 /** 貸切候補日ごとの見積もり。候補順は受付SQLと同じまま保持する。 */
 export function calculatePrivateCandidateFees(
   baseFee: number,

@@ -5,6 +5,7 @@
  */
 import { publicBookingListReadApi, publicBookingReadApi } from '@/lib/api/publicBookingReadApi'
 import { platformPageReadApi } from '@/lib/api/platformPageReadApi'
+import { bookingConfirmationReadApi } from '@/lib/api/bookingConfirmationReadApi'
 import { storeHasRecruitmentPause, type StoreRecruitmentPausePeriod } from '@/lib/storeRecruitmentPause'
 import { isPublicRegularStore, storeDisplayName, storePrefecture } from '@/lib/publicStoreName'
 import type { PublicPerformance } from '@/lib/publicPerformanceSearch'
@@ -144,12 +145,22 @@ export async function fetchPlatformTopData(today: string): Promise<PlatformTopDa
     else pauses = (data ?? []) as StoreRecruitmentPausePeriod[]
   }
 
+  // 組織の独自休日も土日祝料金にする（予約確認の画面と同じ。読めなかった組織の平日の公演は料金を出さない）
+  const holidaysByOrg = new Map<string, Set<string>>()
+  const eventOrgIds = [...new Set(events.map((e) => e.organization_id).filter((id): id is string => Boolean(id)))]
+  await Promise.all(eventOrgIds.map(async (orgId) => {
+    const { data, error } = await bookingConfirmationReadApi.getPublicCustomHolidays(orgId)
+    if (error) { logger.error('全体トップ: 独自休日の取得に失敗', error); return }
+    holidaysByOrg.set(orgId, new Set((data as Array<{ custom_holidays?: string[] }> | null)?.[0]?.custom_holidays ?? []))
+  }))
+
   const performances: PublicPerformance[] = []
   for (const e of events) {
     const org = e.organization_id ? orgById.get(e.organization_id) : undefined
     if (!org || !e.scenario_master_id) continue
     if (e.store_id && storeHasRecruitmentPause(e.date, e.store_id, 'performance', pauses)) continue
-    const p = buildPublicPerformance(e, scenarioByKey.get(`${org.id}_${e.scenario_master_id}`), e.store_id ? storeById.get(e.store_id) : null, org)
+    const holidays = holidaysByOrg.get(org.id)
+    const p = buildPublicPerformance(e, scenarioByKey.get(`${org.id}_${e.scenario_master_id}`), e.store_id ? storeById.get(e.store_id) : null, org, holidays ? (d) => holidays.has(d) : null)
     if (p) performances.push(p)
   }
 

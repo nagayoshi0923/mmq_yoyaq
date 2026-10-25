@@ -13,7 +13,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
-import { calculatePrivateCandidateFees } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
+import { candidateFeesIfKnown } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
 import type { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInviteCode'
 import { submitGroupBookingRequest } from '../../submitBookingRequest'
 import { buildAnswerTable } from '../groupPageModel'
@@ -42,7 +42,7 @@ interface BookingRequestSheetProps {
   preferredStores: Array<{ id: string; name: string }>
   organizerMember: GroupMember | undefined
   canMutateSchedule: boolean
-  isCustomHoliday: (date: string) => boolean
+  isCustomHoliday: ((date: string) => boolean) | null  // null = 独自休日を読み込み中・読み込めなかった（平日の候補の料金は出さない）
   onClose: () => void
   /** 送ったあと（シートを閉じてグループを読み直す） */
   onSubmitted: () => void
@@ -147,9 +147,9 @@ export function BookingRequestSheet(props: BookingRequestSheetProps) {
   const count = participants !== null && choice.options.includes(participants) ? participants : choice.initial
 
   const fee = info?.participationFee ?? null
-  const fees = fee && fee > 0 && picked.length
-    ? calculatePrivateCandidateFees(fee, info?.participationCosts ?? [], picked.map(c => ({ date: c.date, slot: { startTime: c.startTime } })), isCustomHoliday)
-    : []
+  const fees = (fee && fee > 0 && picked.length
+    ? candidateFeesIfKnown(fee, info?.participationCosts ?? [], picked.map(c => ({ date: c.date, slot: { startTime: c.startTime } })), isCustomHoliday)
+    : null) ?? []
   const priceText = fees.length
     ? `${yenRange(Math.min(...fees), Math.max(...fees))} × ${count} 名 = ${yenRange(Math.min(...fees) * count, Math.max(...fees) * count)}`
     : null

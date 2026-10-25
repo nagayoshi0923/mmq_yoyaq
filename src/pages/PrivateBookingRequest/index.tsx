@@ -1,5 +1,5 @@
 import { reconcilePrivateBookingCandidates } from '@/lib/reconcilePrivateBookingCandidates'
-import { calculatePrivateCandidateFees } from '../ScenarioDetailPage/utils/pricingUtils'
+import { candidateFeesIfKnown } from '../ScenarioDetailPage/utils/pricingUtils'
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -24,7 +24,7 @@ import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
 import { PrivateBookingRequestSuccess } from './components/PrivateBookingRequestSuccess'
 import { ChangeStoresSheet, type UnavailableCandidate } from './components/ChangeStoresSheet'
 import { privateCancelNoticeText } from '@/lib/privateCancelNotice'
-import { useCustomHolidays } from '@/hooks/useCustomHolidays'
+import { knownCustomHoliday, useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { usePrivateBookingDeadlineDays } from '@/hooks/usePrivateBookingDeadlineDays'
 import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
 import { privateBookingSlotReadApi } from '@/lib/api/scheduleHookReadApi'
@@ -78,7 +78,9 @@ export function PrivateBookingRequest({
   const { user } = useAuth()
   const { createGroup, loading: groupLoading } = usePrivateGroup()
   
-  const { isCustomHoliday } = useCustomHolidays({ organizationSlug })
+  const holidays = useCustomHolidays({ organizationSlug })
+  // 料金用。独自休日を読み込み中・読み込めなかったときは null（平日の候補の料金を出さない）
+  const priceHoliday = knownCustomHoliday(holidays)
 
   // 候補の開始・終了時刻は DB の空き判定（private_booking_candidate_slot_availability）が返した値をそのまま使う。
   // 画面側で作品の公演時間から終了を計算し直すと、店舗の特別営業日などが反映されず保存時に拒否される（監査 R1）。
@@ -90,9 +92,11 @@ export function PrivateBookingRequest({
   
   // 編集可能な候補日時
   const [editableTimeSlots, setEditableTimeSlots] = useState(initialTimeSlots)
-  const candidateFees = useMemo(() => calculatePrivateCandidateFees(
-    participationFee, participationCosts, editableTimeSlots, isCustomHoliday,
-  ), [participationFee, participationCosts, editableTimeSlots, isCustomHoliday])
+  const knownFees = useMemo(() => candidateFeesIfKnown(
+    participationFee, participationCosts, editableTimeSlots, priceHoliday,
+  ), [participationFee, participationCosts, editableTimeSlots, priceHoliday])
+  const feeUnknownText = knownFees ? null : holidays.error ? '確認できません' : '確認中'
+  const candidateFees = useMemo(() => knownFees ?? [], [knownFees])
   const minFee = candidateFees.length ? Math.min(...candidateFees) : participationFee
   const maxFee = candidateFees.length ? Math.max(...candidateFees) : participationFee
 
@@ -795,7 +799,7 @@ export function PrivateBookingRequest({
                 <CardContent className="p-4 space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">参加費（1名）</span>
-                    <span>¥{minFee.toLocaleString()}{maxFee !== minFee ? `〜¥${maxFee.toLocaleString()}` : ''}</span>
+                    <span>{feeUnknownText ?? `¥${minFee.toLocaleString()}${maxFee !== minFee ? `〜¥${maxFee.toLocaleString()}` : ''}`}</span>
                   </div>
 
                   <div className="flex justify-between text-sm">
@@ -806,15 +810,18 @@ export function PrivateBookingRequest({
                   {editableTimeSlots.map((candidate, index) => (
                     <div key={`${candidate.date}-${candidate.slot.startTime}`} className="flex justify-between gap-3 text-xs">
                       <span>{formatDate(candidate.date)} {candidate.slot.label}</span>
-                      <span>¥{((candidateFees[index] ?? participationFee) * maxParticipants).toLocaleString()}</span>
+                      <span>{feeUnknownText ?? `¥${((candidateFees[index] ?? participationFee) * maxParticipants).toLocaleString()}`}</span>
                     </div>
                   ))}
 
                   <div className="border-t pt-3">
                     <div className="flex justify-between items-center">
                       <span className="text-base font-bold">合計</span>
-                      <span className="text-lg text-purple-600 font-bold">¥{totalPrice.toLocaleString()}{maxTotalPrice !== totalPrice ? `〜¥${maxTotalPrice.toLocaleString()}` : ''}</span>
+                      <span className="text-lg text-purple-600 font-bold">{feeUnknownText ?? `¥${totalPrice.toLocaleString()}${maxTotalPrice !== totalPrice ? `〜¥${maxTotalPrice.toLocaleString()}` : ''}`}</span>
                     </div>
+                    {holidays.error && (
+                      <p className="text-xs text-destructive mt-2" data-testid="private-request-fee-error">休日の設定を読み込めず、料金を確認できません。画面を再読み込みしてください。</p>
+                    )}
                     <p className="text-xs text-muted-foreground mt-2">
                       確定した候補日の料金が適用されます。
                     </p>

@@ -51,6 +51,7 @@ export function BookingConfirmation({
   maxParticipants,
   currentParticipants,
   participationFee,
+  feeUnknownText = null,
   initialParticipantCount = 1,
   organizationSlug,
   onBack,
@@ -683,7 +684,7 @@ export function BookingConfirmation({
                 <CardContent className="p-2 space-y-1">
                   <div className="flex justify-between ts-body">
                     <span className="text-muted-foreground">参加費（1名）</span>
-                    <span>¥{formatPrice(participationFee)}</span>
+                    <span>{feeUnknownText ?? `¥${formatPrice(participationFee)}`}</span>
                   </div>
                   <div className="flex justify-between ts-body">
                     <span className="text-muted-foreground">参加人数</span>
@@ -699,7 +700,7 @@ export function BookingConfirmation({
                     <div className="flex justify-between items-center">
                       <span className="ts-muted">合計</span>
                       <span className="text-base font-bold text-primary">
-                        ¥{formatPrice(selectedCouponId && couponReady ? couponPreview.data!.final_price : totalPrice)}
+                        {selectedCouponId && couponReady ? `¥${formatPrice(couponPreview.data!.final_price)}` : feeUnknownText ?? `¥${formatPrice(totalPrice)}`}
                       </span>
                     </div>
                     {selectedCoupon && couponDiscount > 0 && (
