@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const api = vi.hoisted(() => ({
-  orgs: vi.fn(), keys: vi.fn(), stores: vi.fn(), scenarios: vi.fn(), events: vi.fn(), pauses: vi.fn(),
+  orgs: vi.fn(), keys: vi.fn(), stores: vi.fn(), scenarios: vi.fn(), events: vi.fn(), pauses: vi.fn(), holidays: vi.fn(),
 }))
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
 vi.mock('@/lib/api/platformPageReadApi', () => ({
@@ -11,6 +11,7 @@ vi.mock('@/lib/api/publicBookingReadApi', () => ({
   publicBookingListReadApi: { listPublicStores: api.stores, listAvailableScenarios: api.scenarios, listAllPublicEventsInRange: api.events },
   publicBookingReadApi: { listPerformancePauses: api.pauses },
 }))
+vi.mock('@/lib/api/bookingConfirmationReadApi', () => ({ bookingConfirmationReadApi: { getPublicCustomHolidays: api.holidays } }))
 import { fetchPlatformTopData } from './platformTopData'
 
 const row = (over: Record<string, unknown>) => ({
@@ -24,6 +25,7 @@ beforeEach(() => {
   api.stores.mockResolvedValue({ data: [], error: null })
   api.events.mockResolvedValue({ data: [], error: null })
   api.pauses.mockResolvedValue({ data: [], error: null })
+  api.holidays.mockResolvedValue({ data: [{ custom_holidays: [] }], error: null })
 })
 
 describe('全体トップの作品（新作一覧の材料）', () => {
@@ -41,5 +43,24 @@ describe('全体トップの作品（新作一覧の材料）', () => {
     expect(api.scenarios).toHaveBeenCalledWith(null)
     expect(data.scenarios.map((s) => s.id)).toEqual(['m1'])
     expect(data.scenarios[0].listed_at).toBe('2025-10-16T03:00:00Z')
+  })
+})
+
+describe('全体トップの公演の料金（2026-10-25 社長報告: 平日・土日祝で違う作品）', () => {
+  const costs = [{ time_slot: 'normal', amount: 4500, type: 'fixed' }, { time_slot: 'gmtest', amount: 4000, type: 'fixed' }, { time_slot: 'weekend', amount: 5000, type: 'fixed' }]
+  const ev = (date: string) => ({ id: date, date, start_time: '19:00:00', end_time: '22:00:00', store_id: null, current_participants: 0, max_participants: 6, organization_id: 'o1', scenario_master_id: 'm1', category: 'open' })
+  beforeEach(() => {
+    api.keys.mockResolvedValue({ data: [], error: null })
+    api.scenarios.mockResolvedValue({ data: [row({ participation_fee: 4500, participation_costs: costs })], error: null })
+    api.events.mockResolvedValue({ data: [ev('2026-10-20'), ev('2026-10-21'), ev('2026-10-25')], error: null })
+  })
+  const fees = async () => Object.fromEntries((await fetchPlatformTopData('2026-10-19')).performances.map((p) => [p.date, p.fee]))
+  it('平日は平日、日曜は土日祝、組織の独自休日（平日）は土日祝の料金', async () => {
+    api.holidays.mockResolvedValue({ data: [{ custom_holidays: ['2026-10-21'] }], error: null })
+    expect(await fees()).toEqual({ '2026-10-20': 4500, '2026-10-21': 5000, '2026-10-25': 5000 })
+  })
+  it('独自休日を読めなかった組織の平日の公演は料金を出さない（公演は消さない。土日は確定）', async () => {
+    api.holidays.mockResolvedValue({ data: null, error: { message: 'boom' } })
+    expect(await fees()).toEqual({ '2026-10-20': null, '2026-10-21': null, '2026-10-25': 5000 })
   })
 })

@@ -63,6 +63,11 @@ export function buildPublicPerformance(
   scenario: PerformanceScenarioRow | null | undefined,
   store: PerformanceStoreRow | null | undefined,
   organization: PerformanceOrganization,
+  /**
+   * 組織の独自休日（土日祝料金を使う）。null = 読み込み中・読み込めなかった:
+   * 平日の公演は独自休日かどうか分からないので料金を出さない（平日の料金で代わりに出さない。Codex レビュー 2026-10-25）
+   */
+  isCustomHoliday: ((date: string) => boolean) | null,
 ): PublicPerformance | null {
   if (!scenario || !row.date) return null
   const playerMax = scenario.player_count_max || 8
@@ -71,7 +76,8 @@ export function buildPublicPerformance(
   const duration = (isWeekend && scenario.weekend_duration) ? scenario.weekend_duration : (scenario.duration ?? null)
   const baseFee = scenario.participation_fee ?? null
   const costs = Array.isArray(scenario.participation_costs) ? (scenario.participation_costs as ParticipationCost[]) : undefined
-  const fee = baseFee === null ? null : calculateParticipationFee(baseFee, costs, row.date, undefined, row.start_time ?? undefined)
+  const holidayUnknown = isCustomHoliday === null && !isWeekend
+  const fee = baseFee === null || holidayUnknown ? null : calculateParticipationFee(baseFee, costs, row.date, isCustomHoliday ?? undefined, row.start_time ?? undefined)
   const genres = scenario.genre ?? []
   return {
     id: row.id,
