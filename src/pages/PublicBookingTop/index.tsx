@@ -191,6 +191,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
         onFirstTime={() => navigate('/guide')}
         onAccess={() => scrollTo('store-access')}
         onPrivate={() => scrollTo('private-booking')}
+        catalogPath={slug ? `/${slug}/catalog` : '/scenario'}
       />
 
       <main className="mx-auto max-w-4xl space-y-3 px-3.5 py-3 sm:px-4 md:py-5">

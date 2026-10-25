@@ -156,6 +156,7 @@ export function PlatformTop() {
         onFirstTime={() => navigate('/guide')}
         onAccess={() => scrollTo('organizations')}
         onPrivate={() => scrollTo('private-booking')}
+        catalogPath="/scenario"
       />
 
       <main className="mx-auto max-w-4xl space-y-3 px-3.5 py-3 sm:px-4 md:py-5">
