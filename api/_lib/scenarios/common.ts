@@ -85,7 +85,18 @@ export const PUBLIC_FIELDS = [
   'status', 'participation_fee', 'scenario_type', 'organization_id',
   'scenario_kind', 'accepts_private_booking',
   'booking_start_date', 'booking_end_date', 'available_stores',
+  // 貸切の日時から選ぶ画面で、選んだ日の土日祝料金を出すために使う（2026-10-25 社長報告: 日曜が平日料金で案内された）。
+  // スタッフ向けの gmtest は publicParticipationCosts で外してから返す
+  'participation_costs',
 ].join(', ')
+
+/** お客様に出してよい料金の区分（スタッフ向けの gmtest・独自の項目は返さない） */
+const PUBLIC_COST_SLOTS = new Set(['normal', '通常', 'weekend', 'holiday', 'morning', 'afternoon', 'evening'])
+export function publicParticipationCosts(costs: unknown): unknown[] {
+  return Array.isArray(costs)
+    ? costs.filter((c) => c && typeof c === 'object' && PUBLIC_COST_SLOTS.has(String((c as { time_slot?: unknown }).time_slot)))
+    : []
+}
 
 // 未ログイン顧客がシナリオ詳細ページで参照する公開フィールド。
 // 営業/制作系のカラム（gm_costs, license_amount, gm_assignments, notes 等）は含めない。

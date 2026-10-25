@@ -50,8 +50,9 @@ describe('概要タブの計算', () => {
     expect(yenRange(p!.totalMin, p!.totalMax)).toBe('¥27,000〜¥30,000')
   })
 
-  it('料金: 候補日が無ければ通常料金、参加人数が分からなければ出さない', () => {
-    expect(priceSummary({ phase: 'pre_request', fee: 4500, costs, people: 6, candidates: [], confirmed: null, savedPerPerson: null })?.perPersonMax).toBe(4500)
+  it('料金: 候補日が無ければ曜日・祝日で変わる幅（平日の料金だけを出さない。2026-10-25）、参加人数が分からなければ出さない', () => {
+    expect(priceSummary({ phase: 'pre_request', fee: 4500, costs, people: 6, candidates: [], confirmed: null, savedPerPerson: null }))
+      .toEqual({ perPersonMin: 4500, perPersonMax: 5000, people: 6, totalMin: 27000, totalMax: 30000 })
     expect(priceSummary({ phase: 'pre_request', fee: 4500, costs, people: null, candidates: [], confirmed: null, savedPerPerson: null })).toBeNull()
   })
 

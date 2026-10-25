@@ -28,9 +28,12 @@ import { PrivateBookingScenarioSelect } from './PrivateBookingScenarioSelect'
 const storeId = '30000000-0000-0000-0000-000000000001'
 const tempId = '30000000-0000-0000-0000-000000000002'
 const otherId = '30000000-0000-0000-0000-000000000003'
+const holidayState: { list: string[]; fail: boolean } = { list: [], fail: false }
 const rpcState: { reasons: Array<{ scenario_id: string; reason: string }>; slot: Record<string, unknown>; slotArgs: Array<Record<string, unknown>> } = { reasons: [], slot: {}, slotArgs: [] }
 const scenarios = [
-  { id: 'sc1', slug: 'factor', title: 'ファクター', author: '作者A', duration: 210, player_count_min: 6, player_count_max: 8, participation_fee: 4500, accepts_private_booking: true },
+  { id: 'sc1', slug: 'factor', title: 'ファクター', author: '作者A', duration: 210, player_count_min: 6, player_count_max: 8, participation_fee: 4500, accepts_private_booking: true,
+    // 平日 4,500 円・土日祝 5,000 円（2026-10-25 社長報告の作品と同じ形の架空の設定）
+    participation_costs: [{ time_slot: 'normal', amount: 4500, type: 'fixed' }, { time_slot: 'gmtest', amount: 4000, type: 'fixed' }, { time_slot: 'weekend', amount: 5000, type: 'fixed' }, { time_slot: 'holiday', amount: 5000, type: 'fixed' }] },
   { id: 'sc2', slug: null, title: '二人の夜', author: '作者B', duration: 120, player_count_min: 2, player_count_max: 2, participation_fee: 3000, accepts_private_booking: true },
   { id: 'sc3', slug: 'off', title: '受付停止', author: '作者C', duration: 120, player_count_min: 4, player_count_max: 4, accepts_private_booking: false },
 ]
@@ -54,8 +57,10 @@ beforeEach(() => {
     { id: otherId, name: '馬場オフィス', status: 'active', ownership_type: 'corporate', is_temporary: false },
   ])
   rpcState.reasons = []
+  holidayState.list = []; holidayState.fail = false
   rpcState.slot = { available: true, reason: null, start_time: '18:30', end_time: '23:00', detail: null }
   mocks.rpc.mockImplementation(async (name: string, args: Record<string, unknown>) => {
+    if (name === 'get_public_custom_holidays') return holidayState.fail ? { data: null, error: { message: 'boom' } } : { data: [{ custom_holidays: holidayState.list }], error: null }
     if (name === 'private_booking_scenario_date_reasons') return { data: rpcState.reasons, error: null }
     if (name === 'private_booking_candidate_slot_availability') {
       rpcState.slotArgs.push(args)
@@ -151,5 +156,44 @@ describe('日付・時間帯あり（カレンダー・リストの貸切申込�
     await flush()
     expect(host.textContent).toContain('馬場オフィス')
     expect(host.textContent).not.toContain('特設会場 1')
+  })
+})
+
+describe('選んだ日の料金（2026-10-25 社長報告: 日曜の貸切が平日料金で案内された）', () => {
+  const feeBox = () => [...host.querySelectorAll('h3')].find((h) => h.textContent === '料金')?.parentElement as HTMLElement | undefined
+  async function pick(date: string) {
+    await render(`?date=${date}&store=${storeId}&slot=morning&time=09:00`)
+    await act(async () => cards()[0].click())
+    await flush()
+  }
+  it('貸切・平日（火曜）は平日の料金', async () => {
+    await pick('2026-10-20')
+    expect(cards()[0].textContent).toContain('1 人あたり ¥4,500')
+    expect(feeBox()?.textContent).toContain('参加費（1名）¥4,500')
+    expect(feeBox()?.textContent).toContain('合計¥36,000')
+  })
+  it('貸切・日曜は土日祝の料金（平日の料金を出さない）', async () => {
+    await pick('2026-10-25')
+    expect(cards()[0].textContent).toContain('1 人あたり ¥5,000')
+    expect(feeBox()?.textContent).toContain('参加費（1名・土日祝料金）¥5,000')
+    expect(feeBox()?.textContent).toContain('合計¥40,000')
+    expect(host.textContent).not.toContain('¥4,500')
+  })
+  it('貸切・平日の祝日（11/3）と組織の独自休日も土日祝の料金', async () => {
+    await pick('2026-11-03')
+    expect(feeBox()?.textContent).toContain('¥5,000')
+    await act(async () => root.unmount()); root = createRoot(host)
+    holidayState.list = ['2026-10-21']
+    await pick('2026-10-21')
+    expect(cards()[0].textContent).toContain('1 人あたり ¥5,000')
+    expect(feeBox()?.textContent).toContain('参加費（1名・土日祝料金）¥5,000')
+  })
+  it('独自休日を読み込めないときは金額を出さず、再読み込みを案内する（平日の料金で代わりに出さない）', async () => {
+    holidayState.fail = true
+    await pick('2026-10-21')
+    expect(cards()[0].textContent).not.toContain('¥')
+    expect(feeBox()?.textContent).toContain('確認できません')
+    expect(feeBox()?.textContent).not.toContain('¥4,500')
+    expect(host.querySelector('[data-testid="private-select-fee-error"]')?.textContent).toContain('再読み込み')
   })
 })

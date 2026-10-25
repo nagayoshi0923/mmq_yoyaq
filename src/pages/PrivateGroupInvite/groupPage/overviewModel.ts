@@ -1,7 +1,7 @@
 /**
  * 概要タブ（刷新）で使う計算。画面から切り離して単体テストする。
  */
-import { calculateParticipationFee, calculatePrivateCandidateFees, type ParticipationCost } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
+import { calculatePrivateCandidateFees, participationFeeRange, type ParticipationCost } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
 import type { PrivateBookingPhase } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingMenu'
 import type { ScenarioCharacter } from '@/pages/ScenarioDetailPage/utils/types'
 
@@ -146,7 +146,8 @@ export function priceSummary(input: PriceInput): PriceSummary | null {
   const dates = input.phase === 'confirmed' && input.confirmed ? [input.confirmed] : input.candidates
   const fees = dates.length
     ? calculatePrivateCandidateFees(input.fee, input.costs, dates.map(d => ({ date: d.date, slot: { startTime: d.startTime } })), input.isCustomHoliday)
-    : [calculateParticipationFee(input.fee, input.costs)]
+    // 候補日がまだ無いときは平日の料金だけを出さず、曜日・祝日で変わる幅を出す（2026-10-25 社長報告）
+    : Object.values(participationFeeRange(input.fee, input.costs))
   const min = Math.min(...fees)
   const max = Math.max(...fees)
   return { perPersonMin: min, perPersonMax: max, people, totalMin: min * people, totalMax: max * people }

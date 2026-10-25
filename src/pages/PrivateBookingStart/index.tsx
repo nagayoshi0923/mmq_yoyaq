@@ -15,6 +15,7 @@ import { useQuery } from '@tanstack/react-query'
 import { PublicLayout } from '@/components/layout/PublicLayout'
 import { TopSection } from '@/components/public-top/TopSection'
 import { PrivateScenarioGrid, type PrivateScenario } from '@/components/private-booking/PrivateScenarioGrid'
+import { participationFeeRange, type ParticipationCost } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
@@ -32,6 +33,7 @@ interface PrivateScenarioRow extends PrivateScenario {
   available_stores?: string[] | null
   booking_start_date?: string | null
   booking_end_date?: string | null
+  participation_costs?: ParticipationCost[] | null
 }
 
 function todayJst(): string {
@@ -96,7 +98,11 @@ export function PrivateBookingStart({ organizationSlug }: PrivateBookingStartPro
       const today = todayJst()
       return rows
         .filter((s) => isScenarioAcceptingPrivateBooking(s as Parameters<typeof isScenarioAcceptingPrivateBooking>[0]))
-        .map((s) => ({ ...s, closed: !isBookingOpen(s, today) }))
+        // 日付はまだ決まっていないので、曜日・祝日で料金が変わる作品は幅で出す（平日の料金だけを出さない）
+        .map((s) => {
+          const range = s.participation_fee != null ? participationFeeRange(s.participation_fee, s.participation_costs ?? undefined) : null
+          return { ...s, participation_fee: range?.min ?? s.participation_fee, participation_fee_max: range?.max ?? null, closed: !isBookingOpen(s, today) }
+        })
     },
   })
   const scenarios = useMemo(() => scenariosForStores(scenarioQuery.data ?? [], storeIds), [scenarioQuery.data, storeIds])
