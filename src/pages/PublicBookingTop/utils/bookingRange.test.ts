@@ -64,6 +64,8 @@ describe('カレンダー・リストの月の状態', () => {
     expect(monthLoadStatus('2027-02', '2026-12-31', '2026-12', extra)).toBe('ready')
   })
   it('上限がまだ分からない間は、仮の上限より先の月を「空」と決めず読み込み中にする', () => {
-    expect(monthLoadStatus('2027-02', '2026-12-31', '2026-12', extra, false)).toBe('loading')
+    expect(monthLoadStatus('2027-02', '2026-12-31', '2026-12', extra, 'pending')).toBe('loading')
+    // 今回の取得に失敗したら、古い上限で空と見せず失敗にする（再読み込みできる）
+    expect(monthLoadStatus('2027-02', '2026-12-31', '2026-12', extra, 'error')).toBe('error')
   })
 })
