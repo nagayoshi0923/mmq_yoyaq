@@ -151,6 +151,16 @@ export function groupPerformancesIntoCards(focus: readonly PublicPerformance[], 
   })
 }
 
+/**
+ * カードの先頭の公演（画面に出している最初の行）の作品ページへ（?event= でその公演を選んだ状態で開く）。公演が無ければそのまま。
+ * 新作一覧のカードだけに使う（作品から探すの作品ページへの行き先は変えない。2026-10-26 Codex レビュー）
+ */
+export function withFirstEventPath(card: ScenarioCardData, performances: readonly PublicPerformance[]): ScenarioCardData {
+  const firstId = card.events[0]?.id
+  const first = firstId ? performances.find((p) => p.id === firstId) : undefined
+  return first ? { ...card, path: performanceDetailPath(first) } : card
+}
+
 /** 作品から探すのカード（公演が無ければ次回公演の欄は出ない） */
 export function scenarioBrowseCard(
   scenario: {

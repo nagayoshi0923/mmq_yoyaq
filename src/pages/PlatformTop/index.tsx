@@ -30,7 +30,7 @@ import { newArrivalsPath } from '@/pages/NewArrivals/paths'
 import { fetchPrivateBookingData, fetchPrivateBookingDays, isPrivateBookingCandidate, platformPrivateBookingPath } from '@/components/public-top/privateBookingStatus'
 import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
 import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
-import { indexUpcoming, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
+import { indexUpcoming, withFirstEventPath, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
 import { TopHero } from '@/components/public-top/TopHero'
 import { TopSection } from '@/components/public-top/TopSection'
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
@@ -48,6 +48,7 @@ import {
 } from '@/lib/publicPerformanceSearch'
 import { extraMonthsToLoad, uniqueById } from '@/pages/PublicBookingTop/utils/bookingRange'
 import { useExtraPlatformMonths } from './hooks/useExtraPlatformMonths'
+import { usePlatformNewArrivalNext } from './hooks/usePlatformNewArrivalNext'
 import { addJstDays } from '@/utils/jstDate'
 import { fetchPlatformTopData, PLATFORM_RANGE_DAYS } from './hooks/platformTopData'
 import { PlatformSearchSection } from './components/PlatformSearchSection'
@@ -137,6 +138,16 @@ export function PlatformTop() {
 
   // 新作一覧: 全国の公開作品を、リリース日（無ければ掲載登録日）から 90 日以内のものだけ新しい順に。新作タグでは絞らない
   const newArrivalPicks = useMemo(() => platformNewArrivalPicks(data?.scenarios ?? [], browseScenarios, today), [data, browseScenarios, today])
+  // 新作のカードの次回公演は、55 日・「もっと見る」の期間より先でも作品ごとに次の 1〜2 件を読んで出す（検索の公演には足さない。2026-10-26 社長報告）
+  const newArrivalIds = useMemo(() => newArrivalPicks.map(({ item }) => item.id), [newArrivalPicks])
+  const newArrivalNext = usePlatformNewArrivalNext({ scenarioIds: newArrivalIds, today, context: data?.context ?? null })
+  const newArrivalCards = useMemo(() => {
+    const ids = new Set(newArrivalIds)
+    const list = uniqueById(searchable, newArrivalNext)
+    const upcoming = indexUpcoming(list, nowMs)
+    return new Map(buildPlatformBrowseScenarios((data?.scenarios ?? []).filter((s) => ids.has(s.id)), upcoming, today)
+      .map((b) => [b.id, withFirstEventPath(b.card, list)]))
+  }, [newArrivalIds, searchable, newArrivalNext, nowMs, data, today])
 
   // 新作一覧のカードの「貸切受付中」（その作品を公開している組織ごとに、日程の相談を始められるかを既存の判定で決める。読めない間は出さない）
   const orgIds = useMemo(() => organizations.map((o) => o.id), [organizations])
@@ -160,10 +171,10 @@ export function PlatformTop() {
   const newArrivals = useMemo<NewArrivalItem[]>(() => {
     const slugById = new Map(organizations.map((o) => [o.id, o.slug]))
     return newArrivalPicks.map(({ item, date }) => ({
-      card: { ...item.card, private_booking_path: platformPrivateBookingPath(privateData, privateDays, item.scenario, slugById, data?.stores ?? null, today) },
+      card: { ...(newArrivalCards.get(item.id) ?? item.card), private_booking_path: platformPrivateBookingPath(privateData, privateDays, item.scenario, slugById, data?.stores ?? null, today) },
       date,
     }))
-  }, [newArrivalPicks, organizations, privateData, privateDays, data, today])
+  }, [newArrivalPicks, newArrivalCards, organizations, privateData, privateDays, data, today])
 
   const openCard = useCallback((card: ScenarioCardData) => {
     saveScrollPositionForCurrentUrl()
