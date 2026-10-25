@@ -38,7 +38,7 @@ import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
 import { indexUpcoming, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
 import { useBookingData } from './hooks/useBookingData'
 import { useExtraBookingMonths } from './hooks/useExtraBookingMonths'
-import { browseLimits, defaultBookingRangeEnd, extraMonthsToLoad, monthEnd, requiredUntil, uniqueById } from './utils/bookingRange'
+import { browseLimits, defaultBookingRangeEnd, extraMonthsToLoad, monthLoadStatus, requiredUntil, uniqueById } from './utils/bookingRange'
 import { useStoreTopPerformances } from './hooks/useStoreTopPerformances'
 import { StoreSearchSection } from './components/top/StoreSearchSection'
 
@@ -86,6 +86,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     latestPublicDate = null,
     latestPublicDateError = false,
     scenarioRows = null,
+    limitReady = true,
   } = useBookingData(organizationSlug)
 
   const { state: search, update: updateSearch } = usePerformanceSearchParams()
@@ -113,10 +114,8 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
   const mergedBlocked = useMemo(() => uniqueById(blockedSlots, extra.blocked), [blockedSlots, extra.blocked])
   const monthKey = (month: Date) => `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`
   const monthStatus = useCallback((month: Date) => {
-    const key = monthKey(month)
-    if (monthEnd(key) <= loadedUntil) return 'ready' as const
-    return extra.statusOf(key)
-  }, [loadedUntil, extra])
+    return monthLoadStatus(monthKey(month), loadedUntil, limits.lastMonth, extra.statusOf, limitReady)
+  }, [loadedUntil, extra, limits.lastMonth, limitReady])
   const onRetryMonth = useCallback((month: Date) => extra.retry(monthKey(month)), [extra])
   // カードの期間のうち、まだ読めていない月の状態（読み込み中・読めなかった）
   const cardsExtraState = extraMonths.some((m) => extra.status.get(m) === 'error') ? 'error' as const
@@ -288,6 +287,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
             privateBookingDeadlineDays,
             onCardClick: openScenario,
             lastMonth: lastMonthDate,
+            limitReady,
             onVisibleMonthChange,
             monthStatus,
             onRetryMonth,

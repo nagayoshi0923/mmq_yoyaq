@@ -51,6 +51,8 @@ interface StoreSearchSectionProps {
     privateBookingDeadlineDays: number
     onCardClick: (scenarioId: string) => void
     lastMonth: Date | null
+    /** 月送りの上限が確定したか（この組織の最新の取得が終わった）。確定前は最後の月へ戻さない */
+    limitReady?: boolean
     onVisibleMonthChange: (month: Date) => void
     monthStatus: (month: Date) => 'loading' | 'error' | 'ready'
     onRetryMonth: (month: Date) => void

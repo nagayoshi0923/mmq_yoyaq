@@ -1,6 +1,6 @@
 // 公演を読む期間の計算（2026-10-25 社長報告「カレンダーが 12 月以降に切り替えられない」・「もっと見る」）
 import { describe, expect, it } from 'vitest'
-import { browseLimits, defaultBookingRangeEnd, extraMonthsToLoad, monthEnd, monthsBetween, requiredUntil, uniqueById } from './bookingRange'
+import { browseLimits, defaultBookingRangeEnd, extraMonthsToLoad, monthEnd, monthLoadStatus, monthsBetween, requiredUntil, uniqueById } from './bookingRange'
 
 describe('最初に読む期間と読み足す月', () => {
   it('最初は今月を含む 3 か月（10/25 なら 12/31、12 月なら翌年 2 月末、うるう年）', () => {
@@ -50,5 +50,20 @@ describe('最初の取得と月ごとの取得をつなぐ', () => {
     const b = [{ id: 'y', v: 2 }, { id: 'z', v: 2 }]
     expect(uniqueById(a, b)).toEqual([{ id: 'x', v: 1 }, { id: 'y', v: 1 }, { id: 'z', v: 2 }])
     expect(uniqueById(a, [])).toBe(a)
+  })
+})
+
+describe('カレンダー・リストの月の状態', () => {
+  const extra = (m: string) => (m === '2027-01' ? 'loading' : 'error') as 'loading' | 'error'
+  it('最初の取得で読めた月は ready、読み足す月はその状態', () => {
+    expect(monthLoadStatus('2026-12', '2026-12-31', '2027-02', extra)).toBe('ready')
+    expect(monthLoadStatus('2027-01', '2026-12-31', '2027-02', extra)).toBe('loading')
+    expect(monthLoadStatus('2027-02', '2026-12-31', '2027-02', extra)).toBe('error')
+  })
+  it('選べる最後の月より先（札幌へ切り替えたら 2 月にいた）は「読み込み中」のまま止めない', () => {
+    expect(monthLoadStatus('2027-02', '2026-12-31', '2026-12', extra)).toBe('ready')
+  })
+  it('上限がまだ分からない間は、仮の上限より先の月を「空」と決めず読み込み中にする', () => {
+    expect(monthLoadStatus('2027-02', '2026-12-31', '2026-12', extra, false)).toBe('loading')
   })
 })

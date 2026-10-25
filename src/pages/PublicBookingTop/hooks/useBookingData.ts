@@ -656,7 +656,7 @@ export function useBookingData(organizationSlug?: string) {
   )
   const defaultEnd = defaultBookingRangeEnd(formatDateJST(new Date()))
 
-  const { data, isLoading, isFetching, refetch } = useQuery({
+  const { data, isLoading, isFetching, isFetched, refetch } = useQuery({
     queryKey: ['booking-data', organizationSlug],
     queryFn: () => fetchBookingData(organizationSlug),
     initialData: initialSnapshot?.data,
@@ -699,5 +699,7 @@ export function useBookingData(organizationSlug?: string) {
     /** 予約を受け付けている公開の公演のうち、いちばん先の日付（読めなければ null） */
     latestPublicDate: data?.latestPublicDate ?? null,
     latestPublicDateError: !!data?.latestPublicDateError,
+    /** この組織の最新の取得が終わった（前回の控えではない）。月送りの上限はこれが true になってから確定 */
+    limitReady: isFetched,
   }
 }
