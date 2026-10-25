@@ -33,6 +33,8 @@ import { VenueAccess } from './components/VenueAccess'
 import { RelatedScenarios } from './components/RelatedScenarios'
 import { StoreSelector } from './components/StoreSelector'
 import { ScenarioAbout } from './components/ScenarioAbout'
+import { PrivateBookingStatusNote } from './components/PrivateBookingStatusNote'
+import { useScenarioPrivateBookingStatus } from './hooks/useScenarioPrivateBookingStatus'
 import { Footer } from '@/components/layout/Footer'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
@@ -79,6 +81,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   // データ取得フック（organization_idでフィルタリング）
   const { scenario, events, stores, relatedScenarios, organizationId, isLoading, loadScenarioDetail } = useScenarioDetail(scenarioId, organizationSlug)
   const acceptsPrivateBooking = scenario ? isScenarioAcceptingPrivateBooking(scenario) : true
+  // 「貸切受付中」の表示（表示中の組織で。貸切募集期間・公演期間も見る。読めない間は出さない）
+  const privateStatus = useScenarioPrivateBookingStatus(organizationId, scenario, isLoading ? null : stores)
+  const tabsRef = useRef<HTMLDivElement>(null)
 
   usePageMeta({
     title: scenario ? scenarioPageTitle(scenario.scenario_title) : 'マーダーミステリー公演予約 | MMQ',
@@ -589,7 +594,16 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
           {/* 右サイドバー - チケット購入 */}
           <div className="md:col-span-5">
             <div className="md:sticky md:top-[50px] space-y-3">
+              <PrivateBookingStatusNote
+                status={privateStatus}
+                hasEvents={events.length > 0}
+                onOpenPrivate={() => {
+                  setActiveTab('private')
+                  tabsRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+                }}
+              />
               {/* タブ: 公演日程 / 貸切リクエスト */}
+              <div ref={tabsRef} className="scroll-mt-16">
               <Tabs 
                 value={activeTab}
                 className="w-full" 
@@ -726,6 +740,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 </TabsContent>
                 )}
               </Tabs>
+              </div>
 
 
               {/* タブの内容に応じて表示を切り替え */}

@@ -40,6 +40,7 @@ import {
   ContactPage, OrganizationContactPage, FAQPage, GuidePage, PrivateGuidePage, CancelPolicyPage, StoreListPage, AboutPage,
   PricingPage, GettingStartedPage,
 } from './adminDashboardPages'
+import { CatalogFilterSwitch } from './NewArrivals/CatalogFilterSwitch'
 import { ADMIN_PATHS, parsePath } from './adminDashboardRouting'
 
 function ScenarioEditRedirect({ organizationSlug, scenarioId }: { organizationSlug: string; scenarioId: string | null }) {
@@ -264,7 +265,8 @@ export function AdminDashboard() {
   if (currentPage === 'catalog') {
     return (
       <Suspense fallback={<LoadingScreen message="カタログを読み込み中..." />}>
-        <ScenarioCatalog organizationSlug={organizationSlug} />
+        {/* 前の版の ?filter=new は「新作」のチップ（?genre=新作）を選んだカタログへ置き換える */}
+        <CatalogFilterSwitch catalog={<ScenarioCatalog organizationSlug={organizationSlug} />} />
       </Suspense>
     )
   }
@@ -605,7 +607,7 @@ export function AdminDashboard() {
   if (currentPage === 'scenario') {
     return (
       <Suspense fallback={<LoadingScreen message="シナリオを読み込み中..." />}>
-        <PlatformScenarioSearch />
+        <CatalogFilterSwitch catalog={<PlatformScenarioSearch />} />
       </Suspense>
     )
   }
