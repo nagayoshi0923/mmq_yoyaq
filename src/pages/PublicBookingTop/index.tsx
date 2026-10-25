@@ -146,7 +146,9 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     description: organizationName ? orgBookingDescription(organizationName) : tagline,
     canonicalPath: organizationSlug ? `/${organizationSlug}` : '/',
   })
-  useReportRouteScrollRestoration('public-booking-top', { isLoading, isFetching })
+  // 「もっと見る」・月送りで読み足す月が揃うまで、戻ったときのスクロール位置を戻さない（先に戻すと後から伸びてずれる）
+  const extraPending = extraMonths.some((m) => extra.statusOf(m) === 'loading')
+  useReportRouteScrollRestoration('public-booking-top', { isLoading: isLoading || extraPending, isFetching })
 
   useEffect(() => {
     loadData().catch((error) => logger.error('PublicBookingTop データ取得エラー:', error))

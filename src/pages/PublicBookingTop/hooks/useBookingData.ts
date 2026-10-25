@@ -158,7 +158,7 @@ export function buildPublicEvents(
         return false
       }
     }
-    
+
     return isOpenAndEnabled
   })
 
@@ -192,13 +192,13 @@ export function buildPublicEvents(
   const enrichedEvents = publicEvents.map((event): EnrichedPublicEvent => {
     const scenarioFromMap = scenarioDataMap.get(event.scenario_master_id) ||
                             scenarioDataMap.get(event.scenario)
-    
+
     const player_count_max = scenarioFromMap?.player_count_max || 8
     const key_visual_url = scenarioFromMap?.key_visual_url
-    
+
     // 店舗情報を追加
     const store = storesMap.get(event.store_id)
-    
+
     return {
       ...event,
       player_count_max,

@@ -90,4 +90,3 @@ export function useExtraBookingMonths(input: {
 
   return { events: merged.events, blocked: merged.blocked, status, statusOf, retry }
 }
-

@@ -73,7 +73,6 @@ export function PlatformTop() {
     queryFn: () => fetchPlatformTopData(today),
     staleTime: 2 * 60 * 1000,
   })
-  useReportRouteScrollRestoration('platform-top', { isLoading, isFetching })
 
   const performances = useMemo(() => data?.performances ?? [], [data])
   const organizations = useMemo(() => data?.organizations ?? [], [data])
@@ -91,6 +90,8 @@ export function PlatformTop() {
   const extra = useExtraPlatformMonths({ months: extraMonths, today, loadedUntil, context: data?.context ?? null })
   // 同じ公演が最初の取得と月ごとの取得の両方に入っても 1 件にする（id で一意）
   const searchable = useMemo(() => uniqueById(performances, extra.performances), [performances, extra.performances])
+  // 「もっと見る」で読み足す月が揃うまで、戻ったときのスクロール位置を戻さない（先に戻すと後から伸びてずれる）
+  useReportRouteScrollRestoration('platform-top', { isLoading: isLoading || extra.state === 'loading', isFetching })
   const primaryColor = BOOKING_THEME.primary
   const { marks, dialog: marksDialog } = useScenarioMarks()
 
