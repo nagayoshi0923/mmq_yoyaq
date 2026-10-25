@@ -21,16 +21,19 @@ describe('作品カードの「貸切受付中」', () => {
     await act(async () => root.render(<ScenarioCard card={card('/aaa/scenario/s1?tab=private')} onOpen={onOpen} />))
     const badge = host.querySelector('[data-testid="private-booking-badge"]') as HTMLButtonElement
     expect(badge.textContent).toContain('貸切受付中')
-    expect(host.textContent).toContain('公演予定なし・貸切の日程はご相談のうえ決まります')
+    expect(host.textContent).toContain('公演予定未定')
+    // 2026-10-25 社長「公演予定なし〜ではなく公演予定未定」: 旧文と長い補足は出さない
+    expect(host.textContent).not.toContain('公演予定なし')
+    expect(host.textContent).not.toContain('ご相談のうえ')
     await act(async () => badge.click())
     expect(onOpen).toHaveBeenCalledTimes(1)
     expect(onOpen.mock.calls[0][0].path).toBe('/aaa/scenario/s1?tab=private')
   })
 
-  it('受付していない・判定できないときは何も出さない（公演予定なしを「貸切不可」とも書かない）', async () => {
+  it('受付していない・判定できないときは何も出さない（公演予定未定を「貸切不可」とも書かない）', async () => {
     await act(async () => root.render(<ScenarioCard card={card(null)} onOpen={() => {}} />))
     expect(host.querySelector('[data-testid="private-booking-badge"]')).toBeNull()
     expect(host.textContent).not.toContain('貸切')
-    expect(host.textContent).not.toContain('公演予定なし')
+    expect(host.textContent).not.toContain('公演予定未定')
   })
 })

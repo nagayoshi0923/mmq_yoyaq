@@ -151,7 +151,7 @@ describe('全体トップの貸切受付中（QW-20261023-001。架空の組織 
     expect(badgeOf('o2だけ停止')).toBeNull()
     // o1 では休止・o2 では店舗が受付対象期間すべて停止 → どこも受付中でない
     expect(badgeOf('o1休止o2受付')).toBeNull()
-    expect(cards.find((li) => li.querySelector('h3')?.textContent === '受付作品')?.textContent).toContain('日程はご相談')
+    expect(cards.find((li) => li.querySelector('h3')?.textContent === '受付作品')?.textContent).toContain('公演予定未定')
     await act(async () => (badgeOf('受付作品') as HTMLButtonElement).click())
     expect(where()).toBe('/queens-waltz/scenario/%E5%8F%97%E4%BB%98%E4%BD%9C%E5%93%81?tab=private')
   })
