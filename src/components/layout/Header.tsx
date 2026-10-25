@@ -17,23 +17,36 @@ import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
 // 訪問組織のlocalStorageキー
 const VISITED_ORG_KEY = 'mmq_visited_organization'
 
-// URLから組織スラッグを取得
-function getOrgSlugFromUrl(): string | null {
-  const pathname = window.location.pathname
+// 組織の公開ページではない先頭セグメント（管理ページ・共通ページ）
+const NON_ORG_SEGMENTS = ['dashboard', 'store-dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission',
+  'gm-availability', 'private-booking-management', 'private-booking-groups', 'reservations', 'accounts', 'sales',
+  'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'license-management',
+  'staff-profile', 'mypage', 'my-page', 'author', 'external-reports', 'accept-invitation',
+  'organization-register', 'author-dashboard', 'author-login', 'register', 'about', 'scenario',
+  'organizations', 'coupons', 'blog', 'user-management', 'scenario-masters', 'scenario-matcher',
+  'license-reports', 'customer-management', 'partner-report']
+
+/** パスの先頭が組織の公開ページなら、その組織の slug（例 /queenswaltz-sapporo/scenario/… → queenswaltz-sapporo） */
+export function getOrgSlugFromPath(pathname: string): string | null {
   const match = pathname.match(/^\/([^/]+)/)
-  if (match) {
-    // 管理ページや特殊パスは除外
-    const excludePaths = ['dashboard', 'store-dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission',
-      'gm-availability', 'private-booking-management', 'reservations', 'accounts', 'sales', 
-      'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'license-management',
-      'staff-profile', 'mypage', 'my-page', 'author', 'external-reports', 'accept-invitation', 
-      'organization-register', 'author-dashboard', 'author-login', 'register', 'about', 'scenario',
-      'partner-report']
-    if (!excludePaths.includes(match[1])) {
-      return match[1]
-    }
-  }
-  return null
+  if (!match) return null
+  return NON_ORG_SEGMENTS.includes(match[1]) ? null : match[1]
+}
+
+/**
+ * ヘッダーの「MMQ > 組織名」に出す組織。
+ * 組織の公開ページ（URL に組織がある）では、ログイン中のスタッフでも URL の組織を出す
+ * （別組織のページで自分の組織名・リンクを出さない。2026-10-25 札幌店の作品詳細で「クインズワルツ」と出た不具合）。
+ * URL の組織をまだ読み込めていないときは、別の組織を代わりに出さない。
+ * 管理ページなど URL に組織がないページだけ、スタッフの所属組織 → 最後に見た組織の順。
+ */
+export function pickHeaderOrganization(
+  urlOrgSlug: string | null,
+  visitedOrganization: Organization | null,
+  staffOrganization: Organization | null,
+): Organization | null {
+  if (urlOrgSlug) return visitedOrganization?.slug === urlOrgSlug ? visitedOrganization : null
+  return staffOrganization || visitedOrganization
 }
 
 interface HeaderProps {
@@ -50,22 +63,24 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
   // 訪問した組織（顧客用）
   const [visitedOrganization, setVisitedOrganization] = useState<Organization | null>(null)
   
-  // URLまたはlocalStorageから訪問組織を取得・保持
+  const urlOrgSlug = useMemo(() => getOrgSlugFromPath(location.pathname), [location.pathname])
+
+  // URLまたはlocalStorageから訪問組織を取得・保持（遅れて届いた前のページの応答では上書きしない）
   useEffect(() => {
+    let cancelled = false
     const loadVisitedOrganization = async () => {
       // 1. URLから組織スラッグを取得
-      const urlSlug = getOrgSlugFromUrl()
-      
-      if (urlSlug) {
+      if (urlOrgSlug) {
         // URLに組織がある場合、それを取得して保存
-        const org = await getOrganizationBySlug(urlSlug)
+        const org = await getOrganizationBySlug(urlOrgSlug)
+        if (cancelled) return
         if (org) {
           setVisitedOrganization(org)
           localStorage.setItem(VISITED_ORG_KEY, JSON.stringify({ slug: org.slug, name: org.name, id: org.id }))
           return
         }
       }
-      
+
       // 2. URLに組織がない場合、localStorageから復元
       const stored = localStorage.getItem(VISITED_ORG_KEY)
       if (stored) {
@@ -75,6 +90,7 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
           if (!storedKey) return
           // slug のみ保存されていない古いデータは id で復元
           const org = await getOrganizationBySlug(storedKey)
+          if (cancelled) return
           if (org) {
             setVisitedOrganization(org)
           }
@@ -83,12 +99,13 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
         }
       }
     }
-    
+
     loadVisitedOrganization()
-  }, [location.pathname]) // URLが変わったら再実行
-  
-  // 表示する組織：スタッフ所属組織 > 訪問組織
-  const displayOrganization = staffOrganization || visitedOrganization
+    return () => { cancelled = true }
+  }, [urlOrgSlug]) // URLの組織が変わったら再実行
+
+  // 表示する組織：組織の公開ページでは URL の組織、それ以外はスタッフ所属組織 > 訪問組織
+  const displayOrganization = pickHeaderOrganization(urlOrgSlug, visitedOrganization, staffOrganization)
   const slug = displayOrganization?.slug
 
   const handleSignOut = useCallback(async () => {
@@ -121,46 +138,24 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
 
   // 管理サイト（ダッシュボード）へ
   const handleDashboardClick = useCallback(() => {
-    if (slug) {
-      navigate(`/${slug}/dashboard`)
+    // 別組織の公開ページにいても、管理サイトは自分の所属組織へ
+    const dashboardSlug = staffOrganization?.slug || slug
+    if (dashboardSlug) {
+      navigate(`/${dashboardSlug}/dashboard`)
     } else {
       navigate('/dashboard')
     }
-  }, [navigate, slug])
+  }, [navigate, slug, staffOrganization?.slug])
   
   // スタッフまたは管理者かどうか（MMQ運営も含む）
   const isStaffOrAdmin = user?.role === 'staff' || user?.role === 'admin' || user?.role === 'license_admin'
 
-  // 公開組織ページ（/{slug} 以下の予約サイト）かどうかを判定
-  // 管理ページのセグメントを含む場合は管理ページとみなす
-  const isPublicOrgPage = useMemo(() => {
-    const adminSegments = ['dashboard', 'store-dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission',
-      'gm-availability', 'private-booking-management', 'private-booking-groups', 'reservations', 'accounts', 'sales',
-      'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'license-management',
-      'staff-profile', 'mypage', 'my-page', 'author', 'external-reports', 'accept-invitation',
-      'organization-register', 'author-dashboard', 'author-login', 'register', 'about', 'scenario',
-      'organizations', 'coupons', 'blog', 'user-management', 'scenario-masters', 'scenario-matcher',
-      'license-reports', 'customer-management', 'partner-report']
-    const match = location.pathname.match(/^\/([^/]+)/)
-    if (!match) return false
-    return !adminSegments.includes(match[1])
-  }, [location.pathname])
+  // 公開組織ページ（/{slug} 以下の予約サイト）かどうか。管理ページのセグメントは除外
+  const isPublicOrgPage = urlOrgSlug !== null
 
   // URL から組織 slug を即時取得し、 localStorage キャッシュからテーマカラーを取得
   // (displayOrganization の非同期 fetch を待たないことでチラつきを防ぐ)
-  const urlSlug = useMemo(() => {
-    if (typeof window === 'undefined') return null
-    const match = window.location.pathname.match(/^\/([^/]+)/)
-    if (!match) return null
-    const exclude = ['dashboard', 'store-dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission',
-      'gm-availability', 'private-booking-management', 'private-booking-groups', 'reservations', 'accounts', 'sales',
-      'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'license-management',
-      'staff-profile', 'mypage', 'my-page', 'author', 'external-reports', 'accept-invitation',
-      'organization-register', 'author-dashboard', 'author-login', 'register', 'about', 'scenario',
-      'organizations', 'coupons', 'blog', 'user-management', 'scenario-masters', 'scenario-matcher',
-      'license-reports', 'customer-management', 'partner-report']
-    return exclude.includes(match[1]) ? null : match[1]
-  }, [location.pathname])
+  const urlSlug = urlOrgSlug
   const themePreset = useOrgThemePreset(urlSlug)
 
   // 組織の公開ページのみテーマカラーを適用、管理ページはデフォルト
