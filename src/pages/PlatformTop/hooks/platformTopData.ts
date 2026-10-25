@@ -63,16 +63,68 @@ export interface PlatformTopData {
   prefectures: string[]
   /** 稼働中の組織の公開店舗（臨時会場を含む。貸切受付中の判定で上演できる店舗を出すのに使う） */
   stores: Array<{ id: string; organization_id: string; status: string | null; is_temporary: boolean | null }>
+  /** 公演を読めた期間の終わり（今日から PLATFORM_RANGE_DAYS 日）。読めなかったときは今日の前日 */
+  loadedUntil: string
+  /** 予約を受け付けている公開の公演のうち、いちばん先の日付（全組織。読めなければ null） */
+  latestPublicDate: string | null
+  latestPublicDateError: boolean
+  /** 先の月を月ごとに読んだ公演を、同じ決まりで公演にするための材料（メモリだけ） */
+  context: PlatformPerformanceContext
+}
+
+export interface PlatformPerformanceContext {
+  orgById: Map<string, OrganizationRow>
+  scenarioByKey: Map<string, PerformanceScenarioRow>
+  storeById: Map<string, StoreRow>
+}
+
+type EventRow = NonNullable<Awaited<ReturnType<typeof publicBookingListReadApi.listAllPublicEventsInRange>>['data']>[number]
+
+/**
+ * 公演の行（全組織）を、お客様向けの公演にする（公開・受付中のオープン／出張だけ。募集停止の日は出さない。独自休日の料金）。
+ * 最初の 55 日と、「もっと見る」で月ごとに読んだ分で同じ決まりを使う。
+ */
+export async function platformPerformancesFromEvents(rows: readonly EventRow[], ctx: PlatformPerformanceContext): Promise<PublicPerformance[]> {
+  const events = rows.filter(isPublicOpenEvent)
+  // 店舗の公演募集停止期間（予約は DB でも止まる。表示を合わせるだけ）
+  let pauses: StoreRecruitmentPausePeriod[] = []
+  const eventStoreIds = [...new Set(events.map((e) => e.store_id).filter((id): id is string => Boolean(id)))]
+  if (eventStoreIds.length > 0) {
+    const { data, error } = await publicBookingReadApi.listPerformancePauses(eventStoreIds)
+    if (error) logger.error('全体トップ: 募集停止期間の取得に失敗', error)
+    else pauses = (data ?? []) as StoreRecruitmentPausePeriod[]
+  }
+
+  // 組織の独自休日も土日祝料金にする（予約確認の画面と同じ。読めなかった組織の平日の公演は料金を出さない）
+  const holidaysByOrg = new Map<string, Set<string>>()
+  const eventOrgIds = [...new Set(events.map((e) => e.organization_id).filter((id): id is string => Boolean(id)))]
+  await Promise.all(eventOrgIds.map(async (orgId) => {
+    const { data, error } = await bookingConfirmationReadApi.getPublicCustomHolidays(orgId)
+    if (error) { logger.error('全体トップ: 独自休日の取得に失敗', error); return }
+    holidaysByOrg.set(orgId, new Set((data as Array<{ custom_holidays?: string[] }> | null)?.[0]?.custom_holidays ?? []))
+  }))
+
+  const performances: PublicPerformance[] = []
+  for (const e of events) {
+    const org = e.organization_id ? ctx.orgById.get(e.organization_id) : undefined
+    if (!org || !e.scenario_master_id) continue
+    if (e.store_id && storeHasRecruitmentPause(e.date, e.store_id, 'performance', pauses)) continue
+    const holidays = holidaysByOrg.get(org.id)
+    const p = buildPublicPerformance(e, ctx.scenarioByKey.get(`${org.id}_${e.scenario_master_id}`), e.store_id ? ctx.storeById.get(e.store_id) : null, org, holidays ? (d) => holidays.has(d) : null)
+    if (p) performances.push(p)
+  }
+  return performances
 }
 
 export async function fetchPlatformTopData(today: string): Promise<PlatformTopData> {
   const end = addJstDays(today, PLATFORM_RANGE_DAYS)
-  const [orgResult, storeResult, scenarioResult, keyResult, eventResult] = await Promise.all([
+  const [orgResult, storeResult, scenarioResult, keyResult, eventResult, latestResult] = await Promise.all([
     platformPageReadApi.listActiveOrganizations(),
     publicBookingListReadApi.listPublicStores(null),
     publicBookingListReadApi.listAvailableScenarios(null),
     platformPageReadApi.getPublicAvailableScenarioKeys(),
     publicBookingListReadApi.listAllPublicEventsInRange(today, end),
+    publicBookingListReadApi.latestPublicOpenEventDate(null, today),
   ])
   if (orgResult.error) logger.error('全体トップ: 組織の取得に失敗', orgResult.error)
   if (storeResult.error) logger.error('全体トップ: 店舗の取得に失敗', storeResult.error)
@@ -135,39 +187,18 @@ export async function fetchPlatformTopData(today: string): Promise<PlatformTopDa
     sc.new_arrival_target = basis.target
   }
 
-  // 店舗の公演募集停止期間（予約は DB でも止まる。表示を合わせるだけ）
-  const events = (eventResult.data ?? []).filter(isPublicOpenEvent)
-  let pauses: StoreRecruitmentPausePeriod[] = []
-  const eventStoreIds = [...new Set(events.map((e) => e.store_id).filter((id): id is string => Boolean(id)))]
-  if (eventStoreIds.length > 0) {
-    const { data, error } = await publicBookingReadApi.listPerformancePauses(eventStoreIds)
-    if (error) logger.error('全体トップ: 募集停止期間の取得に失敗', error)
-    else pauses = (data ?? []) as StoreRecruitmentPausePeriod[]
-  }
-
-  // 組織の独自休日も土日祝料金にする（予約確認の画面と同じ。読めなかった組織の平日の公演は料金を出さない）
-  const holidaysByOrg = new Map<string, Set<string>>()
-  const eventOrgIds = [...new Set(events.map((e) => e.organization_id).filter((id): id is string => Boolean(id)))]
-  await Promise.all(eventOrgIds.map(async (orgId) => {
-    const { data, error } = await bookingConfirmationReadApi.getPublicCustomHolidays(orgId)
-    if (error) { logger.error('全体トップ: 独自休日の取得に失敗', error); return }
-    holidaysByOrg.set(orgId, new Set((data as Array<{ custom_holidays?: string[] }> | null)?.[0]?.custom_holidays ?? []))
-  }))
-
-  const performances: PublicPerformance[] = []
-  for (const e of events) {
-    const org = e.organization_id ? orgById.get(e.organization_id) : undefined
-    if (!org || !e.scenario_master_id) continue
-    if (e.store_id && storeHasRecruitmentPause(e.date, e.store_id, 'performance', pauses)) continue
-    const holidays = holidaysByOrg.get(org.id)
-    const p = buildPublicPerformance(e, scenarioByKey.get(`${org.id}_${e.scenario_master_id}`), e.store_id ? storeById.get(e.store_id) : null, org, holidays ? (d) => holidays.has(d) : null)
-    if (p) performances.push(p)
-  }
+  const context: PlatformPerformanceContext = { orgById, scenarioByKey, storeById }
+  // 途中のページで失敗したら、読めた途中までの行は使わない（「もっと見る」の月ごとの読み直しと重ならないように）
+  const performances = await platformPerformancesFromEvents(eventResult.error ? [] : (eventResult.data ?? []), context)
 
   const { organizations, prefectures } = buildPlatformOrganizations(orgs, stores, scenarioIdsByOrg)
   return {
     organizations, scenarios: [...scenarioById.values()], performances, prefectures,
     stores: stores.map((s) => ({ id: s.id, organization_id: s.organization_id as string, status: s.status ?? null, is_temporary: s.is_temporary ?? null })),
+    loadedUntil: eventResult.error ? addJstDays(today, -1) : end,
+    latestPublicDate: latestResult.error ? null : latestResult.date,
+    latestPublicDateError: !!latestResult.error,
+    context,
   }
 }
 

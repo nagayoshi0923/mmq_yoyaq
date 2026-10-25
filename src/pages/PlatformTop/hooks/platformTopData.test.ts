@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const api = vi.hoisted(() => ({
-  orgs: vi.fn(), keys: vi.fn(), stores: vi.fn(), scenarios: vi.fn(), events: vi.fn(), pauses: vi.fn(), holidays: vi.fn(),
+  orgs: vi.fn(), keys: vi.fn(), stores: vi.fn(), scenarios: vi.fn(), events: vi.fn(), pauses: vi.fn(), holidays: vi.fn(), latest: vi.fn(),
 }))
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
 vi.mock('@/lib/api/platformPageReadApi', () => ({
   platformPageReadApi: { listActiveOrganizations: api.orgs, getPublicAvailableScenarioKeys: api.keys },
 }))
 vi.mock('@/lib/api/publicBookingReadApi', () => ({
-  publicBookingListReadApi: { listPublicStores: api.stores, listAvailableScenarios: api.scenarios, listAllPublicEventsInRange: api.events },
+  publicBookingListReadApi: { listPublicStores: api.stores, listAvailableScenarios: api.scenarios, listAllPublicEventsInRange: api.events, latestPublicOpenEventDate: api.latest },
   publicBookingReadApi: { listPerformancePauses: api.pauses },
 }))
 vi.mock('@/lib/api/bookingConfirmationReadApi', () => ({ bookingConfirmationReadApi: { getPublicCustomHolidays: api.holidays } }))
@@ -26,6 +26,7 @@ beforeEach(() => {
   api.events.mockResolvedValue({ data: [], error: null })
   api.pauses.mockResolvedValue({ data: [], error: null })
   api.holidays.mockResolvedValue({ data: [{ custom_holidays: [] }], error: null })
+  api.latest.mockResolvedValue({ date: '2027-02-07', error: null })
 })
 
 describe('全体トップの作品（新作一覧の材料）', () => {

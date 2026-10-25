@@ -56,6 +56,11 @@ export const publicBookingReadApi = {
   },
 }
 
+/** 公開用の公演の行を、組織が分かればその組織に絞る（店舗トップの公演の取得と、先の月の上限の取得で共通） */
+function inOrganization<Q extends { eq: (column: string, value: string) => Q }>(query: Q, organizationId: string | null | undefined): Q {
+  return organizationId ? query.eq('organization_id', organizationId) : query
+}
+
 export const publicBookingListReadApi = {
   /** 公開中のシナリオ（ガイド用を除く）を題名順。組織が分かれば絞る */
   async listAvailableScenarios(organizationId: string | null | undefined) {
@@ -83,11 +88,17 @@ export const publicBookingListReadApi = {
 
     return query.order('display_order', { ascending: true, nullsFirst: false })
   },
-  /** 期間内の公演（公開用ビュー。PII・財務情報を除く）。組織が分かれば絞る */
+  /**
+   * 期間内の公演（公開用ビュー。PII・財務情報を除く）。組織が分かれば絞る。
+   * 1 回の取得は最大 1000 件で打ち切られるので、日付・開始・id の順を固定して 1000 件ずつ最後まで読む
+   * （2026-10-25: 月送り・「もっと見る」で期間を伸ばすと 1000 件を超え得る）。途中で失敗したら、それまでの行と error を返す。
+   */
   async listPublicEventsInRange(startDate: string, endDate: string, organizationId: string | null | undefined) {
-    let query = supabase
-      .from('schedule_events_public')
-      .select(`
+    const pageSize = 1000
+    const fetchPage = (page: number) => {
+      const query = supabase
+        .from('schedule_events_public')
+        .select(`
             id,
             date,
             start_time,
@@ -109,23 +120,48 @@ export const publicBookingListReadApi = {
             max_participants,
             capacity
           `)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .eq('is_cancelled', false)
-      .order('date', { ascending: true })
-      .order('start_time', { ascending: true })
-
-    if (organizationId) {
-      query = query.eq('organization_id', organizationId)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .eq('is_cancelled', false)
+      return inOrganization(query, organizationId)
+        .order('date', { ascending: true })
+        .order('start_time', { ascending: true })
+        .order('id', { ascending: true })
+        .range(page * pageSize, page * pageSize + pageSize - 1)
     }
-
-    return query
+    type Row = NonNullable<Awaited<ReturnType<typeof fetchPage>>['data']>[number]
+    const rows: Row[] = []
+    for (let page = 0; ; page++) {
+      const { data, error } = await fetchPage(page)
+      if (error) return { data: rows, error }
+      rows.push(...(data ?? []))
+      if (!data || data.length < pageSize) break
+    }
+    return { data: rows, error: null }
+  },
+  /**
+   * 予約を受け付けている公開の公演（オープン・出張）のうち、いちばん先の日付（組織を渡せばその組織）。無ければ null。
+   * カレンダー・リストの月送りと「もっと見る」をどこまで進めるかに使う（取得していない先の月へ空のまま進めない）。
+   */
+  async latestPublicOpenEventDate(organizationId: string | null | undefined, fromDate: string) {
+    const query = supabase
+      .from('schedule_events_public')
+      .select('date')
+      .gte('date', fromDate)
+      .eq('is_cancelled', false)
+      .in('category', ['open', 'offsite'])
+      .not('published', 'is', false)
+      .not('is_reservation_enabled', 'is', false)
+      .not('is_private_booking', 'is', true)
+    const { data, error } = await inOrganization(query, organizationId).order('date', { ascending: false }).limit(1)
+    return { date: (data?.[0]?.date as string | undefined) ?? null, error }
   },
   /**
    * 全組織の期間内の公演（公開用ビュー）。全体トップの横断検索用。
-   * 1 回の取得は最大 1000 件で打ち切られるため、id 順を固定して 1000 件ずつ最大 maxPages 回読む。
+   * 1 回の取得は最大 1000 件で打ち切られるため、id 順を固定して 1000 件ずつ最大 maxPages 回読む
+   * （「もっと見る」で期間を伸ばすので 5 → 20 ページ。上限に達したら記録する）。
    */
-  async listAllPublicEventsInRange(startDate: string, endDate: string, maxPages = 5) {
+  async listAllPublicEventsInRange(startDate: string, endDate: string, maxPages = 20) {
     const pageSize = 1000
     const fetchPage = (page: number) => supabase
       .from('schedule_events_public')
@@ -144,6 +180,7 @@ export const publicBookingListReadApi = {
       if (error) return { data: rows, error }
       rows.push(...(data ?? []))
       if (!data || data.length < pageSize) break
+      if (page === maxPages - 1) console.warn('[listAllPublicEventsInRange] ページの上限に達しました', { startDate, endDate, rows: rows.length })
     }
     return { data: rows, error: null }
   },

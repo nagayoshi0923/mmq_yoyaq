@@ -41,20 +41,32 @@ export interface PublicPerformance {
   is_extended?: boolean
 }
 
-export type DatePreset = 'week' | 'nextweek' | 'month' | 'date'
+/**
+ * upcoming: 今日から 30 日（既定。チップは無い）。「もっと見る」で 30 日ずつ足す（2026-10-25 社長指示「今月バッジ廃止、予定公演を30日分、末尾にもっとみる」）
+ * month: 今日〜今月末（チップからは外した。内部の計算と古いリンクの読み替えだけに残す）
+ */
+export type DatePreset = 'upcoming' | 'week' | 'nextweek' | 'month' | 'date'
 
 /**
  * 日付チップ（店舗トップ・全体トップで共通）。
  * 2026-10-12 社長指示: 「今日」「明日」を外し「今月」を足した。同日、さらに「今週末」を「今週」に替えた。
+ * 2026-10-25 社長指示: 「今月」を外した（既定は今日から 30 日。末尾の「もっと見る」で先へ）。
  */
-export const DATE_PRESETS: { value: Exclude<DatePreset, 'date'>; label: string }[] = [
+export const DATE_PRESETS: { value: Exclude<DatePreset, 'date' | 'upcoming' | 'month'>; label: string }[] = [
   { value: 'week', label: '今週' },
   { value: 'nextweek', label: '来週' },
-  { value: 'month', label: '今月' },
 ]
 
-/** 初期選択のチップ（2026-10-13 社長指示で「今週」から「今月」に替えた） */
-export const DEFAULT_DATE_PRESET: DatePreset = 'month'
+/** 初期表示（2026-10-25: 「今月」から「今日から 30 日」に替えた） */
+export const DEFAULT_DATE_PRESET: DatePreset = 'upcoming'
+
+/** 既定の期間と「もっと見る」1 回で足す日数 */
+export const UPCOMING_WINDOW_DAYS = 30
+
+/** 今日から windows × 30 日（今日を含む。windows は 1 以上） */
+export function upcomingRange(today: string, windows = 1): DateRange {
+  return { from: today, to: addJstDays(today, UPCOMING_WINDOW_DAYS * Math.max(1, windows) - 1) }
+}
 
 /**
  * URL の ?when= を読む。古いリンクの weekend（今週末）・today・tomorrow は「今週」として開く
@@ -65,9 +77,12 @@ export function parseDatePreset(raw: string | null | undefined): DatePreset | nu
   switch (raw) {
     case 'week':
     case 'nextweek':
-    case 'month':
     case 'date':
       return raw
+    // 「今月」はチップを外したので、古いリンクは既定（今日から 30 日）で開く
+    case 'month':
+    case 'upcoming':
+      return 'upcoming'
     case 'weekend':
     case 'today':
     case 'tomorrow':
@@ -116,9 +131,11 @@ export function nextJstMonthRange(today: string): DateRange {
  * - 来週: 次の月曜〜日曜（日曜に開くと明日の月曜から）
  * - 今月: 今日〜今月末（月末に開くと今日だけ）
  */
-export function datePresetRange(preset: DatePreset, today: string, pickedDate?: string | null): DateRange {
+export function datePresetRange(preset: DatePreset, today: string, pickedDate?: string | null, windows = 1): DateRange {
   const w = getJstWeekdayIndex(today) ?? 0
   switch (preset) {
+    case 'upcoming':
+      return upcomingRange(today, windows)
     case 'month':
       return { from: today, to: endOfJstMonth(today) }
     case 'nextweek': {
@@ -147,8 +164,9 @@ export function resolvePresetRange(
   today: string,
   pickedDate: string | null | undefined,
   countIn: (range: DateRange) => number,
+  windows = 1,
 ): DateRange {
-  const range = datePresetRange(preset, today, pickedDate)
+  const range = datePresetRange(preset, today, pickedDate, windows)
   if (preset === 'month') return countIn(range) > 0 ? range : nextJstMonthRange(today)
   if (preset === 'week') return countIn(range) > 0 ? range : datePresetRange('nextweek', today)
   return range

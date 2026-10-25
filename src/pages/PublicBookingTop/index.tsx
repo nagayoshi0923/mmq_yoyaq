@@ -23,7 +23,7 @@ import { orgBookingDescription, orgBookingTitle } from '@/lib/seo'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { autoOrganizationTagline } from '@/lib/publicStoreName'
-import { nearlyFullPerformances, todayJst } from '@/lib/publicPerformanceSearch'
+import { DEFAULT_DATE_PRESET, nearlyFullPerformances, todayJst, upcomingRange } from '@/lib/publicPerformanceSearch'
 import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top/InfoSections'
 import { privateGuidePath } from '@/pages/static/guide/privateGuidePath'
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
@@ -37,6 +37,8 @@ import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-
 import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
 import { indexUpcoming, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
 import { useBookingData } from './hooks/useBookingData'
+import { useExtraBookingMonths } from './hooks/useExtraBookingMonths'
+import { browseLimits, defaultBookingRangeEnd, extraMonthsToLoad, monthEnd, requiredUntil, uniqueById } from './utils/bookingRange'
 import { useStoreTopPerformances } from './hooks/useStoreTopPerformances'
 import { StoreSearchSection } from './components/top/StoreSearchSection'
 
@@ -80,11 +82,50 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     organizationHeaderImageUrl,
     organizationPublicBookingHeroDescription,
     organizationThemeColor,
+    loadedUntil = defaultBookingRangeEnd(today),
+    latestPublicDate = null,
+    latestPublicDateError = false,
+    scenarioRows = null,
   } = useBookingData(organizationSlug)
 
   const { state: search, update: updateSearch } = usePerformanceSearchParams()
+  // 「もっと見る」の回数 + 1（今日から windows × 30 日のカード。URL の ?more= に持ち、戻ったときも同じ期間）
+  const cardWindows = search.windows
+  // カレンダー・リストで表示中の月（YYYY-MM）。最初の 3 か月より先なら、その月の公演を月ごとに読む
+  const [visibleMonth, setVisibleMonth] = useState<string | null>(null)
+  const onVisibleMonthChange = useCallback((month: Date) => {
+    setVisibleMonth(`${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`)
+  }, [])
+  const limits = useMemo(
+    () => browseLimits(today, defaultBookingRangeEnd(today), latestPublicDate, latestPublicDateError),
+    [today, latestPublicDate, latestPublicDateError],
+  )
+  const cardsPreset = search.preset === 'date' ? DEFAULT_DATE_PRESET : search.preset
+  const until = requiredUntil({
+    cardsUntil: search.view === 'cards' && cardsPreset === DEFAULT_DATE_PRESET ? upcomingRange(today, cardWindows).to : null,
+    visibleMonth: search.view === 'cards' ? null : visibleMonth,
+    lastMonth: limits.lastMonth,
+  })
+  const extraMonths = useMemo(() => extraMonthsToLoad(loadedUntil, until), [loadedUntil, until])
+  const extra = useExtraBookingMonths({ organizationId, months: extraMonths, today, scenarioRows, stores })
+  // 同じ公演が最初の取得と月ごとの取得の両方に入っても 1 件にする（id で一意）
+  const mergedEvents = useMemo(() => uniqueById(allEvents, extra.events), [allEvents, extra.events])
+  const mergedBlocked = useMemo(() => uniqueById(blockedSlots, extra.blocked), [blockedSlots, extra.blocked])
+  const monthKey = (month: Date) => `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`
+  const monthStatus = useCallback((month: Date) => {
+    const key = monthKey(month)
+    if (monthEnd(key) <= loadedUntil) return 'ready' as const
+    return extra.statusOf(key)
+  }, [loadedUntil, extra])
+  const onRetryMonth = useCallback((month: Date) => extra.retry(monthKey(month)), [extra])
+  // カードの期間のうち、まだ読めていない月の状態（読み込み中・読めなかった）
+  const cardsExtraState = extraMonths.some((m) => extra.status.get(m) === 'error') ? 'error' as const
+    : extraMonths.some((m) => extra.status.get(m) !== 'ready') ? 'loading' as const : 'ready' as const
+  const [lmY, lmM] = limits.lastMonth.split('-').map(Number)
+  const lastMonthDate = useMemo(() => new Date(lmY, lmM - 1, 1), [lmY, lmM]) // jst-ignore（カレンダーの月）
+
   const { performances, storeOptions, nextDates } = useStoreTopPerformances({
-    allEvents, stores, organizationId, organizationSlug: slug, organizationName, nowMs,
+    allEvents: mergedEvents, stores, organizationId, organizationSlug: slug, organizationName, nowMs,
   })
   const nearlyFull = useMemo(() => nearlyFullPerformances(performances, nowMs), [performances, nowMs])
   // 作品カード（本番の見た目）の材料: 作品ごとの今後の公演と、作者・おすすめ・遊びたい数・リリース日
@@ -105,7 +146,9 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     description: organizationName ? orgBookingDescription(organizationName) : tagline,
     canonicalPath: organizationSlug ? `/${organizationSlug}` : '/',
   })
-  useReportRouteScrollRestoration('public-booking-top', { isLoading, isFetching })
+  // 「もっと見る」・月送りで読み足す月が揃うまで、戻ったときのスクロール位置を戻さない（先に戻すと後から伸びてずれる）
+  const extraPending = extraMonths.some((m) => extra.statusOf(m) === 'loading')
+  useReportRouteScrollRestoration('public-booking-top', { isLoading: isLoading || extraPending, isFetching })
 
   useEffect(() => {
     loadData().catch((error) => logger.error('PublicBookingTop データ取得エラー:', error))
@@ -229,16 +272,25 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
           source={cardSource}
           marks={marks}
           onOpen={openCard}
+          windows={cardWindows}
+          onMore={() => updateSearch({ windows: cardWindows + 1 })}
+          moreUntil={limits.moreUntil}
+          extraState={search.view === 'cards' ? cardsExtraState : 'ready'}
+          onRetryExtra={() => extraMonths.forEach((m) => { if (extra.status.get(m) === 'error') extra.retry(m) })}
           classic={{
             organizationId,
-            allEvents,
-            blockedSlots,
+            allEvents: mergedEvents,
+            blockedSlots: mergedBlocked,
             stores,
             scenarios,
             organizationSlug: slug,
             organizationName,
             privateBookingDeadlineDays,
             onCardClick: openScenario,
+            lastMonth: lastMonthDate,
+            onVisibleMonthChange,
+            monthStatus,
+            onRetryMonth,
           }}
         />
         {scenarios.length > 0 && (
