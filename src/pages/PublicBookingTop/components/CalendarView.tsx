@@ -15,6 +15,8 @@ interface CalendarDay {
 interface CalendarViewProps {
   currentMonth: Date
   onMonthChange: (date: Date) => void
+  /** 月送りで選べる最後の月（BookingFilters の lastMonth） */
+  lastMonth?: Date | null
   calendarDays: CalendarDay[]
   getEventsForDate: (date: Date) => EnrichedPublicEvent[]
   selectedStoreIds: string[]
@@ -46,6 +48,7 @@ interface CalendarViewProps {
 export const CalendarView = memo(function CalendarView({
   currentMonth,
   onMonthChange,
+  lastMonth = null,
   calendarDays,
   getEventsForDate,
   selectedStoreIds,
@@ -107,6 +110,7 @@ export const CalendarView = memo(function CalendarView({
       <BookingFilters
         currentMonth={currentMonth}
         onMonthChange={onMonthChange}
+        lastMonth={lastMonth}
         selectedStoreIds={selectedStoreIds}
         onStoreIdsChange={onStoreIdsChange}
         storeOptions={storeOptions}

@@ -21,7 +21,7 @@ function perf(over: Partial<PublicPerformance>): PublicPerformance {
 }
 
 const base: PerformanceSearchState = {
-  preset: 'month', date: null, onlyAvailable: true, beginnerOnly: false, storeIds: [], area: null, view: 'cards',
+  preset: 'upcoming', date: null, onlyAvailable: true, beginnerOnly: false, storeIds: [], area: null, view: 'cards', windows: 1,
 }
 
 const list = [
@@ -61,13 +61,13 @@ describe('MMQ 全体トップ「空いている公演を探す」（見本 TopMM
     expect(text(html)).not.toContain('に入れる公演')
   })
 
-  it('1 行目は 今週／来週／今月／日付 の横スクロール（折り返さない）で、初期は「今月」', () => {
+  it('1 行目は 今週／来週／日付 の横スクロール（折り返さない）で、初期はどれも選ばない（今日から 30 日。「今月」は 2026-10-25 に外した）', () => {
     const html = render()
     const row = html.match(/<div class="([^"]*)" role="group" aria-label="日付">(.*?)<\/div>/)
     expect(row?.[1]).toContain('overflow-x-auto')
     expect(row?.[1]).not.toContain('flex-wrap')
-    expect([...(row?.[2] ?? '').matchAll(/<button[^>]*>(.*?)<\/button>/g)].map((m) => text(m[1]))).toEqual(['今週', '来週', '今月', '日付'])
-    expect(html).toMatch(/aria-pressed="true"[^>]*>今月</)
+    expect([...(row?.[2] ?? '').matchAll(/<button[^>]*>(.*?)<\/button>/g)].map((m) => text(m[1]))).toEqual(['今週', '来週', '日付'])
+    expect(row?.[2] ?? '').not.toMatch(/aria-pressed="true"/)
   })
 
   it('2 行目は エリア／店舗／空席あり／初心者向け（折り返し可）', () => {

@@ -9,7 +9,7 @@ import { TopSection } from '@/components/public-top/TopSection'
 import type { PerformanceSearchState } from '@/components/public-top/usePerformanceSearchParams'
 import type { ScenarioCardData, ScenarioCardSource } from '@/components/public-top/scenarioCards'
 import type { ScenarioMarks } from '@/components/public-top/useScenarioMarks'
-import { DATE_PRESETS, describeDateRange, type DateRange, type PublicPerformance } from '@/lib/publicPerformanceSearch'
+import { DATE_PRESETS, DEFAULT_DATE_PRESET, describeDateRange, type DateRange, type PublicPerformance } from '@/lib/publicPerformanceSearch'
 import { formatJstMonthDay } from '@/utils/jstDate'
 import { cn } from '@/lib/utils'
 import { platformStoreOptions } from '../utils/platformStoreOptions'
@@ -32,15 +32,24 @@ interface PlatformSearchSectionProps {
   source: ScenarioCardSource
   marks?: ScenarioMarks | null
   onOpen: (card: ScenarioCardData) => void
+  /** 末尾の「もっと見る」（次の 30 日を足す）を出すか */
+  canShowMore?: boolean
+  onMore?: () => void
+  /** 先の月を読み足している途中か・読めなかったか */
+  extraState?: 'ready' | 'loading' | 'error'
+  onRetryExtra?: () => void
 }
 
 /**
  * MMQ 全体トップ「空いている公演を探す」（見本 TopMMQ.dc.html の 3。2026-10-14 社長指摘で上の帯から独立した枠に）。
- * 1 行目: 今週／来週／今月／日付（横スクロール、折り返さない）。2 行目: エリア／店舗／空席あり／初心者向け（折り返し可）。
+ * 1 行目: 今週／来週／日付（横スクロール、折り返さない）。2 行目: エリア／店舗／空席あり／初心者向け（折り返し可）。
  * その下に「期間 に空きのある公演 N 件」と、作品カードを 2 列（PC 4 列）で全部（見本どおり下の注記は無し）。
+ * 既定は今日から 30 日。末尾の「もっと見る」で次の 30 日を足す（2026-10-25 社長指示「今月バッジ廃止、予定公演を30日分、末尾にもっとみる」）。
+ * 選んでいる日付のチップをもう一度押すと既定に戻る。
  */
 export function PlatformSearchSection({
   performances, results, range, isLoading, state, onChange, prefectures, today, maxDate, markedDates, primaryColor, source, marks, onOpen,
+  canShowMore = false, onMore, extraState = 'ready', onRetryExtra,
 }: PlatformSearchSectionProps) {
   const [areaOpen, setAreaOpen] = useState(false)
   const [dateOpen, setDateOpen] = useState(false)
@@ -51,7 +60,7 @@ export function PlatformSearchSection({
     <TopSection id="results" title="空いている公演を探す">
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 scroll-row" role="group" aria-label="日付">
         {DATE_PRESETS.map((d) => (
-          <ChipButton key={d.value} selected={state.preset === d.value} primaryColor={primaryColor} onClick={() => onChange({ preset: d.value })}>
+          <ChipButton key={d.value} selected={state.preset === d.value} primaryColor={primaryColor} onClick={() => onChange({ preset: state.preset === d.value ? DEFAULT_DATE_PRESET : d.value })}>
             {d.label}
           </ChipButton>
         ))}
@@ -122,6 +131,17 @@ export function PlatformSearchSection({
         onOpen={onOpen}
         empty={<>条件に合う公演がありません。日付やエリアを変えてみてください。</>}
       />
+      {extraState === 'loading' && <p className="mt-2 text-sm text-muted-foreground" role="status" data-testid="performance-search-extra-loading">先の公演を読み込み中…</p>}
+      {extraState === 'error' && (
+        <p className="mt-2 text-sm text-destructive" role="alert" data-testid="performance-search-extra-error">
+          先の公演を読み込めませんでした。<button type="button" className="underline" onClick={onRetryExtra}>もう一度読み込む</button>
+        </p>
+      )}
+      {canShowMore && onMore && (
+        <div className="mt-3 flex justify-center">
+          <ChipButton onClick={onMore} data-testid="performance-search-more">もっと見る（次の 30 日）</ChipButton>
+        </div>
+      )}
     </TopSection>
   )
 }

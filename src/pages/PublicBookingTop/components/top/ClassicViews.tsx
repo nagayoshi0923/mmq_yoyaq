@@ -3,7 +3,7 @@
  * 2026-10-12 社長決定: カレンダー・リストは元の見た目を維持（店舗名・上の操作列・過去日・画像の比率だけ変更）。
  * 操作は元のまま（年月・店舗・満席を非表示・ログイン中は体験済みを非表示）。人数などの新しい絞り込みは効かせない。
  */
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
 import type { StoreOption } from '@/components/public-top/StorePicker'
@@ -34,6 +34,35 @@ interface ClassicViewProps {
   onHidePlayedChange: (value: boolean) => void
   primaryColor: string
   onCardClick: (scenarioId: string) => void
+  /** 月送りで選べる最後の月（予約を受け付けている公開の公演がある最後の月） */
+  lastMonth?: Date | null
+  /** 表示中の月が変わったとき（その月の公演を読んでいなければ親が月ごとに読む） */
+  onVisibleMonthChange?: (month: Date) => void
+  /** その月の公演の状態（読み込み中・読めなかった・読めた）。読めていない月を「公演なし」と見せない */
+  monthStatus?: (month: Date) => 'loading' | 'error' | 'ready'
+  onRetryMonth?: (month: Date) => void
+}
+
+/** 表示中の月を親に知らせ、その月の公演の状態を返す */
+function useVisibleMonth(month: Date, props: Pick<ClassicViewProps, 'onVisibleMonthChange' | 'monthStatus'>) {
+  const { onVisibleMonthChange, monthStatus } = props
+  const key = `${month.getFullYear()}-${month.getMonth()}`
+  useEffect(() => { onVisibleMonthChange?.(new Date(month.getFullYear(), month.getMonth(), 1)) // jst-ignore（カレンダーの月）
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, onVisibleMonthChange])
+  return monthStatus?.(month) ?? 'ready'
+}
+
+function MonthLoadingNote({ status, onRetry }: { status: 'loading' | 'error' | 'ready'; onRetry?: () => void }) {
+  if (status === 'ready') return null
+  if (status === 'error') {
+    return (
+      <p className="mb-2 text-sm text-destructive" role="alert" data-testid="classic-month-error">
+        この月の公演を読み込めませんでした。{onRetry && <button type="button" className="underline" onClick={onRetry}>もう一度読み込む</button>}
+      </p>
+    )
+  }
+  return <p className="mb-2 text-sm text-muted-foreground" role="status" data-testid="classic-month-loading">この月の公演を読み込み中…</p>
 }
 
 /** 過去の月へは戻さない（元の画面と同じ） */
@@ -51,6 +80,7 @@ export function ClassicCalendar(props: ClassicViewProps) {
   const { hidePlayed, onHidePlayedChange, allEvents, blockedSlots, stores, storeOptions, scenarios, organizationSlug, privateBookingDeadlineDays, selectedStoreIds, onStoreIdsChange, hideSoldOut, onHideSoldOutChange, primaryColor, onCardClick } = props
   const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate } = useCalendarData(allEvents, selectedStoreIds, stores, `booking-${organizationSlug}-calendar-month`)
   const onMonthChange = useFutureMonthSetter(setCurrentMonth)
+  const monthState = useVisibleMonth(currentMonth, props)
   const storesById = new Map(stores.map((s) => [s.id, s]))
   // 店舗名はお客様向けの短い名前（フォレスト①・馬場(レ)など。無ければ元どおり略称）
   const getStoreName = (event: PublicCalendarEvent) => storeShortDisplayName(event.store_id ? storesById.get(event.store_id) : null, event.date, event.venue)
@@ -60,9 +90,12 @@ export function ClassicCalendar(props: ClassicViewProps) {
     return color ? getColorFromName(color) : '#4F46E5'
   }
   return (
+    <>
+    <MonthLoadingNote status={monthState} onRetry={() => props.onRetryMonth?.(currentMonth)} />
     <CalendarView
       currentMonth={currentMonth}
       onMonthChange={onMonthChange}
+      lastMonth={props.lastMonth}
       calendarDays={calendarDays}
       getEventsForDate={getEventsForDate}
       selectedStoreIds={selectedStoreIds}
@@ -85,6 +118,7 @@ export function ClassicCalendar(props: ClassicViewProps) {
       playedScenarioIds={played.playedScenarioIds}
       isLoggedIn={played.isLoggedIn}
     />
+    </>
   )
 }
 
@@ -93,10 +127,14 @@ export function ClassicList(props: ClassicViewProps) {
   const { hidePlayed, onHidePlayedChange, allEvents, blockedSlots, stores, storeOptions, scenarios, organizationSlug, privateBookingDeadlineDays, selectedStoreIds, onStoreIdsChange, hideSoldOut, onHideSoldOutChange, primaryColor, onCardClick } = props
   const { listViewMonth, setListViewMonth, listViewData, getEventsForDateStore } = useListViewData(allEvents, stores, selectedStoreIds, blockedSlots, `booking-${organizationSlug}-list-month`)
   const onMonthChange = useFutureMonthSetter(setListViewMonth)
+  const monthState = useVisibleMonth(listViewMonth, props)
   return (
+    <>
+    <MonthLoadingNote status={monthState} onRetry={() => props.onRetryMonth?.(listViewMonth)} />
     <ListView
       listViewMonth={listViewMonth}
       onMonthChange={onMonthChange}
+      lastMonth={props.lastMonth}
       selectedStoreIds={selectedStoreIds}
       onStoreIdsChange={onStoreIdsChange}
       stores={stores}
@@ -118,6 +156,7 @@ export function ClassicList(props: ClassicViewProps) {
       playedScenarioIds={played.playedScenarioIds}
       isLoggedIn={played.isLoggedIn}
     />
+    </>
   )
 }
 

@@ -19,6 +19,8 @@ interface ListViewData {
 interface ListViewProps {
   listViewMonth: Date
   onMonthChange: (date: Date) => void
+  /** 月送りで選べる最後の月（BookingFilters の lastMonth） */
+  lastMonth?: Date | null
   selectedStoreIds: string[]
   onStoreIdsChange: (storeIds: string[]) => void
   stores: PublicStoreRow[]
@@ -49,6 +51,7 @@ interface ListViewProps {
 export const ListView = memo(function ListView({
   listViewMonth,
   onMonthChange,
+  lastMonth = null,
   selectedStoreIds,
   onStoreIdsChange,
   stores,
@@ -282,6 +285,7 @@ export const ListView = memo(function ListView({
       <BookingFilters
         currentMonth={listViewMonth}
         onMonthChange={onMonthChange}
+        lastMonth={lastMonth}
         selectedStoreIds={selectedStoreIds}
         onStoreIdsChange={onStoreIdsChange}
         storeOptions={storeOptions}

@@ -7,6 +7,7 @@ import {
   endOfJstMonth,
   DEFAULT_DATE_PRESET,
   parseDatePreset,
+  upcomingRange,
   resolvePresetRange,
   formatDurationJa,
   isBookableNow,
@@ -32,9 +33,9 @@ function perf(over: Partial<PublicPerformance>): PublicPerformance {
 const NOW = new Date('2026-10-11T12:00:00+09:00').getTime()
 
 describe('日付チップの範囲', () => {
-  it('チップは 今週／来週／今月 の順（今週末・今日・明日は無い）、初期は「今月」（2026-10-13 社長指示）', () => {
-    expect(DATE_PRESETS.map((d) => d.label)).toEqual(['今週', '来週', '今月'])
-    expect(DEFAULT_DATE_PRESET).toBe('month')
+  it('チップは 今週／来週（「今月」は 2026-10-25 社長指示で外した）、初期は今日から 30 日', () => {
+    expect(DATE_PRESETS.map((d) => d.label)).toEqual(['今週', '来週'])
+    expect(DEFAULT_DATE_PRESET).toBe('upcoming')
   })
   it('今週は今日からその週の日曜まで（両端を含む）', () => {
     // 2026-10-12 は月曜
@@ -67,6 +68,14 @@ describe('日付チップの範囲', () => {
     expect(resolvePresetRange('nextweek', '2026-10-14', null, () => 0)).toEqual({ from: '2026-10-19', to: '2026-10-25' })
     expect(resolvePresetRange('date', '2026-10-14', '2026-10-20', () => 0)).toEqual({ from: '2026-10-20', to: '2026-10-20' })
   })
+  it('今日から 30 日（今日を含む）。「もっと見る」1 回ごとに 30 日足す。月末・年末・うるう年をまたぐ（JST の暦日）', () => {
+    expect(datePresetRange('upcoming', '2026-10-25')).toEqual({ from: '2026-10-25', to: '2026-11-23' })
+    expect(upcomingRange('2026-10-25', 2)).toEqual({ from: '2026-10-25', to: '2026-12-23' })
+    expect(upcomingRange('2026-12-20', 1)).toEqual({ from: '2026-12-20', to: '2027-01-18' })
+    expect(upcomingRange('2028-02-01', 1)).toEqual({ from: '2028-02-01', to: '2028-03-01' })
+    expect(upcomingRange('2026-10-25', 0)).toEqual({ from: '2026-10-25', to: '2026-11-23' })
+    expect(resolvePresetRange('upcoming', '2026-10-25', null, () => 0, 3)).toEqual({ from: '2026-10-25', to: '2027-01-22' })
+  })
   it('「今月」が 0 件なら来月（1 日〜月末）に切り替える', () => {
     expect(resolvePresetRange('month', '2026-10-11', null, () => 3)).toEqual({ from: '2026-10-11', to: '2026-10-31' })
     expect(resolvePresetRange('month', '2026-10-31', null, () => 0)).toEqual({ from: '2026-11-01', to: '2026-11-30' })
@@ -79,7 +88,9 @@ describe('日付チップの範囲', () => {
     expect(parseDatePreset('tomorrow')).toBe('week')
     expect(parseDatePreset('week')).toBe('week')
     expect(parseDatePreset('nextweek')).toBe('nextweek')
-    expect(parseDatePreset('month')).toBe('month')
+    // 古い ?when=month は既定（今日から 30 日）で開く
+    expect(parseDatePreset('month')).toBe('upcoming')
+    expect(parseDatePreset('upcoming')).toBe('upcoming')
     expect(parseDatePreset('date')).toBe('date')
     expect(parseDatePreset('xyz')).toBeNull()
     expect(parseDatePreset(null)).toBeNull()
