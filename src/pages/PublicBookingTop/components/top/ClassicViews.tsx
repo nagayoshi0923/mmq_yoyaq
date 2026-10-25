@@ -36,6 +36,8 @@ interface ClassicViewProps {
   onCardClick: (scenarioId: string) => void
   /** 月送りで選べる最後の月（予約を受け付けている公開の公演がある最後の月） */
   lastMonth?: Date | null
+  /** lastMonth が確定したか（false の間は、先にいても最後の月へ戻さない。再読み込み直後に前回の 2 月を 12 月へ戻さない） */
+  limitReady?: boolean
   /** 表示中の月が変わったとき（その月の公演を読んでいなければ親が月ごとに読む） */
   onVisibleMonthChange?: (month: Date) => void
   /** その月の公演の状態（読み込み中・読めなかった・読めた）。読めていない月を「公演なし」と見せない */
@@ -43,10 +45,17 @@ interface ClassicViewProps {
   onRetryMonth?: (month: Date) => void
 }
 
-/** 表示中の月を親に知らせ、その月の公演の状態を返す */
-function useVisibleMonth(month: Date, props: Pick<ClassicViewProps, 'onVisibleMonthChange' | 'monthStatus'>) {
-  const { onVisibleMonthChange, monthStatus } = props
+/**
+ * 表示中の月を親に知らせ、その月の公演の状態を返す。
+ * 選べる最後の月より先にいたら（組織を切り替えた・前回の月が残っていた）最後の月へ戻す。
+ */
+function useVisibleMonth(month: Date, props: Pick<ClassicViewProps, 'onVisibleMonthChange' | 'monthStatus' | 'lastMonth' | 'limitReady'>, setMonth: (d: Date) => void) {
+  const { onVisibleMonthChange, monthStatus, lastMonth, limitReady = true } = props
   const key = `${month.getFullYear()}-${month.getMonth()}`
+  const beyond = limitReady && !!lastMonth && (month.getFullYear() * 12 + month.getMonth()) > (lastMonth.getFullYear() * 12 + lastMonth.getMonth())
+  useEffect(() => { if (beyond && lastMonth) setMonth(new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1)) // jst-ignore（カレンダーの月）
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beyond, lastMonth])
   useEffect(() => { onVisibleMonthChange?.(new Date(month.getFullYear(), month.getMonth(), 1)) // jst-ignore（カレンダーの月）
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, onVisibleMonthChange])
@@ -80,7 +89,7 @@ export function ClassicCalendar(props: ClassicViewProps) {
   const { hidePlayed, onHidePlayedChange, allEvents, blockedSlots, stores, storeOptions, scenarios, organizationSlug, privateBookingDeadlineDays, selectedStoreIds, onStoreIdsChange, hideSoldOut, onHideSoldOutChange, primaryColor, onCardClick } = props
   const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate } = useCalendarData(allEvents, selectedStoreIds, stores, `booking-${organizationSlug}-calendar-month`)
   const onMonthChange = useFutureMonthSetter(setCurrentMonth)
-  const monthState = useVisibleMonth(currentMonth, props)
+  const monthState = useVisibleMonth(currentMonth, props, setCurrentMonth)
   const storesById = new Map(stores.map((s) => [s.id, s]))
   // 店舗名はお客様向けの短い名前（フォレスト①・馬場(レ)など。無ければ元どおり略称）
   const getStoreName = (event: PublicCalendarEvent) => storeShortDisplayName(event.store_id ? storesById.get(event.store_id) : null, event.date, event.venue)
@@ -127,7 +136,7 @@ export function ClassicList(props: ClassicViewProps) {
   const { hidePlayed, onHidePlayedChange, allEvents, blockedSlots, stores, storeOptions, scenarios, organizationSlug, privateBookingDeadlineDays, selectedStoreIds, onStoreIdsChange, hideSoldOut, onHideSoldOutChange, primaryColor, onCardClick } = props
   const { listViewMonth, setListViewMonth, listViewData, getEventsForDateStore } = useListViewData(allEvents, stores, selectedStoreIds, blockedSlots, `booking-${organizationSlug}-list-month`)
   const onMonthChange = useFutureMonthSetter(setListViewMonth)
-  const monthState = useVisibleMonth(listViewMonth, props)
+  const monthState = useVisibleMonth(listViewMonth, props, setListViewMonth)
   return (
     <>
     <MonthLoadingNote status={monthState} onRetry={() => props.onRetryMonth?.(listViewMonth)} />

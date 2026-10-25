@@ -80,3 +80,14 @@ export function uniqueById<T extends { id: string }>(first: readonly T[], second
   const seen = new Set(first.map((x) => x.id))
   return [...first, ...second.filter((x) => !seen.has(x.id))]
 }
+
+/**
+ * カレンダー・リストの月の状態。最初の取得で読めた月は ready、選べる最後の月より先（組織を切り替えた・前回の月が残っていた）は
+ * 読むものが無いので ready（「読み込み中」のまま止めない）、それ以外は月ごとの取得の状態。
+ * 上限がまだ分からない（limitReady=false: 最新の取得が終わっていない）間は、先の月を「空」と決めず読み込み中にする。
+ */
+export function monthLoadStatus(month: string, loadedUntil: string, lastMonth: string, extraStatus: (month: string) => 'loading' | 'error' | 'ready', limitReady = true): 'loading' | 'error' | 'ready' {
+  if (monthEnd(month) <= loadedUntil) return 'ready'
+  if (month > lastMonth) return limitReady ? 'ready' : 'loading'
+  return extraStatus(month)
+}

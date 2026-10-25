@@ -47,9 +47,6 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   const scenarioData = scenarioDataResult
   
   const todayJST = formatDateJST(new Date())
-  const endDate = new Date()
-  endDate.setMonth(endDate.getMonth() + 3)
-  const endDateStr = formatDateJST(endDate)
   const masterId = scenarioData.scenario_master_id
   const orgScenarioId =
     (scenarioData as { org_scenario_id?: string | null }).org_scenario_id ?? null
@@ -77,10 +74,11 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
         `
 
   async function fetchScheduleEventsMergedForScenario(): Promise<any[]> {
+    // 今日以降の公演をすべて（以前は今日から 3 か月で切っていて、トップ・カレンダーから開いた 2/7 の公演を選べなかった。
+    // 2026-10-26 社長報告。1 作品の公演なので件数は少ない）
     const applyRangeAndOrg = (q: any) => {
       let x = q
         .gte('date', todayJST)
-        .lte('date', endDateStr)
         .eq('is_cancelled', false)
       if (orgId) x = x.eq('organization_id', orgId)
       return x.order('date', { ascending: true }).order('start_time', { ascending: true })
