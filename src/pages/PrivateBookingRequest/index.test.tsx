@@ -3,6 +3,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { isWeekendOrHoliday } from '../ScenarioDetailPage/utils/pricingUtils'
 const HORIZON = vi.hoisted(() => ({ days: 180 }))
 vi.mock('@/lib/privateBookingHorizon', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/privateBookingHorizon')>()),
@@ -15,7 +16,11 @@ vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'user',
 vi.mock('@/components/layout/Header', () => ({ Header: () => null }))
 vi.mock('@/components/layout/NavigationBar', () => ({ NavigationBar: () => null }))
 vi.mock('../ScenarioDetailPage/components/BookingNotice', () => ({ BookingNotice: () => null }))
-vi.mock('@/hooks/useCustomHolidays', () => ({ useCustomHolidays: () => ({ isCustomHoliday: mocks.holiday }) }))
+const holidayLoad = vi.hoisted(() => ({ isLoading: false, error: null as string | null }))
+vi.mock('@/hooks/useCustomHolidays', async (importOriginal) => ({
+  knownCustomHoliday: (await importOriginal<typeof import('@/hooks/useCustomHolidays')>()).knownCustomHoliday,
+  useCustomHolidays: () => ({ isCustomHoliday: mocks.holiday, isLoading: holidayLoad.isLoading, error: holidayLoad.error }),
+}))
 vi.mock('@/hooks/usePrivateBookingDeadlineDays', () => ({ usePrivateBookingDeadlineDays: () => mocks.days }))
 vi.mock('@/hooks/usePrivateGroup', () => ({ usePrivateGroup: () => ({ createGroup: mocks.create, loading: false }) }))
 vi.mock('./hooks/usePrivateBookingSubmit', () => ({ usePrivateBookingSubmit: (args: { selectedStoreIds: string[] }) => { mocks.submitArgs = args; return { handleSubmit: mocks.submit, isSubmitting: false, success: false } } }))
@@ -263,5 +268,31 @@ describe('確認ページで希望店舗を変更する（QW-20261022-013）', (
     await act(async () => inSheet('大塚店を解除').click()); await flush()
     expect(sheet()!.querySelector('[data-testid="change-stores-empty"]')).not.toBeNull()
     expect(inSheet('この店舗に変更する').disabled).toBe(true)
+  })
+})
+
+describe('料金: 組織の独自休日が分からないとき（2026-10-25 社長報告・Codex レビュー）', () => {
+  // 30 日以上先の平日（祝日でない日）
+  const weekday = (() => { for (let i = 30; ; i++) { const d = new Date(Date.now() + i * 86400000).toISOString().slice(0, 10); const dow = new Date(d + 'T00:00:00Z').getUTCDay(); if (dow >= 1 && dow <= 5 && !isWeekendOrHoliday(d)) return d } })()
+  // 平日 4,000 円・土日祝 4,500 円の作品（独自休日かどうかで料金が変わる）
+  const costs = [{ time_slot: 'normal', amount: 4000, type: 'fixed' as const }, { time_slot: 'weekend', amount: 4500, type: 'fixed' as const }, { time_slot: 'holiday', amount: 4500, type: 'fixed' as const }]
+  const weekdayProps = { ...props, participationCosts: costs, selectedTimeSlots: [{ date: weekday, slot: { label: '夜', startTime: '19:30', endTime: '22:30' } }] }
+  const renderWeekday = async () => { await act(async () => root.render(<QueryClientProvider client={client}><PrivateBookingRequest {...weekdayProps} /></QueryClientProvider>)); await flush() }
+  afterEach(() => { holidayLoad.isLoading = false; holidayLoad.error = null })
+  it('読み込めなかったときは平日の候補の料金を出さず、再読み込みを案内する', async () => {
+    holidayLoad.error = '休日設定を取得できません。画面を再読み込みしてください。'
+    await renderWeekday()
+    expect(host.textContent).toContain('確認できません')
+    expect(host.textContent).not.toContain('¥24,000')
+    expect(host.querySelector('[data-testid="private-request-fee-error"]')?.textContent).toContain('再読み込み')
+  })
+  it('読み込み中は「確認中」、読めたら平日の料金', async () => {
+    holidayLoad.isLoading = true
+    await renderWeekday()
+    expect(host.textContent).toContain('確認中')
+    expect(host.textContent).not.toContain('¥24,000')
+    holidayLoad.isLoading = false
+    await renderWeekday()
+    expect(host.textContent).toContain('¥24,000')
   })
 })

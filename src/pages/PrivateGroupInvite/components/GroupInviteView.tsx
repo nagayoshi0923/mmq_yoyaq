@@ -64,7 +64,7 @@ interface GroupInviteViewProps {
   error: string | null
   /** ゲスト（未ログイン・未参加）の参加欄: はじめて／再訪／PIN */
   guestMode: GuestJoinMode
-  isCustomHoliday?: (date: string) => boolean
+  isCustomHoliday?: ((date: string) => boolean) | null  // null = 独自休日を読み込み中・読み込めなかった（平日の候補の料金は出さない）
   guestName: string
   guestEmail: string
   pinEmail: string

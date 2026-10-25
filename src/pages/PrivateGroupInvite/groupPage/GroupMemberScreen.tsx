@@ -94,7 +94,7 @@ interface GroupMemberScreenProps {
   refetch: () => unknown
   submitDateResponses: (groupId: string, memberId: string, responses: Array<{ candidateDateId: string; response: DateResponse }>) => Promise<void>
   formatDateJaMd: (dateStr: string) => string
-  isCustomHoliday?: (date: string) => boolean
+  isCustomHoliday?: ((date: string) => boolean) | null  // null = 独自休日を読み込み中・読み込めなかった（平日の候補の料金は出さない）
   /** ゲストの「この端末から退出」（会員は null） */
   onGuestSignOut?: (() => void) | null
 }

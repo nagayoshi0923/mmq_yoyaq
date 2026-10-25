@@ -85,3 +85,13 @@ describe('作品の基本情報の文字列', () => {
     expect(difficultyText(9)).toBeNull()
   })
 })
+
+describe('料金: 組織の独自休日が分からないとき（2026-10-25 Codex レビュー）', () => {
+  it('平日の候補があれば料金を出さない。土日だけなら出す。確定後の保存額はそのまま', () => {
+    const base = { phase: 'pre_request' as const, fee: 4500, costs, people: 6, confirmed: null, savedPerPerson: null }
+    expect(priceSummary({ ...base, candidates: [{ date: '2026-10-21', startTime: '14:00' }], isCustomHoliday: null })).toBeNull()
+    expect(priceSummary({ ...base, candidates: [{ date: '2026-10-25', startTime: '14:00' }], isCustomHoliday: null })?.perPersonMin).toBe(5000)
+    expect(priceSummary({ ...base, candidates: [{ date: '2026-10-21', startTime: '14:00' }], isCustomHoliday: (d) => d === '2026-10-21' })?.perPersonMin).toBe(5000)
+    expect(priceSummary({ phase: 'confirmed', fee: 4500, costs, people: 6, candidates: [], confirmed: { date: '2026-10-21', startTime: '14:00' }, savedPerPerson: 4800, isCustomHoliday: null })?.perPersonMin).toBe(4800)
+  })
+})

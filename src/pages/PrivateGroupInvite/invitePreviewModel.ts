@@ -38,7 +38,7 @@ interface PreviewInput {
   savedPerPerson: number | null | undefined
   fee: number | null | undefined
   costs: ParticipationCost[] | null | undefined
-  isCustomHoliday?: (date: string) => boolean
+  isCustomHoliday?: ((date: string) => boolean) | null  // null = 独自休日を読み込み中・読み込めなかった（平日の候補の料金は出さない）
 }
 
 const STATUS: Record<PrivateGroupProgress, { label: string; cls: string; text: string }> = {
