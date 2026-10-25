@@ -273,7 +273,7 @@ export function ContractMaster({ canEdit }: ContractMasterProps) {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent fixedSize="form" className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editingContract ? '契約マスタを編集' : '契約マスタを追加'}</DialogTitle>
           </DialogHeader>

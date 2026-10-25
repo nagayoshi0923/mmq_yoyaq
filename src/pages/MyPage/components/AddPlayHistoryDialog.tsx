@@ -47,7 +47,7 @@ export function AddPlayHistoryDialog({
                           <span className="sm:hidden">追加</span>
                         </Button>
                       </DialogTrigger>
-                      <DialogContent>
+                      <DialogContent fixedSize="form">
                         <DialogHeader>
                           <DialogTitle>過去の体験を追加</DialogTitle>
                         </DialogHeader>
@@ -91,13 +91,15 @@ export function AddPlayHistoryDialog({
                               allowClear={true}
                             />
                           </div>
-                          <Button
-                            onClick={handleAddManualHistory}
-                            disabled={addManualHistoryMutation.isPending || !newScenarioId}
-                            className="w-full"
-                          >
-                            {addManualHistoryMutation.isPending ? '追加中...' : '追加'}
-                          </Button>
+                          <div data-dialog-footer="">
+                            <Button
+                              onClick={handleAddManualHistory}
+                              disabled={addManualHistoryMutation.isPending || !newScenarioId}
+                              className="w-full"
+                            >
+                              {addManualHistoryMutation.isPending ? '追加中...' : '追加'}
+                            </Button>
+                          </div>
                         </div>
                       </DialogContent>
                     </Dialog>

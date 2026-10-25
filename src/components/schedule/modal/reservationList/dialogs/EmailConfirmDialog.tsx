@@ -40,7 +40,7 @@ export function EmailConfirmDialog({
 }: EmailConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent fixedSize="list-sm" className="max-w-lg">
         <DialogHeader>
           <DialogTitle>予約をキャンセル</DialogTitle>
         </DialogHeader>
@@ -96,7 +96,7 @@ export function EmailConfirmDialog({
             </div>
           )}
 
-          <div className="flex justify-end gap-2">
+          <div data-dialog-footer="" className="flex justify-end gap-2">
             <Button
               variant="outline"
               onClick={onClose}

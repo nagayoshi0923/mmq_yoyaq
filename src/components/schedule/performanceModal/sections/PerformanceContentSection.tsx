@@ -21,6 +21,7 @@ interface PerformanceContentSectionProps {
   setPendingScenarioTitle: Dispatch<SetStateAction<string | null>>
   applyScenarioChange: (scenarioTitle: string) => void
   scenarioOptions: ComponentProps<typeof SearchableSelect>['options']
+  scenarioOptionsNote?: string
   setIsScenarioDialogOpen: Dispatch<SetStateAction<boolean>>
   scenarios: Scenario[]
   isScenarioAvailableAtVenue: (scenario: Scenario) => boolean
@@ -42,6 +43,7 @@ export function PerformanceContentSection({
   setPendingScenarioTitle,
   applyScenarioChange,
   scenarioOptions,
+  scenarioOptionsNote,
   setIsScenarioDialogOpen,
   scenarios,
   isScenarioAvailableAtVenue,
@@ -79,12 +81,16 @@ export function PerformanceContentSection({
                   onEmptyAction={() => setIsScenarioDialogOpen(true)}
                   className="h-7 text-xs"
                   allowClear={!formData.is_private_request}
+                  tone={CATEGORY_TONE[formData.category] ? { bg: CATEGORY_TONE[formData.category].bg, selected: CATEGORY_TONE[formData.category].section, border: CATEGORY_TONE[formData.category].border } : undefined}
                   headerContent={
+                    <div className="space-y-1">
+                    {scenarioOptionsNote && <p className="ts-caption text-muted-foreground">{scenarioOptionsNote}</p>}
                     <span className="flex gap-1 text-[9px] text-muted-foreground">
                       <span className="inline-flex items-center px-1 rounded bg-green-100 text-green-700 border border-green-300">担当+出勤</span>
                       <span className="inline-flex items-center px-1 rounded bg-blue-100 text-blue-700 border border-blue-300">担当</span>
                       <span className="inline-flex items-center px-1 rounded bg-white text-gray-400 border border-gray-200">出勤</span>
                     </span>
+                    </div>
                   }
                 />
                 {formData.is_private_request && <p className="text-[11px] text-purple-600 mt-0.5">※ 貸切のシナリオ変更不可</p>}

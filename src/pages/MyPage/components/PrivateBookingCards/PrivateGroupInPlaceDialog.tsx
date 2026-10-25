@@ -134,7 +134,7 @@ export function PrivateGroupInPlaceDialog({ mode, onClose, inviteCode, title, my
 
   return (
     <Dialog open={open} onOpenChange={next => { if (!next) onClose() }}>
-      <DialogContent
+      <DialogContent fixedSize={isDates ? undefined : 'list-sm'}
         className={isDates ? CANDIDATE_DATES_DIALOG_CLASS : 'sm:max-w-lg max-h-[85vh] sm:max-h-[85vh] overflow-y-auto'}
         data-testid="private-group-inplace-dialog"
         data-mode={mode ?? ''}

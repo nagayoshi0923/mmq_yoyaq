@@ -36,7 +36,7 @@ export function PrivateGroupFeedbackBadge({ groupId, title }: { groupId: string 
         感想 {count.count}件（平均 {count.average}）
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-lg" onClick={e => e.stopPropagation()}>
+        <DialogContent fixedSize="list-sm" className="sm:max-w-lg" onClick={e => e.stopPropagation()}>
           <DialogHeader>
             <DialogTitle>公演後の感想</DialogTitle>
             <DialogDescription>{title}。お客様が公演後にグループページから送った感想です（他のメンバーには見えません）。</DialogDescription>

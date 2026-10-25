@@ -57,7 +57,7 @@ export function PlayedRegistrationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent fixedSize="form">
         <DialogHeader>
           <DialogTitle>体験済みに登録</DialogTitle>
         </DialogHeader>
@@ -73,13 +73,15 @@ export function PlayedRegistrationDialog({
               placeholder="日付を選択"
             />
           </div>
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="w-full"
-          >
-            {isSubmitting ? '登録中...' : '登録する'}
-          </Button>
+          <div data-dialog-footer="">
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="w-full"
+            >
+              {isSubmitting ? '登録中...' : '登録する'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

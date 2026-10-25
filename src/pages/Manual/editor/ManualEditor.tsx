@@ -52,7 +52,7 @@ function BlockTypePicker({
 }) {
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent fixedSize="form" className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>ブロックの種類を選択</DialogTitle>
         </DialogHeader>
@@ -92,7 +92,7 @@ function BlockEditDialog({
 
   return (
     <Dialog open onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent fixedSize="form" className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{meta?.label ?? block.block_type} を編集</DialogTitle>
         </DialogHeader>
@@ -308,7 +308,7 @@ function MigrateDialog({
 
   return (
     <Dialog open={open} onOpenChange={o => !o && handleClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent fixedSize="list-sm" className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Database className="h-5 w-5 text-primary" />

@@ -372,7 +372,7 @@ export function OrganizationInfoSettings() {
 
       {/* 管理者から外すダイアログ */}
       <Dialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent fixedSize="confirm" className="max-w-sm">
           <DialogHeader>
             <DialogTitle>管理者から外す</DialogTitle>
             <DialogDescription>
@@ -410,7 +410,7 @@ export function OrganizationInfoSettings() {
 
       {/* 招待ダイアログ */}
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent fixedSize="form-sm" className="max-w-md">
           <DialogHeader>
             <DialogTitle>管理者を招待</DialogTitle>
           </DialogHeader>

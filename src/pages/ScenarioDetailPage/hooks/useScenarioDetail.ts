@@ -223,6 +223,8 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     booking_end_date: scenarioData.booking_end_date || null,
     scenario_kind: scenarioData.scenario_kind ?? 'regular',
     accepts_private_booking: scenarioData.accepts_private_booking ?? true,
+    private_booking_fields_complete: (['accepts_private_booking', 'scenario_kind', 'booking_start_date', 'booking_end_date', 'available_stores'] as const)
+      .every((k) => k in scenarioData && (scenarioData as unknown as Record<string, unknown>)[k] !== undefined),
     characters: scenarioData.characters || []
   }
   

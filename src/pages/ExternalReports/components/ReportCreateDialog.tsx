@@ -130,7 +130,7 @@ export function ReportCreateDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent fixedSize="form" className="max-w-md">
         <DialogHeader>
           <DialogTitle>公演報告を作成</DialogTitle>
           <DialogDescription>

@@ -49,7 +49,7 @@ export function GroupFeedbackDialog({ open, onOpenChange, initial, onSave }: Gro
 
   return (
     <Dialog open={open} onOpenChange={next => { if (!saving) onOpenChange(next) }}>
-      <DialogContent className="max-w-md" data-testid="group-feedback-dialog">
+      <DialogContent fixedSize="form" className="max-w-md" data-testid="group-feedback-dialog">
         <DialogHeader>
           <DialogTitle>感想を書く</DialogTitle>
           <DialogDescription>感想は店舗と GM にだけ届きます。メンバーには見えません。</DialogDescription>
@@ -88,7 +88,7 @@ export function GroupFeedbackDialog({ open, onOpenChange, initial, onSave }: Gro
             />
             <p className="mt-1 text-xs text-muted-foreground text-right">{comment.length} / {MAX_COMMENT}</p>
           </div>
-          <div className="flex gap-2 justify-end">
+          <div data-dialog-footer="" className="flex gap-2 justify-end">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>閉じる</Button>
             <Button type="button" onClick={() => void submit()} disabled={saving} className="bg-green-700 hover:bg-green-800 text-white" data-testid="group-feedback-submit">
               {saving ? '送信中…' : initial ? '書き直して送る' : '送る'}

@@ -70,7 +70,7 @@ export function SendPreviewDialog({
 }: SendPreviewDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent fixedSize="form" className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>レポート送信プレビュー</DialogTitle>
           <DialogDescription>

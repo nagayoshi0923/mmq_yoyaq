@@ -25,7 +25,7 @@ export function CancelReservationDialog({
 }: CancelReservationDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent fixedSize="confirm">
         <DialogHeader>
           <DialogTitle>予約をキャンセルしますか？</DialogTitle>
           <DialogDescription>
@@ -49,7 +49,7 @@ export function CancelReservationDialog({
             </div>
           </div>
         )}
-        <div className="flex justify-end gap-2 pt-4">
+        <div data-dialog-footer="" className="flex justify-end gap-2 pt-4">
           <Button
             variant="outline"
             onClick={onClose}

@@ -91,7 +91,7 @@ export function InviteShareButton({
       </Button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent fixedSize="form-sm" className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>友達を誘う</DialogTitle>
             <DialogDescription>

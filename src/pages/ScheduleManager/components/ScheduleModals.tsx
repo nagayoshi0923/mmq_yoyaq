@@ -1,6 +1,6 @@
 // スケジュール管理 モーダル・ダイアログ群（遅延ロード＋右クリックメニュー）
 // ScheduleManager/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
-import React, { Suspense, lazy, useState } from 'react'
+import React, { Suspense, lazy, useState, useMemo } from 'react'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { timeSlotEnToSchedule } from '@/lib/timeSlot'
@@ -43,6 +43,7 @@ interface ScheduleModalsProps {
   modals: NonNullable<ReturnType<typeof useScheduleTable>['modals']>
   scheduleTableProps: ReturnType<typeof useScheduleTable>
   currentDate: Date
+  selectedStoreIds: string[]
   setCurrentDate: React.Dispatch<React.SetStateAction<Date>>
   isExportModalOpen: boolean
   setIsExportModalOpen: React.Dispatch<React.SetStateAction<boolean>>
@@ -78,6 +79,7 @@ export function ScheduleModals({
   modals,
   scheduleTableProps,
   currentDate,
+  selectedStoreIds,
   setCurrentDate,
   isExportModalOpen,
   setIsExportModalOpen,
@@ -108,6 +110,15 @@ export function ScheduleModals({
   isKitManagementOpen,
   setIsKitManagementOpen,
 }: ScheduleModalsProps) {
+  const placementMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`
+  const scenarioPlacement = useMemo(() => organizationId ? ({
+    organizationId, month: placementMonth,
+    organizationStoreIds: scheduleTableProps.viewConfig.stores.map((s) => s.id),
+    selectedStoreIds,
+    storeLabel: selectedStoreIds.length ? `選択店舗（${scheduleTableProps.viewConfig.stores.filter((s) => selectedStoreIds.includes(s.id)).map((s) => s.name).join('・')}）` : '全店舗',
+    events: scheduleTableProps.events ?? [],
+    ready: !!scheduleTableProps.events && !scheduleTableProps.eventsLoading && !scheduleTableProps.eventsError,
+  }) : undefined, [organizationId, placementMonth, selectedStoreIds, scheduleTableProps.viewConfig.stores, scheduleTableProps.events, scheduleTableProps.eventsLoading, scheduleTableProps.eventsError])
   // 臨時会場削除の確認ダイアログ用ペンディング state（イベント行/セル行の2箇所で共有）
   const [removeVenueTarget, setRemoveVenueTarget] = useState<{ date: string; venue: string } | null>(null)
   // 臨時会場追加時の会場名入力ダイアログ用ペンディング state
@@ -129,6 +140,7 @@ export function ScheduleModals({
         scenarios={modals.performanceModal.scenarios}
         staff={modals.performanceModal.staff}
         events={scheduleTableProps.events}
+        scenarioPlacement={scenarioPlacement}
         availableStaffByScenario={modals.performanceModal.availableStaffByScenario}
         allAvailableStaff={modals.performanceModal.allAvailableStaff}
         onParticipantChange={modals.performanceModal.onParticipantChange}

@@ -791,6 +791,7 @@ export function ScheduleManager() {
         modals={modals}
         scheduleTableProps={scheduleTableProps}
         currentDate={currentDate}
+        selectedStoreIds={selectedStores}
         setCurrentDate={setCurrentDate}
         isExportModalOpen={isExportModalOpen}
         setIsExportModalOpen={setIsExportModalOpen}

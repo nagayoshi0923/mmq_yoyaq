@@ -329,7 +329,7 @@ export const ScenarioHero = memo(function ScenarioHero({
 
       {/* 体験済み登録ダイアログ */}
       <Dialog open={isPlayedDialogOpen} onOpenChange={setIsPlayedDialogOpen}>
-        <DialogContent>
+        <DialogContent fixedSize="form">
           <DialogHeader>
             <DialogTitle>体験済みに登録</DialogTitle>
           </DialogHeader>

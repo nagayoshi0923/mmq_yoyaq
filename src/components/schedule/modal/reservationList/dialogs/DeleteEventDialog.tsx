@@ -16,7 +16,7 @@ interface DeleteEventDialogProps {
 export function DeleteEventDialog({ open, onOpenChange, onClose, isDeleting, onConfirm }: DeleteEventDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent fixedSize="confirm">
         <DialogHeader>
           <DialogTitle>貸切公演を削除しますか？</DialogTitle>
           <DialogDescription>
@@ -28,7 +28,7 @@ export function DeleteEventDialog({ open, onOpenChange, onClose, isDeleting, onC
             「削除する」を選択すると、この貸切公演がスケジュールから完全に削除されます。
           </p>
         </div>
-        <div className="flex justify-end gap-2 pt-4">
+        <div data-dialog-footer="" className="flex justify-end gap-2 pt-4">
           <Button
             variant="outline"
             onClick={onClose}

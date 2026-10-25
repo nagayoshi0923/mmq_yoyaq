@@ -394,7 +394,7 @@ export function BlogSettings() {
 
       {/* 編集ダイアログ */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent fixedSize="form" className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingPost ? '記事を編集' : '新しい記事を作成'}

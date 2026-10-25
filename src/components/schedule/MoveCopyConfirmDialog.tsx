@@ -18,7 +18,7 @@ export function MoveCopyConfirmDialog({ prompt, onResolve }: MoveCopyConfirmDial
   const isDestructive = prompt?.variant === 'destructive'
   return (
     <Dialog open={!!prompt} onOpenChange={(open) => !open && onResolve(false)}>
-      <DialogContent className="max-w-md">
+      <DialogContent fixedSize="confirm" className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className={isDestructive ? 'h-5 w-5 text-red-600' : 'h-5 w-5 text-yellow-500'} />

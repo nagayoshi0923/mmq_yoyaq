@@ -3,6 +3,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import "./dialog-sizes.css"
 
 const Dialog = DialogPrimitive.Root
 
@@ -79,15 +80,19 @@ function hasDialogDescription(children: React.ReactNode): boolean {
   return hasElementOfType(children, (el) => el.type === DialogDescription || el.type === DialogPrimitive.Description)
 }
 
+/** 用途別の固定サイズ（768px 以上だけ。dialog-sizes.css）。確認 384×240／小さい入力 448×440／一覧つきの小 512×600／標準の入力 672×640／大きい編集 1280×700（公演の詳細だけは PerformanceModal.css で 1280×800） */
+export type DialogFixedSize = 'confirm' | 'form-sm' | 'list-sm' | 'form' | 'editor'
+
 interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
   size?: 'sm' | 'md' | 'lg' | 'xl'
   overlayClassName?: string
+  fixedSize?: DialogFixedSize
 }
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, size = 'md', overlayClassName, ...props }, ref) => {
+>(({ className, children, size = 'md', overlayClassName, fixedSize, ...props }, ref) => {
   // 小さい画面（ラップトップ等）でも収まるようにサイズを調整
   const sizeClasses = {
     sm: 'max-w-[95vw] sm:max-w-sm max-h-[90vh] sm:max-h-[min(500px,85vh)]',
@@ -113,12 +118,13 @@ const DialogContent = React.forwardRef<
         // DialogDescription を使わないダイアログでも Radix の a11y warning を抑止できるようにする。
         // ※ DialogDescription がある場合は Radix の自動関連付けを壊さないため、aria-describedby を渡さない。
         {...(hasDescription ? {} : { "aria-describedby": ariaDescribedBy })}
+        {...(fixedSize ? { "data-dialog-size": fixedSize } : {})}
         {...restProps}
       >
         {/* Title がない場合でも a11y を満たす（視覚的には非表示） */}
         {needsTitleFallback && <DialogTitle className="sr-only">Dialog</DialogTitle>}
         {children}
-        <DialogPrimitive.Close className="absolute right-2 top-2 sm:right-4 sm:top-4 opacity-70 transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+        <DialogPrimitive.Close className="absolute z-10 right-2 top-2 sm:right-4 sm:top-4 opacity-70 transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
@@ -133,6 +139,7 @@ const DialogHeader = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
+    data-dialog-header=""
     className={cn(
       "flex flex-col space-y-1.5 text-center sm:text-left",
       className
@@ -147,6 +154,7 @@ const DialogFooter = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
+    data-dialog-footer=""
     className={cn(
       "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-0 sm:space-x-2",
       className

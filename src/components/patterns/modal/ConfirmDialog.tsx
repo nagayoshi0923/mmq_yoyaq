@@ -81,7 +81,7 @@ export const ConfirmDialog = memo(function ConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent size="sm">
+      <DialogContent fixedSize="confirm" size="sm">
         <DialogHeader>
           <DialogTitle className="text-base">{title}</DialogTitle>
           {description && (

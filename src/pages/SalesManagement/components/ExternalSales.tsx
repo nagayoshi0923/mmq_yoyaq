@@ -348,7 +348,7 @@ export const ExternalSales: React.FC = () => {
 
       {/* 登録・編集ダイアログ */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+        <DialogContent fixedSize="form">
           <DialogHeader>
             <DialogTitle>{editingId ? '外部売上を編集' : '外部売上を登録'}</DialogTitle>
             <DialogDescription>

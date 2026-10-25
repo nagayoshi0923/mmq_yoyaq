@@ -1,0 +1,55 @@
+/*
+ * ダイアログの用途別の固定サイズ（Figma 895:96／台帳 886:96、2026-10-25 社長「他のページのダイアログも共通サイズで統一」、QW-20261023-001）。
+ * DialogContent の fixedSize で指定する。768px 以上の画面だけに効き、スマホ（767px 以下）は各ダイアログの従来どおり。
+ * 通常の PC では幅も高さも固定し、大画面でも広げない。入らない方向だけ画面から上下左右 16px 引いた範囲へ縮める。
+ * 中身が長いときは本文だけスクロールし、DialogHeader（上）と DialogFooter（下のボタン）は固定する。
+ *   confirm  確認            384 × 240
+ *   form-sm  小さい入力      448 × 440
+ *   list-sm  一覧つきの小    512 × 600
+ *   form     標準の入力      672 × 640
+ *   editor   大きい編集     1280 × 700（Figma 895:96 の大型編集。公演の詳細だけは別に承認された 1280×800 を PerformanceModal.css で指定）
+ * 属性を 2 回重ねて、共通シェル .scenario-edit-dialog-host の固定値より優先させる。
+ */
+@media (min-width: 768px) {
+  [data-dialog-size][data-dialog-size] {
+    display: flex !important;
+    flex-direction: column;
+    width: min(var(--dialog-fixed-w), calc(100vw - 32px)) !important;
+    max-width: min(var(--dialog-fixed-w), calc(100vw - 32px)) !important;
+    height: min(var(--dialog-fixed-h), calc(100vh - 32px)) !important;
+    max-height: min(var(--dialog-fixed-h), calc(100vh - 32px)) !important;
+  }
+  [data-dialog-size="confirm"] { --dialog-fixed-w: 384px; --dialog-fixed-h: 240px; }
+  [data-dialog-size="form-sm"] { --dialog-fixed-w: 448px; --dialog-fixed-h: 440px; }
+  [data-dialog-size="list-sm"] { --dialog-fixed-w: 512px; --dialog-fixed-h: 600px; }
+  [data-dialog-size="form"] { --dialog-fixed-w: 672px; --dialog-fixed-h: 640px; }
+  [data-dialog-size="editor"] { --dialog-fixed-w: 1280px; --dialog-fixed-h: 700px; }
+
+  /* 本文だけスクロール: ダイアログ直下の見出しと、下のボタン（DialogFooter、または data-dialog-footer を付けたボタンの行）を固定。
+     ボタンの行が本文の中や form の中にあっても、ダイアログを基準に下へ貼り付く。余白部分は同じ背景で隠す */
+  [data-dialog-size] > [data-dialog-header] {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    flex-shrink: 0;
+    background-color: hsl(var(--background));
+    box-shadow: 0 -32px 0 0 hsl(var(--background));
+  }
+  /* ボタンの行が form や本文の div の中にあるとき: その直下の要素を残りの高さいっぱいに伸ばし、中身が短くてもボタンを下端に置く */
+  [data-dialog-size] > :has(> [data-dialog-footer]) {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+  }
+  [data-dialog-size] [data-dialog-footer] {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    flex-shrink: 0;
+    /* space-y-* の上余白より優先して、ボタンの行を下端へ寄せる */
+    margin-top: auto !important;
+    padding-top: 8px;
+    background-color: hsl(var(--background));
+    box-shadow: 0 32px 0 0 hsl(var(--background));
+  }
+}

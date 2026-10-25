@@ -81,7 +81,7 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent size="md">
+      <DialogContent fixedSize="form" size="md">
         <DialogHeader>
           <DialogTitle>{customer ? '顧客情報編集' : '新規顧客作成'}</DialogTitle>
         </DialogHeader>

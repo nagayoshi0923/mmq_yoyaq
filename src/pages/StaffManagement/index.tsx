@@ -544,7 +544,7 @@ export function StaffManagement() {
 
         {/* スタッフ編集モーダル */}
         <Dialog open={isEditModalOpen} onOpenChange={(open) => !open && closeEditModal()}>
-          <DialogContent
+          <DialogContent fixedSize="editor"
             size="xl"
             overlayClassName="scenario-edit-dialog-overlay"
             className="scenario-edit-dialog-host [&>button]:hidden"
@@ -612,7 +612,7 @@ export function StaffManagement() {
 
         {/* スタッフ招待モーダル */}
         <Dialog open={isInviteModalOpen} onOpenChange={closeInviteModal}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent fixedSize="form" className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>スタッフを招待</DialogTitle>
               <DialogDescription>
@@ -651,7 +651,7 @@ export function StaffManagement() {
                 <Label htmlFor="discord_channel_id">Discord Channel ID</Label>
                 <Input id="discord_channel_id" name="discord_channel_id" type="text" />
               </div>
-              <div className="flex gap-2 justify-end">
+              <div data-dialog-footer="" className="flex gap-2 justify-end">
                 <Button type="button" variant="outline" onClick={closeInviteModal}>
                   キャンセル
                 </Button>
@@ -665,7 +665,7 @@ export function StaffManagement() {
 
         {/* 紐付けモーダル（既存コードを一時的に簡略化） */}
         <Dialog open={isLinkModalOpen} onOpenChange={closeLinkModal}>
-          <DialogContent>
+          <DialogContent fixedSize="form">
             <DialogHeader>
               <DialogTitle>ユーザーと紐付け</DialogTitle>
               <DialogDescription>
@@ -750,7 +750,7 @@ export function StaffManagement() {
                   }}>
                     <Label htmlFor="invite-email">メールアドレス</Label>
                     <Input id="invite-email" name="invite-email" type="email" required />
-                    <div className="flex gap-2 justify-end mt-4">
+                    <div data-dialog-footer="" className="flex gap-2 justify-end mt-4">
                       <Button type="button" variant="outline" onClick={closeLinkModal}>
                         キャンセル
                       </Button>

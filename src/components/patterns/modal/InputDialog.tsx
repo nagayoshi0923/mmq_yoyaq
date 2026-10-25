@@ -86,7 +86,7 @@ export const InputDialog = memo(function InputDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent size="sm">
+      <DialogContent fixedSize="form-sm" size="sm">
         <DialogHeader>
           <DialogTitle className="text-base">{title}</DialogTitle>
           {description && (

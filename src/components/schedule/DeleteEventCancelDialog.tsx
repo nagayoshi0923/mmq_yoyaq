@@ -158,7 +158,7 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
         if (!open) onResolve(null)
       }}
     >
-      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+      <DialogContent fixedSize="list-sm" className="max-w-lg max-h-[90vh] flex flex-col">
         {step === 'confirm' ? (
           <>
             <DialogHeader>
@@ -390,7 +390,7 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
                   : '・この公演を中止の上、イベントセルを削除（履歴に記録されます）'}
               </div>
 
-              <div className="flex justify-end gap-2">
+              <div data-dialog-footer="" className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setStep('confirm')}>
                   戻る
                 </Button>

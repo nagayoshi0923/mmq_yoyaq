@@ -398,7 +398,7 @@ export function UserManagementContent() {
 
       {/* ロール変更確認ダイアログ */}
       <Dialog open={!!roleChangeConfirm} onOpenChange={(open) => !open && setRoleChangeConfirm(null)}>
-        <DialogContent>
+        <DialogContent fixedSize="form">
           <DialogHeader>
             <DialogTitle>ロールを変更</DialogTitle>
             <DialogDescription>

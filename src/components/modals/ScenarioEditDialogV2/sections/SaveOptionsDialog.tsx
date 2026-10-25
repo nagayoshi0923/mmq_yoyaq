@@ -22,7 +22,7 @@ export function SaveOptionsDialog({ open, onOpenChange, savePublishChoice, setSa
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent fixedSize="form-sm" className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-base">保存オプション</DialogTitle>
           <DialogDescription className="text-xs">
