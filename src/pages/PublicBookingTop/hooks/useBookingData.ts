@@ -649,6 +649,8 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
  *
  * @param organizationSlug - 組織slug（パス方式用）指定がない場合は全組織のデータを取得
  */
+export type BookingLimitState = 'pending' | 'ready' | 'error'
+
 export function useBookingData(organizationSlug?: string) {
   const initialSnapshot = useMemo(
     () => (organizationSlug ? readBookingDataSnapshot(organizationSlug) : null),
@@ -656,7 +658,7 @@ export function useBookingData(organizationSlug?: string) {
   )
   const defaultEnd = defaultBookingRangeEnd(formatDateJST(new Date()))
 
-  const { data, isLoading, isFetching, isFetched, refetch } = useQuery({
+  const { data, isLoading, isFetching, isFetchedAfterMount, isError, refetch } = useQuery({
     queryKey: ['booking-data', organizationSlug],
     queryFn: () => fetchBookingData(organizationSlug),
     initialData: initialSnapshot?.data,
@@ -666,6 +668,13 @@ export function useBookingData(organizationSlug?: string) {
     // グローバル refetchOnMount: false を上書き: スナップショット表示後も必ず裏で再取得
     refetchOnMount: 'always',
   })
+
+  // 同じ画面のまま組織を切り替えたとき、その組織のキャッシュが新しくても今回の取得を 1 回行う（月送りの上限を今回の取得で確かめる。
+  // マウント時は refetchOnMount: 'always' が取得する）
+  useEffect(() => {
+    if (!isFetchedAfterMount && !isFetching) void refetch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationSlug])
 
   useEffect(() => {
     // 公演を読めなかった結果は控えない。作品の行（scenarioRows）は控えに残さない（大きいので。最新の取得で付く）
@@ -699,7 +708,11 @@ export function useBookingData(organizationSlug?: string) {
     /** 予約を受け付けている公開の公演のうち、いちばん先の日付（読めなければ null） */
     latestPublicDate: data?.latestPublicDate ?? null,
     latestPublicDateError: !!data?.latestPublicDateError,
-    /** この組織の最新の取得が終わった（前回の控えではない）。月送りの上限はこれが true になってから確定 */
-    limitReady: isFetched,
+    /**
+     * 月送りの上限が今回の取得で確定したか。前回の控え・同じ組織の古いキャッシュ（isFetched は再取得の前から true）では確定としない
+     * （Codex レビュー #1244: 古い上限 12 月で保存した 2 月を戻さない）。pending=今回の取得待ち・取得中（失敗のあとの再試行中も。isError が先に消えるので古い上限で戻さない）、
+     * error=今回の取得・上限の日の読み込みに失敗（古い上限で戻さない）
+     */
+    limitState: (!isFetchedAfterMount || isFetching ? 'pending' : isError || data?.latestPublicDateError ? 'error' : 'ready') as BookingLimitState,
   }
 }

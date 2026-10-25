@@ -35,11 +35,12 @@ import { fetchPrivateBookingData, fetchPrivateBookingDays, isPrivateBookingCandi
 import { TopHero } from '@/components/public-top/TopHero'
 import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
 import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
-import { indexUpcoming, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
+import { indexUpcoming, withFirstEventPath, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
 import { useBookingData } from './hooks/useBookingData'
 import { useExtraBookingMonths } from './hooks/useExtraBookingMonths'
 import { browseLimits, defaultBookingRangeEnd, extraMonthsToLoad, monthLoadStatus, requiredUntil, uniqueById } from './utils/bookingRange'
 import { useStoreTopPerformances } from './hooks/useStoreTopPerformances'
+import { useNewArrivalNextEvents } from './hooks/useNewArrivalNextEvents'
 import { StoreSearchSection } from './components/top/StoreSearchSection'
 
 const DEFAULT_HERO_COLOR = '#1f2a2e'
@@ -86,7 +87,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     latestPublicDate = null,
     latestPublicDateError = false,
     scenarioRows = null,
-    limitReady = true,
+    limitState = 'ready',
   } = useBookingData(organizationSlug)
 
   const { state: search, update: updateSearch } = usePerformanceSearchParams()
@@ -114,9 +115,13 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
   const mergedBlocked = useMemo(() => uniqueById(blockedSlots, extra.blocked), [blockedSlots, extra.blocked])
   const monthKey = (month: Date) => `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`
   const monthStatus = useCallback((month: Date) => {
-    return monthLoadStatus(monthKey(month), loadedUntil, limits.lastMonth, extra.statusOf, limitReady)
-  }, [loadedUntil, extra, limits.lastMonth, limitReady])
-  const onRetryMonth = useCallback((month: Date) => extra.retry(monthKey(month)), [extra])
+    return monthLoadStatus(monthKey(month), loadedUntil, limits.lastMonth, extra.statusOf, limitState)
+  }, [loadedUntil, extra, limits.lastMonth, limitState])
+  // 上限より先の月の「読み込めませんでした」は、今回の取得（上限を含む）からやり直す。それ以外は月ごとの取得をやり直す
+  const onRetryMonth = useCallback((month: Date) => {
+    if (monthKey(month) > limits.lastMonth && limitState === 'error') { void loadData(); return }
+    extra.retry(monthKey(month))
+  }, [extra, limits.lastMonth, limitState, loadData])
   // カードの期間のうち、まだ読めていない月の状態（読み込み中・読めなかった）
   const cardsExtraState = extraMonths.some((m) => extra.status.get(m) === 'error') ? 'error' as const
     : extraMonths.some((m) => extra.status.get(m) !== 'ready') ? 'loading' as const : 'ready' as const
@@ -187,6 +192,19 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
 
   // 新作一覧: この組織の公開作品を、リリース日（無ければ掲載登録日）から 90 日以内のものだけ新しい順に。新作タグでは絞らない
   const newArrivalPicks = useMemo(() => orgNewArrivalPicks(scenarios, browseScenarios, today), [scenarios, browseScenarios, today])
+  // 新作のカードの次回公演は、最初の 3 か月より先でも作品ごとに次の 1〜2 件を読んで出す（検索・カレンダーの公演には足さない。2026-10-26 社長報告）
+  const newArrivalIds = useMemo(() => newArrivalPicks.map(({ item }) => item.id), [newArrivalPicks])
+  const newArrivalNextEvents = useNewArrivalNextEvents({ organizationId, scenarioIds: newArrivalIds, today, scenarioRows, stores })
+  const { performances: newArrivalNext } = useStoreTopPerformances({
+    allEvents: newArrivalNextEvents, stores, organizationId, organizationSlug: slug, organizationName, nowMs,
+  })
+  const newArrivalCards = useMemo(() => {
+    const ids = new Set(newArrivalIds)
+    const list = uniqueById(performances, newArrivalNext)
+    const upcoming = indexUpcoming(list, nowMs)
+    return new Map(buildOrgBrowseScenarios({ scenarios: scenarios.filter((s) => ids.has(s.scenario_id)), slug, organizationId, upcoming, nextDates })
+      .map((b) => [b.id, withFirstEventPath(b.card, list)]))
+  }, [newArrivalIds, performances, newArrivalNext, nowMs, scenarios, slug, organizationId, nextDates])
 
   // 新作一覧のカードの「貸切受付中」（この組織で日程の相談を始められるか。既存の判定・値だけ。読めない間は出さない）
   const storeIdsKey = stores.map((s) => s.id).join(',')
@@ -210,8 +228,8 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     const path = organizationId && slug
       ? orgPrivateBookingPath(privateData, privateDays, { id: organizationId, slug }, { id: item.id, slug: item.scenario.scenario_slug, available_from: item.scenario.available_from, available_until: item.scenario.available_until }, isLoading ? null : stores, today)
       : null
-    return { card: { ...item.card, private_booking_path: path }, date }
-  }), [newArrivalPicks, privateData, privateDays, organizationId, slug, stores, isLoading, today])
+    return { card: { ...(newArrivalCards.get(item.id) ?? item.card), private_booking_path: path }, date }
+  }), [newArrivalPicks, newArrivalCards, privateData, privateDays, organizationId, slug, stores, isLoading, today])
 
   if (organizationNotFound) {
     return (
@@ -287,7 +305,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
             privateBookingDeadlineDays,
             onCardClick: openScenario,
             lastMonth: lastMonthDate,
-            limitReady,
+            limitReady: limitState === 'ready',
             onVisibleMonthChange,
             monthStatus,
             onRetryMonth,

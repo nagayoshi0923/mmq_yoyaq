@@ -157,6 +157,28 @@ export const publicBookingListReadApi = {
     return { date: (data?.[0]?.date as string | undefined) ?? null, error }
   },
   /**
+   * 作品の次の公開の公演（予約を受け付けているオープン・出張。今日以降を日付・開始・id の順に offset から limit 件）。組織を渡せばその組織。
+   * 新作一覧のカードに、検索の期間（30 日・最初の 3 か月・55 日）より先の次回公演を出すのに使う（2026-10-26 社長報告）。
+   * 募集停止・締切などは呼び出し側で既存の判定にかけるので、足りなければ次の offset を読む
+   */
+  async listNextPublicOpenEvents(scenarioMasterId: string, organizationId: string | null | undefined, fromDate: string, offset: number, limit: number) {
+    const query = supabase
+      .from('schedule_events_public')
+      .select('id, date, start_time, end_time, scenario_master_id, scenario_id, scenario, store_id, venue, current_participants, is_cancelled, is_reservation_enabled, published, category, is_private_booking, is_extended, reservation_deadline_hours, organization_id, max_participants, capacity')
+      .eq('scenario_master_id', scenarioMasterId)
+      .gte('date', fromDate)
+      .eq('is_cancelled', false)
+      .in('category', ['open', 'offsite'])
+      .not('published', 'is', false)
+      .not('is_reservation_enabled', 'is', false)
+      .not('is_private_booking', 'is', true)
+    return inOrganization(query, organizationId)
+      .order('date', { ascending: true })
+      .order('start_time', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + limit - 1)
+  },
+  /**
    * 全組織の期間内の公演（公開用ビュー）。全体トップの横断検索用。
    * 1 回の取得は最大 1000 件で打ち切られるため、id 順を固定して 1000 件ずつ最大 maxPages 回読む
    * （「もっと見る」で期間を伸ばすので 5 → 20 ページ。上限に達したら記録する）。

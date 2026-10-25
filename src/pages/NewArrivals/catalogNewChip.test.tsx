@@ -11,6 +11,8 @@ const m = vi.hoisted(() => ({
   views: vi.fn(), keys: vi.fn(), categories: vi.fn(), publicStores: vi.fn(),
   orgScenarios: vi.fn(), catalogStores: vi.fn(), resolveOrg: vi.fn(),
 }))
+vi.mock('@/pages/PublicBookingTop/hooks/useNewArrivalNextEvents', () => ({ useNewArrivalNextEvents: () => [] }))
+vi.mock('@/pages/PlatformTop/hooks/usePlatformNewArrivalNext', () => ({ usePlatformNewArrivalNext: () => [] }))
 vi.mock('@/pages/PlatformTop/hooks/platformTopData', () => ({ PLATFORM_RANGE_DAYS: 55, fetchPlatformTopData: m.platform }))
 vi.mock('@/pages/PublicBookingTop/hooks/useBookingData', () => ({ useBookingData: () => m.booking }))
 vi.mock('@/pages/PublicBookingTop/hooks/useStoreTopPerformances', () => ({ useStoreTopPerformances: () => ({ performances: [], storeOptions: [], nextDates: new Map() }) }))

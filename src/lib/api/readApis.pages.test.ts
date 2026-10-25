@@ -1280,6 +1280,9 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       "publicBookingListReadApi.listAvailableScenarios (最後の引数なし)": [
         "from("organization_scenarios_with_master") .select("id, slug, title, key_visual_url, author, duration, player_count_min, …) .eq("status", "available") .neq("scenario_type", "gm_test") .order("title", {"ascending":true})",
       ],
+      "publicBookingListReadApi.listNextPublicOpenEvents": [
+        "from("schedule_events_public") .select("id, date, start_time, end_time, scenario_master_id, scenario_id, scen…) .eq("scenario_master_id", "a1") .gte("date", "a3") .eq("is_cancelled", false) .in("category", ["open","offsite"]) .not("published", "is", false) .not("is_reservation_enabled", "is", false) .not("is_private_booking", "is", true) .eq("organization_id", "a2") .order("date", {"ascending":true}) .order("start_time", {"ascending":true}) .order("id", {"ascending":true}) .range("a4", null)",
+      ],
       "publicBookingListReadApi.listPublicEventsInRange": [
         "from("schedule_events_public") .select("\\n            id,\\n            date,\\n            start_time,\\n      …) .gte("date", "a1") .lte("date", "a2") .eq("is_cancelled", false) .eq("organization_id", "a3") .order("date", {"ascending":true}) .order("start_time", {"ascending":true}) .order("id", {"ascending":true}) .range(0, 999)",
       ],
