@@ -167,7 +167,7 @@ export function GroupInviteView({
               <span className="font-medium">{organizerName}</span>さんからの貸切お誘い
             </p>
             {isGuestJoin && guestMode === 'new' && (
-              <p className="mt-1 text-xs text-purple-700" data-testid="invite-guest-lead">アカウント登録なしで、お名前だけで参加できます</p>
+              <p className="mt-1 text-xs text-purple-700" data-testid="invite-guest-lead">アカウント登録なしで、お名前とメールアドレスで参加できます</p>
             )}
           </CardContent>
         </Card>
@@ -207,7 +207,7 @@ export function GroupInviteView({
           </Card>
         )}
 
-        {/* ゲストの参加欄（名前だけで参加・PIN で入る。点検 52〜54・56） */}
+        {/* ゲストの参加欄（お名前とメールアドレスで参加・PIN で入る。点検 52〜54・56） */}
         {isGuestJoin && (
           <GuestJoinPanel
             mode={guestMode}

@@ -18,10 +18,12 @@ const render = (mode: GuestJoinMode, onOpenPin = noop) => act(async () => root.r
     inviteMemberCap={6} onSubmit={noop} onPinAuth={noop} onOpenPin={onOpenPin} onClosePin={noop} onLogin={noop} onSignup={noop} />,
 ))
 
-it('はじめて: 名前だけで参加が一番上、会員のログイン・新規登録は下に小さく（#52・#56）', async () => {
+it('はじめて: お名前とメールアドレスで参加が一番上、会員のログイン・新規登録は下に小さく（#52・#56）', async () => {
   await render('new')
   const text = host.textContent ?? ''
-  expect(text.indexOf('名前だけで参加できます')).toBeLessThan(text.indexOf('ログイン'))
+  expect(text.indexOf('お名前とメールアドレスで参加できます')).toBeLessThan(text.indexOf('ログイン'))
+  // 点検 F06: 案内は「名前だけ」と言わない（メールアドレスは必須の欄）
+  expect(text).not.toContain('名前だけ')
   expect(text).toContain('ほかのメンバーに表示されます（ニックネームでも可）')
   const name = host.querySelector<HTMLInputElement>('#guest-name')
   expect(host.querySelector('label[for="guest-name"]')?.textContent).toContain('お名前')

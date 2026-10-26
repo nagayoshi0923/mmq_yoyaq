@@ -1,4 +1,5 @@
 import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
+import { referenceMinFee } from '../utils/pricingUtils'
 import { registerPlayedScenario } from '@/lib/registerPlayedScenario'
 import { memo, useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -249,7 +250,7 @@ export const ScenarioHero = memo(function ScenarioHero({
                   {formatDuration(scenario.duration, 'minutes')}
                 </span>
                 <span className="font-medium text-white">
-                  {scenario.participation_fee ? `¥${scenario.participation_fee.toLocaleString()}〜` : '¥3,000〜'}
+                  {scenario.participation_fee ? `¥${referenceMinFee(scenario.participation_fee, scenario.participation_costs).toLocaleString()}〜` : '¥3,000〜'}
                 </span>
                 {/* 難易度は一旦非表示
                 {scenario.difficulty && DIFFICULTY_LABELS[scenario.difficulty] && (

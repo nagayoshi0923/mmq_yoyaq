@@ -4,6 +4,7 @@
  * @purpose 全組織のシナリオを検索・フィルター
  */
 import { useState, useMemo, useCallback, useEffect } from 'react'
+import { referenceMinFee, type ParticipationCost } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Header } from '@/components/layout/Header'
@@ -164,6 +165,8 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
         .filter((name: string | undefined): name is string => !!name)
       return {
         ...s,
+        // 「¥N〜」は日付・時間帯の料金の最安（作品ページ・トップと同じ。点検 F05）
+        participation_fee: s.participation_fee != null ? referenceMinFee(s.participation_fee, s.participation_costs as ParticipationCost[] | null) : s.participation_fee,
         genre: s.genre || [],
         organization_slug: org?.slug || '',
         organization_name: org?.name || '',
@@ -483,6 +486,7 @@ export function PlatformScenarioSearch() {
               variant="ghost"
               size="sm"
               onClick={handleBack}
+              aria-label="戻る"
               className="text-white hover:bg-white/20 -ml-2"
               style={{ borderRadius: 0 }}
             >
@@ -531,6 +535,8 @@ export function PlatformScenarioSearch() {
               variant={showFilters ? "default" : "outline"}
               size="sm"
               onClick={() => setShowFilters(!showFilters)}
+              aria-label={showFilters ? "絞り込みを閉じる" : "絞り込みを開く"}
+              aria-expanded={showFilters}
               className="h-10 px-3"
               style={showFilters ? { backgroundColor: THEME.primary } : { borderColor: THEME.primary, color: THEME.primary }}
             >
@@ -557,6 +563,7 @@ export function PlatformScenarioSearch() {
                 variant="ghost"
                 size="sm"
                 onClick={clearFilters}
+                aria-label="絞り込みを解除"
                 className="h-10 px-3 text-muted-foreground"
               >
                 <X className="w-4 h-4" />

@@ -4,6 +4,7 @@
  * 公演後（段階 4）は 思い出／メンバー／チャット のタブと「開催しました」の箱になる。
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { nextGroupCatalogPath } from './nextGroupCatalogPath'
 import { toast } from 'sonner'
 import { rebookAfterWithdrawal } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingModel'
 import type { NavigateFunction } from 'react-router-dom'
@@ -199,9 +200,11 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
   }), [group, bookingPhase, isOrganizer, organizerName, memberCount, table, existingMemberId, linkedReservation, survey, handover, canMutateSchedule, now, ended, isLoggedIn, casting.progress, casting.status])
 
   // 同じメンバーで次の貸切: もとのグループを覚えて作品選択へ。グループを作ったら招待がこのチャットに流れる
-  const startNextGroup = () => {
+  // 組織の slug が作品情報からまだ分からないとき（直リンク・再読み込み）は、グループの組織から引く。
+  // 引けなければ全体のカタログ（/scenario）。/catalog という画面は無い（2026-10-26 点検 F12: 404 になっていた）
+  const startNextGroup = async () => {
     saveNextGroupSource({ groupId: group.id, memberId: existingMemberId, organizationId: group.organization_id, title, memberCount: Math.max(0, memberCount - 1) })
-    navigate(orgSlug ? `/${orgSlug}/catalog` : '/catalog')
+    navigate(await nextGroupCatalogPath(orgSlug, group.organization_id))
   }
 
   const confirmDeletePhotos = async () => {

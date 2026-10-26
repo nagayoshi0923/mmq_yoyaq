@@ -69,3 +69,14 @@ describe('weekend の設定が無く holiday だけある作品（Codex レビ�
     expect(feeIfHolidayKnown(4500, [{ time_slot: 'normal', amount: 4500, type: 'fixed' }], '2026-10-21', null, '14:00')).toBe(4500)
   })
 })
+
+import { referenceMinFee } from './pricingUtils'
+describe('点検 F05: 「¥N〜」の参考の最安', () => {
+  it('基本 4,500・平日 4,100・土日祝 4,700 なら 4,100（作品ページ上部・カード・カタログで同じ）', () => {
+    const costs = [{ time_slot: 'normal', amount: 4100, type: 'fixed' as const }, { time_slot: 'weekend', amount: 4700, type: 'fixed' as const }]
+    expect(referenceMinFee(4500, costs)).toBe(4100)
+  })
+  it('料金の設定が無ければ基本料金', () => {
+    expect(referenceMinFee(4500, null)).toBe(4500)
+  })
+})
