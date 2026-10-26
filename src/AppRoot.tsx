@@ -16,6 +16,7 @@ import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import { isCustomerProfileComplete } from '@/utils/customerProfileGate'
 import { isBrowseOnlyPage } from '@/lib/profileGate'
 import { buildCompleteProfilePath, readReturnToFromSearch } from '@/lib/authReturn'
+import { authPageRedirect, useLoginCompletionPending } from '@/components/auth/loginCompletion'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 import { isPublicStoresPath } from '@/lib/seo'
 import { useFavicon } from '@/hooks/useFavicon'
@@ -277,6 +278,7 @@ function HashRedirect() {
 
 function AppRoutes() {
   const { user, loading, isInitialized } = useAuth()
+  const loginPending = useLoginCompletionPending()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -437,14 +439,9 @@ function AppRoutes() {
     // isInitialized は getInitialSession() 完了後にのみ true になる。
     // モバイルSafariでは IndexedDB 読み込みがタイムアウト後に完了し user がセットされる
     // ことがあるため、!loading だとフォーム表示中に突然リダイレクトされる問題が発生する。
-    if (isInitialized && user) {
-      const authenticatedHome = user.isStoreRepresentative
-        ? `${organization?.slug ? `/${organization.slug}` : ''}/store-dashboard`
-        : '/dashboard'
-      // 戻り先付きで開かれたお客様は、その画面へ（例: 別のタブで先にログインしていた）
-      const customerHome = readReturnToFromSearch(location.search) ?? '/'
-      return <Navigate to={user.role === 'customer' ? customerHome : authenticatedHome} replace />
-    }
+    // ログイン画面がログインを完了させている途中（行き先の確認中・再読み込みの表示中）は移動しない（2026-10-26 本番ログイン障害）
+    const loginRedirect = authPageRedirect({ isInitialized, user, loginPending, returnTo: readReturnToFromSearch(location.search), organizationSlug: organization?.slug })
+    if (loginRedirect) return <Navigate to={loginRedirect} replace />
     return (
       <Suspense fallback={<FullPageSpinner />}>
         <LoginForm />

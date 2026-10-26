@@ -4,14 +4,14 @@
  */
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import type { User } from '@supabase/supabase-js'
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
-import { loginProfileReadApi, organizationReadApi } from '@/lib/api/organizationReadApi'
+import { loginProfileReadApi } from '@/lib/api/organizationReadApi'
 import { logger } from '@/utils/logger'
-import { validateRedirectUrl } from '@/lib/utils'
 import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link, useLocation } from 'react-router-dom'
@@ -30,6 +30,8 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { reportAuthFailure } from '@/contexts/auth/authDiagnostics'
+import { LOGIN_PROFILE_TIMEOUT, resolveLoginDestination, withLoginProfileTimeout } from './loginDestination'
+import { setLoginCompletionPending } from './loginCompletion'
 
 /** ログイン処理が無応答のまま打ち切られたことを示すエラーメッセージ */
 const LOGIN_WATCHDOG_TIMEOUT = 'LOGIN_WATCHDOG_TIMEOUT'
@@ -87,7 +89,61 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
   /** Google OAuth など: signInWithOAuth のデフォルト遷移が内部ロックで固まる事例への対策中に表示 */
   const [isOAuthRedirecting, setIsOAuthRedirecting] = useState(false)
   const oauthHangTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-  const { signIn, loading } = useAuth()
+  const { signIn, loading, reloadUser } = useAuth()
+  /**
+   * ログインのあとの利用者情報の読み取り（2026-10-26 本番ログイン障害: 応答が止まると「ログイン成功！リダイレクト中...」のまま進まなかった）。
+   * 期限つきで、失敗・期限切れはセッションを残したまま理由と「利用者情報を再読み込み」を出す（パスワードのログインはやり直さない）。
+   * 古い試行の遅れた結果・画面を離れたあとの結果では遷移しない
+   */
+  const [resolvingProfile, setResolvingProfile] = useState(false)
+  const [profileRetryUser, setProfileRetryUser] = useState<User | null>(null)
+  const profileAttemptRef = React.useRef(0)
+  const submitInFlightRef = React.useRef(false)
+  const resolvingProfileRef = React.useRef(false)
+  const mountedRef = React.useRef(true)
+  React.useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false } }, [])
+  // ログインを完了させている途中は /login の自動移動を止める（loginCompletion.ts）。画面を離れたら解除
+  const completingLogin = (mode === 'login' && isSubmitting) || resolvingProfile || !!profileRetryUser
+  React.useEffect(() => { setLoginCompletionPending(completingLogin) }, [completingLogin])
+  React.useEffect(() => () => setLoginCompletionPending(false), [])
+  const finishLogin = async (signedInUser: User) => {
+    if (resolvingProfileRef.current) return
+    const attempt = ++profileAttemptRef.current
+    let navigated = false
+    resolvingProfileRef.current = true
+    setResolvingProfile(true)
+    setProfileRetryUser(null)
+    setError('')
+    setMessage('ログイン成功！リダイレクト中...')
+    try {
+      // 行き先（役割・所属・組織の URL）と、アプリ全体の利用者情報（役割）の両方が確定してから遷移する
+      const [destination, appUser] = await withLoginProfileTimeout(Promise.all([
+        resolveLoginDestination(signedInUser.id, {
+          returnUrl: sessionStorage.getItem('returnUrl'),
+          pathSlug: getOrganizationSlugFromPath(),
+        }),
+        reloadUser(signedInUser),
+      ]))
+      if (!appUser) throw new Error('LOGIN_APP_USER_UNRESOLVED')
+      if (!mountedRef.current || attempt !== profileAttemptRef.current) return
+      if (destination.clearReturnUrl) sessionStorage.removeItem('returnUrl')
+      // 移動が描画されるまで「ログイン完了の途中」を保つ（先に解くと /login の自動移動が /dashboard などへ先回りする）。
+      // 画面を離れたときに解除される
+      navigated = true
+      navigate(destination.path, { replace: true })
+    } catch (err) {
+      if (!mountedRef.current || attempt !== profileAttemptRef.current) return
+      logger.error('Login profile read failed:', err)
+      setMessage('')
+      setProfileRetryUser(signedInUser)
+      setError(err instanceof Error && err.message === LOGIN_PROFILE_TIMEOUT
+        ? 'ログインは完了しています。利用者情報の読み込みが応答しませんでした。「利用者情報を再読み込み」を押してください。'
+        : 'ログインは完了しています。利用者情報を読み込めませんでした。「利用者情報を再読み込み」を押してください。')
+    } finally {
+      if (!navigated && attempt === profileAttemptRef.current) resolvingProfileRef.current = false
+      if (!navigated && mountedRef.current && attempt === profileAttemptRef.current) setResolvingProfile(false)
+    }
+  }
   const navigate = useNavigate()
   const location = useLocation()
   /** ログイン・登録の後に戻る画面（URL の ?redirect=。確認メールのリンクにも載せる） */
@@ -280,6 +336,15 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // 送信は 1 回ずつ（同じ瞬間の二度押しも描画を待たずに止める）。利用者情報の読み取り中も受け付けない
+    if (submitInFlightRef.current || resolvingProfileRef.current) return
+    // ログイン済みで利用者情報だけ読めなかった状態では、パスワードのログイン（冒頭のログアウトを含む）をやり直さず、
+    // 利用者情報の再読み込みだけを行う（セッションを壊さない。2026-10-26 本番ログイン障害）
+    if (mode === 'login' && profileRetryUser) {
+      void finishLogin(profileRetryUser)
+      return
+    }
+    submitInFlightRef.current = true
     setIsSubmitting(true)
     
     try {
@@ -371,109 +436,12 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
           if (watchdogTimer !== undefined) clearTimeout(watchdogTimer)
         }
 
-        setMessage('ログイン成功！リダイレクト中...')
-        setError('')
-
-        // リダイレクトは getUser の代わりに signIn 直後の user.id で1クエリにまとめる
-        setTimeout(async () => {
-          try {
-            let userProfile: {
-              role: string | null
-              organization_id: string | null
-              is_store_representative: boolean | null
-            } | null = null
-            let profileOrgSlug: string | undefined
-
-            const { data: profileData } = await loginProfileReadApi.findUserProfile(signedUser.id)
-
-            if (profileData) {
-              userProfile = {
-                role: profileData.role,
-                organization_id: profileData.organization_id,
-                is_store_representative: profileData.is_store_representative,
-              }
-              if (profileData.organization_id) {
-                const { data: profileOrganization } = await organizationReadApi.findSlugById(profileData.organization_id)
-                profileOrgSlug = profileOrganization?.slug
-              }
-            }
-
-            let staffData: {
-              organization_id: string | null
-              role: string | null
-              organizations?: { slug: string } | null
-            } | null = null
-            let orgSlug: string | undefined
-
-            const nested = await loginProfileReadApi.findStaffWithOrganizationSlug(signedUser.id)
-
-            if (nested.error) {
-              logger.warn('Login redirect: staff+org nested select failed, falling back', nested.error)
-              const { data: staffOnly } = await loginProfileReadApi.findStaffOnly(signedUser.id)
-              staffData = staffOnly
-              if (staffOnly?.organization_id) {
-                const { data: orgRow } = await organizationReadApi.findSlugById(staffOnly.organization_id)
-                orgSlug = orgRow?.slug
-              }
-            } else {
-              const row = nested.data
-              if (row) {
-                const orgRaw = row.organizations
-                const orgOne = Array.isArray(orgRaw) ? orgRaw[0] : orgRaw
-                staffData = {
-                  organization_id: row.organization_id,
-                  role: row.role,
-                  organizations: orgOne ?? null,
-                }
-                orgSlug =
-                  orgOne && typeof orgOne === 'object' && 'slug' in orgOne
-                    ? (orgOne as { slug: string }).slug
-                    : undefined
-              } else {
-                staffData = null
-              }
-            }
-
-            const organizationId = userProfile?.organization_id ?? staffData?.organization_id
-            const role = userProfile?.role ?? staffData?.role
-            // 見ている組織（users.organization_id）の URL を優先する。マスターが切り替え中でも本部へ戻さない
-            const slug = profileOrgSlug || orgSlug || ''
-
-            if (organizationId) {
-              if (userProfile?.is_store_representative === true && role !== 'customer') {
-                sessionStorage.removeItem('returnUrl')
-                navigate(slug ? `/${slug}/store-dashboard` : '/store-dashboard', { replace: true })
-                return
-              }
-
-              if (role === 'admin' || role === 'staff' || role === 'license_admin') {
-                sessionStorage.removeItem('returnUrl')
-                navigate(slug ? `/${slug}/schedule` : '/dashboard', { replace: true })
-              } else {
-                const rawReturnUrl1 = sessionStorage.getItem('returnUrl')
-                if (rawReturnUrl1) {
-                  sessionStorage.removeItem('returnUrl')
-                  navigate(validateRedirectUrl(rawReturnUrl1), { replace: true })
-                  return
-                }
-                navigate(`/${slug}`, { replace: true })
-              }
-            } else {
-              const rawReturnUrl2 = sessionStorage.getItem('returnUrl')
-              if (rawReturnUrl2) {
-                sessionStorage.removeItem('returnUrl')
-                navigate(validateRedirectUrl(rawReturnUrl2), { replace: true })
-                return
-              }
-              // /{org}/login から入ったお客様は、その予約サイトのトップへ戻す（MMQ 全体トップへ飛ばさない）
-              const pathSlug = getOrganizationSlugFromPath()
-              navigate(pathSlug ? `/${pathSlug}` : '/', { replace: true })
-            }
-          } catch (err) {
-            logger.error('Redirect error:', err)
-            navigate('/', { replace: true })
-          }
-        }, 0)
+        // 認証は成功。利用者情報（役割・所属）を読んで行き先を決めるのは別の段階（期限つき・失敗したら再読み込み）。
+        // ログインの応答を待つ間に画面を離れていたら、読み取り・遷移を始めない
+        if (!mountedRef.current) return
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        if (!mountedRef.current) return
+        await finishLogin(signedUser)
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : ''
@@ -519,11 +487,12 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
       }
       logger.error('Auth error:', error)
     } finally {
+      submitInFlightRef.current = false
       setIsSubmitting(false)
     }
   }
 
-  const isLoading = loading || isSubmitting || isOAuthRedirecting
+  const isLoading = loading || isSubmitting || isOAuthRedirecting || resolvingProfile
 
   return (
     <div 
@@ -815,6 +784,16 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                       <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
                       <p className="text-sm text-red-700">{error}</p>
                     </div>
+                    {profileRetryUser && !resolvingProfile && (
+                      <button
+                        type="button"
+                        data-testid="login-profile-retry"
+                        onClick={() => { void finishLogin(profileRetryUser) }}
+                        className="mt-2 text-sm font-medium text-red-700 underline"
+                      >
+                        利用者情報を再読み込み
+                      </button>
+                    )}
                     {showResendOption && (
                       <button
                         type="button"

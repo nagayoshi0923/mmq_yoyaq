@@ -5,7 +5,7 @@ import { authSessionApi } from '@/lib/api/authSessionApi'
 import { authTrace, logger } from '@/utils/logger'
 import { determineUserRole } from '@/utils/authUtils'
 import { maskEmail } from '@/utils/security'
-import { lookupStaffRole, logAuthEvent } from './authContextHelpers'
+import { AuthRoleUnresolvedError, lookupStaffRole, logAuthEvent } from './authContextHelpers'
 import { getErrorMessage, getErrorCode } from '@/lib/errorFields'
 
 /**
@@ -23,16 +23,22 @@ export interface ResolveUserDeps {
   setUser: Dispatch<SetStateAction<AuthUser | null>>
 }
 
+/**
+ * resolved = 利用者情報を確定した（既存の情報の保持を含む）。
+ * unresolved = 役割の確認が失敗・無応答で、既存の情報も無い。役割を決め打ちせず利用者は未確定のまま（ログイン画面が再読み込みを出す）
+ */
+export type ResolveUserResult = 'resolved' | 'unresolved'
+
 export async function resolveUserFromSession(
   supabaseUser: User,
   deps: ResolveUserDeps
-): Promise<void> {
+): Promise<ResolveUserResult> {
   const { isProcessingRef, userRef, staffCache, setStaffCache, setUser } = deps
     // 既に処理中の場合はスキップ（重複呼び出し防止）
     // ただし、userがまだセットされていない場合は処理を続行する（初期化時の競合対策）
     if (isProcessingRef.current && userRef.current) {
       authTrace('⏭️ 処理中のためスキップ:', maskEmail(supabaseUser.email))
-      return
+      return 'resolved'
     }
     
     const startTime = performance.now()
@@ -174,7 +180,11 @@ export async function resolveUserFromSession(
             isStoreRepresentative = existingUser.isStoreRepresentative === true
             authTrace('🔄 タイムアウト: 既存のロールを保持:', role)
           } else {
-            role = (await lookupStaffRole(supabaseUser.id, supabaseUser.email)) ?? 'customer'
+            // staff に一致すればスタッフ。一致しなくても、ロールを読めていないのでお客様とは決めない（管理者に staff 行が無い場合など。
+            // 未確定のまま返し、ログイン画面の再読み込みで確かめ直す。2026-10-26 本番ログイン障害）
+            const staffRole = await lookupStaffRole(supabaseUser.id, supabaseUser.email)
+            if (!staffRole) throw new AuthRoleUnresolvedError('ロールを読めず、staff にも一致しません')
+            role = staffRole
             authTrace('🔄 タイムアウトフォールバック: staffテーブル検索結果 ->', role)
           }
         } else {
@@ -184,7 +194,11 @@ export async function resolveUserFromSession(
             isStoreRepresentative = existingUser.isStoreRepresentative === true
             authTrace('🔄 例外発生、既存のロールを保持:', role)
           } else {
-            role = (await lookupStaffRole(supabaseUser.id, supabaseUser.email)) ?? 'customer'
+            // staff に一致すればスタッフ。一致しなくても、ロールを読めていないのでお客様とは決めない（管理者に staff 行が無い場合など。
+            // 未確定のまま返し、ログイン画面の再読み込みで確かめ直す。2026-10-26 本番ログイン障害）
+            const staffRole = await lookupStaffRole(supabaseUser.id, supabaseUser.email)
+            if (!staffRole) throw new AuthRoleUnresolvedError('ロールを読めず、staff にも一致しません')
+            role = staffRole
             authTrace('🔄 例外フォールバック: staffテーブル検索結果 ->', role)
           }
         }
@@ -328,6 +342,7 @@ export async function resolveUserFromSession(
       setUser(userData)
       userRef.current = userData
       // ロール情報はusersテーブルから取得済み（上記のロジックで処理）
+      return 'resolved'
     } catch (error) {
       logger.error('❌ ユーザーセッション設定エラー:', error)
       // エラー時も既存のユーザー情報を保持（ロールを維持）
@@ -335,6 +350,10 @@ export async function resolveUserFromSession(
         authTrace('🔄 エラー発生、既存のユーザー情報を保持:', existingUser.role)
         setUser(existingUser)
         userRef.current = existingUser
+      } else if (error instanceof AuthRoleUnresolvedError) {
+        // 役割の確認が失敗・無応答（2026-10-26 本番ログイン障害）: お客様などに決め打ちせず未確定のまま返す
+        logger.warn('⚠️ 役割を確認できないため、利用者情報を確定しません:', error.message)
+        return 'unresolved'
       } else {
         // 既存情報がない場合のみデフォルトのcustomerロールを設定
         const displayName = supabaseUser.user_metadata?.full_name || 
@@ -355,6 +374,7 @@ export async function resolveUserFromSession(
         setUser(fallbackUserData)
         userRef.current = fallbackUserData
       }
+      return 'resolved'
     } finally {
       const endTime = performance.now()
       isProcessingRef.current = false
