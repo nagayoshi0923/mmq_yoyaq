@@ -148,6 +148,9 @@ export function validateRedirectUrl(url: string | null | undefined, defaultUrl =
   if (trimmed.startsWith('//')) return defaultUrl
   // コロンを含むパスを拒否（javascript:, data: 等を防止）
   if (trimmed.includes(':')) return defaultUrl
+  // バックスラッシュ・空白・制御文字を拒否（ブラウザは `/\evil` や `/<改行>/evil` を `//evil`＝外部サイトとして読む）
+  // eslint-disable-next-line no-control-regex -- 制御文字を拒否するため
+  if (/[\\\s\u0000-\u001f\u007f]/.test(trimmed)) return defaultUrl
   return trimmed
 }
 
