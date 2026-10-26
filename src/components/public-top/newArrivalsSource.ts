@@ -70,7 +70,8 @@ export function buildOrgBrowseScenarios(input: {
         player_count_min: s.player_count_min,
         player_count_max: s.player_count_max,
         duration_minutes: s.duration,
-        fee: s.participation_fee,
+        // 「¥N〜」は日付・時間帯の料金の最安（作品ページ・カタログと同じ。点検 F05）
+        fee: s.participation_fee_min ?? s.participation_fee,
         author: s.author,
         is_recommended: s.is_recommended,
         favorite_count: s.favorite_count,

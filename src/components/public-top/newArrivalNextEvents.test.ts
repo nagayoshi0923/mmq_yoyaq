@@ -39,3 +39,40 @@ describe('新作のカードの次回公演を読む', () => {
     await expect(collectNextValid(async () => ({ data: null, error: { message: 'boom' } }), (r) => r)).rejects.toEqual({ message: 'boom' })
   })
 })
+
+import { newArrivalPerformances, nextEventsFromQueries } from './newArrivalNextEvents'
+const q = (over: Partial<Parameters<typeof nextEventsFromQueries>[1][number]>) => ({ data: [{ id: 'ev', date: '2027-04-10' }], isError: false, isFetching: false, isFetchedAfterMount: true, status: 'success', fetchStatus: 'idle', dataUpdatedAt: 1, refetch: () => {}, ...over })
+
+describe('点検 R1247: 次回公演の取得の状態', () => {
+  it('再訪で今回の取得が終わるまでは、前回のキャッシュの公演（離れている間に取消され得る）を使わず「読み込み中」', () => {
+    const r = nextEventsFromQueries(['s1'], [q({ isFetchedAfterMount: false, isFetching: true })])
+    expect(r.events).toEqual([])
+    expect(r.state.get('s1')).toBe('loading')
+  })
+  it('読めなかったら「公演なし」ではなく error（古いキャッシュの公演も使わない）。再試行中は「読み込み中」', () => {
+    expect(nextEventsFromQueries(['s1'], [q({ isError: true, status: 'error' })])).toEqual({ events: [], state: new Map([['s1', 'error']]) })
+    expect(nextEventsFromQueries(['s1'], [q({ isError: true, status: 'error', isFetching: true })]).state.get('s1')).toBe('loading')
+  })
+  it('今回読めたら公演を使い ready（0 件でも ready）', () => {
+    expect(nextEventsFromQueries(['s1', 's2'], [q({}), q({ data: [] })])).toEqual({ events: [{ id: 'ev', date: '2027-04-10' }], state: new Map([['s1', 'ready'], ['s2', 'ready']]) })
+  })
+})
+
+describe('点検 R1247-A: 新作のカードは再訪で取り直した情報だけを使う', () => {
+  const ids = (list: Array<{ id: string }>) => list.map((p) => p.id)
+  it('店舗・全体: 「もっと見る」（?more=）で読み足した月の古い公演（4/10 は離れている間に取消）を、次回公演の取得が空でも出さない', () => {
+    // base は最初の取得（〜12/31）＋読み足した月（再訪で取り直さない）。4/10 は読み足した月の古い行
+    const base = [{ id: 'ev-1120', date: '2026-11-20' }, { id: 'ev-0410', date: '2027-04-10' }]
+    expect(ids(newArrivalPerformances({ base, baseFresh: true, loadedUntil: '2026-12-31', next: [] }))).toEqual(['ev-1120'])
+  })
+  it('全体: 最初の 55 日が再訪で取り直されていない（古い）ときは、その中の古い公演も使わず、次回公演の取得（今回取り直したもの）だけ', () => {
+    const staleBase = [{ id: 'ev-cancelled-1105', date: '2026-11-05' }]
+    const next = [{ id: 'ev-1110', date: '2026-11-10' }]
+    expect(ids(newArrivalPerformances({ base: staleBase, baseFresh: false, loadedUntil: '2026-12-20', next }))).toEqual(['ev-1110'])
+  })
+  it('最初の取得を今回取り直せたら、その期間は最初の取得を正とし（次回公演の取得の同じ期間の行は足さない）、先は次回公演の取得から', () => {
+    const base = [{ id: 'a', date: '2026-11-20' }]
+    const next = [{ id: 'old-in-range', date: '2026-12-01' }, { id: 'b', date: '2027-02-07' }]
+    expect(ids(newArrivalPerformances({ base, baseFresh: true, loadedUntil: '2026-12-31', next }))).toEqual(['a', 'b'])
+  })
+})

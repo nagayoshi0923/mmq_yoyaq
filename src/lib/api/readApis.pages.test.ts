@@ -1037,6 +1037,12 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
   `) })
   it('貸切リクエスト', async () => { expect(await snapshotModule(privateBookingRequest)).toMatchInlineSnapshot(`
     {
+      "privateBookingRequestReadApi.findOwnGroupReservation": [
+        "from("reservations") .select("id, reservation_number, status, private_group_id, customer_id, organi…) .eq("reservation_number", "a1") .eq("private_group_id", "a2") .eq("customer_id", "a3") .filter("organization_id", "eq", "a4") .maybeSingle()",
+      ],
+      "privateBookingRequestReadApi.findOwnGroupReservation (最後の引数なし)": [
+        "from("reservations") .select("id, reservation_number, status, private_group_id, customer_id, organi…) .eq("reservation_number", "a1") .eq("private_group_id", "a2") .eq("customer_id", "a3") .filter("organization_id", "eq", undefined) .maybeSingle()",
+      ],
       "privateBookingRequestReadApi.listAvailabilityEvents": [
         "from("schedule_events_for_availability") .select("id, date, store_id, start_time, end_time, is_cancelled") .filter("organization_id", "eq", "a1") .in("store_id", "a2") .gte("date", "a3") .lte("date", "a4") .eq("is_cancelled", false)",
       ],

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { referenceMinFee, type ParticipationCost } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
 import { useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { publicBookingListReadApi } from '@/lib/api/publicBookingReadApi'
@@ -25,6 +26,8 @@ export interface ScenarioCard {
   player_count_max: number
   genre: string[]
   participation_fee?: number
+  /** 「¥N〜」の参考の最安（日付・時間帯で変わる料金の最安。点検 F05） */
+  participation_fee_min?: number
   next_events?: Array<{
     date: string
     time?: string
@@ -491,6 +494,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         player_count_max: scenario.player_count_max,
         genre: scenario.genre || [],
         participation_fee: scenario.participation_fee || 3000,
+        participation_fee_min: referenceMinFee(scenario.participation_fee || 3000, scenario.participation_costs as ParticipationCost[] | null),
         status: 'private_booking',
         is_new: isNew,
         is_recommended: scenario.is_recommended || false,
@@ -560,6 +564,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
           player_count_max: scenario.player_count_max,
           genre: scenario.genre || [],
           participation_fee: scenario.participation_fee || 3000,
+          participation_fee_min: referenceMinFee(scenario.participation_fee || 3000, scenario.participation_costs as ParticipationCost[] | null),
           next_events: nextEvents,
           total_events_count: futureEvents.length,
           status: status,
@@ -584,6 +589,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
           player_count_max: scenario.player_count_max,
           genre: scenario.genre || [],
           participation_fee: scenario.participation_fee || 3000,
+          participation_fee_min: referenceMinFee(scenario.participation_fee || 3000, scenario.participation_costs as ParticipationCost[] | null),
           status: 'private_booking',
           is_new: isNew,
           is_recommended: scenario.is_recommended || false,
@@ -607,6 +613,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         player_count_max: scenario.player_count_max,
         genre: scenario.genre || [],
         participation_fee: scenario.participation_fee || 3000,
+        participation_fee_min: referenceMinFee(scenario.participation_fee || 3000, scenario.participation_costs as ParticipationCost[] | null),
         status: 'private_booking',
         is_new: isNew,
         is_recommended: scenario.is_recommended || false,
@@ -713,6 +720,8 @@ export function useBookingData(organizationSlug?: string) {
      * （Codex レビュー #1244: 古い上限 12 月で保存した 2 月を戻さない）。pending=今回の取得待ち・取得中（失敗のあとの再試行中も。isError が先に消えるので古い上限で戻さない）、
      * error=今回の取得・上限の日の読み込みに失敗（古い上限で戻さない）
      */
+    /** この訪問で最新を取り直せた（前回の控え・古いキャッシュ・取得の失敗ではない）。新作のカードはこのときだけ最初の取得を使う（点検 R1247-A） */
+    fetchedThisVisit: isFetchedAfterMount && !isError,
     limitState: (!isFetchedAfterMount || isFetching ? 'pending' : isError || data?.latestPublicDateError ? 'error' : 'ready') as BookingLimitState,
   }
 }

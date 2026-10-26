@@ -1,4 +1,5 @@
-// api/reservations.ts の予約の作成（RPC create_reservation_with_lock_v2）（整備 Phase 3、#774。元の行をそのまま移した。ロジックの変更なし）
+// api/reservations.ts の予約の作成（RPC create_reservation_with_lock_v2）（整備 Phase 3、#774。元の行をそのまま移した）。
+// 2026-10-26 点検 F10・F14: 人数の整数の確認と、お客様本人の同じ公演の 2 件目（RPC の P0059）を 409 にする
 import { assertReservationActor } from '../reservationActor.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from '../db.js'
@@ -19,6 +20,10 @@ export async function handleCreate(req: VercelRequest, res: VercelResponse, user
     return res.status(400).json({
       error: 'schedule_event_id / customer_id / participant_count が必要です',
     })
+  }
+  // 人数は 1 以上の整数（1.5 などは DB の型の失敗で 500 になっていた。入力の誤りとして 400。2026-10-26 点検 F10）
+  if (typeof participantCount !== 'number' || !Number.isInteger(participantCount) || participantCount < 1) {
+    return res.status(400).json({ error: '参加人数が不正です', code: 'P0001' })
   }
 
   // schedule_event の存在確認のみ（org チェックは RPC 内部で実施）
@@ -92,6 +97,13 @@ export async function handleCreate(req: VercelRequest, res: VercelResponse, user
         .eq('participant_count', participantCount)
         .maybeSingle()
       if (existing) return res.status(200).json(existing)
+    }
+    // お客様本人の同じ公演の 2 件目（RPC が公演の行のロックのあとで断る。点検 F14）
+    if (code === 'P0059') {
+      return res.status(409).json({
+        error: 'この公演には既に予約があります。人数を変更したい場合はマイページから既存の予約を編集してください。',
+        code: 'DUPLICATE_ACTIVE_RESERVATION',
+      })
     }
     if (['P0010', 'P0011', 'P0012', 'P0013', '42501'].includes(code)) {
       return res.status(403).json({ error: 'この予約を操作する権限がありません', code })

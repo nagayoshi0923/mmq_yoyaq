@@ -405,11 +405,12 @@ CREATE FUNCTION calculate_booking_participation_fee(integer,jsonb,date,time,bool
 await db.exec(fs.readFileSync('supabase/rpcs/create_reservation_with_lock_v2.sql','utf8'))
 await q('INSERT INTO scenario_masters VALUES($1,180,\'架空新規予約\')',[id(701)])
 await q('INSERT INTO organization_scenarios(id,organization_id,scenario_master_id,participation_fee) VALUES($1,$2,$3,1000)',[id(702),org,id(701)])
-await q("INSERT INTO schedule_events(id,organization_id,store_id,date,start_time,end_time,is_cancelled,max_participants,capacity,category,scenario_master_id,organization_scenario_id) VALUES($1,$2,$3,CURRENT_DATE+30,'13:00','16:00',false,20,20,'normal',$4,$5)",[id(703),org,store,id(701),id(702)])
+// 同じお客様の別の予約は別の公演に入れる（同じ公演の 2 件目は DB が断る。migration 20261026120000、点検 F14）
+for(const ev of [id(703),id(730),id(731)]) await q("INSERT INTO schedule_events(id,organization_id,store_id,date,start_time,end_time,is_cancelled,max_participants,capacity,category,scenario_master_id,organization_scenario_id) VALUES($1,$2,$3,CURRENT_DATE+30,'13:00','16:00',false,20,20,'normal',$4,$5)",[ev,org,store,id(701),id(702)])
 for(const [index,amount] of [[0,800],[1,1000]]){
  const newCoupon=id(704+index)
  await q("INSERT INTO customer_coupons(id,campaign_id,customer_id,organization_id,status,uses_remaining,rules_snapshot) VALUES($1,$2,$3,$4,'active',1,$5)",[newCoupon,campaign,customer,org,JSON.stringify({discount_type:'fixed',discount_amount:amount,same_scenario_once:false,combinable:true})])
- const args=[id(703),1,customer,'架空予約','booking@example.invalid','09012345678',null,null,'QA-BOOKING-REGRESSION-'+index,newCoupon]
+ const args=[index===0?id(703):id(730),1,customer,'架空予約','booking@example.invalid','09012345678',null,null,'QA-BOOKING-REGRESSION-'+index,newCoupon]
  const sql='SELECT create_reservation_with_lock_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AS id'
  const booked=(await q(sql,args))[0].id
  assert.equal((await q(sql,args))[0].id,booked);checks++
@@ -460,7 +461,7 @@ for(const [index,type,face,manual] of [[0,'fixed',800,0],[1,'fixed',800,500],[2,
 
 
 // 券なし新規予約→後日券適用→元リクエスト再送→取消→元再送は同ID・金額を変えない。
-const noCouponArgs=[id(703),1,customer,'架空後日券','later@example.invalid','09012345678',null,null,'QA-BOOKING-LATER-COUPON',null]
+const noCouponArgs=[id(731),1,customer,'架空後日券','later@example.invalid','09012345678',null,null,'QA-BOOKING-LATER-COUPON',null]
 const bookingCall='SELECT create_reservation_with_lock_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AS id'
 const noCouponBooked=(await q(bookingCall,noCouponArgs))[0].id
 const later=(await q('SELECT use_customer_coupon($1,$2,$3) AS data',[user,id(704),noCouponBooked]))[0].data

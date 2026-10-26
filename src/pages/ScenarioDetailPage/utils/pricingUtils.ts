@@ -141,6 +141,15 @@ export function participationFeeRange(
 }
 
 /**
+ * 「¥N〜」の参考の最安（日付・時間帯で変わる料金の最安。基本料金より安い平日料金などがあればそれ）。
+ * 作品ページの上部・トップのカード・カタログで同じ値を出す（2026-10-26 点検 F05: 上部 ¥4,500〜・選ぶと ¥4,100 だった）。
+ * 予約の保存額の計算には使わない（保存額は日付・時刻で calculateParticipationFee）
+ */
+export function referenceMinFee(baseFee: number, costs: ParticipationCost[] | null | undefined): number {
+  return participationFeeRange(baseFee, costs ?? undefined).min
+}
+
+/**
  * 1 日の料金。組織の独自休日が分からない（null = 読み込み中・読み込めなかった）ときは、
  * 「独自休日である／ない」の両方で計算し、同じなら確定、違えば null（平日の料金で代わりに出さない。2026-10-25 Codex レビュー）。
  * 土日でも weekend の設定が無く holiday だけある作品は独自休日かどうかで変わるので、曜日だけでは決めない。

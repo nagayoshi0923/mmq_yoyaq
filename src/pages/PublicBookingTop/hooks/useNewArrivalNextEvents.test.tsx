@@ -30,8 +30,8 @@ import { useNewArrivalNextEvents } from './useNewArrivalNextEvents'
 
 const scenarioRows = [{ id: 'sm1', title: '架空の作品', player_count_max: 20, player_count_min: 4, participation_fee: 4000, key_visual_url: null }] as never
 const stores = [{ id: 'st1', name: '架空の店舗', short_name: '架空', color: null }, { id: 'st-paused', name: '休みの店舗', short_name: '休み', color: null }] as never
-let latest: ReturnType<typeof useNewArrivalNextEvents> = []
-function Probe({ ids }: { ids: string[] }) { latest = useNewArrivalNextEvents({ organizationId: 'org-1', scenarioIds: ids, today: '2026-10-26', scenarioRows, stores }); return null }
+let latest: ReturnType<typeof useNewArrivalNextEvents>['events'] = []
+function Probe({ ids }: { ids: string[] }) { latest = useNewArrivalNextEvents({ organizationId: 'org-1', scenarioIds: ids, today: '2026-10-26', scenarioRows, stores }).events; return null }
 let root: ReturnType<typeof createRoot>, host: HTMLDivElement, client: QueryClient
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
@@ -49,5 +49,20 @@ describe('店舗トップの新作のカードの次回公演', () => {
     expect(latest.map((e) => e.id)).toEqual(['ev-0207', 'ev-0301'])
     expect(latest[0].store_name).toBe('架空の店舗')
     expect(api.calls).toEqual([['sm1', 'org-1', '2026-10-26', 0, 4], ['sm1', 'org-1', '2026-10-26', 4, 50]])
+  })
+  it('点検 R1247-A: 再訪（キャッシュが 2 分以内でも）で取り直し、取り直すまで前回の公演を使わない', async () => {
+    let r!: ReturnType<typeof useNewArrivalNextEvents>
+    function P() { r = useNewArrivalNextEvents({ organizationId: 'org-1', scenarioIds: ['sm1'], today: '2026-10-26', scenarioRows, stores }); return null }
+    await act(async () => root.render(<QueryClientProvider client={client}><P /></QueryClientProvider>))
+    for (let i = 0; i < 30 && r.events.length === 0; i++) await act(async () => { await new Promise((res) => setTimeout(res, 10)) })
+    expect(r.stateOf('sm1')).toBe('ready')
+    await act(async () => root.render(<QueryClientProvider client={client}>{null}</QueryClientProvider>))
+    const before = api.calls.length
+    await act(async () => root.render(<QueryClientProvider client={client}><P /></QueryClientProvider>))
+    expect(r.events).toEqual([])
+    expect(r.stateOf('sm1')).toBe('loading')
+    for (let i = 0; i < 30 && r.events.length === 0; i++) await act(async () => { await new Promise((res) => setTimeout(res, 10)) })
+    expect(api.calls.length).toBeGreaterThan(before)
+    expect(r.events.map((e) => e.id)).toEqual(['ev-0207', 'ev-0301'])
   })
 })

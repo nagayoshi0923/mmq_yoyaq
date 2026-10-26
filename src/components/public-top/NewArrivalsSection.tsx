@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ScenarioCard } from './ScenarioCard'
 import type { ScenarioCardData } from './scenarioCards'
@@ -9,6 +10,8 @@ export interface NewArrivalItem {
   card: ScenarioCardData
   /** 並びに使った日付（リリース日、無ければ掲載登録日。newArrivals.ts） */
   date: NewArrivalDate
+  /** 次回公演の行が無いとき、その代わりに出す欄（読み込み中・読めなかった）。無ければ従来どおり */
+  note?: ReactNode
 }
 
 interface NewArrivalsSectionProps {
@@ -38,9 +41,9 @@ export function NewArrivalsSection({ items, lead, allPath, marks, onOpen }: NewA
     >
       <p className="-mt-1 mb-2 text-xs text-muted-foreground">{lead}</p>
       <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scroll-row" aria-label="新作一覧">
-        {items.map(({ card, date }) => (
+        {items.map(({ card, date, note }) => (
           <li key={card.key} className="flex w-[150px] shrink-0 flex-col sm:w-[180px]">
-            <ScenarioCard card={card} marks={marks} onOpen={onOpen} className="flex-1" />
+            <ScenarioCard card={card} marks={marks} onOpen={onOpen} className="flex-1" note={note} />
             <p className="mt-1 ts-10 text-muted-foreground">{formatNewArrivalDate(date)}</p>
           </li>
         ))}
