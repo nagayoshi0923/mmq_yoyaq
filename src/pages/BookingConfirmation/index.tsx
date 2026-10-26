@@ -26,7 +26,7 @@ import { BookingDeadlineNotice } from '@/components/BookingDeadlineNotice'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
 import { BookingCouponSelector } from './components/BookingCouponSelector'
 import { useBookingCoupon } from './hooks/useBookingCoupon'
-import { ConfirmDialog } from '@/components/patterns/modal'
+import { TimeConflictConfirmDialog } from './components/TimeConflictConfirmDialog'
 import type { BookingConfirmationProps } from './types'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import { getAvailableSeats } from '@/lib/participantUtils'
@@ -881,29 +881,13 @@ export function BookingConfirmation({
         </div>
       </div>
 
-      {/* 重複予約確認ダイアログ */}
-      <ConfirmDialog
+      {/* 時間帯が重なる別の公演の予約の確認（警告のあと続けられる） */}
+      <TimeConflictConfirmDialog
         open={confirmDialogOpen}
         onOpenChange={setConfirmDialogOpen}
-        title="新規予約を追加しますか？"
-        description="この公演に既に予約があります。"
-        cancelLabel="戻る"
-        confirmLabel="新規予約を追加する"
+        existing={duplicateWarning.existingReservation ?? null}
         onConfirm={handleConfirmDuplicate}
-      >
-        {duplicateWarning.existingReservation && (
-          <div className="p-3 bg-muted rounded-md text-sm">
-            <p className="font-medium text-foreground">既存の予約</p>
-            <p className="text-muted-foreground mt-1">
-              予約番号: {duplicateWarning.existingReservation.reservation_number}<br />
-              参加人数: {duplicateWarning.existingReservation.participant_count}名
-            </p>
-          </div>
-        )}
-        <p className="ts-muted">
-          人数を変更したい場合は、<Link to="/mypage" className="underline">マイページ</Link>から既存の予約を編集してください。
-        </p>
-      </ConfirmDialog>
+      />
     </div>
   )
 }

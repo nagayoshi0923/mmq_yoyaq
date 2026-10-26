@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { referenceMinFee, type ParticipationCost } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
@@ -131,6 +132,8 @@ async function fetchScenarioCatalogBundle(organizationSlug?: string): Promise<{
     })
     .map((s) => ({
       ...s,
+      // 「¥N〜」は日付・時間帯の料金の最安（作品ページ・トップと同じ。点検 F05）
+      participation_fee: s.participation_fee != null ? referenceMinFee(s.participation_fee, s.participation_costs as ParticipationCost[] | null) : s.participation_fee,
       new_arrival_target: isNewArrivalTarget(s, newArrivalScope),
       available_stores: (s.available_stores || [])
         .map((storeId: string) => storeMap.get(storeId))
@@ -402,6 +405,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
               variant="ghost"
               size="sm"
               onClick={handleBack}
+              aria-label="戻る"
               className="text-white hover:bg-white/20 -ml-2"
               style={{ borderRadius: 0 }}
             >
@@ -441,6 +445,8 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
               variant={showFilters ? "default" : "outline"}
               size="sm"
               onClick={() => setShowFilters(!showFilters)}
+              aria-label={showFilters ? "絞り込みを閉じる" : "絞り込みを開く"}
+              aria-expanded={showFilters}
               className="h-10 px-3"
               style={showFilters ? { backgroundColor: preset.primary } : { borderColor: preset.primary, color: preset.primary }}
             >
@@ -451,6 +457,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                 variant="ghost"
                 size="sm"
                 onClick={clearFilters}
+                aria-label="絞り込みを解除"
                 className="h-10 px-3 text-muted-foreground"
               >
                 <X className="w-4 h-4" />

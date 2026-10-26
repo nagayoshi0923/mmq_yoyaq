@@ -1,4 +1,5 @@
 -- 本番取得定義を基準に、本人の同番号再試行と連絡先検証を追加。
+-- 2026-10-26 点検 F14: 公演のロックのあと、お客様本人の同じ公演の有効な予約を断る（P0059。migration 20261026120000）。
 CREATE OR REPLACE FUNCTION public.create_reservation_with_lock_v2(p_schedule_event_id uuid, p_participant_count integer, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_notes text DEFAULT NULL::text, p_how_found text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_customer_coupon_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -124,6 +125,17 @@ BEGIN
     IF EXISTS(SELECT 1 FROM public.reservations r WHERE r.reservation_number=p_reservation_number) THEN
       RAISE EXCEPTION 'RESERVATION_RETRY_MISMATCH' USING ERRCODE='P0055';
     END IF;
+  END IF;
+
+  -- お客様本人の予約: 同じ公演に有効な予約（来店済みを含む）があれば断る（2026-10-26 点検 F14）。
+  -- 公演の行を FOR UPDATE で取ったあとなので、同時の 2 件も順に判定される。同じ予約番号の再送は上で既存の予約を返している。
+  -- スタッフの代理（顧客が本人でない）は従来どおり。人数の変更はマイページから
+  IF p_customer_id IS NOT NULL AND v_customer_user_id IS NOT DISTINCT FROM auth.uid() AND EXISTS (
+    SELECT 1 FROM public.reservations r
+    WHERE r.schedule_event_id = p_schedule_event_id AND r.customer_id = p_customer_id
+      AND r.status IN ('pending','confirmed','gm_confirmed','checked_in')
+  ) THEN
+    RAISE EXCEPTION 'DUPLICATE_ACTIVE_RESERVATION' USING ERRCODE = 'P0059';
   END IF;
 
   IF p_customer_id IS NOT NULL AND (p_customer_email IS NULL OR btrim(p_customer_email) !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' OR length(btrim(p_customer_email))>254) THEN

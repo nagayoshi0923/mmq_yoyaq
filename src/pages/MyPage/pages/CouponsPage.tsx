@@ -17,36 +17,9 @@ import type { CustomerCoupon, CustomerCouponUsageWithReservation } from '@/types
 import { useCouponsQuery, useCurrentReservationsQuery, useRedeemCouponUsageMutation, useUseCouponMutation } from '../hooks/useCouponsQuery'
 import { countUsableCoupons, getLastCouponUsedAt, isUsedCouponVisible, resolveCouponDisplayStatus } from '../utils/couponListVisibility'
 import { formatJstDateJa, formatJstDateTime, formatJstMonthDay } from '@/utils/jstDate'
+import { formatCouponUsagePerformance } from './couponUsagePerformance'
 import { useJstToday } from '@/hooks/useJstToday'
 import { showToast } from '@/utils/toast'
-
-function cleanScenarioTitleForCoupon(title?: string | null): string {
-  if (!title) return '（タイトル不明）'
-  const t = title
-    .replace(/【貸切希望】/g, '【貸切】')
-    .replace(/（候補\d+件）/g, '')
-    .trim()
-  return t || '（タイトル不明）'
-}
-
-function formatCouponUsagePerformance(usage: CustomerCouponUsageWithReservation): string {
-  const res = usage.reservations
-  if (!res) {
-    return '公演情報を表示できません（予約が削除された場合など）'
-  }
-  const name = cleanScenarioTitleForCoupon(res.title)
-  const store = res.stores?.short_name || res.stores?.name || ''
-  const dt = res.requested_datetime
-  let when = ''
-  if (dt) {
-    const datePart = formatJstDateJa(dt)
-    const hm = dt.match(/T(\d{2}:\d{2})/)
-    const timePart = hm ? hm[1] : ''
-    when = timePart ? `${datePart} ${timePart}〜` : datePart
-  }
-  const parts = [name, store, when].filter(Boolean)
-  return parts.join(' ｜ ')
-}
 
 interface CurrentReservation {
   id: string

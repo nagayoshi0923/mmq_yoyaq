@@ -11,6 +11,7 @@ vi.mock('@/lib/api/scheduleHookReadApi', () => ({ privateBookingSlotReadApi: { g
 vi.mock('@/lib/api', () => ({ scenarioApi: { getPublic: mocks.getPublic } }))
 vi.mock('@/lib/api/publicBookingReadApi', () => ({ publicBookingReadApi: { listPrivatePauses: mocks.pauses } }))
 vi.mock('./hooks/platformTopData', () => ({ PLATFORM_RANGE_DAYS: 55, fetchPlatformTopData: mocks.fetch }))
+vi.mock('./hooks/usePlatformNewArrivalNext', () => ({ usePlatformNewArrivalNext: () => ({ performances: [], stateOf: () => 'ready', retry: () => {} }) }))
 vi.mock('@/components/layout/Header', () => ({ Header: () => null }))
 vi.mock('@/components/layout/Footer', () => ({ Footer: () => null }))
 vi.mock('@/components/seo/JsonLd', () => ({ JsonLd: () => null }))

@@ -77,7 +77,7 @@ export function PrivateBookingRequestSuccess({ bookingBasePath, scenarioTitle, c
                 <h3 className="text-base font-semibold">次に、一緒に遊ぶメンバーを招待しましょう</h3>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                招待リンクを送ると、メンバーはお名前だけで（ログインしなくても）グループに参加でき、チャットで連絡を取り合えます。
+                招待リンクを送ると、メンバーはログインしなくても、お名前とメールアドレスでグループに参加でき、チャットで連絡を取り合えます。
               </p>
               <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs break-all" data-testid="private-request-invite-url">
                 {inviteUrlOf(inviteCode)}

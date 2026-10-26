@@ -1,6 +1,6 @@
 import { reconcilePrivateBookingCandidates } from '@/lib/reconcilePrivateBookingCandidates'
 import { candidateFeesIfKnown } from '../ScenarioDetailPage/utils/pricingUtils'
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
@@ -353,8 +353,25 @@ export function PrivateBookingRequest({
     groupId: createdGroupId || undefined
   })
 
+  // 送信の受付中（空き状況の再確認からグループ作成・申込まで）。二度押しで 2 つ目のグループ・申込を作らないよう、
+  // 描画を待たずに ref で止め、ボタンも最初から押せなくする（2026-10-26 点検 F09: 二度押しで申込 2 件・グループ 2 件）
+  const submitInFlight = useRef(false)
+  const [preparingSubmit, setPreparingSubmit] = useState(false)
+
   // 予約送信ハンドラ（グループも自動作成）
   const onSubmit = async () => {
+    if (submitInFlight.current) return
+    submitInFlight.current = true
+    setPreparingSubmit(true)
+    try {
+      await submitOnce()
+    } finally {
+      submitInFlight.current = false
+      setPreparingSubmit(false)
+    }
+  }
+
+  const submitOnce = async () => {
     setError(null)
     
     if (editableTimeSlots.length === 0) {
@@ -869,10 +886,10 @@ export function PrivateBookingRequest({
             )}
             <Button
               onClick={onSubmit}
-              disabled={isSubmitting || groupLoading || hasFullyBlockedCandidate || hasUnavailableCandidate || horizonDays === null}
+              disabled={preparingSubmit || isSubmitting || groupLoading || hasFullyBlockedCandidate || hasUnavailableCandidate || horizonDays === null}
               className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
             >
-              {(isSubmitting || groupLoading) ? (
+              {(preparingSubmit || isSubmitting || groupLoading) ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   {groupLoading ? 'グループ作成中...' : 'リクエスト送信中...'}

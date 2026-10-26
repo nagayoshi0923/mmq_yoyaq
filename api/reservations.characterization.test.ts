@@ -428,6 +428,18 @@ describe('POST create: 予約の作成（RPC create_reservation_with_lock_v2）'
     `)
   })
 
+  it.each([1.5, 0, -1, '2', null])('点検 F10: 人数 %s は 400（1.5 で DB の型の失敗の 500 にしない）。RPC は呼ばない', async count => {
+    const r = await call('POST', {}, { schedule_event_id: 'ev1', customer_id: 'c1', participant_count: count })
+    expect(r.status).toBe(400)
+    expect(r.rpcs).toHaveLength(0)
+  })
+
+  it('点検 F14: RPC がお客様本人の同じ公演の 2 件目を断ったら（P0059）409 と理由', async () => {
+    mock.rpcResults.create_reservation_with_lock_v2 = { data: null, error: { code: 'P0059', message: 'DUPLICATE_ACTIVE_RESERVATION' } }
+    const dup = await call('POST', {}, body)
+    expect([dup.status, dup.body]).toEqual([409, { error: 'この公演には既に予約があります。人数を変更したい場合はマイページから既存の予約を編集してください。', code: 'DUPLICATE_ACTIVE_RESERVATION' }])
+  })
+
   it.each(['P0001', 'P0002', 'P0003', 'P0004', 'P0028', 'P0046', 'P0010', '42501', 'P9999'])('RPC エラー %s の変換', async code => {
     mock.rpcResults.create_reservation_with_lock_v2 = { data: null, error: { code, message: `fixture ${code}` } }
     const r = await call('POST', {}, body)

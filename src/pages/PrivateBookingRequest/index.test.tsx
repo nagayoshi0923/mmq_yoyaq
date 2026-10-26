@@ -127,6 +127,23 @@ it('送信の失敗（DB の英字のコード）は日本語にして、送信�
   expect(alert.nextElementSibling?.textContent).toContain('貸切リクエストを送信')
 })
 
+it('点検 F09: 送信を二度押し（同じ描画のうちに 2 回）しても、グループの作成と申込は 1 回だけ', async () => {
+  mocks.days = 14; mocks.blocked.mockResolvedValue({ data: [], error: null })
+  props.selectedTimeSlots = [{ date, slot: { label: '夜', startTime: '19:00', endTime: '22:00' } }]
+  let release!: () => void
+  mocks.create.mockImplementation(() => new Promise((resolve) => { release = () => resolve({ id: 'group-1', invite_code: 'X' }) }))
+  mocks.submit.mockResolvedValue(undefined)
+  await render()
+  const button = [...host.querySelectorAll('button')].find(button => button.textContent?.includes('貸切リクエストを送信'))!
+  await act(async () => { button.click(); button.click() })
+  await flush()
+  expect(button.disabled).toBe(true)
+  await act(async () => { release() }); await flush()
+  expect(mocks.create).toHaveBeenCalledTimes(1)
+  expect(mocks.submit).toHaveBeenCalledTimes(1)
+  expect(mocks.submit.mock.calls[0][5]).toBe('group-1')
+})
+
 function setValue(el: HTMLInputElement | HTMLSelectElement, value: string) {
   const proto = el instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype
   Object.getOwnPropertyDescriptor(proto, 'value')!.set!.call(el, value)

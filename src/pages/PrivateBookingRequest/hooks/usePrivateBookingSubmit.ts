@@ -2,7 +2,7 @@ import { fetchScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
 import { addJstDays } from '@/utils/jstDate'
 import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
 import { notificationOutcome } from '@/lib/notificationResult'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { bookingConfirmationReadApi } from '@/lib/api/bookingConfirmationReadApi'
 import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
@@ -48,6 +48,12 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [confirmationEmailAccepted, setConfirmationEmailAccepted] = useState(false)
+  // 同じ画面からの送信は 1 つずつ（描画を待たずに止める。点検 F09）。一度成功したら同じ画面から 2 件目を作らない
+  const inFlight = useRef(false)
+  const succeeded = useRef(false)
+  // 申込の予約番号。同じ内容の再試行では同じ番号を使い、前の申込が保存済みかをこの番号で見分ける。
+  // 内容（候補・店舗・連絡先・人数・メモ・グループ）を変えたら別の番号にする（変更前の保存を変更後の成功と取り違えない。点検 F09）
+  const operation = useRef<{ fingerprint: string; reservationNumber: string } | null>(null)
 
   /**
    * 貸切予約リクエストを送信
@@ -70,6 +76,8 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
     }
 
+    if (inFlight.current || succeeded.current) return
+    inFlight.current = true
     setIsSubmitting(true)
 
     try {
@@ -175,11 +183,16 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
 
       const firstSlot = props.selectedTimeSlots[0]
       
-      // 親予約番号を生成（全候補で共通）(YYMMDD-XXXX形式: 11桁)
-      const now = new Date()
-      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
-      const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
-      const baseReservationNumber = `${dateStr}-${randomStr}`
+      // 親予約番号を生成（全候補で共通）(YYMMDD-XXXX形式: 11桁)。同じ内容の再試行では同じ番号（点検 F09）
+      const fingerprint = JSON.stringify([props.scenarioId, effectiveGroupId ?? null, customerId, customerName, customerEmail, customerPhone, notes || null, props.maxParticipants,
+        props.selectedTimeSlots.map((slot) => [slot.date, slot.slot.label, slot.slot.startTime, slot.slot.endTime]), props.selectedStoreIds])
+      if (operation.current?.fingerprint !== fingerprint) {
+        const now = new Date()
+        const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
+        const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
+        operation.current = { fingerprint, reservationNumber: `${dateStr}-${randomStr}` }
+      }
+      const baseReservationNumber = operation.current.reservationNumber
       
       // 候補日時をJSONB形式で準備
       const candidateDatetimes = {
@@ -223,7 +236,21 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         p_reservation_number: baseReservationNumber,
         p_private_group_id: effectiveGroupId || null,
       }
-      const { data: reservationId, error: rpcError } = await privateGroupRpcApi.createBookingRequestWithNotice(createPrivateParams)
+      let { data: reservationId, error: rpcError } = await privateGroupRpcApi.createBookingRequestWithNotice(createPrivateParams)
+        .then((r) => r, (thrown) => ({ data: null, error: thrown }))
+      // 前の送信が保存済みで応答だけ届かなかった再試行は、DB が同じグループへの 2 件目を断る（既存の保護）。
+      // 同じ内容の予約番号の申込（自分の予約・そのグループ・取消でない）が保存済みなら、それを成功として扱う。
+      // 内容を変えた再送は番号が違うので成功扱いせず、DB の断りをそのまま出す（他の申込・変更前の申込は使わない。点検 F09）
+      if (rpcError && effectiveGroupId) {
+        const { data: existing } = await privateBookingRequestReadApi.findOwnGroupReservation(baseReservationNumber, effectiveGroupId, customerId, organizationId)
+          .then((r) => r, () => ({ data: null }))
+        if (existing && existing.private_group_id === effectiveGroupId && existing.reservation_number === baseReservationNumber
+          && existing.customer_id === customerId && existing.organization_id === organizationId && existing.status !== 'cancelled') {
+          logger.log('[貸切リクエスト] 保存済みの申込を確認（応答が届かなかった送信の再試行）', { reservationId: existing.id })
+          reservationId = existing.id
+          rpcError = null
+        }
+      }
       
       if (rpcError) {
         logger.error('[貸切リクエスト] RPC エラー詳細:', {
@@ -290,12 +317,14 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       // Discord通知はSupabase Webhookで自動送信されるため、ここでは呼び出さない
       // （reservationsテーブルへのINSERT時にnotify-private-booking-discordが発火）
 
+      succeeded.current = true
       setSuccess(true)
       
     } catch (error) {
       logger.error('貸切リクエスト処理エラー:', error)
       throw error
     } finally {
+      inFlight.current = false
       setIsSubmitting(false)
     }
   }

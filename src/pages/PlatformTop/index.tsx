@@ -49,6 +49,8 @@ import {
 import { extraMonthsToLoad, uniqueById } from '@/pages/PublicBookingTop/utils/bookingRange'
 import { useExtraPlatformMonths } from './hooks/useExtraPlatformMonths'
 import { usePlatformNewArrivalNext } from './hooks/usePlatformNewArrivalNext'
+import { beyondLoadedRange } from '@/components/public-top/newArrivalNextEvents'
+import { nextEventsNote } from '@/components/public-top/newArrivalNextNote'
 import { addJstDays } from '@/utils/jstDate'
 import { fetchPlatformTopData, PLATFORM_RANGE_DAYS } from './hooks/platformTopData'
 import { PlatformSearchSection } from './components/PlatformSearchSection'
@@ -140,7 +142,9 @@ export function PlatformTop() {
   const newArrivalPicks = useMemo(() => platformNewArrivalPicks(data?.scenarios ?? [], browseScenarios, today), [data, browseScenarios, today])
   // 新作のカードの次回公演は、55 日・「もっと見る」の期間より先でも作品ごとに次の 1〜2 件を読んで出す（検索の公演には足さない。2026-10-26 社長報告）
   const newArrivalIds = useMemo(() => newArrivalPicks.map(({ item }) => item.id), [newArrivalPicks])
-  const newArrivalNext = usePlatformNewArrivalNext({ scenarioIds: newArrivalIds, today, context: data?.context ?? null })
+  const newArrivalNextQuery = usePlatformNewArrivalNext({ scenarioIds: newArrivalIds, today, context: data?.context ?? null })
+  // 最初の 55 日（再訪で取り直した最新。読めなかったときは昨日まで＝何も除かない）の中は最初の取得を正とし、次回公演の取得からは足さない（取消の公演を補わない。点検 R1247-A）
+  const newArrivalNext = useMemo(() => beyondLoadedRange(newArrivalNextQuery.performances, data?.loadedUntil ?? null), [newArrivalNextQuery.performances, data])
   const newArrivalCards = useMemo(() => {
     const ids = new Set(newArrivalIds)
     const list = uniqueById(searchable, newArrivalNext)
@@ -173,8 +177,8 @@ export function PlatformTop() {
     return newArrivalPicks.map(({ item, date }) => ({
       card: { ...(newArrivalCards.get(item.id) ?? item.card), private_booking_path: platformPrivateBookingPath(privateData, privateDays, item.scenario, slugById, data?.stores ?? null, today) },
       date,
-    }))
-  }, [newArrivalPicks, newArrivalCards, organizations, privateData, privateDays, data, today])
+    })).map((it) => ({ ...it, ...nextEventsNote(it.card, newArrivalNextQuery.stateOf(it.card.scenario_id), () => newArrivalNextQuery.retry(it.card.scenario_id)) }))
+  }, [newArrivalPicks, newArrivalCards, newArrivalNextQuery, organizations, privateData, privateDays, data, today])
 
   const openCard = useCallback((card: ScenarioCardData) => {
     saveScrollPositionForCurrentUrl()

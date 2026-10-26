@@ -433,6 +433,10 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
 
       // 予約完了後: トップページの残り席数が古い値を表示しないようキャッシュを無効化
       queryClient.invalidateQueries({ queryKey: ['booking-data'] })
+      // マイページの予約一覧・クーポンの枚数も、開いていなくても今すぐ取り直す（全体の既定は再訪で取り直さないため。
+      // 完了から開いたマイページに新しい予約が無く、保存に失敗したと思われていた。2026-10-26 点検 F08）
+      void queryClient.invalidateQueries({ queryKey: ['mypage-data'], refetchType: 'all' })
+      void queryClient.invalidateQueries({ queryKey: ['my-coupons'], refetchType: 'all' })
       if (props.organizationSlug) {
         clearBookingDataSnapshot(props.organizationSlug)
       }

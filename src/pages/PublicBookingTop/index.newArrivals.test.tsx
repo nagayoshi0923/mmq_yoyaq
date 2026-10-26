@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const booking = vi.hoisted(() => ({ value: {} as Record<string, unknown>, getPublic: vi.fn(), pauses: vi.fn(), deadline: vi.fn(), horizon: vi.fn() }))
-vi.mock('./hooks/useNewArrivalNextEvents', () => ({ useNewArrivalNextEvents: () => [] }))
+vi.mock('./hooks/useNewArrivalNextEvents', () => ({ useNewArrivalNextEvents: () => ({ events: [], stateOf: () => 'ready', retry: () => {} }) }))
 vi.mock('@/lib/api/scheduleHookReadApi', () => ({ privateBookingSlotReadApi: { getEffectiveDeadlineDays: booking.deadline, getEffectiveHorizonDays: booking.horizon } }))
 vi.mock('./hooks/useBookingData', () => ({ useBookingData: () => booking.value }))
 vi.mock('./hooks/useStoreTopPerformances', () => ({ useStoreTopPerformances: () => ({ performances: [], storeOptions: [], nextDates: new Map() }) }))

@@ -32,3 +32,45 @@ export async function collectNextValid<R, V>(
   }
   return valid.slice(0, want)
 }
+
+/** 作品ごとの次回公演の読み込み: 読み込み中（今回の取得の前・失敗のあとの再試行中）／読めなかった／読めた */
+export type NextEventsState = 'loading' | 'error' | 'ready'
+
+interface NextQueryResult<V> {
+  data?: V[]
+  isError: boolean
+  isFetching: boolean
+  isFetchedAfterMount: boolean
+  status: string
+  fetchStatus: string
+  dataUpdatedAt: number
+  refetch: () => unknown
+}
+
+/**
+ * 次回公演の問い合わせの結果を、画面に使う公演と状態にする（2026-10-26 Codex レビュー #1246・点検 R1247）。
+ * - 今回の取得が終わるまで、前回のキャッシュの公演は使わない（離れている間に取消・非公開になった公演を出さない）
+ * - 読めなかったら「公演なし」と同じにせず error にする（「公演予定未定」と見せない。再試行できる）
+ */
+export function nextEventsFromQueries<V>(ids: readonly string[], results: readonly NextQueryResult<V>[]) {
+  const events: V[] = []
+  const state = new Map<string, NextEventsState>()
+  ids.forEach((id, i) => {
+    const r = results[i]
+    if (!r) return
+    const fresh = r.isFetchedAfterMount && !r.isError
+    if (fresh && r.data) events.push(...r.data)
+    state.set(id, !r.isFetchedAfterMount || (r.isError && r.isFetching) ? 'loading' : r.isError ? 'error' : 'ready')
+  })
+  return { events, state }
+}
+
+/** 取得の状態が変わったら作り直すための印（useQueries の結果の配列は毎回新しいので） */
+export function nextQueriesKey(results: readonly NextQueryResult<unknown>[]): string {
+  return results.map((r) => `${r.status}:${r.fetchStatus}:${r.isFetchedAfterMount ? 1 : 0}:${r.dataUpdatedAt}`).join(',')
+}
+
+/** 最初の取得の期間（loadedUntil まで）は最初の取得（再訪で取り直した最新）を正とし、次回公演の取得からは足さない */
+export function beyondLoadedRange<V extends { date: string }>(events: readonly V[], loadedUntil: string | null | undefined): V[] {
+  return loadedUntil ? events.filter((e) => e.date > loadedUntil) : [...events]
+}

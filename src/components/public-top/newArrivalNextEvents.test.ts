@@ -39,3 +39,26 @@ describe('新作のカードの次回公演を読む', () => {
     await expect(collectNextValid(async () => ({ data: null, error: { message: 'boom' } }), (r) => r)).rejects.toEqual({ message: 'boom' })
   })
 })
+
+import { beyondLoadedRange, nextEventsFromQueries } from './newArrivalNextEvents'
+const q = (over: Partial<Parameters<typeof nextEventsFromQueries>[1][number]>) => ({ data: [{ id: 'ev', date: '2027-04-10' }], isError: false, isFetching: false, isFetchedAfterMount: true, status: 'success', fetchStatus: 'idle', dataUpdatedAt: 1, refetch: () => {}, ...over })
+
+describe('点検 R1247: 次回公演の取得の状態', () => {
+  it('再訪で今回の取得が終わるまでは、前回のキャッシュの公演（離れている間に取消され得る）を使わず「読み込み中」', () => {
+    const r = nextEventsFromQueries(['s1'], [q({ isFetchedAfterMount: false, isFetching: true })])
+    expect(r.events).toEqual([])
+    expect(r.state.get('s1')).toBe('loading')
+  })
+  it('読めなかったら「公演なし」ではなく error（古いキャッシュの公演も使わない）。再試行中は「読み込み中」', () => {
+    expect(nextEventsFromQueries(['s1'], [q({ isError: true, status: 'error' })])).toEqual({ events: [], state: new Map([['s1', 'error']]) })
+    expect(nextEventsFromQueries(['s1'], [q({ isError: true, status: 'error', isFetching: true })]).state.get('s1')).toBe('loading')
+  })
+  it('今回読めたら公演を使い ready（0 件でも ready）', () => {
+    expect(nextEventsFromQueries(['s1', 's2'], [q({}), q({ data: [] })])).toEqual({ events: [{ id: 'ev', date: '2027-04-10' }], state: new Map([['s1', 'ready'], ['s2', 'ready']]) })
+  })
+  it('最初の取得の期間の中は最初の取得を正とし、次回公演の取得からは足さない', () => {
+    const ev = [{ id: 'a', date: '2026-12-31' }, { id: 'b', date: '2027-01-01' }]
+    expect(beyondLoadedRange(ev, '2026-12-31').map((e) => e.id)).toEqual(['b'])
+    expect(beyondLoadedRange(ev, null).map((e) => e.id)).toEqual(['a', 'b'])
+  })
+})

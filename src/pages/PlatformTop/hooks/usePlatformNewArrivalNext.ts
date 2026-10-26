@@ -6,12 +6,12 @@ import { useMemo } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { publicBookingListReadApi } from '@/lib/api/publicBookingReadApi'
 import { isBookableNow, type PublicPerformance } from '@/lib/publicPerformanceSearch'
-import { collectNextValid } from '@/components/public-top/newArrivalNextEvents'
+import { collectNextValid, nextEventsFromQueries, nextQueriesKey, type NextEventsState } from '@/components/public-top/newArrivalNextEvents'
 import { platformPerformancesFromEvents, type PlatformPerformanceContext } from './platformTopData'
 
 type EventRow = Parameters<typeof platformPerformancesFromEvents>[0][number]
 
-export function usePlatformNewArrivalNext(input: { scenarioIds: readonly string[]; today: string; context: PlatformPerformanceContext | null }): PublicPerformance[] {
+export function usePlatformNewArrivalNext(input: { scenarioIds: readonly string[]; today: string; context: PlatformPerformanceContext | null }): { performances: PublicPerformance[]; stateOf: (scenarioId: string) => NextEventsState; retry: (scenarioId: string) => void } {
   const { scenarioIds, today, context } = input
   const results = useQueries({
     queries: scenarioIds.map((id) => ({
@@ -24,11 +24,15 @@ export function usePlatformNewArrivalNext(input: { scenarioIds: readonly string[
       staleTime: 2 * 60 * 1000,
       gcTime: 10 * 60 * 1000,
       retry: 1,
+      // 再訪のたびに取り直す（全体の既定は refetchOnMount: false。点検 R1247-A）
+      refetchOnMount: 'always' as const,
     })),
   })
-  const dataKey = results.map((r) => r.dataUpdatedAt).join(',')
-  // 作品・取得の更新時刻で作り直す（別の作品で更新時刻が同じでも前の結果を残さない）
-  const queryKey = `${today}|${scenarioIds.join(',')}`
+  // 作品・取得の状態で作り直す（別の作品で更新時刻が同じでも前の結果を残さない）
+  const memoKey = `${today}|${scenarioIds.join(',')}|${nextQueriesKey(results)}`
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  return useMemo(() => results.flatMap((r) => r.data ?? []), [queryKey, dataKey])
+  const { events, state } = useMemo(() => nextEventsFromQueries(scenarioIds, results), [memoKey])
+  const stateOf = (id: string): NextEventsState => state.get(id) ?? 'loading'
+  const retry = (id: string) => { const i = scenarioIds.indexOf(id); if (i >= 0) void results[i].refetch() }
+  return { performances: events, stateOf, retry }
 }

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useSingleFlight } from '@/hooks/useSingleFlight'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMyPageDataQuery, useMyPageAlbumOptionsQuery, useAddManualHistoryMutation, useDeleteManualHistoryMutation, myPageKeys } from './hooks/useMyPageDataQuery'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -259,8 +260,10 @@ export default function MyPage() {
   }
 
 
-  // 手動登録の実処理（重複確認が不要 or 確認済みの場合に実行）
-  const proceedAddManualHistory = async () => {
+  // 手動登録の実処理（重複確認が不要 or 確認済みの場合に実行）。
+  // 追加ボタンの二度押しで同じ履歴を 2 行作らないよう、描画を待たずに 1 回ずつにする（2026-10-26 点検 F07）。
+  // 同じ作品の別日の再プレイは、1 回目が終わってからなら従来どおり追加できる
+  const proceedAddManualHistory = useSingleFlight(async () => {
     try {
       await addManualHistoryMutation.mutateAsync({ scenarioId: newScenarioId, scenarioOptions, playedAt: newPlayedAt, storeId: newStoreId, storeOptions })
       setIsAddDialogOpen(false)
@@ -268,7 +271,7 @@ export default function MyPage() {
       setNewPlayedAt('')
       setNewStoreId('')
     } catch { /* エラーはmutation内で処理済み */ }
-  }
+  })
 
   // 手動登録を追加
   const handleAddManualHistory = async () => {

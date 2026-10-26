@@ -41,6 +41,8 @@ import { useExtraBookingMonths } from './hooks/useExtraBookingMonths'
 import { browseLimits, defaultBookingRangeEnd, extraMonthsToLoad, monthLoadStatus, requiredUntil, uniqueById } from './utils/bookingRange'
 import { useStoreTopPerformances } from './hooks/useStoreTopPerformances'
 import { useNewArrivalNextEvents } from './hooks/useNewArrivalNextEvents'
+import { beyondLoadedRange } from '@/components/public-top/newArrivalNextEvents'
+import { nextEventsNote } from '@/components/public-top/newArrivalNextNote'
 import { StoreSearchSection } from './components/top/StoreSearchSection'
 
 const DEFAULT_HERO_COLOR = '#1f2a2e'
@@ -194,7 +196,9 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
   const newArrivalPicks = useMemo(() => orgNewArrivalPicks(scenarios, browseScenarios, today), [scenarios, browseScenarios, today])
   // 新作のカードの次回公演は、最初の 3 か月より先でも作品ごとに次の 1〜2 件を読んで出す（検索・カレンダーの公演には足さない。2026-10-26 社長報告）
   const newArrivalIds = useMemo(() => newArrivalPicks.map(({ item }) => item.id), [newArrivalPicks])
-  const newArrivalNextEvents = useNewArrivalNextEvents({ organizationId, scenarioIds: newArrivalIds, today, scenarioRows, stores })
+  const newArrivalNextQuery = useNewArrivalNextEvents({ organizationId, scenarioIds: newArrivalIds, today, scenarioRows, stores })
+  // 最初の 3 か月（再訪で取り直した最新。読めなかったときは昨日まで＝何も除かない）の中は最初の取得を正とし、次回公演の取得からは足さない（取消の公演を補わない。点検 R1247-A）
+  const newArrivalNextEvents = useMemo(() => beyondLoadedRange(newArrivalNextQuery.events, loadedUntil), [newArrivalNextQuery.events, loadedUntil])
   const { performances: newArrivalNext } = useStoreTopPerformances({
     allEvents: newArrivalNextEvents, stores, organizationId, organizationSlug: slug, organizationName, nowMs,
   })
@@ -228,8 +232,9 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     const path = organizationId && slug
       ? orgPrivateBookingPath(privateData, privateDays, { id: organizationId, slug }, { id: item.id, slug: item.scenario.scenario_slug, available_from: item.scenario.available_from, available_until: item.scenario.available_until }, isLoading ? null : stores, today)
       : null
-    return { card: { ...(newArrivalCards.get(item.id) ?? item.card), private_booking_path: path }, date }
-  }), [newArrivalPicks, newArrivalCards, privateData, privateDays, organizationId, slug, stores, isLoading, today])
+    const card = { ...(newArrivalCards.get(item.id) ?? item.card), private_booking_path: path }
+    return { card, date, ...nextEventsNote(card, newArrivalNextQuery.stateOf(item.id), () => newArrivalNextQuery.retry(item.id)) }
+  }), [newArrivalPicks, newArrivalCards, newArrivalNextQuery, privateData, privateDays, organizationId, slug, stores, isLoading, today])
 
   if (organizationNotFound) {
     return (
