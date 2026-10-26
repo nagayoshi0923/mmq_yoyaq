@@ -1,6 +1,6 @@
 /**
  * 招待ページのゲスト向けの参加欄（未ログイン・未参加の人）。点検 52・53・54・56。
- * - はじめて: 「名前だけで参加できます」を一番上に。会員の新規登録・ログインはその下に小さく 1 か所。
+ * - はじめて: 「お名前とメールアドレスで参加できます」を一番上に（メールは必須。PIN とお知らせを送る。2026-10-26 点検 F06）。会員の新規登録・ログインはその下に小さく 1 か所。
  * - 再訪（この端末で前に参加した印がある・PIN のメールから来た）: 「すでに参加した方は PIN で入る」を大きく、新規参加は畳む。
  * - PIN の画面: 新規参加の「参加する」は出さない。PIN 欄の例は薄く「例:」付き。
  * 見出しと入力欄は htmlFor / id で結び、読み上げで例の文字が欄の名前にならないようにする。
@@ -104,7 +104,7 @@ function NewGuestCard({ guestName, guestEmail, setGuestName, setGuestEmail, acti
     <Card className="border-purple-200" data-testid="guest-new-form">
       <CardContent className="p-4 space-y-4">
         <div>
-          <h2 className="text-base font-bold">名前だけで参加できます</h2>
+          <h2 className="text-base font-bold">お名前とメールアドレスで参加できます</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">アカウント登録は不要です。</p>
         </div>
         <div className="space-y-1.5">

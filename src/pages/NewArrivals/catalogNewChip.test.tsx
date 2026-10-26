@@ -11,8 +11,8 @@ const m = vi.hoisted(() => ({
   views: vi.fn(), keys: vi.fn(), categories: vi.fn(), publicStores: vi.fn(),
   orgScenarios: vi.fn(), catalogStores: vi.fn(), resolveOrg: vi.fn(),
 }))
-vi.mock('@/pages/PublicBookingTop/hooks/useNewArrivalNextEvents', () => ({ useNewArrivalNextEvents: () => [] }))
-vi.mock('@/pages/PlatformTop/hooks/usePlatformNewArrivalNext', () => ({ usePlatformNewArrivalNext: () => [] }))
+vi.mock('@/pages/PublicBookingTop/hooks/useNewArrivalNextEvents', () => ({ useNewArrivalNextEvents: () => ({ events: [], stateOf: () => 'ready', retry: () => {} }) }))
+vi.mock('@/pages/PlatformTop/hooks/usePlatformNewArrivalNext', () => ({ usePlatformNewArrivalNext: () => ({ performances: [], stateOf: () => 'ready', retry: () => {} }) }))
 vi.mock('@/pages/PlatformTop/hooks/platformTopData', () => ({ PLATFORM_RANGE_DAYS: 55, fetchPlatformTopData: m.platform }))
 vi.mock('@/pages/PublicBookingTop/hooks/useBookingData', () => ({ useBookingData: () => m.booking }))
 vi.mock('@/pages/PublicBookingTop/hooks/useStoreTopPerformances', () => ({ useStoreTopPerformances: () => ({ performances: [], storeOptions: [], nextDates: new Map() }) }))
@@ -242,5 +242,20 @@ describe('URL', () => {
   it('すべて見るの行き先は既存のカテゴリのクエリ（genre）', () => {
     expect(decodeURIComponent(newArrivalsPath())).toBe('/scenario?genre=新作')
     expect(decodeURIComponent(newArrivalsPath('aaa'))).toBe('/aaa/catalog?genre=新作')
+  })
+})
+
+describe('点検 F04: カタログのアイコンだけのボタンに名前がある', () => {
+  const unnamed = () => [...host.querySelectorAll('main button, header button, button')]
+    .filter((b) => b.getAttribute('data-testid') !== 'back')
+    .filter((b) => !(b.getAttribute('aria-label') || b.textContent?.trim() || b.getAttribute('title')))
+  it.each(['/scenario', '/aaa/catalog'])('%s: 戻る・絞り込みの開閉・解除に名前があり、名前の無いボタンが無い', async (path) => {
+    await mount(path)
+    expect(host.querySelector('button[aria-label="戻る"]')).not.toBeNull()
+    const filter = host.querySelector('button[aria-label="絞り込みを開く"]') as HTMLButtonElement
+    expect(filter.getAttribute('aria-expanded')).toBe('false')
+    await click(filter)
+    expect(host.querySelector('button[aria-label="絞り込みを閉じる"]')?.getAttribute('aria-expanded')).toBe('true')
+    expect(unnamed().map((b) => b.outerHTML.slice(0, 80))).toEqual([])
   })
 })

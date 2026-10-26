@@ -13,7 +13,7 @@ import { getOptimizedImageUrl } from '@/utils/imageUtils'
 import { formatJstDateJa, toJstYmd } from '@/utils/jstDate'
 
 // 分離された型定義
-import { calculateParticipationFee, candidateFeesIfKnown, feeIfHolidayKnown } from './utils/pricingUtils'
+import { calculateParticipationFee, candidateFeesIfKnown, feeIfHolidayKnown, referenceMinFee } from './utils/pricingUtils'
 
 // 分離されたフック
 import { useScenarioDetail } from './hooks/useScenarioDetail'
@@ -572,7 +572,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 </p>
                 {scenario.participation_fee && (
                   <p className="text-xs font-medium mt-0.5">
-                    ¥{scenario.participation_fee.toLocaleString()}〜
+                    ¥{referenceMinFee(scenario.participation_fee, scenario.participation_costs).toLocaleString()}〜
                   </p>
                 )}
               </div>
