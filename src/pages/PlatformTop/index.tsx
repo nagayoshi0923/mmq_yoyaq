@@ -49,7 +49,7 @@ import {
 import { extraMonthsToLoad, uniqueById } from '@/pages/PublicBookingTop/utils/bookingRange'
 import { useExtraPlatformMonths } from './hooks/useExtraPlatformMonths'
 import { usePlatformNewArrivalNext } from './hooks/usePlatformNewArrivalNext'
-import { beyondLoadedRange } from '@/components/public-top/newArrivalNextEvents'
+import { newArrivalPerformances } from '@/components/public-top/newArrivalNextEvents'
 import { nextEventsNote } from '@/components/public-top/newArrivalNextNote'
 import { addJstDays } from '@/utils/jstDate'
 import { fetchPlatformTopData, PLATFORM_RANGE_DAYS } from './hooks/platformTopData'
@@ -71,7 +71,7 @@ export function PlatformTop() {
   const today = todayJst(new Date(nowMs))
   const maxDate = addJstDays(today, PLATFORM_RANGE_DAYS)
 
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading, isFetching, isFetchedAfterMount, isError } = useQuery({
     queryKey: ['platform-top-v2', today],
     queryFn: () => fetchPlatformTopData(today),
     staleTime: 2 * 60 * 1000,
@@ -143,15 +143,16 @@ export function PlatformTop() {
   // 新作のカードの次回公演は、55 日・「もっと見る」の期間より先でも作品ごとに次の 1〜2 件を読んで出す（検索の公演には足さない。2026-10-26 社長報告）
   const newArrivalIds = useMemo(() => newArrivalPicks.map(({ item }) => item.id), [newArrivalPicks])
   const newArrivalNextQuery = usePlatformNewArrivalNext({ scenarioIds: newArrivalIds, today, context: data?.context ?? null })
-  // 最初の 55 日（再訪で取り直した最新。読めなかったときは昨日まで＝何も除かない）の中は最初の取得を正とし、次回公演の取得からは足さない（取消の公演を補わない。点検 R1247-A）
-  const newArrivalNext = useMemo(() => beyondLoadedRange(newArrivalNextQuery.performances, data?.loadedUntil ?? null), [newArrivalNextQuery.performances, data])
+  const newArrivalNext = newArrivalNextQuery.performances
   const newArrivalCards = useMemo(() => {
     const ids = new Set(newArrivalIds)
-    const list = uniqueById(searchable, newArrivalNext)
+    // 再訪で取り直した情報だけ（最初の 55 日はこの訪問で取り直せたときだけ。再訪では取り直さないので次回公演の取得だけになる。
+    // 「もっと見る」で読み足した月は使わない。点検 R1247-A）
+    const list = newArrivalPerformances({ base: performances, baseFresh: isFetchedAfterMount && !isError, loadedUntil: data?.loadedUntil, next: newArrivalNext })
     const upcoming = indexUpcoming(list, nowMs)
     return new Map(buildPlatformBrowseScenarios((data?.scenarios ?? []).filter((s) => ids.has(s.id)), upcoming, today)
       .map((b) => [b.id, withFirstEventPath(b.card, list)]))
-  }, [newArrivalIds, searchable, newArrivalNext, nowMs, data, today])
+  }, [newArrivalIds, performances, isFetchedAfterMount, isError, newArrivalNext, nowMs, data, today])
 
   // 新作一覧のカードの「貸切受付中」（その作品を公開している組織ごとに、日程の相談を始められるかを既存の判定で決める。読めない間は出さない）
   const orgIds = useMemo(() => organizations.map((o) => o.id), [organizations])

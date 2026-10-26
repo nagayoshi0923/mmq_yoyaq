@@ -70,7 +70,21 @@ export function nextQueriesKey(results: readonly NextQueryResult<unknown>[]): st
   return results.map((r) => `${r.status}:${r.fetchStatus}:${r.isFetchedAfterMount ? 1 : 0}:${r.dataUpdatedAt}`).join(',')
 }
 
-/** 最初の取得の期間（loadedUntil まで）は最初の取得（再訪で取り直した最新）を正とし、次回公演の取得からは足さない */
-export function beyondLoadedRange<V extends { date: string }>(events: readonly V[], loadedUntil: string | null | undefined): V[] {
-  return loadedUntil ? events.filter((e) => e.date > loadedUntil) : [...events]
+/**
+ * 新作のカードに使う公演（2026-10-26 点検 R1247-A・Codex レビュー）。再訪で取り直した情報だけを使う:
+ * - 最初の取得（店舗トップの 3 か月・全体トップの 55 日）は、この訪問で取り直せたときだけ、その期間（loadedUntil まで）を使う
+ * - それより先と、最初の取得が古い（取り直す前・失敗・全体トップで再訪時に取り直さない）ときは、次回公演の取得（再訪のたびに取り直す）だけ
+ * - 「もっと見る」・月送りで読み足した月（再訪で取り直さない）は使わない（離れている間に取消された公演を出さない）
+ */
+export function newArrivalPerformances<V extends { id: string; date: string }>(input: {
+  base: readonly V[]
+  baseFresh: boolean
+  loadedUntil: string | null | undefined
+  next: readonly V[]
+}): V[] {
+  const { base, baseFresh, loadedUntil, next } = input
+  const fromBase = baseFresh && loadedUntil ? base.filter((p) => p.date <= loadedUntil) : []
+  const fromNext = baseFresh && loadedUntil ? next.filter((p) => p.date > loadedUntil) : [...next]
+  const seen = new Set(fromBase.map((p) => p.id))
+  return [...fromBase, ...fromNext.filter((p) => !seen.has(p.id))]
 }

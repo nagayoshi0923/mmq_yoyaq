@@ -720,6 +720,8 @@ export function useBookingData(organizationSlug?: string) {
      * （Codex レビュー #1244: 古い上限 12 月で保存した 2 月を戻さない）。pending=今回の取得待ち・取得中（失敗のあとの再試行中も。isError が先に消えるので古い上限で戻さない）、
      * error=今回の取得・上限の日の読み込みに失敗（古い上限で戻さない）
      */
+    /** この訪問で最新を取り直せた（前回の控え・古いキャッシュ・取得の失敗ではない）。新作のカードはこのときだけ最初の取得を使う（点検 R1247-A） */
+    fetchedThisVisit: isFetchedAfterMount && !isError,
     limitState: (!isFetchedAfterMount || isFetching ? 'pending' : isError || data?.latestPublicDateError ? 'error' : 'ready') as BookingLimitState,
   }
 }
