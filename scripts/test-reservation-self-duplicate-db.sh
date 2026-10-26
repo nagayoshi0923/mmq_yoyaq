@@ -79,7 +79,9 @@ check "後の接続は先の確定を待って P0059" "$b" "ERR:P0059"
 check "有効な予約は 1 件" "$(active)" 1
 
 echo "3) 来店済み・取消済み・スタッフの代理"
-q -c "UPDATE public.reservations SET status='checked_in' WHERE schedule_event_id='$EV' AND status='pending'" >/dev/null
+check "同時送信で作った DUP-0101 だけが有効" "$(q -c "SELECT string_agg(reservation_number||':'||status, ',') FROM public.reservations WHERE schedule_event_id='$EV' AND status <> 'cancelled'")" "DUP-0101:confirmed"
+check "DUP-0101 を来店済みにする（1 件）" "$(q -c "WITH u AS (UPDATE public.reservations SET status='checked_in' WHERE schedule_event_id='$EV' AND reservation_number='DUP-0101' RETURNING 1) SELECT count(*) FROM u")" 1
+check "来店済み以外の有効な予約は無い" "$(q -c "SELECT string_agg(reservation_number||':'||status, ',') FROM public.reservations WHERE schedule_event_id='$EV' AND status <> 'cancelled'")" "DUP-0101:checked_in"
 check "来店済みがあれば P0059" "$(book $CUST DUP-0201)" "ERR:P0059"
 q -c "UPDATE public.reservations SET status='cancelled' WHERE schedule_event_id='$EV'" >/dev/null
 r=$(book $CUST DUP-0202); check "取消済みだけなら作れる" "$(is_id "$r")" id
