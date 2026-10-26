@@ -1,27 +1,55 @@
 import { authSessionApi } from '@/lib/api/authSessionApi'
 import { logger } from '@/utils/logger'
 
+/** 役割を確かめる読み取りが失敗・無応答だった（役割が分からない）。お客様などに決め打ちしない（2026-10-26 本番ログイン障害） */
+export class AuthRoleUnresolvedError extends Error {
+  constructor(message = '利用者の役割を確認できませんでした') {
+    super(message)
+    this.name = 'AuthRoleUnresolvedError'
+  }
+}
+
+/** staff テーブルの確認の期限（ロール取得の 2 秒の期限のあとに呼ばれる。無応答で利用者情報の確定が止まらないように） */
+export const STAFF_ROLE_LOOKUP_TIMEOUT_MS = 3000
+
 /**
  * staffテーブルを user_id → email の順で検索し、該当すれば 'staff' を返す。
  * user_id/email のどちらにも一致しなければ null を返す。
  * ロール判定のフォールバック処理で重複していた検索ロジックを1箇所に集約。
+ * 読み取りの失敗・期限切れは「一致なし」と区別して AuthRoleUnresolvedError を投げる
+ * （以前は失敗を null＝お客様として扱い、無応答なら利用者情報の確定が止まっていた）。
  */
 export async function lookupStaffRole(
   userId: string,
-  email: string | undefined | null
+  email: string | undefined | null,
+  timeoutMs: number = STAFF_ROLE_LOOKUP_TIMEOUT_MS,
 ): Promise<'staff' | null> {
-  try {
-    const { data: byId } = await authSessionApi.findStaffIdByUserId(userId)
-    if (byId) return 'staff'
-
-    if (email) {
-      const { data: byEmail } = await authSessionApi.findStaffIdByEmail(email)
-      if (byEmail) return 'staff'
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new AuthRoleUnresolvedError('staff の確認が応答しませんでした')), timeoutMs)
+  })
+  const lookup = async (): Promise<'staff' | null> => {
+    try {
+      const byId = await authSessionApi.findStaffIdByUserId(userId)
+      if (byId.error) throw byId.error
+      if (byId.data) return 'staff'
+      if (email) {
+        const byEmail = await authSessionApi.findStaffIdByEmail(email)
+        if (byEmail.error) throw byEmail.error
+        if (byEmail.data) return 'staff'
+      }
+      return null
+    } catch (error) {
+      if (error instanceof AuthRoleUnresolvedError) throw error
+      logger.warn('staff の確認に失敗:', error)
+      throw new AuthRoleUnresolvedError('staff の確認に失敗しました')
     }
-  } catch {
-    // staff テーブルへのアクセス失敗は無視
   }
-  return null
+  try {
+    return await Promise.race([lookup(), timeout])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
 }
 
 /**

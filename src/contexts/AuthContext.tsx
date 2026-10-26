@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react'
+import React, { createContext, useCallback, useContext, useState } from 'react'
 import { type AuthUser } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import { setUser as setSentryUser } from '@/lib/sentry'
@@ -7,6 +7,7 @@ import { createAuthActions } from './auth/authActions'
 import { createSessionBootstrap } from './auth/sessionBootstrap'
 import { useAuthLifecycle } from './auth/useAuthLifecycle'
 import { useStrandedAuthTokenRecovery } from './auth/useStrandedAuthTokenRecovery'
+import { resolveUserFromSession } from './auth/resolveUserFromSession'
 
 interface AuthContextType {
   user: AuthUser | null
@@ -21,6 +22,11 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ user: User }>
   signOut: () => Promise<void>
   refreshSession: () => Promise<void>  // 手動でセッションをリフレッシュ
+  /**
+   * ログインした利用者の役割・情報を確かめ直す（ログイン画面の「利用者情報を再読み込み」）。確定できなければ null。
+   * パスワードのログインはやり直さない（2026-10-26 本番ログイン障害）
+   */
+  reloadUser: (supabaseUser: User) => Promise<AuthUser | null>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -114,6 +120,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // （supabase-js の /auth/v1/user fetch 失敗で無言のログアウト状態になる障害への対策）
   useStrandedAuthTokenRecovery({ isInitialized, user })
 
+  const reloadUser = useCallback(async (supabaseUser: User) => {
+    const result = await resolveUserFromSession(supabaseUser, resolveDeps)
+    return result === 'resolved' && userRef.current?.id === supabaseUser.id ? userRef.current : null
+    // resolveDeps は毎回作り直す入れ物（中身の ref・setter は同じ）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const isAdmin = !!user && (user.role === 'admin' || user.role === 'license_admin')
   const isStaff = !!user && user.role !== 'customer'
   const isCustomer = !user || user.role === 'customer'
@@ -128,6 +141,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signIn,
     signOut,
     refreshSession,
+    reloadUser,
   }
 
   return (
