@@ -5,7 +5,9 @@
 - DB: `20261026120000_reservation_self_duplicate_guard`（create_reservation_with_lock_v2 にロック後の本人の有効な予約の判定 1 か所、P0059）。rollback `supabase/rollbacks/` 同名、正本 `supabase/rpcs/`、期待構造の md5 5f57015d…。試験 `scripts/test-reservation-self-duplicate-db.sh`（使い捨て DB）。staging → 本番の順に先行適用、構造の記録は #1252。
 - 注意: CI の DB 試験（test-customer-review-closure-db）は同じ公演に同じお客様を入れると P0059 で落ちる。試験データは公演を分ける。Deploy Supabase は migration の先行適用が前提（無いと「DBへの先行適用が必要です」で止まる）。
 - 残り: 全体の作品詳細（ScenarioDetailGlobal）の参加費は未変更。グループ作成の応答喪失で空のグループが 1 つ余り得る。`check:multi-tenant`（CI 外）が新しい予約の読み取りを数える（組織は `.filter` 指定）。
-- 別件: 同日の本番ログイン障害の修正は #1250（未取り込み・未公開）。
+- 別件: 同日の本番ログイン障害の修正は #1250 → #1254（main 9f78786d、2026-10-27 公開。本人 PC での復旧は未確認）。
+- 試験の課題: `useNewArrivalNextEvents.test.tsx` の「再訪で取り直すまで前回の公演を使わない」は、すぐ返す模擬の取得が再訪直後の確認より先に終わると落ちる（staging の push の CI で 1 回）。2 回目の取得を止めておける形（制御つきの待ち）に直す。未修正。
+- 運用: リリース PR の DB 判定（release-pr.yml の main...staging 三点比較）は、squash で履歴が分かれると公開済みの migration を「DB 変更あり」と出す。先端どうしの差分と本番の適用記録を確かめてから db-applied を付ける。
 
 ## 2026-10-22 / 公演編集の初期化中の入力消失を防ぐ（GPT hotfix）
 
