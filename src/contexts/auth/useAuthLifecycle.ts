@@ -15,7 +15,7 @@ import {
 } from './authContextHelpers'
 import { resolveUserFromSession, type ResolveUserDeps } from './resolveUserFromSession'
 import { reportAuthFailure } from './authDiagnostics'
-import { buildCompleteProfilePath } from '@/lib/authReturn'
+import { buildCompleteProfilePath, forgetReturnUrl } from '@/lib/authReturn'
 
 /**
  * AuthProvider のマウント時ライフサイクル effect を切り出したフック。
@@ -102,11 +102,16 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
     const handleAuthChange = async (event: AuthChangeEvent, session: Session | null, force = false): Promise<void> => {
         const generation = resolveDeps.generationRef?.current
         const isCurrent = () => active && (!resolveDeps.generationRef || resolveDeps.generationRef.current === generation)
+        // SDK が React 購読前に OAuth を確立した場合は INITIAL_SESSION で届く。
+        const oauthMode = sessionStorage.getItem('oauth_mode')
+        const socialProvider = session?.user.app_metadata?.provider
+        const pendingOAuth = oauthMode === 'login' && Boolean(socialProvider && socialProvider !== 'email')
+        const completingSignIn = event === 'SIGNED_IN' || (event === 'INITIAL_SESSION' && pendingOAuth)
         const eventStartTime = performance.now()
         authTrace('🔄 認証状態変更:', event, session?.user?.email ? maskEmail(session.user.email) : 'N/A', `(経過時間: ${((eventStartTime - authStartTime) / 1000).toFixed(2)}秒)`)
         
         // 処理中の場合はスキップ（重複実行防止）
-        if (!force && isProcessingRef.current && session?.user && userRef.current?.id === session.user.id) {
+        if (!force && !pendingOAuth && isProcessingRef.current && session?.user && userRef.current?.id === session.user.id) {
           authTrace('⏭️ 認証処理中のためスキップ:', event)
           return
         }
@@ -118,7 +123,7 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
         }
         
         // 既に同じユーザーが設定されている場合はスキップ（重複実行防止）
-        if (!force && session?.user && userRef.current && userRef.current.id === session.user.id) {
+        if (!force && !pendingOAuth && session?.user && userRef.current && userRef.current.id === session.user.id) {
           authTrace('⏭️ 既に同じユーザーが設定されているためスキップ:', event)
           clearTimeout(loadingTimeout)
           setLoading(false)
@@ -137,7 +142,7 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
         }
         
         // INITIAL_SESSIONイベントの場合は、getInitialSessionで処理済みの可能性があるためスキップ
-        if (!force && event === 'INITIAL_SESSION' && userRef.current) {
+        if (!force && !pendingOAuth && event === 'INITIAL_SESSION' && userRef.current) {
           authTrace('⏭️ 初期セッションは既に処理済みのためスキップ')
           clearTimeout(loadingTimeout)
           setLoading(false)
@@ -161,8 +166,7 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
             }
             clearTimeout(loadingTimeout)
             // OAuthログインモードで未登録ユーザーの場合はログアウトしてエラー表示
-            if (event === 'SIGNED_IN') {
-              const oauthMode = sessionStorage.getItem('oauth_mode')
+            if (completingSignIn) {
               authTrace('🔑 OAuth mode:', oauthMode)
               // Google 等のソーシャルログイン時のみ「顧客レコード必須」を検証する。
               // メールのマジックリンク/OTP は app_metadata.provider が 'email' のためここでは除外。
@@ -182,7 +186,7 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
                   setLoading(false)
                   setIsInitialized(true)
                   if (deps.retryPendingAuthRef) deps.retryPendingAuthRef.current = null
-                  deps.setAuthPending?.(false)
+                  // 画面移動が完了するまで自動転送の抑止を保持する。
                   navigateAfterAuth(buildCompleteProfilePath(sessionStorage.getItem('returnUrl')))
                   return
                 }
@@ -191,23 +195,24 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
             }
             
             if (deps.retryPendingAuthRef) deps.retryPendingAuthRef.current = null
-            deps.setAuthPending?.(false)
             setLoading(false)
             setIsInitialized(true)  // ユーザー情報設定完了後に認証完了をマーク
             
             // OAuthログイン後のreturnUrl処理（予約フローに戻る）
-            if (event === 'SIGNED_IN') {
+            if (completingSignIn) {
               const rawReturnUrl = sessionStorage.getItem('returnUrl')
               if (rawReturnUrl) {
-                sessionStorage.removeItem('returnUrl')
+                forgetReturnUrl()
                 const safeReturnUrl = validateRedirectUrl(rawReturnUrl)
                 authTrace('🔄 OAuth後のリダイレクト:', safeReturnUrl)
                 // 現在のURLと異なる場合のみ移動（同じ作品でもevent/countの違いを落とさない）
                 if (window.location.pathname + window.location.search !== safeReturnUrl) {
                   navigateAfterAuth(safeReturnUrl)
+                  return
                 }
               }
             }
+            deps.setAuthPending?.(false)
           }).catch((err) => {
             if (!isCurrent()) return
             if (deps.retryPendingAuthRef) deps.retryPendingAuthRef.current = retry

@@ -21,6 +21,7 @@ import {
   normalizeReturnTo,
   readAuthIntent,
   readReturnToFromSearch,
+  readOAuthCallbackReturnTo,
   rememberReturnUrl,
   RETURN_URL_STORAGE_KEY,
 } from '@/lib/authReturn'
@@ -192,12 +193,13 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
     // 戻り先なしで開いたときは古い値を消す（前に押した別ページへ飛ぶのを防ぐ。点検 3）。
     // 例外: クーポン受け取りのようにトークンを URL に出さない画面は state で「残す」と伝える
     const fromUrl = readReturnToFromSearch(window.location.search)
-    const keepStored = (location.state as { keepReturnUrl?: boolean } | null)?.keepReturnUrl === true
+    const callbackReturnTo = readOAuthCallbackReturnTo()
+    const keepStored = Boolean(callbackReturnTo) || (location.state as { keepReturnUrl?: boolean } | null)?.keepReturnUrl === true
     if (fromUrl) {
       rememberReturnUrl(fromUrl)
       setReturnTo(fromUrl)
     } else if (keepStored) {
-      setReturnTo(normalizeReturnTo(sessionStorage.getItem(RETURN_URL_STORAGE_KEY)))
+      setReturnTo(callbackReturnTo ?? normalizeReturnTo(sessionStorage.getItem(RETURN_URL_STORAGE_KEY)))
     } else {
       forgetReturnUrl()
       setReturnTo(null)

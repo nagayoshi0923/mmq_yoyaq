@@ -23,6 +23,7 @@ vi.mock('@/lib/api/authSessionApi', () => ({ authSessionApi: {
   findCustomerNameByUserId: vi.fn(async () => ({ data: null })), findUnlinkedCustomerByEmail: vi.fn(async () => ({ data: null })),
   findStaffNameByUserId: vi.fn(async () => ({ data: { name: '架空' } })), listCustomerIdsByUserId: m.customer,
 } }))
+import { captureOAuthCallbackIntent, forgetReturnUrl } from '@/lib/authReturn'
 import { LoginForm } from '@/components/auth/LoginForm'
 import { setLoginCompletionPending } from '@/components/auth/loginCompletion'
 import { AuthProvider, useAuth } from '../AuthContext'
@@ -38,6 +39,7 @@ async function tick(ms = 1) { await act(async () => vi.advanceTimersByTimeAsync(
 beforeEach(() => {
   vi.useFakeTimers(); vi.clearAllMocks(); m.callback = null
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+  forgetReturnUrl()
   setLoginCompletionPending(false)
   sessionStorage.clear(); window.history.replaceState({}, '', '/queens-waltz/scenario/fake?event=e1&count=2')
   m.getSession.mockResolvedValue({ data: { session: S }, error: null })
@@ -85,7 +87,37 @@ describe('認証方式によらない情報取得失敗と回復', () => {
     expect(m.customer).toHaveBeenCalledWith(U.id)
     expect(m.navigate).toHaveBeenCalledWith('/queens-waltz/scenario/fake?event=e2&count=2')
     expect(sessionStorage.getItem('returnUrl')).toBeNull()
-    expect(controls.authRecoveryPending).toBe(false)
+    expect(controls.authRecoveryPending).toBe(true) // 移動先の描画まで自動転送を抑止
+    expect(m.signIn).not.toHaveBeenCalled(); expect(m.signOut).not.toHaveBeenCalled()
+  })
+  it.each([['INITIAL_SESSION'], ['SIGNED_IN', 'INITIAL_SESSION']])('OAuth初期イベント%jでも再試行後に顧客確認と復帰を完了する', async (...events) => {
+    m.getSession.mockResolvedValue({ data: { session: null }, error: null })
+    await render()
+    sessionStorage.setItem('oauth_mode', 'login'); sessionStorage.setItem('returnUrl', '/faq?from=oauth')
+    for (const event of events) m.callback!(event, S)
+    await tick()
+    expect(host.querySelector('[role="alert"]')).not.toBeNull()
+    m.role.mockResolvedValue({ data: { role: 'customer' }, error: null })
+    await act(async () => (host.querySelector('button') as HTMLButtonElement).click())
+    expect(m.customer).toHaveBeenCalledWith(U.id)
+    expect(m.navigate).toHaveBeenCalledWith('/faq?from=oauth')
+    expect(sessionStorage.getItem('oauth_mode')).toBeNull()
+  })
+  it('/login#へ戻ったOAuthも実フォームが戻り先を消さず、共通再試行から顧客確認して復帰する', async () => {
+    m.getSession.mockResolvedValue({ data: { session: null }, error: null })
+    sessionStorage.setItem('oauth_mode', 'login'); sessionStorage.setItem('returnUrl', '/faq?from=callback')
+    window.history.replaceState({}, '', '/login#access_token=fixture&refresh_token=fixture')
+    captureOAuthCallbackIntent() // 実clientではcreateClientより前に行う
+    window.history.replaceState({}, '', '/login#') // SDKが消去した後にLoginFormがmount
+    await act(async () => root.render(<AuthProvider><MemoryRouter initialEntries={['/login']}><LoginForm /></MemoryRouter></AuthProvider>))
+    expect(sessionStorage.getItem('returnUrl')).toBe('/faq?from=callback')
+    m.callback!('SIGNED_IN', S); m.callback!('INITIAL_SESSION', S); await tick()
+    const notice = host.querySelector('[role="alert"]')!
+    expect(notice).not.toBeNull()
+    m.role.mockResolvedValue({ data: { role: 'customer' }, error: null })
+    await act(async () => (notice.querySelector('button') as HTMLButtonElement).click())
+    expect(m.customer).toHaveBeenCalledWith(U.id)
+    expect(m.navigate).toHaveBeenCalledWith('/faq?from=callback')
     expect(m.signIn).not.toHaveBeenCalled(); expect(m.signOut).not.toHaveBeenCalled()
   })
   it('OAuth顧客照合エラーを未登録とせず、再試行で取得成功後だけプロフィールへ案内する', async () => {
@@ -101,7 +133,7 @@ describe('認証方式によらない情報取得失敗と回復', () => {
     m.customer.mockResolvedValue({ data: [], error: null })
     await act(async () => (host.querySelector('button') as HTMLButtonElement).click())
     expect(m.navigate).toHaveBeenCalledWith('/complete-profile?next=%2Ffaq%3Ffrom%3Dbooking')
-    expect(controls.authRecoveryPending).toBe(false)
+    expect(controls.authRecoveryPending).toBe(true) // 移動先の描画まで自動転送を抑止
   })
   it('SDK getSessionが無応答でも10秒で警告し、ロックを破壊せず再試行できる', async () => {
     m.getSession.mockImplementation(() => new Promise(() => {}))
