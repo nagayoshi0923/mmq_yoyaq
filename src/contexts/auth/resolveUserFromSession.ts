@@ -21,23 +21,54 @@ export interface ResolveUserDeps {
   staffCache: Map<string, string>
   setStaffCache: Dispatch<SetStateAction<Map<string, string>>>
   setUser: Dispatch<SetStateAction<AuthUser | null>>
+  pendingResolutionRef?: MutableRefObject<{ userId: string; generation: number | undefined; promise: Promise<ResolveUserResult> } | null>
+  generationRef?: MutableRefObject<number>
+  onResolutionError?: () => void
+  onResolutionSuccess?: () => void
 }
 
 /**
  * resolved = 利用者情報を確定した（既存の情報の保持を含む）。
  * unresolved = 役割の確認が失敗・無応答で、既存の情報も無い。役割を決め打ちせず利用者は未確定のまま（ログイン画面が再読み込みを出す）
  */
-export type ResolveUserResult = 'resolved' | 'unresolved'
+export type ResolveUserResult = 'resolved' | 'unresolved' | 'superseded'
 
-export async function resolveUserFromSession(
+export function resolveUserFromSession(supabaseUser: User, deps: ResolveUserDeps): Promise<ResolveUserResult> {
+  const generation = deps.generationRef?.current
+  const pending = deps.pendingResolutionRef?.current
+  if (pending?.userId === supabaseUser.id && pending.generation === generation) return pending.promise
+  const promise = resolveUser(supabaseUser, deps)
+  const entry = { userId: supabaseUser.id, generation, promise }
+  if (deps.pendingResolutionRef) {
+    deps.pendingResolutionRef.current = entry
+    void promise.finally(() => {
+      if (deps.pendingResolutionRef?.current === entry) deps.pendingResolutionRef.current = null
+    })
+  }
+  return promise
+}
+
+async function resolveUser(
   supabaseUser: User,
   deps: ResolveUserDeps
 ): Promise<ResolveUserResult> {
-  const { isProcessingRef, userRef, staffCache, setStaffCache, setUser } = deps
+  const { isProcessingRef, userRef, staffCache } = deps
+  const generation = deps.generationRef?.current
+  const isCurrent = () => !deps.generationRef || deps.generationRef.current === generation
+  const setUser: ResolveUserDeps['setUser'] = (value) => {
+    if (isCurrent()) {
+      if (typeof value === 'function') deps.setUser(previous => isCurrent() ? value(previous) : previous)
+      else deps.setUser(value)
+    }
+  }
+  const setStaffCache: ResolveUserDeps['setStaffCache'] = (value) => {
+    if (isCurrent()) deps.setStaffCache(value)
+  }
     // 既に処理中の場合はスキップ（重複呼び出し防止）
     // ただし、userがまだセットされていない場合は処理を続行する（初期化時の競合対策）
-    if (isProcessingRef.current && userRef.current) {
+    if (isProcessingRef.current && userRef.current?.id === supabaseUser.id) {
       authTrace('⏭️ 処理中のためスキップ:', maskEmail(supabaseUser.email))
+      deps.onResolutionSuccess?.()
       return 'resolved'
     }
     
@@ -91,6 +122,8 @@ export async function resolveUserFromSession(
           authTrace('✅ データベースからロール取得:', role)
           } else if (roleError) {
             throw roleError
+          } else {
+            throw new AuthRoleUnresolvedError('利用者の役割が未確認です')
           }
         }
       } catch (error) {
@@ -204,6 +237,8 @@ export async function resolveUserFromSession(
         }
       }
 
+      if (!isCurrent()) return 'superseded'
+
       // ユーザー名を生成（メールアドレスから@より前の部分を使用、またはメタデータから取得）
       const displayName = supabaseUser.user_metadata?.full_name || 
                          supabaseUser.user_metadata?.name ||
@@ -226,7 +261,7 @@ export async function resolveUserFromSession(
           try {
             const { data } = await authSessionApi.findCustomerNameByUserId(supabaseUser.id)
             
-            if (data) {
+            if (isCurrent() && data) {
               // ニックネーム優先、なければ名前
               const name = data.nickname || data.name
               if (name) {
@@ -239,7 +274,7 @@ export async function resolveUserFromSession(
               // 🚨 重要: user_idがnullのレコードのみを対象にする（他ユーザーと紐付き済みのレコードは除外）
               const { data: customerByEmail } = await authSessionApi.findUnlinkedCustomerByEmail(supabaseUser.email) // まだ紐付けされていないレコードのみ
               
-              if (customerByEmail) {
+              if (isCurrent() && customerByEmail) {
                 const name = customerByEmail.nickname || customerByEmail.name
                 if (name) {
                   authTrace('📋 🔗 メールアドレスで顧客発見、自動紐付け:', name)
@@ -269,7 +304,7 @@ export async function resolveUserFromSession(
           const staffPromise = authSessionApi.findStaffNameByUserId(supabaseUser.id)
           
           Promise.resolve(staffPromise).then(async ({ data }) => {
-              if (data?.name) {
+              if (isCurrent() && data?.name) {
                 setStaffCache(prev => new Map(prev.set(supabaseUser.id, data.name)))
                 authTrace('📋 ✅ バックグラウンドでスタッフ名取得成功:', data.name)
                 // ユーザー情報も更新してヘッダーに反映
@@ -279,7 +314,7 @@ export async function resolveUserFromSession(
                 authTrace('📋 user_idで見つからないため、メールアドレスで検索:', maskEmail(supabaseUser.email))
                 const { data: staffByEmail } = await authSessionApi.findUnlinkedStaffByEmail(supabaseUser.email)
                 
-                if (staffByEmail) {
+                if (isCurrent() && staffByEmail) {
                   authTrace('📋 🔗 メールアドレスでスタッフ発見、自動紐付け:', staffByEmail.name)
                   // user_idを設定して紐付け
                   const { error: updateError } = await authSessionApi.linkStaffToUser(staffByEmail.id, supabaseUser.id)
@@ -342,42 +377,26 @@ export async function resolveUserFromSession(
       setUser(userData)
       userRef.current = userData
       // ロール情報はusersテーブルから取得済み（上記のロジックで処理）
+      deps.onResolutionSuccess?.()
       return 'resolved'
     } catch (error) {
+      if (!isCurrent()) return 'superseded'
       logger.error('❌ ユーザーセッション設定エラー:', error)
       // エラー時も既存のユーザー情報を保持（ロールを維持）
       if (existingUser && existingUser.id === supabaseUser.id) {
         authTrace('🔄 エラー発生、既存のユーザー情報を保持:', existingUser.role)
         setUser(existingUser)
         userRef.current = existingUser
-      } else if (error instanceof AuthRoleUnresolvedError) {
-        // 役割の確認が失敗・無応答（2026-10-26 本番ログイン障害）: お客様などに決め打ちせず未確定のまま返す
-        logger.warn('⚠️ 役割を確認できないため、利用者情報を確定しません:', error.message)
-        return 'unresolved'
+        deps.onResolutionSuccess?.()
       } else {
-        // 既存情報がない場合のみデフォルトのcustomerロールを設定
-        const displayName = supabaseUser.user_metadata?.full_name || 
-                           supabaseUser.user_metadata?.name ||
-                           supabaseUser.email?.split('@')[0] ||
-                           'ユーザー'
-        
-        const fallbackUserData = {
-          id: supabaseUser.id,
-          email: supabaseUser.email!,
-          name: displayName,
-          staffName: undefined,
-          role: 'customer' as const,
-          isStoreRepresentative: false,
-        }
-        
-        authTrace('🔄 フォールバックユーザー情報設定:', fallbackUserData)
-        setUser(fallbackUserData)
-        userRef.current = fallbackUserData
+        // 未確認の役割を customer 等へ決め打ちしない。OAuth/保存セッションにも回復導線を出す。
+        deps.onResolutionError?.()
+        return 'unresolved'
       }
       return 'resolved'
     } finally {
       const endTime = performance.now()
-      isProcessingRef.current = false
+      if (isCurrent()) isProcessingRef.current = false
       authTrace(`⏱️ setUserFromSession 完了: ${maskEmail(supabaseUser.email)} (${((endTime - startTime) / 1000).toFixed(2)}秒)`)
     }
 }

@@ -1,3 +1,4 @@
+import { captureOAuthCallbackIntent } from '@/lib/authReturn'
 import { createClient } from '@supabase/supabase-js'
 import { isVerboseDebug, logger } from '@/utils/logger'
 import { noteAuthUser } from '@/lib/api/sharedRequest'
@@ -54,6 +55,8 @@ try {
   _sessionBackupJson = localStorage.getItem(AUTH_STORAGE_KEY)
 } catch { /* SSR / private browsing */ }
 export const sessionBackupJson = _sessionBackupJson
+
+captureOAuthCallbackIntent()
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {

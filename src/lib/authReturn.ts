@@ -12,6 +12,18 @@ import { safeRedirectAfterProfileCompletion } from '@/lib/utils'
 
 export const RETURN_URL_STORAGE_KEY = 'returnUrl'
 const AUTH_INTENT_STORAGE_KEY = 'authIntent'
+// SDK が OAuth のハッシュを消す前に、戻り先だけを記憶する。トークンは保持しない。
+let oauthCallbackReturnTo: string | null = null
+export function captureOAuthCallbackIntent(): void {
+  oauthCallbackReturnTo = null
+  if (typeof window === 'undefined') return
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  const storage = safeSessionStorage()
+  if (hash.get('access_token') && hash.get('refresh_token') && hash.get('type') !== 'recovery' && storage?.getItem('oauth_mode') === 'login') {
+    oauthCallbackReturnTo = normalizeReturnTo(storage.getItem(RETURN_URL_STORAGE_KEY))
+  }
+}
+export function readOAuthCallbackReturnTo(): string | null { return oauthCallbackReturnTo }
 
 /** 戻り先として使ってよい URL に直す。使えない・トップだけのときは null */
 export function normalizeReturnTo(url: string | null | undefined): string | null {
@@ -67,6 +79,7 @@ export function rememberReturnUrl(returnTo: string | null): void {
 }
 
 export function forgetReturnUrl(): void {
+  oauthCallbackReturnTo = null
   safeSessionStorage()?.removeItem(RETURN_URL_STORAGE_KEY)
 }
 
