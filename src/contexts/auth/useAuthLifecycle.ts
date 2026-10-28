@@ -1,3 +1,5 @@
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
+import { withAuthTimeout } from './authTimeout'
 import { useEffect } from 'react'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import { supabase, type AuthUser } from '@/lib/supabase'
@@ -8,11 +10,12 @@ import { validateRedirectUrl } from '@/lib/utils'
 import {
   getSignOutRedirectPath,
   PASSWORD_RESET_FLAG_KEY,
+  navigateAfterAuth,
   AUTH_CHANNEL_NAME,
 } from './authContextHelpers'
 import { resolveUserFromSession, type ResolveUserDeps } from './resolveUserFromSession'
 import { reportAuthFailure } from './authDiagnostics'
-import { buildCompleteProfilePath } from '@/lib/authReturn'
+import { buildCompleteProfilePath, forgetReturnUrl } from '@/lib/authReturn'
 
 /**
  * AuthProvider のマウント時ライフサイクル effect を切り出したフック。
@@ -38,6 +41,9 @@ export interface AuthLifecycleDeps {
   setStaffCache: Dispatch<SetStateAction<Map<string, string>>>
   setLoading: Dispatch<SetStateAction<boolean>>
   setIsInitialized: Dispatch<SetStateAction<boolean>>
+  retryPendingAuthRef?: MutableRefObject<(() => Promise<void>) | null>
+  setAuthPending?: Dispatch<SetStateAction<boolean>>
+  onFailure?: () => void
 }
 
 export function useAuthLifecycle(deps: AuthLifecycleDeps) {
@@ -59,41 +65,53 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
   } = deps
 
   useEffect(() => {
+    let active = true
     const authStartTime = performance.now()
     authTrace('🚀 AuthContext 初期化開始:', new Date().toISOString())
     
     // パフォーマンス最適化: 認証処理を非ブロッキング化
-    // 1.2秒後に loading を落とし、ロール取得が遅い環境でも画面を先に出す
+    // 全体が10秒を超えた場合も失敗と回復導線を出す（未ログイン表示だけにしない）
     const loadingTimeout = setTimeout(() => {
+      deps.onFailure?.()
+      setIsInitialized(true)
       if (loading) {
-        authTrace('⏱️ 認証処理タイムアウト（1.2秒）、ページ表示を開始')
+        authTrace('⏱️ 認証処理タイムアウト（10秒）、ページ表示を開始')
         setLoading(false)
       }
-    }, 1200)
+    }, 10_000)
     
     // 初期認証状態の確認（バックグラウンドで実行）
     getInitialSession().then(() => {
+      if (!active) return
       clearTimeout(loadingTimeout)
       const authEndTime = performance.now()
       authTrace(`⏱️ AuthContext 初期認証完了: ${((authEndTime - authStartTime) / 1000).toFixed(2)}秒`)
       setLoading(false)
       setIsInitialized(true)  // 認証完了をマーク
     }).catch((err) => {
+      if (!active) return
       clearTimeout(loadingTimeout)
       // エラーを捨てない: 原因未特定の「無言でログイン失敗」障害の診断材料を残す
       reportAuthFailure('getInitialSession', err)
+      deps.onFailure?.()
       setLoading(false)
       setIsInitialized(true)  // エラーでも完了とみなす
     })
 
     // 認証状態の変更を監視
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+    const handleAuthChangeCore = async (event: AuthChangeEvent, session: Session | null, force = false): Promise<void> => {
+        const generation = resolveDeps.generationRef?.current
+        const isCurrent = () => active && (!resolveDeps.generationRef || resolveDeps.generationRef.current === generation)
+        // SDK が React 購読前に OAuth を確立した場合は INITIAL_SESSION で届く。
+        const oauthMode = sessionStorage.getItem('oauth_mode')
+        const socialProvider = session?.user.app_metadata?.provider
+        const pendingOAuth = oauthMode === 'login' && Boolean(socialProvider && socialProvider !== 'email')
+        const completingSignIn = event === 'SIGNED_IN' || (event === 'INITIAL_SESSION' && pendingOAuth)
         const eventStartTime = performance.now()
         authTrace('🔄 認証状態変更:', event, session?.user?.email ? maskEmail(session.user.email) : 'N/A', `(経過時間: ${((eventStartTime - authStartTime) / 1000).toFixed(2)}秒)`)
         
         // 処理中の場合はスキップ（重複実行防止）
-        if (isProcessingRef.current) {
+        if (!force && !pendingOAuth && isProcessingRef.current && session?.user && userRef.current?.id === session.user.id) {
           authTrace('⏭️ 認証処理中のためスキップ:', event)
           return
         }
@@ -105,37 +123,50 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
         }
         
         // 既に同じユーザーが設定されている場合はスキップ（重複実行防止）
-        if (session?.user && userRef.current && userRef.current.id === session.user.id) {
+        if (!force && !pendingOAuth && session?.user && userRef.current && userRef.current.id === session.user.id) {
           authTrace('⏭️ 既に同じユーザーが設定されているためスキップ:', event)
+          clearTimeout(loadingTimeout)
           setLoading(false)
           setIsInitialized(true)  // 認証完了をマーク
           return
         }
         
         // TOKEN_REFRESHEDイベントの場合は、既存のユーザー情報を保持（ロールを維持）
-        if (event === 'TOKEN_REFRESHED' && session?.user && userRef.current) {
+        if (!force && event === 'TOKEN_REFRESHED' && session?.user && userRef.current) {
           // トークンリフレッシュ時は、既存のユーザー情報があればロールを維持
           authTrace('🔄 トークンリフレッシュ検出、既存ロールを維持:', userRef.current.role)
+          clearTimeout(loadingTimeout)
           setLoading(false)
           setIsInitialized(true)  // 認証完了をマーク
           return
         }
         
         // INITIAL_SESSIONイベントの場合は、getInitialSessionで処理済みの可能性があるためスキップ
-        if (event === 'INITIAL_SESSION' && userRef.current) {
+        if (!force && !pendingOAuth && event === 'INITIAL_SESSION' && userRef.current) {
           authTrace('⏭️ 初期セッションは既に処理済みのためスキップ')
+          clearTimeout(loadingTimeout)
           setLoading(false)
           setIsInitialized(true)  // 認証完了をマーク
           return
         }
         
         if (session?.user) {
+          deps.setAuthPending?.(true)
+          const retry = async () => { if (isCurrent()) await handleAuthChange(event, session, true) }
           // ⚠️ 重要: resolveUserFromSession の完了を待ってからisInitializedを設定
           // これにより、user情報が設定される前にリダイレクトが発生することを防ぐ
-          resolveUserFromSession(session.user, resolveDeps).then(async () => {
+          await resolveUserFromSession(session.user, resolveDeps).then(async (result) => {
+            if (!isCurrent() || result === 'superseded') return
+            if (result !== 'resolved') {
+              if (deps.retryPendingAuthRef) deps.retryPendingAuthRef.current = retry
+              deps.onFailure?.()
+              setLoading(false)
+              setIsInitialized(true)
+              return
+            }
+            clearTimeout(loadingTimeout)
             // OAuthログインモードで未登録ユーザーの場合はログアウトしてエラー表示
-            if (event === 'SIGNED_IN') {
-              const oauthMode = sessionStorage.getItem('oauth_mode')
+            if (completingSignIn) {
               authTrace('🔑 OAuth mode:', oauthMode)
               // Google 等のソーシャルログイン時のみ「顧客レコード必須」を検証する。
               // メールのマジックリンク/OTP は app_metadata.provider が 'email' のためここでは除外。
@@ -145,38 +176,48 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
               const isOAuthSocialSignIn = Boolean(authProvider && authProvider !== 'email')
 
               if (oauthMode === 'login' && isOAuthSocialSignIn) {
-                const { data: customerRows } = await authSessionApi.listCustomerIdsByUserId(session.user.id)
+                const { data: customerRows, error: customerError } = await withAuthTimeout(authSessionApi.listCustomerIdsByUserId(session.user.id))
+                if (!isCurrent()) return
+                if (customerError) throw customerError
 
                 if (!customerRows || customerRows.length === 0) {
                   authTrace('⚠️ OAuthログインで顧客レコード未検出、プロフィール登録へ誘導')
                   sessionStorage.removeItem('oauth_mode')
                   setLoading(false)
                   setIsInitialized(true)
-                  window.location.href = buildCompleteProfilePath(sessionStorage.getItem('returnUrl'))
+                  if (deps.retryPendingAuthRef) deps.retryPendingAuthRef.current = null
+                  // 画面移動が完了するまで自動転送の抑止を保持する。
+                  navigateAfterAuth(buildCompleteProfilePath(sessionStorage.getItem('returnUrl')))
                   return
                 }
               }
               sessionStorage.removeItem('oauth_mode')
             }
             
+            if (deps.retryPendingAuthRef) deps.retryPendingAuthRef.current = null
             setLoading(false)
             setIsInitialized(true)  // ユーザー情報設定完了後に認証完了をマーク
             
             // OAuthログイン後のreturnUrl処理（予約フローに戻る）
-            if (event === 'SIGNED_IN') {
+            if (completingSignIn) {
               const rawReturnUrl = sessionStorage.getItem('returnUrl')
               if (rawReturnUrl) {
-                sessionStorage.removeItem('returnUrl')
+                forgetReturnUrl()
                 const safeReturnUrl = validateRedirectUrl(rawReturnUrl)
                 authTrace('🔄 OAuth後のリダイレクト:', safeReturnUrl)
-                // 現在のパスと異なる場合のみリダイレクト
-                if (window.location.pathname !== safeReturnUrl && !safeReturnUrl.startsWith(window.location.pathname)) {
-                  window.location.href = safeReturnUrl
+                // 現在のURLと異なる場合のみ移動（同じ作品でもevent/countの違いを落とさない）
+                if (window.location.pathname + window.location.search !== safeReturnUrl) {
+                  navigateAfterAuth(safeReturnUrl)
+                  return
                 }
               }
             }
+            deps.setAuthPending?.(false)
           }).catch((err) => {
+            if (!isCurrent()) return
+            if (deps.retryPendingAuthRef) deps.retryPendingAuthRef.current = retry
             reportAuthFailure('resolveUserFromSession', err, { authEvent: event })
+            deps.onFailure?.()
             setLoading(false)
             setIsInitialized(true)  // エラーでも完了とみなす
           })
@@ -192,12 +233,14 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
             recoveryAttemptedRef.current = true
             authTrace('⚠️ SIGNED_OUT だがユーザー設定済み、リカバリーを試行')
             const recovered = await tryRecoverSession()
+            if (!isCurrent()) return
             if (recovered) {
               recoveryAttemptedRef.current = false
               return
             }
           }
           
+          if (event === 'SIGNED_OUT' && userRef.current && !isExplicitSignOutRef.current) deps.onFailure?.()
           setUser(null)
           userRef.current = null
           setStaffCache(new Map())  // セッション終了時にキャッシュもクリア
@@ -205,7 +248,49 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
           setIsInitialized(true)  // ログアウト状態として認証完了をマーク
         }
       }
-    )
+    // 同じ利用者の SDK 通知が重なっても、顧客確認/戻り先の消費まで1本の処理を共有する。
+    let pendingAuthEvent: { userId: string; generation: number | undefined; promise: Promise<void> } | null = null
+    function handleAuthChange(event: AuthChangeEvent, session: Session | null, force = false): Promise<void> {
+      const generation = resolveDeps.generationRef?.current
+      if (session?.user && pendingAuthEvent?.userId === session.user.id && pendingAuthEvent.generation === generation) return pendingAuthEvent.promise
+      const promise = handleAuthChangeCore(event, session, force)
+      if (session?.user) {
+        const entry = { userId: session.user.id, generation, promise }
+        pendingAuthEvent = entry
+        const clear = () => { if (pendingAuthEvent === entry) pendingAuthEvent = null }
+        void promise.then(clear, clear)
+      }
+      return promise
+    }
+
+    // SDK が認証ロックを保持する callback は同期で返す。SIGNED_OUT の setSession もロック解放後に実行する。
+    const pendingEvents = new Set<ReturnType<typeof setTimeout>>()
+    let sessionIdentity = userRef.current?.id ?? null
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        clearTimeout(loadingTimeout)
+        deps.setAuthPending?.(false)
+        if (deps.retryPendingAuthRef) deps.retryPendingAuthRef.current = null
+      }
+      const nextIdentity = session?.user?.id ?? null
+      if (event === 'SIGNED_OUT' || nextIdentity !== sessionIdentity) {
+        if (resolveDeps.generationRef) resolveDeps.generationRef.current += 1
+        if (deps.retryPendingAuthRef) deps.retryPendingAuthRef.current = null
+        sessionIdentity = nextIdentity
+        if (nextIdentity && userRef.current && userRef.current.id !== nextIdentity) {
+          setUser(null)
+          userRef.current = null
+          setStaffCache(new Map())
+        }
+      }
+      const generation = resolveDeps.generationRef?.current
+      const timer = setTimeout(() => {
+        pendingEvents.delete(timer)
+        if (!active || generation !== resolveDeps.generationRef?.current) return
+        void Promise.resolve(handleAuthChange(event, session)).catch(() => deps.onFailure?.())
+      }, 0)
+      pendingEvents.add(timer)
+    })
 
     // タブがアクティブになったときにセッションをリフレッシュ（バックグラウンドでの期限切れ対策）
     const handleVisibilityChange = () => {
@@ -253,6 +338,7 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
             // 他のタブでログアウトした場合、このタブもログアウト状態にする
             authTrace('🚪 他タブでログアウト検出、このタブもログアウト')
             isExplicitSignOutRef.current = true
+            if (resolveDeps.generationRef) resolveDeps.generationRef.current += 1
             setUser(null)
             userRef.current = null
             setStaffCache(new Map())  // キャッシュもクリア
@@ -276,7 +362,11 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
     }
 
     return () => {
+      active = false
+      if (resolveDeps.generationRef) resolveDeps.generationRef.current += 1
       subscription.unsubscribe()
+      clearTimeout(loadingTimeout)
+      pendingEvents.forEach(clearTimeout)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
       clearInterval(refreshInterval)

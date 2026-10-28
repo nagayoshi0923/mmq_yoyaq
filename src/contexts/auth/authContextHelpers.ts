@@ -171,3 +171,8 @@ export function logAuthEvent(
     }
   })()
 }
+
+/** 認証完了後の画面移動。呼出元で確認済みのアプリ内パスだけを渡す。 */
+export function navigateAfterAuth(path: string): void {
+  window.location.assign(path)
+}

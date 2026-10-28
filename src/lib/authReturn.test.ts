@@ -2,6 +2,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   buildAuthUrl,
+  captureOAuthCallbackIntent,
+  readOAuthCallbackReturnTo,
   buildCompleteProfilePath,
   buildSignupEmailRedirectTo,
   forgetReturnUrl,
@@ -16,7 +18,7 @@ import {
 const BOOKING = '/queens-waltz/scenario/usagi?event=e1&count=3'
 
 describe('ログイン・登録の戻り先（点検 1・3・25）', () => {
-  afterEach(() => sessionStorage.clear())
+  afterEach(() => { forgetReturnUrl(); sessionStorage.clear(); window.history.replaceState({}, '', '/') })
 
   it('戻り先はログイン画面の URL に載せる', () => {
     expect(buildAuthUrl('login', BOOKING)).toBe(`/login?redirect=${encodeURIComponent(BOOKING)}`)
@@ -54,5 +56,30 @@ describe('ログイン・登録の戻り先（点検 1・3・25）', () => {
     expect(readAuthIntent(BOOKING)?.label).toBe('「ウサギ」10月12日(日) 14:00〜・3名')
     expect(readAuthIntent('/queens-waltz/scenario/other')).toBeNull()
     expect(readAuthIntent(null)).toBeNull()
+  })
+})
+
+
+describe('OAuth callbackの戻り先をSDKのハッシュ処理前に保持', () => {
+  it('トークンを保持せず戻り先だけを保存し、ハッシュ消去後も参照できる', () => {
+    sessionStorage.setItem('oauth_mode', 'login'); rememberReturnUrl(BOOKING)
+    window.history.replaceState({}, '', '/login#access_token=fixture&refresh_token=fixture')
+    captureOAuthCallbackIntent()
+    window.history.replaceState({}, '', '/login#')
+    expect(readOAuthCallbackReturnTo()).toBe(BOOKING)
+    forgetReturnUrl()
+    expect(readOAuthCallbackReturnTo()).toBeNull()
+  })
+  it('通常のloginやパスワード回復では古い戻り先を保護しない', () => {
+    sessionStorage.setItem('oauth_mode', 'login'); rememberReturnUrl(BOOKING)
+    window.history.replaceState({}, '', '/login')
+    captureOAuthCallbackIntent(); expect(readOAuthCallbackReturnTo()).toBeNull()
+    window.history.replaceState({}, '', '/login#access_token=fixture&refresh_token=fixture&type=recovery')
+    captureOAuthCallbackIntent(); expect(readOAuthCallbackReturnTo()).toBeNull()
+  })
+  it('外部URLは保持しない', () => {
+    sessionStorage.setItem('oauth_mode', 'login'); sessionStorage.setItem('returnUrl', 'https://example.invalid')
+    window.history.replaceState({}, '', '/login#access_token=fixture&refresh_token=fixture')
+    captureOAuthCallbackIntent(); expect(readOAuthCallbackReturnTo()).toBeNull()
   })
 })

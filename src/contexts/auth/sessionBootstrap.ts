@@ -1,3 +1,4 @@
+import { withAuthTimeout } from './authTimeout'
 import type { Dispatch, SetStateAction } from 'react'
 import { supabase, sessionBackupJson } from '@/lib/supabase'
 import { authTrace, logger } from '@/utils/logger'
@@ -15,6 +16,7 @@ export interface SessionBootstrapDeps {
   resolveDeps: ResolveUserDeps
   setLoading: Dispatch<SetStateAction<boolean>>
   setIsInitialized: Dispatch<SetStateAction<boolean>>
+  onFailure?: () => void
 }
 
 export function createSessionBootstrap(deps: SessionBootstrapDeps) {
@@ -25,17 +27,21 @@ export function createSessionBootstrap(deps: SessionBootstrapDeps) {
   // setSession() で再認証を試みる。
   async function tryRecoverSession(): Promise<boolean> {
     if (!sessionBackupJson) return false
+    const generation = resolveDeps.generationRef?.current
+    const isCurrent = () => generation === resolveDeps.generationRef?.current
     try {
       const backup = JSON.parse(sessionBackupJson)
       if (!backup?.refresh_token) return false
       authTrace('🔄 バックアップからセッション復元を試行')
-      const { data, error } = await supabase.auth.setSession({
+      const { data, error } = await withAuthTimeout(supabase.auth.setSession({
         access_token: backup.access_token ?? '',
         refresh_token: backup.refresh_token,
-      })
+      }))
+      if (!isCurrent()) return false
       if (!error && data.session?.user) {
         authTrace('✅ セッション復元成功')
-        await resolveUserFromSession(data.session.user, resolveDeps)
+        const result = await resolveUserFromSession(data.session.user, resolveDeps)
+        if (result !== 'resolved') return false
         setLoading(false)
         setIsInitialized(true)
         return true
@@ -48,17 +54,21 @@ export function createSessionBootstrap(deps: SessionBootstrapDeps) {
   }
 
   async function getInitialSession() {
+    const generation = resolveDeps.generationRef?.current
+    const isCurrent = () => generation === resolveDeps.generationRef?.current
     const startTime = performance.now()
     authTrace('🚀 初期セッション取得開始')
     try {
       const sessionStartTime = performance.now()
-      const { data: { session: initialSession }, error } = await supabase.auth.getSession()
+      const { data: { session: initialSession }, error } = await withAuthTimeout(supabase.auth.getSession())
+      if (!isCurrent()) return
       let session = initialSession
       const sessionEndTime = performance.now()
       authTrace(`⏱️ getSession 完了: ${((sessionEndTime - sessionStartTime) / 1000).toFixed(2)}秒`)
       
       if (error) {
         logger.error('❌ セッション取得エラー:', error)
+        deps.onFailure?.()
         return
       }
       
@@ -72,7 +82,7 @@ export function createSessionBootstrap(deps: SessionBootstrapDeps) {
         if (expiresAt && expiresAt - now < refreshIfRemainingLessThanMs) {
           authTrace('🔄 セッション有効期限が近いため、リフレッシュを試行')
           try {
-            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+            const { data: refreshData, error: refreshError } = await withAuthTimeout(supabase.auth.refreshSession())
             if (refreshError) {
               logger.warn('⚠️ リフレッシュ失敗:', refreshError.message)
             } else if (refreshData.session) {
@@ -84,19 +94,25 @@ export function createSessionBootstrap(deps: SessionBootstrapDeps) {
           }
         }
         
+        if (!isCurrent()) return
         authTrace('👤 セッションユーザー発見:', maskEmail(session.user.email))
         await resolveUserFromSession(session.user, resolveDeps)
       } else {
         // セッションがない場合、Refresh Tokenからの復元を試みる
         authTrace('🔄 セッションなし、リフレッシュで復元を試行')
+        let recoveryFailed = false
         try {
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+          const { data: refreshData, error: refreshError } = await withAuthTimeout(supabase.auth.refreshSession())
+          if (!isCurrent()) return
           if (!refreshError && refreshData.session?.user) {
             authTrace('✅ リフレッシュでセッション復元成功:', maskEmail(refreshData.session.user.email))
             await resolveUserFromSession(refreshData.session.user, resolveDeps)
             return
           }
+          // session自体がない通常の未ログインと、通信・認証サービスの失敗を区別する。
+          recoveryFailed = !!refreshError && refreshError.name !== 'AuthSessionMissingError'
         } catch (refreshErr) {
+          recoveryFailed = true
           authTrace('⏭️ リフレッシュ復元失敗')
         }
         
@@ -106,12 +122,16 @@ export function createSessionBootstrap(deps: SessionBootstrapDeps) {
         // レスポンス受信前にリロード→新トークン未保存、という競合で
         // localStorage のセッションが消えるケースに対応。
         const recovered = await tryRecoverSession()
-        if (recovered) return
+        if (recovered || !isCurrent()) return
+        // バックアップ復元失敗や通信失敗を、正常な未ログイン確認として消さない。
+        if (recoveryFailed || sessionBackupJson) deps.onFailure?.()
+        else resolveDeps.onResolutionSuccess?.()
         
         authTrace('👤 セッションユーザーなし')
       }
     } catch (error) {
       logger.error('❌ 初期セッション取得エラー:', error)
+      if (isCurrent()) deps.onFailure?.()
     } finally {
       const endTime = performance.now()
       authTrace('✅ 初期セッション処理完了')
