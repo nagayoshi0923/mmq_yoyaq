@@ -100,6 +100,7 @@ export function createSessionBootstrap(deps: SessionBootstrapDeps) {
       } else {
         // セッションがない場合、Refresh Tokenからの復元を試みる
         authTrace('🔄 セッションなし、リフレッシュで復元を試行')
+        let recoveryFailed = false
         try {
           const { data: refreshData, error: refreshError } = await withAuthTimeout(supabase.auth.refreshSession())
           if (!isCurrent()) return
@@ -108,7 +109,10 @@ export function createSessionBootstrap(deps: SessionBootstrapDeps) {
             await resolveUserFromSession(refreshData.session.user, resolveDeps)
             return
           }
+          // session自体がない通常の未ログインと、通信・認証サービスの失敗を区別する。
+          recoveryFailed = !!refreshError && refreshError.name !== 'AuthSessionMissingError'
         } catch (refreshErr) {
+          recoveryFailed = true
           authTrace('⏭️ リフレッシュ復元失敗')
         }
         
@@ -118,7 +122,10 @@ export function createSessionBootstrap(deps: SessionBootstrapDeps) {
         // レスポンス受信前にリロード→新トークン未保存、という競合で
         // localStorage のセッションが消えるケースに対応。
         const recovered = await tryRecoverSession()
-        if (recovered) return
+        if (recovered || !isCurrent()) return
+        // バックアップ復元失敗や通信失敗を、正常な未ログイン確認として消さない。
+        if (recoveryFailed || sessionBackupJson) deps.onFailure?.()
+        else resolveDeps.onResolutionSuccess?.()
         
         authTrace('👤 セッションユーザーなし')
       }

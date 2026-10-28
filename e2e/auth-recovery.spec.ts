@@ -82,3 +82,23 @@ test(`OAuth復帰${callback}から再試行し、顧客確認後に戻り先へ�
 })
 
 }
+
+// 再試行とは別の「ログイン画面へ」でも、reloadを越えて戻り先を保持する。
+test('OAuth callbackのログイン画面リンクを開き直しても戻り先を失わない', async ({ context, page }) => {
+  const fixture = await isolate(context, true)
+  await page.goto(`/login#access_token=${fixture.token}&refresh_token=fixture-only&expires_in=3600&token_type=bearer`)
+  const notice = page.getByRole('alert', { name: 'ログイン情報の確認エラー' })
+  await expect(notice).toBeVisible({ timeout: 15_000 })
+  const link = notice.getByRole('link', { name: 'ログイン画面へ' })
+  await expect(link).toHaveAttribute('href', '/login?redirect=%2Ffaq%3Ffrom%3Dbooking')
+  await link.click()
+  await expect(page).toHaveURL(url => url.pathname === '/login' && url.searchParams.get('redirect') === '/faq?from=booking')
+  await expect(notice).toBeVisible({ timeout: 15_000 })
+  fixture.recover()
+  await notice.getByRole('button', { name: '再試行', exact: true }).click()
+  await expect(notice).toHaveCount(0)
+  await expect(page).toHaveURL(url => url.pathname === '/faq' && url.search === '?from=booking' && url.hash === '')
+  await expect.poll(() => fixture.customerChecks.length).toBeGreaterThan(0)
+  expect(fixture.authWrites).not.toContain('/auth/v1/token')
+  expect(fixture.authWrites).not.toContain('/auth/v1/logout')
+})

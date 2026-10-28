@@ -4,8 +4,8 @@ import { MemoryRouter, useLocation } from 'react-router-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const m = vi.hoisted(() => ({ getSession: vi.fn(), refresh: vi.fn(), setSession: vi.fn(), role: vi.fn(), staff: vi.fn(), customer: vi.fn(), navigate: vi.fn(), profile: vi.fn(), signOut: vi.fn(), signIn: vi.fn(), callback: null as null | ((event: string, session: unknown) => unknown) }))
-vi.mock('@/lib/supabase', () => ({ sessionBackupJson: null, supabase: { auth: {
+const m = vi.hoisted(() => ({ backup: null as string | null, getSession: vi.fn(), refresh: vi.fn(), setSession: vi.fn(), role: vi.fn(), staff: vi.fn(), customer: vi.fn(), navigate: vi.fn(), profile: vi.fn(), signOut: vi.fn(), signIn: vi.fn(), callback: null as null | ((event: string, session: unknown) => unknown) }))
+vi.mock('@/lib/supabase', () => ({ get sessionBackupJson() { return m.backup }, supabase: { auth: {
   getSession: m.getSession, refreshSession: m.refresh, setSession: m.setSession, signOut: m.signOut, signInWithPassword: m.signIn,
   onAuthStateChange: (cb: typeof m.callback) => { m.callback = cb; return { data: { subscription: { unsubscribe: vi.fn() } } } },
 } } }))
@@ -37,7 +37,7 @@ function Probe() { const auth = useAuth(); controls = auth; return <output data-
 async function render() { await act(async () => root.render(<AuthProvider><Probe /></AuthProvider>)) }
 async function tick(ms = 1) { await act(async () => vi.advanceTimersByTimeAsync(ms)) }
 beforeEach(() => {
-  vi.useFakeTimers(); vi.clearAllMocks(); m.callback = null
+  vi.useFakeTimers(); vi.clearAllMocks(); m.callback = null; m.backup = null
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   forgetReturnUrl()
   setLoginCompletionPending(false)
@@ -114,6 +114,7 @@ describe('認証方式によらない情報取得失敗と回復', () => {
     m.callback!('SIGNED_IN', S); m.callback!('INITIAL_SESSION', S); await tick()
     const notice = host.querySelector('[role="alert"]')!
     expect(notice).not.toBeNull()
+    expect(notice.querySelector('a')?.getAttribute('href')).toBe('/login?redirect=%2Ffaq%3Ffrom%3Dcallback')
     m.role.mockResolvedValue({ data: { role: 'customer' }, error: null })
     await act(async () => (notice.querySelector('button') as HTMLButtonElement).click())
     expect(m.customer).toHaveBeenCalledWith(U.id)
@@ -159,6 +160,30 @@ describe('認証方式によらない情報取得失敗と回復', () => {
     m.role.mockResolvedValue({ data: { role: 'staff' }, error: null })
     await act(async () => (host.querySelector('button') as HTMLButtonElement).click())
     expect(host.textContent).toContain('ready:staff')
+    expect(m.signOut).not.toHaveBeenCalled()
+  })
+  it.each([null, { name: 'AuthSessionMissingError', message: 'Auth session missing' }])('timeout後の再試行で正常な未ログインを確認したら警告を解除する: %j', async (error) => {
+    m.getSession.mockImplementation(() => new Promise(() => {}))
+    await render(); await tick(10_001)
+    expect(host.querySelector('[role="alert"]')).not.toBeNull()
+    m.getSession.mockResolvedValue({ data: { session: null }, error: null })
+    m.refresh.mockResolvedValue({ data: { session: null }, error })
+    await act(async () => (host.querySelector('button') as HTMLButtonElement).click())
+    expect(host.querySelector('[role="alert"]')).toBeNull()
+    expect(host.textContent).toContain('ready:none')
+    expect(m.signOut).not.toHaveBeenCalled()
+  })
+  it.each(['network', 'backup', 'role'])('再試行の%s失敗は正常な未ログインとして警告を消さない', async (failure) => {
+    m.getSession.mockImplementation(() => new Promise(() => {}))
+    await render(); await tick(10_001)
+    m.getSession.mockResolvedValue({ data: { session: failure === 'role' ? S : null }, error: null })
+    if (failure === 'network') m.refresh.mockRejectedValue(new Error('fixture offline'))
+    if (failure === 'backup') {
+      m.backup = JSON.stringify({ access_token: 'fixture', refresh_token: 'fixture' })
+      m.setSession.mockResolvedValue({ data: { session: null }, error: { message: 'fixture offline' } })
+    }
+    await act(async () => (host.querySelector('button') as HTMLButtonElement).click())
+    expect(host.querySelector('[role="alert"]')).not.toBeNull()
     expect(m.signOut).not.toHaveBeenCalled()
   })
   it('利用者Aの応答が利用者Bへの切替後に到着してもAへ戻らない', async () => {
