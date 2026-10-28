@@ -120,6 +120,21 @@ describe('認証方式によらない情報取得失敗と回復', () => {
     expect(m.navigate).toHaveBeenCalledWith('/faq?from=callback')
     expect(m.signIn).not.toHaveBeenCalled(); expect(m.signOut).not.toHaveBeenCalled()
   })
+  it('SDK通知が顧客確認の途中に重なっても確認と遷移を1回だけ行う', async () => {
+    m.getSession.mockResolvedValue({ data: { session: null }, error: null })
+    m.role.mockResolvedValue({ data: { role: 'customer' }, error: null })
+    let finish!: (value: unknown) => void
+    m.customer.mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    await render()
+    sessionStorage.setItem('oauth_mode', 'login'); sessionStorage.setItem('returnUrl', '/faq?from=overlap')
+    m.callback!('SIGNED_IN', S); await tick()
+    m.callback!('INITIAL_SESSION', S); await tick()
+    expect(m.customer).toHaveBeenCalledOnce()
+    await act(async () => finish({ data: [{ id: 'fake-customer' }], error: null }))
+    expect(m.navigate).toHaveBeenCalledOnce()
+    expect(m.navigate).toHaveBeenCalledWith('/faq?from=overlap')
+    expect(controls.authRecoveryPending).toBe(true) // 移動完了までは先行転送しない
+  })
   it('OAuth顧客照合エラーを未登録とせず、再試行で取得成功後だけプロフィールへ案内する', async () => {
     m.getSession.mockResolvedValue({ data: { session: null }, error: null })
     m.role.mockResolvedValue({ data: { role: 'customer' }, error: null })

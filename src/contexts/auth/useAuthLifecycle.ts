@@ -99,7 +99,7 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
     })
 
     // 認証状態の変更を監視
-    const handleAuthChange = async (event: AuthChangeEvent, session: Session | null, force = false): Promise<void> => {
+    const handleAuthChangeCore = async (event: AuthChangeEvent, session: Session | null, force = false): Promise<void> => {
         const generation = resolveDeps.generationRef?.current
         const isCurrent = () => active && (!resolveDeps.generationRef || resolveDeps.generationRef.current === generation)
         // SDK が React 購読前に OAuth を確立した場合は INITIAL_SESSION で届く。
@@ -248,6 +248,21 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
           setIsInitialized(true)  // ログアウト状態として認証完了をマーク
         }
       }
+    // 同じ利用者の SDK 通知が重なっても、顧客確認/戻り先の消費まで1本の処理を共有する。
+    let pendingAuthEvent: { userId: string; generation: number | undefined; promise: Promise<void> } | null = null
+    function handleAuthChange(event: AuthChangeEvent, session: Session | null, force = false): Promise<void> {
+      const generation = resolveDeps.generationRef?.current
+      if (session?.user && pendingAuthEvent?.userId === session.user.id && pendingAuthEvent.generation === generation) return pendingAuthEvent.promise
+      const promise = handleAuthChangeCore(event, session, force)
+      if (session?.user) {
+        const entry = { userId: session.user.id, generation, promise }
+        pendingAuthEvent = entry
+        const clear = () => { if (pendingAuthEvent === entry) pendingAuthEvent = null }
+        void promise.then(clear, clear)
+      }
+      return promise
+    }
+
     // SDK が認証ロックを保持する callback は同期で返す。SIGNED_OUT の setSession もロック解放後に実行する。
     const pendingEvents = new Set<ReturnType<typeof setTimeout>>()
     let sessionIdentity = userRef.current?.id ?? null
