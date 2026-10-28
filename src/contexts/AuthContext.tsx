@@ -14,6 +14,7 @@ import { resolveUserFromSession, type ResolveUserDeps } from './auth/resolveUser
 interface AuthContextType {
   user: AuthUser | null
   loading: boolean
+  authRecoveryPending: boolean
   isInitialized: boolean  // 初期認証が完了したか（タイムアウトではなく、実際に完了）
   /** admin または license_admin ロール */
   isAdmin: boolean
@@ -51,6 +52,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isInitialized, setIsInitialized] = useState(false)  // 認証完了フラグ
   const loginCompletionPending = useLoginCompletionPending()
   const [recoveryError, setRecoveryError] = useState(false)
+  const [authRecoveryPending, setAuthRecoveryPending] = useState(false)
+  const retryPendingAuthRef = React.useRef<(() => Promise<void>) | null>(null)
   const [retryingAuth, setRetryingAuth] = useState(false)
   const retryingAuthRef = React.useRef(false)
   const onAuthFailure = useCallback(() => setRecoveryError(true), [])
@@ -108,6 +111,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signOut = async () => {
     generationRef.current += 1
     setRecoveryError(false)
+    setAuthRecoveryPending(false)
+    retryPendingAuthRef.current = null
     await performSignOut()
   }
 
@@ -123,6 +128,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // BroadcastChannel マルチタブ同期）を auth/useAuthLifecycle.ts へ切り出し
   useAuthLifecycle({
     loading,
+    retryPendingAuthRef,
+    setAuthPending: setAuthRecoveryPending,
     resolveDeps,
     getInitialSession,
     tryRecoverSession,
@@ -145,7 +152,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     retryingAuthRef.current = true
     setRetryingAuth(true)
     try {
-      await getInitialSession()
+      if (retryPendingAuthRef.current) await retryPendingAuthRef.current()
+      else await getInitialSession()
     } finally {
       retryingAuthRef.current = false
       setRetryingAuth(false)
@@ -171,6 +179,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     user,
     loading,
     isInitialized,
+    authRecoveryPending,
     isAdmin,
     isStaff,
     isCustomer,

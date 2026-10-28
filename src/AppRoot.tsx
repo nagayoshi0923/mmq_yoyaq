@@ -277,7 +277,7 @@ function HashRedirect() {
 }
 
 function AppRoutes() {
-  const { user, loading, isInitialized } = useAuth()
+  const { user, loading, isInitialized, authRecoveryPending } = useAuth()
   const loginPending = useLoginCompletionPending()
   const location = useLocation()
   const navigate = useNavigate()
@@ -440,7 +440,7 @@ function AppRoutes() {
     // モバイルSafariでは IndexedDB 読み込みがタイムアウト後に完了し user がセットされる
     // ことがあるため、!loading だとフォーム表示中に突然リダイレクトされる問題が発生する。
     // ログイン画面がログインを完了させている途中（行き先の確認中・再読み込みの表示中）は移動しない（2026-10-26 本番ログイン障害）
-    const loginRedirect = authPageRedirect({ isInitialized, user, loginPending, returnTo: readReturnToFromSearch(location.search), organizationSlug: organization?.slug })
+    const loginRedirect = authPageRedirect({ isInitialized, user, loginPending: loginPending || authRecoveryPending, returnTo: readReturnToFromSearch(location.search), organizationSlug: organization?.slug })
     if (loginRedirect) return <Navigate to={loginRedirect} replace />
     return (
       <Suspense fallback={<FullPageSpinner />}>

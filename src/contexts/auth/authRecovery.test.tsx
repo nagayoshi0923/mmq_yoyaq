@@ -4,7 +4,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const m = vi.hoisted(() => ({ getSession: vi.fn(), refresh: vi.fn(), setSession: vi.fn(), role: vi.fn(), staff: vi.fn(), customer: vi.fn(), profile: vi.fn(), signOut: vi.fn(), signIn: vi.fn(), callback: null as null | ((event: string, session: unknown) => unknown) }))
+const m = vi.hoisted(() => ({ getSession: vi.fn(), refresh: vi.fn(), setSession: vi.fn(), role: vi.fn(), staff: vi.fn(), customer: vi.fn(), navigate: vi.fn(), profile: vi.fn(), signOut: vi.fn(), signIn: vi.fn(), callback: null as null | ((event: string, session: unknown) => unknown) }))
 vi.mock('@/lib/supabase', () => ({ sessionBackupJson: null, supabase: { auth: {
   getSession: m.getSession, refreshSession: m.refresh, setSession: m.setSession, signOut: m.signOut, signInWithPassword: m.signIn,
   onAuthStateChange: (cb: typeof m.callback) => { m.callback = cb; return { data: { subscription: { unsubscribe: vi.fn() } } } },
@@ -16,7 +16,7 @@ vi.mock('@/lib/sentry', () => ({ setUser: vi.fn() }))
 vi.mock('@/lib/webPush', () => ({ removeWebPushSubscription: vi.fn() }))
 vi.mock('@/lib/persistedQueryCache', () => ({ clearPersistedQueryCache: vi.fn() }))
 vi.mock('./useStrandedAuthTokenRecovery', () => ({ useStrandedAuthTokenRecovery: vi.fn() }))
-vi.mock('./authContextHelpers', async (original) => ({ ...await original<typeof import('./authContextHelpers')>(), logAuthEvent: vi.fn() }))
+vi.mock('./authContextHelpers', async (original) => ({ ...await original<typeof import('./authContextHelpers')>(), logAuthEvent: vi.fn(), navigateAfterAuth: m.navigate }))
 vi.mock('./authDiagnostics', () => ({ reportAuthFailure: vi.fn() }))
 vi.mock('@/lib/api/authSessionApi', () => ({ authSessionApi: {
   getUserRole: m.role, findStaffIdByUserId: m.staff, findStaffIdByEmail: m.staff,
@@ -73,6 +73,35 @@ describe('認証方式によらない情報取得失敗と回復', () => {
     expect(host.querySelector('[role="alert"]')).not.toBeNull()
     expect(sessionStorage.getItem('returnUrl')).toContain('event=e1')
     expect(m.customer).not.toHaveBeenCalled()
+  })
+  it('OAuthの共通再試行が顧客確認と予約returnToまで再開する', async () => {
+    m.getSession.mockResolvedValue({ data: { session: null }, error: null })
+    await render()
+    sessionStorage.setItem('oauth_mode', 'login'); sessionStorage.setItem('returnUrl', '/queens-waltz/scenario/fake?event=e2&count=2')
+    m.callback!('SIGNED_IN', S); await tick()
+    expect(host.querySelector('[role="alert"]')).not.toBeNull()
+    m.role.mockResolvedValue({ data: { role: 'customer' }, error: null })
+    await act(async () => (host.querySelector('button') as HTMLButtonElement).click())
+    expect(m.customer).toHaveBeenCalledWith(U.id)
+    expect(m.navigate).toHaveBeenCalledWith('/queens-waltz/scenario/fake?event=e2&count=2')
+    expect(sessionStorage.getItem('returnUrl')).toBeNull()
+    expect(controls.authRecoveryPending).toBe(false)
+    expect(m.signIn).not.toHaveBeenCalled(); expect(m.signOut).not.toHaveBeenCalled()
+  })
+  it('OAuth顧客照合エラーを未登録とせず、再試行で取得成功後だけプロフィールへ案内する', async () => {
+    m.getSession.mockResolvedValue({ data: { session: null }, error: null })
+    m.role.mockResolvedValue({ data: { role: 'customer' }, error: null })
+    m.customer.mockResolvedValue({ data: null, error: { message: 'fixture offline' } })
+    await render()
+    sessionStorage.setItem('oauth_mode', 'login'); sessionStorage.setItem('returnUrl', '/faq?from=booking')
+    m.callback!('SIGNED_IN', S); await tick()
+    expect(host.querySelector('[role="alert"]')).not.toBeNull()
+    expect(controls.authRecoveryPending).toBe(true)
+    expect(m.navigate).not.toHaveBeenCalled()
+    m.customer.mockResolvedValue({ data: [], error: null })
+    await act(async () => (host.querySelector('button') as HTMLButtonElement).click())
+    expect(m.navigate).toHaveBeenCalledWith('/complete-profile?next=%2Ffaq%3Ffrom%3Dbooking')
+    expect(controls.authRecoveryPending).toBe(false)
   })
   it('SDK getSessionが無応答でも10秒で警告し、ロックを破壊せず再試行できる', async () => {
     m.getSession.mockImplementation(() => new Promise(() => {}))
