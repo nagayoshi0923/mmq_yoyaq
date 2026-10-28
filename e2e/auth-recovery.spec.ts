@@ -74,7 +74,8 @@ test(`OAuth復帰${callback}から再試行し、顧客確認後に戻り先へ�
   fixture.recover()
   await notice.getByRole('button', { name: '再試行', exact: true }).click()
   await expect(notice).toHaveCount(0)
-  await expect(page).toHaveURL(/\/faq\?from=booking$/)
+  // SDK が残す空の末尾 # は許すが、目的地/queryの相違やtoken残存は許さない。
+  await expect(page).toHaveURL(url => url.pathname === '/faq' && url.search === '?from=booking' && url.hash === '')
   await expect.poll(() => fixture.customerChecks.length).toBeGreaterThan(0)
   expect(fixture.authWrites).not.toContain('/auth/v1/token')
   expect(fixture.authWrites).not.toContain('/auth/v1/logout')
