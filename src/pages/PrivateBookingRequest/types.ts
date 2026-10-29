@@ -31,6 +31,8 @@ export interface PrivateBookingRequestProps {
   groupId?: string  // 貸切グループID（グループからの申請時のみ）
   onBack: () => void
   onComplete?: () => void
+  /** 申込を送れたとき（成功画面を出すとき）に 1 回。呼び出し側の預かり（B29 の貸切タブの選択など）を消すのに使う */
+  onSubmitted?: () => void
   /** 確認画面で希望店舗を選び直して確定したとき（URL の store を合わせる） */
   onStoreIdsChange?: (storeIds: string[]) => void
 }
