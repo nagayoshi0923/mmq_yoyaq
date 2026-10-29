@@ -1,4 +1,4 @@
-import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import type { NavigateFunction } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
@@ -12,7 +12,6 @@ import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
 import { successRedirectMessage, type SuccessDestination } from './successRedirect'
 import type { SignupLinkError } from './linkError'
 import { buildAuthUrl, buildSignupEmailRedirectTo } from '@/lib/authReturn'
-import { signOutAndGoHome } from './signOutAndGoHome'
 
 export function SuccessScreen({ navigate, destination }: { navigate: NavigateFunction; destination: SuccessDestination }) {
   return (
@@ -135,26 +134,65 @@ export function ReopenLinkScreen({ resendEmailInput, setResendEmailInput, resend
   )
 }
 
+/** 選び直しのログアウトを待つ上限（ミリ秒） */
+export const RELOGIN_SIGN_OUT_LIMIT_MS = 3000
+
+/**
+ * ログイン方法を選び直すためのログアウト（このタブのログイン情報を消す）。消せたと分かったときだけ ok。
+ * 失敗（{ error } が返る・投げる）・上限時間までに返らないときは ok にしない（ログインが残ったままログイン画面へ移ると、
+ * ログイン済みとして同じ案内へ戻ってしまうため。2026-10-29 Codex レビュー）
+ */
+export async function signOutForRelogin(
+  signOut: () => Promise<{ error?: unknown } | void> = () => supabase.auth.signOut({ scope: 'local' }),
+  limitMs: number = RELOGIN_SIGN_OUT_LIMIT_MS,
+): Promise<'ok' | 'failed' | 'timeout'> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<'timeout'>((resolve) => { timer = setTimeout(() => resolve('timeout'), limitMs) })
+  try {
+    return await Promise.race([
+      Promise.resolve().then(signOut).then((r) => (r && (r as { error?: unknown }).error ? 'failed' as const : 'ok' as const), () => 'failed' as const),
+      timeout,
+    ])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
+
 /**
  * ログイン（またはメール確認・Google など）自体はできたが、このメールアドレスのお客様情報が別のログインに結び付いている（2026-10-29 社長承認）。
  * 以前は「このメールは既に登録されています」「新規登録フローを続けると…」と出し、ログインした人にも新規登録を選んだように見えていた。
  * - 重複の防止はそのまま（ここでお客様情報を作らない・結び付け直さない・他のアカウントのメールアドレスは出さない）
- * - 選び直しはログイン情報を消してから（上限時間つき）、安全な内部の戻り先を付けたログイン画面へ。二度押しは 1 回だけ
+ * - 選び直しは、ログアウトできたと分かってから安全な内部の戻り先つきのログイン画面へ。できなければ理由と「もう一度」を出す。
+ *   二度押しは 1 回だけ、画面を離れたあとに遅れて届いた結果では移動しない
  */
-export function DuplicateAccountScreen({ userEmail, returnTo, signOutAndGo = signOutAndGoHome }: {
+export function DuplicateAccountScreen({ userEmail, returnTo, signOut, go = (url: string) => window.location.replace(url), limitMs }: {
   userEmail: string
   /** ログインのあとに戻る画面（安全な内部 URL だけ。無ければ null） */
   returnTo?: string | null
-  signOutAndGo?: typeof signOutAndGoHome
+  signOut?: () => Promise<{ error?: unknown } | void>
+  go?: (url: string) => void
+  limitMs?: number
 }) {
   const [leaving, setLeaving] = useState(false)
+  const [signOutError, setSignOutError] = useState(false)
   const leavingRef = useRef(false)
+  const mountedRef = useRef(true)
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false } }, [])
   const chooseAgain = async () => {
     if (leavingRef.current) return
     leavingRef.current = true
     setLeaving(true)
-    sessionStorage.removeItem('oauth_mode')
-    await signOutAndGo({ to: buildAuthUrl('login', returnTo) })
+    setSignOutError(false)
+    const result = await signOutForRelogin(signOut, limitMs)
+    if (!mountedRef.current) return
+    if (result === 'ok') {
+      sessionStorage.removeItem('oauth_mode')
+      go(buildAuthUrl('login', returnTo))
+      return
+    }
+    leavingRef.current = false
+    setLeaving(false)
+    setSignOutError(true)
   }
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
@@ -186,8 +224,13 @@ export function DuplicateAccountScreen({ userEmail, returnTo, signOutAndGo = sig
             style={{ backgroundColor: THEME.primary }}
             data-testid="duplicate-account-choose-again"
           >
-            {leaving ? 'ログアウトしています…' : 'ログアウトして、ログイン方法を選び直す'}
+            {leaving ? 'ログアウトしています…' : signOutError ? 'もう一度ログアウトして、選び直す' : 'ログアウトして、ログイン方法を選び直す'}
           </Button>
+          {signOutError && (
+            <p role="alert" className="text-sm text-red-700" data-testid="duplicate-account-signout-error">
+              ログアウトできませんでした。通信の状態を確かめて、もう一度お試しください。
+            </p>
+          )}
           <Button asChild variant="outline" className="w-full">
             <Link to="/contact">お問い合わせ</Link>
           </Button>

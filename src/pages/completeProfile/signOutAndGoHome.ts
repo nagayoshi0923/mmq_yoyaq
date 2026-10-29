@@ -5,7 +5,7 @@ import { logger } from '@/utils/logger'
 export const SIGN_OUT_WAIT_LIMIT_MS = 1500
 
 /**
- * ローカルのログイン情報を消してトップページ（または指定の内部 URL）へ移る。
+ * ローカルのログイン情報を消してトップページへ移る。
  * signOut はロックの取り合い等で返ってこないことがあり、待ち続けると「押しても画面が変わらない」
  * 状態になるため、上限時間で打ち切って必ず移動する。
  */
@@ -14,8 +14,6 @@ export async function signOutAndGoHome(
     signOut?: () => Promise<unknown>
     go?: (url: string) => void
     waitLimitMs?: number
-    /** 移動先（既定はトップページ。安全な内部 URL だけを渡す） */
-    to?: string
   } = {},
 ): Promise<void> {
   const signOut = deps.signOut ?? (() => supabase.auth.signOut({ scope: 'local' }))
@@ -37,5 +35,5 @@ export async function signOutAndGoHome(
   } finally {
     if (timer !== undefined) clearTimeout(timer)
   }
-  go(deps.to ?? '/')
+  go('/')
 }
