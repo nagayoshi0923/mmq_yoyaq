@@ -664,7 +664,7 @@ export function CompleteProfile() {
 
   if (profileGate === 'duplicate_account') {
     return (
-      <DuplicateAccountScreen userEmail={userEmail} navigate={navigate} />
+      <DuplicateAccountScreen userEmail={userEmail} returnTo={returnTo} />
     )
   }
 

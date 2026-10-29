@@ -25,6 +25,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ user: User }>
   signOut: () => Promise<void>
   refreshSession: () => Promise<void>  // 手動でセッションをリフレッシュ
+  /** ログイン方法を選び直すためのログアウト（明示ログアウト・移動しない。authActions.ts） */
+  signOutForRelogin: (limitMs?: number) => Promise<'ok' | 'failed' | 'timeout'>
   /**
    * ログインした利用者の役割・情報を確かめ直す（ログイン画面の「利用者情報を再読み込み」）。確定できなければ null。
    * パスワードのログインはやり直さない（2026-10-26 本番ログイン障害）
@@ -94,7 +96,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const refreshSession = useSessionRefresh(userRef, setUser)
 
   // signIn / signOut（auth/authActions.ts へ切り出し）
-  const { signIn: performSignIn, signOut: performSignOut } = createAuthActions({
+  const { signIn: performSignIn, signOut: performSignOut, signOutForRelogin: performSignOutForRelogin } = createAuthActions({
     userRef,
     broadcastChannelRef,
     isExplicitSignOutRef,
@@ -114,6 +116,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setAuthRecoveryPending(false)
     retryPendingAuthRef.current = null
     await performSignOut()
+  }
+
+  // ログイン方法を選び直すためのログアウト。signOut と同じく世代を進めて、ログアウト前に始まった利用者情報の確定を後から反映しない
+  const signOutForRelogin = async (limitMs?: number) => {
+    generationRef.current += 1
+    setRecoveryError(false)
+    setAuthRecoveryPending(false)
+    retryPendingAuthRef.current = null
+    return performSignOutForRelogin(limitMs)
   }
 
   // 初期セッション取得・バックアップ復元（auth/sessionBootstrap.ts へ切り出し）
@@ -185,6 +196,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isCustomer,
     signIn,
     signOut,
+    signOutForRelogin,
     refreshSession,
     reloadUser,
   }
