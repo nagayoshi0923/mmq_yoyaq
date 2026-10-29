@@ -23,7 +23,8 @@ vi.mock('@/hooks/useCustomHolidays', async (importOriginal) => ({
 }))
 vi.mock('@/hooks/usePrivateBookingDeadlineDays', () => ({ usePrivateBookingDeadlineDays: () => mocks.days }))
 vi.mock('@/hooks/usePrivateGroup', () => ({ usePrivateGroup: () => ({ createGroup: mocks.create, loading: false }) }))
-vi.mock('./hooks/usePrivateBookingSubmit', () => ({ usePrivateBookingSubmit: (args: { selectedStoreIds: string[] }) => { mocks.submitArgs = args; return { handleSubmit: mocks.submit, isSubmitting: false, success: false } } }))
+vi.mock('./hooks/usePrivateBookingSubmit', () => ({ usePrivateBookingSubmit: (args: { selectedStoreIds: string[] }) => { mocks.submitArgs = args; return { handleSubmit: mocks.submit, isSubmitting: false, success: submitted.value } } }))
+const submitted = vi.hoisted(() => ({ value: false }))
 // お客様情報は入力どおりに持つ（店舗の変更で消えないことを確かめる）
 vi.mock('../BookingConfirmation/hooks/useCustomerData', async () => {
   const React = await import('react')
@@ -142,6 +143,15 @@ it('点検 F09: 送信を二度押し（同じ描画のうちに 2 回）して�
   expect(mocks.create).toHaveBeenCalledTimes(1)
   expect(mocks.submit).toHaveBeenCalledTimes(1)
   expect(mocks.submit.mock.calls[0][5]).toBe('group-1')
+})
+
+it('B29: 申込を送れた（成功画面）ら onSubmitted を 1 回呼ぶ（作品ページの貸切タブの預かりを消す）', async () => {
+  const onSubmitted = vi.fn()
+  submitted.value = true
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><PrivateBookingRequest {...props} onSubmitted={onSubmitted} /></QueryClientProvider>)); await flush()
+    expect(onSubmitted).toHaveBeenCalledTimes(1)
+  } finally { submitted.value = false }
 })
 
 function setValue(el: HTMLInputElement | HTMLSelectElement, value: string) {

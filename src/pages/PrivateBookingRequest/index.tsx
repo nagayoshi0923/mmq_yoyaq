@@ -72,6 +72,7 @@ export function PrivateBookingRequest({
   groupId,
   onBack,
   onComplete,
+  onSubmitted,
   onStoreIdsChange,
 }: PrivateBookingRequestProps) {
   const navigate = useNavigate()
@@ -352,6 +353,9 @@ export function PrivateBookingRequest({
     userId: user?.id,
     groupId: createdGroupId || undefined
   })
+
+  // 申込を送れたら呼び出し側に知らせる（作品ページの貸切タブの預かりを消す。送った候補を戻さない。B29）
+  useEffect(() => { if (success) onSubmitted?.() }, [success, onSubmitted])
 
   // 送信の受付中（空き状況の再確認からグループ作成・申込まで）。二度押しで 2 つ目のグループ・申込を作らないよう、
   // 描画を待たずに ref で止め、ボタンも最初から押せなくする（2026-10-26 点検 F09: 二度押しで申込 2 件・グループ 2 件）

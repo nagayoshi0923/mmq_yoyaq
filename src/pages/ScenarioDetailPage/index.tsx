@@ -8,6 +8,8 @@ import { ArrowLeft, Users } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { BookingConfirmation } from '../BookingConfirmation/index'
 import { PrivateBookingRequest } from '../PrivateBookingRequest/index'
+import { usePrivateBookingTabDraft } from './hooks/usePrivateBookingTabDraft'
+import { clearPrivateBookingTabDraft } from './privateBookingTabDraft'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
 import { formatJstDateJa, toJstYmd } from '@/utils/jstDate'
@@ -53,7 +55,7 @@ interface ScenarioDetailPageProps {
 type PrivateBookingUrlSlotKey = 'morning' | 'afternoon' | 'evening'
 
 export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: ScenarioDetailPageProps) {
-  const { user, isStaff } = useAuth()
+  const { user, isStaff, isInitialized } = useAuth()
   const navigate = useNavigate()
   const shouldShowNavigation = isStaff
   const preset = useOrgThemePreset(organizationSlug)
@@ -174,6 +176,25 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     toggleTimeSlot,
     getTimeSlotsForDate
   } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationId, isCustomHoliday, isActive: activeTab === 'private' })
+
+  // 貸切タブの選択をタブ内で預かり、ログインの入口などから戻ったときに戻す（B29。組織・作品・利用者が同じときだけ）
+  const availableStoreIdsForDraft = useMemo(() => availableStores.map((s) => s.id), [availableStores])
+  usePrivateBookingTabDraft({
+    ready: !!scenario && !isLoading && stores.length > 0 && isInitialized,
+    organizationId,
+    scenarioMasterId: scenario?.scenario_master_id,
+    userId: user?.id ?? null,
+    acceptsPrivateBooking,
+    availableStoreIds: availableStoreIdsForDraft,
+    activeTab,
+    setActiveTab,
+    selectedTimeSlots,
+    setSelectedTimeSlots,
+    selectedStoreIds,
+    setSelectedStoreIds,
+    currentMonth,
+    showMonthOf,
+  })
 
   // 貸切グループ作成へ引き継ぐ希望店舗（どの入口のボタンでも同じ。貸切タブで選んでいる店舗のうち、この作品を受け付ける店舗）
   const privateStoreIdsForLinks = useMemo(
@@ -343,6 +364,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
   // 貸切リクエスト完了時のハンドラ（選択状態をクリア）
   const handlePrivateBookingCompleteWithClear = useCallback(() => {
+    clearPrivateBookingTabDraft()
     setSelectedTimeSlots([])
     setSelectedStoreIds([])
     handlePrivateBookingComplete()
@@ -391,6 +413,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         organizationSlug={organizationSlug}
         onBack={handleBackFromPrivateBooking}
         onComplete={handlePrivateBookingCompleteWithClear}
+        onSubmitted={clearPrivateBookingTabDraft}
       />
     )
   }
