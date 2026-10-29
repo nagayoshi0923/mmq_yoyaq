@@ -6,13 +6,13 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-const m = vi.hoisted(() => ({ callback: null as null | ((e: string, s: null) => void | Promise<void>), signOut: vi.fn(), recover: vi.fn(async () => true) }))
+const m = vi.hoisted(() => ({ callback: null as null | ((e: string, s: null) => void | Promise<void>), signOut: vi.fn(), recover: vi.fn(async () => true), push: vi.fn(async () => {}), cache: vi.fn(async () => {}) }))
 vi.mock('@/lib/supabase', () => ({ supabase: { auth: {
   onAuthStateChange: (cb: typeof m.callback) => { m.callback = cb; return { data: { subscription: { unsubscribe: () => {} } } } },
   signOut: m.signOut,
 } } }))
-vi.mock('@/lib/webPush', () => ({ removeWebPushSubscription: vi.fn(async () => {}) }))
-vi.mock('@/lib/persistedQueryCache', () => ({ clearPersistedQueryCache: vi.fn(async () => {}) }))
+vi.mock('@/lib/webPush', () => ({ removeWebPushSubscription: () => m.push() }))
+vi.mock('@/lib/persistedQueryCache', () => ({ clearPersistedQueryCache: () => m.cache() }))
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({}) }))
 import { useAuthLifecycle, type AuthLifecycleDeps } from './useAuthLifecycle'
 import { createAuthActions } from './authActions'
@@ -25,7 +25,7 @@ function makeRefs() {
     setUser: vi.fn(), setStaffCache: vi.fn(), setLoading: vi.fn(), setIsInitialized: vi.fn(),
   }
 }
-beforeEach(() => { Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); m.callback = null; m.signOut.mockReset(); m.recover.mockClear() })
+beforeEach(() => { Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); m.callback = null; m.signOut.mockReset(); m.recover.mockClear(); m.push.mockReset().mockImplementation(async () => {}); m.cache.mockReset().mockImplementation(async () => {}) })
 
 describe('ログイン方法を選び直すためのログアウト', () => {
   it('本物のライフサイクルと組み合わせても、SIGNED_OUT のあとにバックアップからの復旧を起こさず、ログイン画面へ移る', async () => {
@@ -96,4 +96,64 @@ describe('ログイン方法を選び直すためのログアウト', () => {
     expect(r.userRef.current).toBeNull()
     expect(post).toHaveBeenCalledWith({ type: 'SIGNED_OUT' })
   })
+
+  const actionsFor = (r: ReturnType<typeof makeRefs>) => createAuthActions({ userRef: r.userRef, broadcastChannelRef: r.broadcastChannelRef, isExplicitSignOutRef: r.isExplicitSignOutRef, setUser: r.setUser, setStaffCache: r.setStaffCache, setLoading: r.setLoading })
+
+  it('Codex レビュー①: ログアウト後の端末の公演データの消去が返らなくても、操作全体の上限で ok として終わる（ログアウトは済んでいる）', async () => {
+    vi.useFakeTimers()
+    try {
+      m.signOut.mockResolvedValue({ error: null })
+      m.cache.mockImplementation(() => new Promise(() => {}))
+      const r = makeRefs()
+      let result: string | undefined
+      void actionsFor(r).signOutForRelogin(3000).then((x) => { result = x })
+      await vi.advanceTimersByTimeAsync(3000)
+      expect(result).toBe('ok')
+      expect(r.userRef.current).toBeNull()
+    } finally { vi.useRealTimers() }
+  })
+
+  it('Codex レビュー②: 前処理（通知の購読の解除）が遅れて期限切れになったら、あとで返っても SDK のログアウトを出さない（利用者が変わっていても）', async () => {
+    vi.useFakeTimers()
+    try {
+      let release!: () => void
+      m.push.mockImplementation(() => new Promise<void>((res) => { release = res }))
+      m.signOut.mockResolvedValue({ error: null })
+      const r = makeRefs()
+      const p = actionsFor(r).signOutForRelogin(3000)
+      await vi.advanceTimersByTimeAsync(3000)
+      expect(await p).toBe('timeout')
+      r.userRef.current = { id: 'fixture-new-user' } as never
+      release()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(m.signOut).not.toHaveBeenCalled()
+    } finally { vi.useRealTimers() }
+  })
+
+  it('期限内でも、前処理の間に利用者が変わったら SDK のログアウトを出さず failed（次の利用者に作用しない）', async () => {
+    let release!: () => void
+    m.push.mockImplementation(() => new Promise<void>((res) => { release = res }))
+    const r = makeRefs()
+    const p = actionsFor(r).signOutForRelogin(3000)
+    r.userRef.current = { id: 'fixture-new-user' } as never
+    release()
+    expect(await p).toBe('failed')
+    expect(m.signOut).not.toHaveBeenCalled()
+    expect(r.isExplicitSignOutRef.current).toBe(false)
+  })
+
+  it('前の操作の前処理が遅れて返っても、次の操作（再試行）が始まっていれば前の操作から SDK のログアウトを出さない', async () => {
+    let releaseFirst!: () => void
+    m.push.mockImplementationOnce(() => new Promise<void>((res) => { releaseFirst = res }))
+    m.signOut.mockResolvedValue({ error: null })
+    const r = makeRefs()
+    const actions = actionsFor(r)
+    const first = actions.signOutForRelogin(3000)
+    const second = actions.signOutForRelogin(3000)
+    expect(await second).toBe('ok')
+    releaseFirst()
+    expect(await first).toBe('failed')
+    expect(m.signOut).toHaveBeenCalledTimes(1)
+  })
 })
+

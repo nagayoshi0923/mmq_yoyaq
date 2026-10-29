@@ -168,34 +168,46 @@ export function createAuthActions(deps: AuthActionsDeps) {
    * （印は残す: 遅れて SIGNED_OUT が来ても復旧しない。利用者はログアウトを選んでいる）
    */
   async function signOutForRelogin(limitMs: number = RELOGIN_SIGN_OUT_LIMIT_MS): Promise<'ok' | 'failed' | 'timeout'> {
+    // 操作全体に 1 つの期限（前処理・ログアウト・キャッシュの消去のどれかで止まっても、画面を「ログアウト中」のままにしない）
+    const operation = ++reloginOperation
+    const startUserId = userRef.current?.id ?? null
     isExplicitSignOutRef.current = true
+    let timedOut = false
     let timer: ReturnType<typeof setTimeout> | undefined
-    const attempt = (async (): Promise<'ok' | 'failed'> => {
+    const deadline = new Promise<'timeout'>((resolve) => { timer = setTimeout(() => { timedOut = true; resolve('timeout') }, limitMs) })
+    // この操作がまだ有効か（期限切れ・次の操作・別の利用者に変わったあとは、遅れて返った前処理から何もしない）
+    const stillCurrent = () => !timedOut && operation === reloginOperation && (userRef.current?.id ?? null) === startUserId
+    const attempt = (async (): Promise<'ok' | 'failed' | 'stale'> => {
       try {
         // 次に使う人に前の人の通知が届かないように（ログイン中にしか消せない。失敗してもログアウトは続ける）
         await removeWebPushSubscription().catch((err) => logger.warn('通知の購読の解除に失敗（続行）:', err))
+        if (!stillCurrent()) return 'stale'
         const { error } = await supabase.auth.signOut({ scope: 'local' })
         return error ? 'failed' : 'ok'
       } catch {
         return 'failed'
       }
     })()
-    const result = await Promise.race([
-      attempt,
-      new Promise<'timeout'>((resolve) => { timer = setTimeout(() => resolve('timeout'), limitMs) }),
-    ]).finally(() => { if (timer !== undefined) clearTimeout(timer) })
-    if (result === 'failed') {
-      isExplicitSignOutRef.current = false
-      return result
-    }
-    if (result === 'ok') {
-      setUser(null)
-      userRef.current = null
-      setStaffCache(new Map())
-      await clearPersistedQueryCache().catch((err) => logger.warn('キャッシュの消去に失敗（続行）:', err))
+    try {
+      const result = await Promise.race([attempt, deadline])
+      if (result === 'timeout') return 'timeout' // 印は残す（遅れて SIGNED_OUT が来ても復旧しない。利用者はログアウトを選んでいる）
+      if (result !== 'ok') {
+        if (operation === reloginOperation) isExplicitSignOutRef.current = false
+        return 'failed'
+      }
+      // ログアウトできた。この操作の利用者の情報だけ消す
+      if ((userRef.current?.id ?? null) === startUserId) {
+        setUser(null)
+        userRef.current = null
+        setStaffCache(new Map())
+      }
       broadcastChannelRef.current?.postMessage({ type: 'SIGNED_OUT' })
+      // 端末に保存した公演データの消去は残りの時間だけ待つ。返らなくてもログアウトは済んでいるので ok（消去は続ける）
+      await Promise.race([clearPersistedQueryCache().catch((err) => logger.warn('キャッシュの消去に失敗（続行）:', err)), deadline])
+      return 'ok'
+    } finally {
+      if (timer !== undefined) clearTimeout(timer)
     }
-    return result
   }
 
   return { signIn, signOut, signOutForRelogin }
@@ -203,3 +215,6 @@ export function createAuthActions(deps: AuthActionsDeps) {
 
 /** 選び直しのログアウトを待つ上限（ミリ秒） */
 export const RELOGIN_SIGN_OUT_LIMIT_MS = 3000
+
+/** 選び直しのログアウトの操作番号（新しい操作を始めたら、古い操作の遅れた前処理からは何もしない） */
+let reloginOperation = 0
