@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react'
+import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import type { NavigateFunction } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
@@ -12,6 +12,7 @@ import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
 import { successRedirectMessage, type SuccessDestination } from './successRedirect'
 import type { SignupLinkError } from './linkError'
 import { buildAuthUrl, buildSignupEmailRedirectTo } from '@/lib/authReturn'
+import { signOutAndGoHome } from './signOutAndGoHome'
 
 export function SuccessScreen({ navigate, destination }: { navigate: NavigateFunction; destination: SuccessDestination }) {
   return (
@@ -134,46 +135,63 @@ export function ReopenLinkScreen({ resendEmailInput, setResendEmailInput, resend
   )
 }
 
-export function DuplicateAccountScreen({ userEmail, navigate }: { userEmail: string; navigate: NavigateFunction }) {
+/**
+ * ログイン（またはメール確認・Google など）自体はできたが、このメールアドレスのお客様情報が別のログインに結び付いている（2026-10-29 社長承認）。
+ * 以前は「このメールは既に登録されています」「新規登録フローを続けると…」と出し、ログインした人にも新規登録を選んだように見えていた。
+ * - 重複の防止はそのまま（ここでお客様情報を作らない・結び付け直さない・他のアカウントのメールアドレスは出さない）
+ * - 選び直しはログイン情報を消してから（上限時間つき）、安全な内部の戻り先を付けたログイン画面へ。二度押しは 1 回だけ
+ */
+export function DuplicateAccountScreen({ userEmail, returnTo, signOutAndGo = signOutAndGoHome }: {
+  userEmail: string
+  /** ログインのあとに戻る画面（安全な内部 URL だけ。無ければ null） */
+  returnTo?: string | null
+  signOutAndGo?: typeof signOutAndGoHome
+}) {
+  const [leaving, setLeaving] = useState(false)
+  const leavingRef = useRef(false)
+  const chooseAgain = async () => {
+    if (leavingRef.current) return
+    leavingRef.current = true
+    setLeaving(true)
+    sessionStorage.removeItem('oauth_mode')
+    await signOutAndGo({ to: buildAuthUrl('login', returnTo) })
+  }
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
       <Card className="w-full max-w-md">
-        <CardContent className="p-6 sm:p-8 text-center space-y-4">
-          <AlertCircle className="w-16 h-16 text-amber-500 mx-auto" />
-          <h2 className="text-xl font-bold text-amber-800">このメールは既に登録されています</h2>
+        <CardContent className="p-6 sm:p-8 space-y-4">
+          <AlertCircle className="w-16 h-16 text-amber-500 mx-auto" aria-hidden="true" />
+          <h2 className="text-xl font-bold text-amber-800 text-center">お客様情報が、いまのログインに結び付いていません</h2>
           <p className="text-muted-foreground text-sm">
+            ログインはできています。ただ、
             <span className="font-mono text-xs break-all">{userEmail}</span>
-            <br />
-            <br />
-            は<strong>別のアカウントですでに顧客登録</strong>されています。新規登録フローを続けるとデータが分かれてしまうため、
-            <strong>元のアカウントでログイン</strong>してください。
+            のお客様情報（予約など）は、<strong>別のログイン方法・別のアカウント</strong>に結び付いています。
+            予約や情報が分かれてしまわないよう、ここでは新しいお客様情報は作りません。
+          </p>
+          <p className="text-muted-foreground text-sm">
+            予約のときに入力した<strong>連絡先のメールアドレス</strong>と、<strong>ログインに使うアカウントのメールアドレス</strong>が違う場合があります。
           </p>
           <div className="bg-amber-50 border border-amber-200 rounded p-3 text-left text-sm text-amber-900">
-            <p className="font-medium mb-1">手順</p>
+            <p className="font-medium mb-1">次のどちらかをお試しください</p>
             <ol className="list-decimal list-inside space-y-1">
-              <li>下のボタンでログアウトする</li>
-              <li>ログイン画面で、以前お使いの方法（メール・Google 等）でログイン</li>
+              <li>以前お使いのログイン方法（メールアドレスとパスワード、Google など）・アカウントで入り直す</li>
+              <li>心当たりがない・わからない場合は、お問い合わせください</li>
             </ol>
           </div>
           <Button
             type="button"
-            onClick={async () => {
-              // scope:'local' でローカルセッションだけクリア（OAuth refresh token の revoke で
-              // ハングする/エラーを投げるケースがあり、その場合に遷移しなくなるのを避ける）。
-              try {
-                await supabase.auth.signOut({ scope: 'local' })
-              } catch (err) {
-                logger.warn('signOut error (continuing anyway):', err)
-              }
-              sessionStorage.removeItem('oauth_mode')
-              navigate('/login', { replace: true })
-            }}
+            onClick={() => { void chooseAgain() }}
+            disabled={leaving}
             className="w-full"
             style={{ backgroundColor: THEME.primary }}
+            data-testid="duplicate-account-choose-again"
           >
-            ログアウトしてログイン画面へ
+            {leaving ? 'ログアウトしています…' : 'ログアウトして、ログイン方法を選び直す'}
           </Button>
           <Button asChild variant="outline" className="w-full">
+            <Link to="/contact">お問い合わせ</Link>
+          </Button>
+          <Button asChild variant="ghost" className="w-full">
             <Link to="/">トップページへ</Link>
           </Button>
         </CardContent>
