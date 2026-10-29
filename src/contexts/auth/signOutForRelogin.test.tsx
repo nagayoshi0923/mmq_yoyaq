@@ -156,4 +156,3 @@ describe('ログイン方法を選び直すためのログアウト', () => {
     expect(m.signOut).toHaveBeenCalledTimes(1)
   })
 })
-
