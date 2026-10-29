@@ -6,6 +6,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('@/lib/supabase', () => ({ supabase: { auth: {} } }))
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ signOutForRelogin: vi.fn(async () => 'failed') }) }))
 import { DuplicateAccountScreen } from './StatusScreens'
 
 let root: Root, host: HTMLDivElement
@@ -31,65 +32,48 @@ describe('お客様情報がいまのログインに結び付いていないと�
   })
 
   it('ログアウトできたと分かってから、安全な戻り先つきのログイン画面へ。二度押しでも 1 回だけ', async () => {
-    let done!: (v: { error: null }) => void
-    const signOut = vi.fn(() => new Promise<{ error: null }>((r) => { done = r }))
+    let done!: (v: 'ok') => void
+    const signOutForRelogin = vi.fn(() => new Promise<'ok'>((r) => { done = r }))
     const go = vi.fn()
     sessionStorage.setItem('oauth_mode', 'login')
-    await render({ returnTo: '/queens-waltz/scenario/kaku?tab=private', signOut, go })
+    await render({ returnTo: '/queens-waltz/scenario/kaku?tab=private', signOutForRelogin, go })
     await act(async () => { chooseAgain().click(); chooseAgain().click() })
-    expect(signOut).toHaveBeenCalledTimes(1)
+    expect(signOutForRelogin).toHaveBeenCalledTimes(1)
     expect(chooseAgain().disabled).toBe(true)
     expect(go).not.toHaveBeenCalled()
-    await act(async () => { done({ error: null }) })
+    await act(async () => { done('ok') })
     expect(go).toHaveBeenCalledTimes(1)
     expect(go).toHaveBeenCalledWith('/login?redirect=' + encodeURIComponent('/queens-waltz/scenario/kaku?tab=private'))
     expect(sessionStorage.getItem('oauth_mode')).toBeNull()
   })
 
-  it.each([
-    ['{ error } が返る', () => Promise.resolve({ error: { message: 'boom' } })],
-    ['投げる', () => Promise.reject(new Error('network'))],
-  ])('ログアウトが失敗（%s）したら移動せず、理由と「もう一度」を出す。もう一度で成功すれば移動', async (_label, fail) => {
-    const signOut = vi.fn(fail as () => Promise<{ error?: unknown }>)
+  it.each(['failed', 'timeout'] as const)('ログアウトが %s なら移動せず、理由と「もう一度」を出す。もう一度で成功すれば移動', async (result) => {
+    const signOutForRelogin = vi.fn(async (): Promise<'ok' | 'failed' | 'timeout'> => result)
     const go = vi.fn()
-    await render({ signOut, go })
+    await render({ signOutForRelogin, go })
     await act(async () => chooseAgain().click())
     expect(go).not.toHaveBeenCalled()
     expect(host.querySelector('[data-testid="duplicate-account-signout-error"]')).not.toBeNull()
     expect(chooseAgain().disabled).toBe(false)
-    signOut.mockImplementation(() => Promise.resolve({ error: null }) as never)
+    signOutForRelogin.mockResolvedValue('ok')
     await act(async () => chooseAgain().click())
     expect(go).toHaveBeenCalledWith('/login')
   })
 
-  it('ログアウトが返ってこなければ、上限時間で移動せずに「もう一度」を出す。あとで遅れて成功しても勝手に移動しない', async () => {
-    vi.useFakeTimers()
-    let late!: (v: { error: null }) => void
-    const signOut = vi.fn(() => new Promise<{ error: null }>((r) => { late = r }))
-    const go = vi.fn()
-    await render({ signOut, go, limitMs: 3000 })
-    await act(async () => chooseAgain().click())
-    await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
-    expect(go).not.toHaveBeenCalled()
-    expect(host.querySelector('[data-testid="duplicate-account-signout-error"]')).not.toBeNull()
-    await act(async () => { late({ error: null }); await vi.advanceTimersByTimeAsync(1) })
-    expect(go).not.toHaveBeenCalled()
-  })
-
   it('画面を離れたあとにログアウトの結果が届いても移動しない（別の利用者・別の画面に作用しない）', async () => {
-    let late!: (v: { error: null }) => void
+    let late!: (v: 'ok') => void
     const go = vi.fn()
-    await render({ signOut: () => new Promise((r) => { late = r }), go })
+    await render({ signOutForRelogin: () => new Promise((r) => { late = r }), go })
     await act(async () => chooseAgain().click())
     await act(async () => root.unmount())
-    await act(async () => { late({ error: null }) })
+    await act(async () => { late('ok') })
     expect(go).not.toHaveBeenCalled()
     root = createRoot(host)
   })
 
   it.each([[null, '/login'], ['https://evil.example/x', '/login'], ['//evil.example', '/login']])('戻り先 %s は安全な内部 URL でなければ付けない（%s）', async (returnTo, to) => {
     const go = vi.fn()
-    await render({ returnTo, signOut: async () => ({ error: null }), go })
+    await render({ returnTo, signOutForRelogin: async () => 'ok' as const, go })
     await act(async () => chooseAgain().click())
     expect(go).toHaveBeenCalledWith(to)
   })

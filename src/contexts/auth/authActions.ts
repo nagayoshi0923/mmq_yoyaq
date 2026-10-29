@@ -159,5 +159,47 @@ export function createAuthActions(deps: AuthActionsDeps) {
     }
   }
 
-  return { signIn, signOut }
+  /**
+   * ログイン方法を選び直すためのログアウト（お客様情報が別のログインに結び付いている案内から。2026-10-29）。
+   * 明示的なログアウトとして扱い（isExplicitSignOutRef）、SIGNED_OUT のあとのバックアップからの復旧を起こさない
+   * （起こすと同じ利用者のセッションが戻り、ログイン画面から同じ案内へ戻ってしまう。Codex レビュー）。
+   * 移動はしない（呼び出し側が ok のときだけログイン画面へ移る）。このタブのログイン情報だけ消す（scope: local）。
+   * ok = ログアウトできた／failed = { error }・例外（明示ログアウトの印は戻す）／timeout = 上限までに返らない
+   * （印は残す: 遅れて SIGNED_OUT が来ても復旧しない。利用者はログアウトを選んでいる）
+   */
+  async function signOutForRelogin(limitMs: number = RELOGIN_SIGN_OUT_LIMIT_MS): Promise<'ok' | 'failed' | 'timeout'> {
+    isExplicitSignOutRef.current = true
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const attempt = (async (): Promise<'ok' | 'failed'> => {
+      try {
+        // 次に使う人に前の人の通知が届かないように（ログイン中にしか消せない。失敗してもログアウトは続ける）
+        await removeWebPushSubscription().catch((err) => logger.warn('通知の購読の解除に失敗（続行）:', err))
+        const { error } = await supabase.auth.signOut({ scope: 'local' })
+        return error ? 'failed' : 'ok'
+      } catch {
+        return 'failed'
+      }
+    })()
+    const result = await Promise.race([
+      attempt,
+      new Promise<'timeout'>((resolve) => { timer = setTimeout(() => resolve('timeout'), limitMs) }),
+    ]).finally(() => { if (timer !== undefined) clearTimeout(timer) })
+    if (result === 'failed') {
+      isExplicitSignOutRef.current = false
+      return result
+    }
+    if (result === 'ok') {
+      setUser(null)
+      userRef.current = null
+      setStaffCache(new Map())
+      await clearPersistedQueryCache().catch((err) => logger.warn('キャッシュの消去に失敗（続行）:', err))
+      broadcastChannelRef.current?.postMessage({ type: 'SIGNED_OUT' })
+    }
+    return result
+  }
+
+  return { signIn, signOut, signOutForRelogin }
 }
+
+/** 選び直しのログアウトを待つ上限（ミリ秒） */
+export const RELOGIN_SIGN_OUT_LIMIT_MS = 3000

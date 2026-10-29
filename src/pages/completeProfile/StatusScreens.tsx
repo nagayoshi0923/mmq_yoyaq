@@ -12,7 +12,7 @@ import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
 import { successRedirectMessage, type SuccessDestination } from './successRedirect'
 import type { SignupLinkError } from './linkError'
 import { buildAuthUrl, buildSignupEmailRedirectTo } from '@/lib/authReturn'
-import { signOutForRelogin } from './signOutForRelogin'
+import { useAuth } from '@/contexts/AuthContext'
 
 export function SuccessScreen({ navigate, destination }: { navigate: NavigateFunction; destination: SuccessDestination }) {
   return (
@@ -139,17 +139,20 @@ export function ReopenLinkScreen({ resendEmailInput, setResendEmailInput, resend
  * ログイン（またはメール確認・Google など）自体はできたが、このメールアドレスのお客様情報が別のログインに結び付いている（2026-10-29 社長承認）。
  * 以前は「このメールは既に登録されています」「新規登録フローを続けると…」と出し、ログインした人にも新規登録を選んだように見えていた。
  * - 重複の防止はそのまま（ここでお客様情報を作らない・結び付け直さない・他のアカウントのメールアドレスは出さない）
- * - 選び直しは、ログアウトできたと分かってから安全な内部の戻り先つきのログイン画面へ。できなければ理由と「もう一度」を出す。
+ * - 選び直しは、明示ログアウト（AuthContext。バックアップからの復旧を起こさない）でログアウトできたと分かってから、
+ *   安全な内部の戻り先つきのログイン画面へ。できなければ理由と「もう一度」を出す。
  *   二度押しは 1 回だけ、画面を離れたあとに遅れて届いた結果では移動しない
  */
-export function DuplicateAccountScreen({ userEmail, returnTo, signOut, go = (url: string) => window.location.replace(url), limitMs }: {
+export function DuplicateAccountScreen({ userEmail, returnTo, signOutForRelogin, go = (url: string) => window.location.replace(url) }: {
   userEmail: string
   /** ログインのあとに戻る画面（安全な内部 URL だけ。無ければ null） */
   returnTo?: string | null
-  signOut?: () => Promise<{ error?: unknown } | void>
+  /** 試験用の差し替え（既定は AuthContext の明示ログアウト） */
+  signOutForRelogin?: () => Promise<'ok' | 'failed' | 'timeout'>
   go?: (url: string) => void
-  limitMs?: number
 }) {
+  const auth = useAuth()
+  const signOut = signOutForRelogin ?? (() => auth.signOutForRelogin())
   const [leaving, setLeaving] = useState(false)
   const [signOutError, setSignOutError] = useState(false)
   const leavingRef = useRef(false)
@@ -160,7 +163,7 @@ export function DuplicateAccountScreen({ userEmail, returnTo, signOut, go = (url
     leavingRef.current = true
     setLeaving(true)
     setSignOutError(false)
-    const result = await signOutForRelogin(signOut, limitMs)
+    const result = await signOut()
     if (!mountedRef.current) return
     if (result === 'ok') {
       sessionStorage.removeItem('oauth_mode')
