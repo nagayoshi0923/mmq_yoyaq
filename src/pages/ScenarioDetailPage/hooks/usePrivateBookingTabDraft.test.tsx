@@ -96,3 +96,41 @@ describe('貸切タブの選択を同じタブで戻す', () => {
     expect(sessionStorage.getItem(PRIVATE_BOOKING_TAB_DRAFT_KEY)).toBeNull()
   })
 })
+
+describe('B29 Codex レビュー: 同じ画面での切り替え・選べない店舗', () => {
+  it('同じ画面のまま別の作品へ切り替わったら、前の作品の候補・店舗を持ち込まず、新しい作品へも預けない', async () => {
+    await mount(); await chooseSix()
+    await mount({ scenario: 'sm2' })
+    expect(page.slots).toEqual([])
+    expect(page.stores).toEqual(['st1', 'st2'])
+    expect(page.tab).toBe('schedule')
+    const saved = sessionStorage.getItem(PRIVATE_BOOKING_TAB_DRAFT_KEY)
+    expect(saved === null || JSON.parse(saved).scope !== 'org-1:sm2' || JSON.parse(saved).timeSlots.length === 0).toBe(true)
+    // 元の作品へ戻ると、その作品の預かりは別の作品に上書きされていない限り戻る／少なくとも別の作品の候補は出ない
+    await mount({ scenario: 'sm1' })
+    expect(page.slots.every((s) => SIX.some((x) => x.date === s.date))).toBe(true)
+  })
+  it('同じ画面のまま別の組織へ切り替わっても同じ', async () => {
+    await mount(); await chooseSix()
+    await mount({ org: 'org-2' })
+    expect(page.slots).toEqual([])
+  })
+  it('預けた店舗がどれも選べなくなっていたら、全店舗へ広げず店舗を選び直す状態（候補も戻さない）', async () => {
+    sessionStorage.setItem(PRIVATE_BOOKING_TAB_DRAFT_KEY, JSON.stringify({ scope: 'org-1:sm1', owner: 'anon', tab: 'private', timeSlots: SIX, storeIds: ['st-gone'], month: '2026-12', savedAt: Date.now() }))
+    await mount()
+    expect(page.stores).toEqual([])
+    expect(page.slots).toEqual([])
+    expect(page.tab).toBe('private')
+  })
+  it('一部の店舗だけ選べなくなっていたら、選べる店舗だけ戻す', async () => {
+    sessionStorage.setItem(PRIVATE_BOOKING_TAB_DRAFT_KEY, JSON.stringify({ scope: 'org-1:sm1', owner: 'anon', tab: 'private', timeSlots: SIX, storeIds: ['st-gone', 'st2'], month: '2026-12', savedAt: Date.now() }))
+    await mount()
+    expect(page.stores).toEqual(['st2'])
+    expect(page.slots).toHaveLength(6)
+  })
+  it('預かりが無い初めての表示でも、最初の選択からすぐ預ける（1 回目を取りこぼさない）', async () => {
+    await mount()
+    await act(async () => { page.setTab('private'); page.setSlots([SIX[0]]) })
+    expect(JSON.parse(sessionStorage.getItem(PRIVATE_BOOKING_TAB_DRAFT_KEY)!).timeSlots).toHaveLength(1)
+  })
+})
