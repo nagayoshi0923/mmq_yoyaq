@@ -13,7 +13,7 @@ import { CalendarView } from '../CalendarView'
 import { ListView } from '../ListView'
 import { useCalendarData } from '../../hooks/useCalendarData'
 import { useListViewData } from '../../hooks/useListViewData'
-import { bookingMonthKey } from '../../utils/bookingViewPersistence'
+import { bookingMonthKey, legacyBookingMonthKey } from '../../utils/bookingViewPersistence'
 import type { EnrichedPublicEvent, PublicCalendarEvent, PublicEventRow, PublicStoreRow, ScenarioCard } from '../../hooks/useBookingData'
 
 interface ClassicViewProps {
@@ -88,7 +88,7 @@ function useFutureMonthSetter(set: (d: Date) => void) {
 export function ClassicCalendar(props: ClassicViewProps) {
   const played = usePlayedFilter()
   const { hidePlayed, onHidePlayedChange, allEvents, blockedSlots, stores, storeOptions, scenarios, organizationSlug, privateBookingDeadlineDays, selectedStoreIds, onStoreIdsChange, hideSoldOut, onHideSoldOutChange, primaryColor, onCardClick } = props
-  const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate } = useCalendarData(allEvents, selectedStoreIds, stores, bookingMonthKey(organizationSlug))
+  const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate } = useCalendarData(allEvents, selectedStoreIds, stores, bookingMonthKey(organizationSlug), legacyBookingMonthKey(organizationSlug, 'calendar'))
   const onMonthChange = useFutureMonthSetter(setCurrentMonth)
   const monthState = useVisibleMonth(currentMonth, props, setCurrentMonth)
   const storesById = new Map(stores.map((s) => [s.id, s]))
@@ -135,7 +135,7 @@ export function ClassicCalendar(props: ClassicViewProps) {
 export function ClassicList(props: ClassicViewProps) {
   const played = usePlayedFilter()
   const { hidePlayed, onHidePlayedChange, allEvents, blockedSlots, stores, storeOptions, scenarios, organizationSlug, privateBookingDeadlineDays, selectedStoreIds, onStoreIdsChange, hideSoldOut, onHideSoldOutChange, primaryColor, onCardClick } = props
-  const { listViewMonth, setListViewMonth, listViewData, getEventsForDateStore } = useListViewData(allEvents, stores, selectedStoreIds, blockedSlots, bookingMonthKey(organizationSlug))
+  const { listViewMonth, setListViewMonth, listViewData, getEventsForDateStore } = useListViewData(allEvents, stores, selectedStoreIds, blockedSlots, bookingMonthKey(organizationSlug), legacyBookingMonthKey(organizationSlug, 'list'))
   const onMonthChange = useFutureMonthSetter(setListViewMonth)
   const monthState = useVisibleMonth(listViewMonth, props, setListViewMonth)
   return (

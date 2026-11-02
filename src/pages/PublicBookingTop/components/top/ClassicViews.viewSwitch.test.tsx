@@ -96,4 +96,43 @@ describe('表示形式を切り替えても選んだ月を保つ', () => {
     await act(async () => root.render(<ClassicCalendar {...base} organizationSlug="kaku-quota" />))
     expect(new Set(seen.calendar)).toEqual(new Set(['2027-01']))
   })
+
+  describe('公開前の旧キー（表示形式ごと）からの引き継ぎ', () => {
+    it('共通キーがまだ無ければ、表示中の形式の旧キーの月で始め、切り替えても保つ', async () => {
+      sessionStorage.setItem('booking-kaku-queens-calendar-month', '2026-12')
+      await act(async () => root.render(<ClassicCalendar {...base} />))
+      expect(seen.calendar[0]).toBe('2026-12')
+      expect(sessionStorage.getItem('booking-kaku-queens-month')).toBe('2026-12')
+      await act(async () => root.render(<ClassicList {...base} />))
+      expect(new Set(seen.list)).toEqual(new Set(['2026-12']))
+    })
+    it('リストの旧キーも同じ', async () => {
+      sessionStorage.setItem('booking-kaku-queens-list-month', '2027-01')
+      await act(async () => root.render(<ClassicList {...base} />))
+      expect(seen.list[0]).toBe('2027-01')
+    })
+    it('共通キーがあれば旧キーより共通キーを使う', async () => {
+      sessionStorage.setItem('booking-kaku-queens-month', '2027-02')
+      sessionStorage.setItem('booking-kaku-queens-calendar-month', '2026-12')
+      await act(async () => root.render(<ClassicCalendar {...base} />))
+      expect(new Set(seen.calendar)).toEqual(new Set(['2027-02']))
+    })
+    it('旧カレンダーと旧リストの月が違うときは、別の形式の月を使わず表示中の形式の旧キーを使う', async () => {
+      sessionStorage.setItem('booking-kaku-queens-calendar-month', '2026-12')
+      sessionStorage.setItem('booking-kaku-queens-list-month', '2027-02')
+      await act(async () => root.render(<ClassicList {...base} />))
+      expect(seen.list[0]).toBe('2027-02')
+      sessionStorage.clear()
+      sessionStorage.setItem('booking-kaku-queens-calendar-month', '2026-12')
+      sessionStorage.setItem('booking-kaku-queens-list-month', '2027-02')
+      seen.calendar.length = 0
+      await act(async () => root.render(<ClassicCalendar {...base} />))
+      expect(seen.calendar[0]).toBe('2026-12')
+    })
+    it('別の組織の旧キーは引き継がない', async () => {
+      sessionStorage.setItem('booking-kaku-queens-calendar-month', '2027-01')
+      await act(async () => root.render(<ClassicCalendar {...base} organizationSlug="kaku-sapporo" organizationId="org-s" />))
+      expect(seen.calendar[0]).toBe('2026-11')
+    })
+  })
 })

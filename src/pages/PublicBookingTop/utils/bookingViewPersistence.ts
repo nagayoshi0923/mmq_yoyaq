@@ -11,6 +11,11 @@ export function bookingMonthKey(organizationSlug: string): string {
   return `booking-${organizationSlug}-month`
 }
 
+/** 共通キーより前の、表示形式ごとの保存キー（公開前から開いていたタブの月を引き継ぐためだけに読む） */
+export function legacyBookingMonthKey(organizationSlug: string, view: 'calendar' | 'list'): string {
+  return `booking-${organizationSlug}-${view}-month`
+}
+
 function readRaw(key: string): string | null {
   const unsaved = memoryMonths.get(key)
   if (unsaved) return unsaved
@@ -54,4 +59,13 @@ export function writePersistedBookingMonth(key: string, month: Date): void {
   } catch {
     // プライベートモード・容量超過など
   }
+}
+
+/**
+ * 共通キーの月を読む。共通キーがまだ無いときだけ、表示中の形式の旧キーから引き継ぐ
+ * （旧カレンダーと旧リストの月が違っても、別の形式の月は使わない）。
+ */
+export function readPersistedBookingMonthWithLegacy(key: string, legacyKey?: string): Date | null {
+  if (!legacyKey || readRaw(key)) return readPersistedBookingMonth(key)
+  return readPersistedBookingMonth(legacyKey)
 }
