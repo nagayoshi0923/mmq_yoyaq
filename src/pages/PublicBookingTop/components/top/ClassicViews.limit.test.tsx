@@ -30,18 +30,18 @@ afterEach(async () => { await act(async () => root.unmount()); vi.useRealTimers(
 
 describe('選べる最後の月より先にいたら最後の月へ戻す', () => {
   it('カレンダー: 前回の 2027-02 が残っていても、最後の月が 2026-12 なら 12 月にする', async () => {
-    sessionStorage.setItem('booking-kaku-sapporo-calendar-month', '2027-02')
+    sessionStorage.setItem('booking-kaku-sapporo-month', '2027-02')
     await act(async () => root.render(<ClassicCalendar {...base} lastMonth={new Date(2026, 11, 1)} />))
     expect(seen.calendar[0]).toBe('2027-02')
     expect(seen.calendar.at(-1)).toBe('2026-12')
   })
   it('リストも同じ', async () => {
-    sessionStorage.setItem('booking-kaku-sapporo-list-month', '2027-02')
+    sessionStorage.setItem('booking-kaku-sapporo-month', '2027-02')
     await act(async () => root.render(<ClassicList {...base} lastMonth={new Date(2026, 11, 1)} />))
     expect(seen.list.at(-1)).toBe('2026-12')
   })
   it('上限がまだ分からない（再読み込み直後・最新の取得の前）間は、前回の 2 月を仮の上限 12 月へ戻さない', async () => {
-    sessionStorage.setItem('booking-kaku-sapporo-calendar-month', '2027-02')
+    sessionStorage.setItem('booking-kaku-sapporo-month', '2027-02')
     await act(async () => root.render(<ClassicCalendar {...base} lastMonth={new Date(2026, 11, 1)} limitReady={false} />))
     expect(new Set(seen.calendar)).toEqual(new Set(['2027-02']))
     // 最新の取得で上限が 2 月と分かれば、そのまま
@@ -49,7 +49,7 @@ describe('選べる最後の月より先にいたら最後の月へ戻す', () =
     expect(seen.calendar.at(-1)).toBe('2027-02')
   })
   it('最後の月以内なら動かさない（2027-02 で最後が 2027-02）', async () => {
-    sessionStorage.setItem('booking-kaku-sapporo-calendar-month', '2027-02')
+    sessionStorage.setItem('booking-kaku-sapporo-month', '2027-02')
     await act(async () => root.render(<ClassicCalendar {...base} lastMonth={new Date(2027, 1, 1)} />))
     expect(new Set(seen.calendar)).toEqual(new Set(['2027-02']))
   })
