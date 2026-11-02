@@ -1,7 +1,7 @@
 import { logger } from '@/utils/logger'
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { formatDateJST } from '@/utils/dateUtils'
-import { readPersistedBookingMonth, writePersistedBookingMonth } from '../utils/bookingViewPersistence'
+import { readPersistedBookingMonthWithLegacy, writePersistedBookingMonth } from '../utils/bookingViewPersistence'
 import type { EnrichedPublicEvent, PublicCalendarEvent, PublicEventRow, PublicStoreRow } from './useBookingData'
 
 interface ListViewDataItem {
@@ -17,11 +17,13 @@ export function useListViewData(
   stores: PublicStoreRow[],
   selectedStoreIds: string[],
   blockedSlots: PublicEventRow[] = [],
-  persistMonthKey?: string
+  persistMonthKey?: string,
+  /** 共通キーがまだ無いときだけ月を引き継ぐ旧キー */
+  legacyMonthKey?: string
 ) {
   const [listViewMonth, setListViewMonth] = useState(() => {
     if (persistMonthKey) {
-      const saved = readPersistedBookingMonth(persistMonthKey)
+      const saved = readPersistedBookingMonthWithLegacy(persistMonthKey, legacyMonthKey)
       if (saved) return saved
     }
     return new Date()

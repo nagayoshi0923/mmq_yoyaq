@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { formatDateJST } from '@/utils/dateUtils'
-import { readPersistedBookingMonth, writePersistedBookingMonth } from '../utils/bookingViewPersistence'
+import { readPersistedBookingMonthWithLegacy, writePersistedBookingMonth } from '../utils/bookingViewPersistence'
 import type { EnrichedPublicEvent, PublicStoreRow } from './useBookingData'
 
 interface CalendarDay {
@@ -15,11 +15,13 @@ export function useCalendarData(
   allEvents: EnrichedPublicEvent[],
   selectedStoreIds: string[],
   stores: PublicStoreRow[] = [],
-  persistMonthKey?: string
+  persistMonthKey?: string,
+  /** 共通キーがまだ無いときだけ月を引き継ぐ旧キー */
+  legacyMonthKey?: string
 ) {
   const [currentMonth, setCurrentMonth] = useState(() => {
     if (persistMonthKey) {
-      const saved = readPersistedBookingMonth(persistMonthKey)
+      const saved = readPersistedBookingMonthWithLegacy(persistMonthKey, legacyMonthKey)
       if (saved) return saved
     }
     return new Date()
