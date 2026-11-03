@@ -113,6 +113,16 @@ describe('チャンクが読めないときの自動の再読み込み', () => {
     expect(reload).toHaveBeenCalledTimes(2)
   })
 
+  it('配信が A・B 交互に返っても、起動をまたいで際限なく読み込み直さない', async () => {
+    const results: string[] = []
+    for (const [page, served] of [['B', 'A'], ['A', 'B'], ['B', 'A'], ['A', 'B'], ['B', 'A']]) {
+      servedHash = served
+      results.push(await openScreen(await boot(page), chunkError))
+    }
+    expect(results).toEqual(['waiting', 'waiting', 'error', 'error', 'error'])
+    expect(reload).toHaveBeenCalledTimes(2)
+  })
+
   it('サーバーの版が同じなら読み込み直さない', async () => {
     servedHash = 'OLD'
     expect(await openScreen(await boot('OLD'), chunkError)).toBe('error')
