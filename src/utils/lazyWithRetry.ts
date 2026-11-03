@@ -1,4 +1,5 @@
 import { lazy, ComponentType } from 'react'
+import { canAutoReloadFor, claimAutoReloadFor, clearAutoReloadRecord } from '@/lib/autoReloadGuard'
 
 /**
  * デプロイ後のチャンク読み込みエラーに対応する lazy() ラッパー
@@ -20,8 +21,8 @@ import { lazy, ComponentType } from 'react'
 /** アプリ起動時のビルドハッシュ（index.html のエントリポイントURLから取得） */
 let initialBuildHash: string | null = null
 
-/** バージョン変更を検知した際のコールバック */
-let onVersionChangeCallback: (() => void) | null = null
+/** バージョン変更を検知した際のコールバック（切り替え先の版を渡す） */
+let onVersionChangeCallback: ((latestHash: string) => void) | null = null
 
 /**
  * チャンク読み込みエラーかどうかを判定
@@ -83,16 +84,32 @@ async function fetchLatestBuildHash(): Promise<string | null> {
 }
 
 /**
- * バージョンが変わっているかチェックし、変わっていたらコールバックを呼ぶ
+ * サーバーの版が起動時と違えば、その版を返す
+ */
+async function findChangedBuildHash(): Promise<string | null> {
+  if (!initialBuildHash) return null
+  const latestHash = await fetchLatestBuildHash()
+  return latestHash && latestHash !== initialBuildHash ? latestHash : null
+}
+
+/**
+ * バージョンが変わっているかチェックし、変わっていたらコールバックを呼ぶ。
+ * その版へ切り替えるための自動の再読み込みを既にしたのに、まだ古い版で起動している場合は
+ * 読み込み直しても直らないので、切り替えを予約しない（繰り返しの再読み込みを防ぐ）。
  */
 async function checkVersionChange(): Promise<boolean> {
-  if (!initialBuildHash) return false
-  const latestHash = await fetchLatestBuildHash()
-  if (latestHash && latestHash !== initialBuildHash) {
-    onVersionChangeCallback?.()
-    return true
-  }
-  return false
+  const latestHash = await findChangedBuildHash()
+  if (!latestHash) return false
+  if (canAutoReloadFor(latestHash)) onVersionChangeCallback?.(latestHash)
+  return true
+}
+
+/**
+ * チャンクの読み込み失敗などで新しい版の可能性があるときに呼ぶ。
+ * サーバーの版を確かめ、違っていたときだけ切り替えを予約する（版が分からない予約はしない）。
+ */
+export function checkForNewVersion(): void {
+  void checkVersionChange()
 }
 
 /**
@@ -105,7 +122,7 @@ async function checkVersionChange(): Promise<boolean> {
  *
  * @param onVersionChange - 新バージョン検知時のコールバック
  */
-export function initVersionCheck(onVersionChange: () => void): void {
+export function initVersionCheck(onVersionChange: (latestHash: string) => void): void {
   initialBuildHash = getCurrentBuildHash()
   onVersionChangeCallback = onVersionChange
 
@@ -166,16 +183,12 @@ export function lazyWithRetry<T extends ComponentType<any>>(
       }
 
       // 3. バージョンチェック → 新バージョンがあれば自動リロード
-      const versionChanged = await checkVersionChange()
-      if (versionChanged) {
-        // 無限リロードループ防止: セッション内で1回だけリロード
-        const reloadKey = 'chunk-auto-reload'
-        if (!sessionStorage.getItem(reloadKey)) {
-          sessionStorage.setItem(reloadKey, '1')
-          window.location.reload()
-          // リロード中にErrorBoundaryが表示されないよう、永遠にpendingのPromiseを返す
-          return new Promise(() => {})
-        }
+      const latestHash = await findChangedBuildHash()
+      // 無限リロードループ防止: 同じ版へはタブごとに1回だけ。記録は起動をまたいで残る
+      if (latestHash && claimAutoReloadFor(latestHash)) {
+        window.location.reload()
+        // リロード中にErrorBoundaryが表示されないよう、永遠にpendingのPromiseを返す
+        return new Promise(() => {})
       }
 
       // 4. 全て失敗 → ErrorBoundary に委ねる
@@ -185,12 +198,22 @@ export function lazyWithRetry<T extends ComponentType<any>>(
 }
 
 /**
- * 後方互換: 以前のバージョンで使っていた関数（main.tsx から呼ばれる）
+ * 以前のバージョンで使っていた記録を消す（main.tsx の起動時に呼ばれる）。
+ * 自動の再読み込みの記録（chunk-auto-reload）は起動をまたいで残すため、ここでは消さない。
  */
+export function clearLegacyChunkReloadFlags(): void {
+  try {
+    sessionStorage.removeItem('chunk-reload-attempted')
+    sessionStorage.removeItem('chunk-error-reload')
+  } catch {
+    // 保存領域が使えない環境では記録も無い
+  }
+}
+
+/** 手動で最新版を読み込むときに、自動の再読み込みの記録も含めて消す */
 export function clearChunkReloadFlag(): void {
-  sessionStorage.removeItem('chunk-reload-attempted')
-  sessionStorage.removeItem('chunk-error-reload')
-  sessionStorage.removeItem('chunk-auto-reload')
+  clearLegacyChunkReloadFlags()
+  clearAutoReloadRecord()
 }
 
 /**
