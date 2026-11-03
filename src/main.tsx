@@ -2,7 +2,7 @@ import ReactDOM from 'react-dom/client'
 import App from './AppRoot.tsx'
 import './index.css'
 import { initSentry } from '@/lib/sentry'
-import { initVersionCheck, clearChunkReloadFlag, isChunkLoadError } from '@/utils/lazyWithRetry'
+import { initVersionCheck, clearLegacyChunkReloadFlags, isChunkLoadError, checkForNewVersion } from '@/utils/lazyWithRetry'
 import { installSilentAppUpdate, markUpdateAvailable } from '@/lib/silentAppUpdate'
 import { isPushServiceWorker } from '@/lib/webPushSupport'
 
@@ -38,25 +38,25 @@ initSentry()
 installSilentAppUpdate()
 
 // Vite の modulepreload 失敗（<link rel="modulepreload"> が 404 になるケース）を捕捉する。
-// デプロイ後の古いチャンク参照なので、新しい版への切り替えを予約する。
+// デプロイ後の古いチャンク参照なので、サーバーの版を確かめて、新しければ切り替えを予約する。
 window.addEventListener('vite:preloadError', () => {
-  markUpdateAvailable()
+  checkForNewVersion()
 })
 
 // lazyWithRetry でカバーされない静的 import やベンダーチャンクの読み込みエラーを捕捉する
 window.addEventListener('unhandledrejection', (event) => {
   if (event.reason && isChunkLoadError(event.reason)) {
     event.preventDefault()
-    markUpdateAvailable()
+    checkForNewVersion()
   }
 })
 
-// 古いリロードフラグをクリア（後方互換）
-clearChunkReloadFlag()
+// 古いリロードフラグをクリア（後方互換）。自動の再読み込みの記録は起動をまたいで残す
+clearLegacyChunkReloadFlags()
 
 // バージョン変更検知を初期化（新しい版を見つけたら切り替えを予約する）
-initVersionCheck(() => {
-  markUpdateAvailable()
+initVersionCheck((latestHash) => {
+  markUpdateAvailable(latestHash)
 })
 
 // PWA プラグインは現在使用していないため、古い Service Worker が残っている場合は解除する。

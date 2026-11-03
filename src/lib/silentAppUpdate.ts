@@ -14,6 +14,7 @@
  *   （スケジュール表を見ながら電話対応している最中に画面が変わらないように）
  */
 import { ADMIN_PATHS, parsePath } from '@/pages/adminDashboardRouting'
+import { claimAutoReloadFor } from '@/lib/autoReloadGuard'
 
 /** その場では再読み込みしないページ（次の遷移まで待つ） */
 const IN_PROGRESS_PATH_PATTERNS: RegExp[] = [
@@ -64,6 +65,8 @@ const defaultLoader = {
 let loader = defaultLoader
 
 let pending = false
+/** 切り替え先の版。読み込み直す直前に記録し、同じ版へは 1 回だけ自動で切り替える */
+let pendingHash: string | null = null
 let installed = false
 let lastInteractionAt = 0
 
@@ -78,9 +81,16 @@ function canReloadInPlace(): boolean {
   return Date.now() - lastInteractionAt >= IDLE_MS
 }
 
-function reloadNow(): void {
+/** 予約を取り消し、自動で読み込み直してよいか返す（同じ版へ既に切り替えた・記録できないときは false） */
+function claimPending(): boolean {
+  const hash = pendingHash
   pending = false
-  loader.reload()
+  pendingHash = null
+  return hash !== null && claimAutoReloadFor(hash)
+}
+
+function reloadNow(): void {
+  if (claimPending()) loader.reload()
 }
 
 function tryReloadInPlace(): void {
@@ -97,9 +107,10 @@ function patchHistory(): void {
     if (pending && url != null && (userState === undefined || userState === null)) {
       const next = new URL(String(url), window.location.href)
       if (next.origin === window.location.origin && next.pathname !== window.location.pathname) {
-        pending = false
-        loader.assign(next.toString())
-        return
+        if (claimPending()) {
+          loader.assign(next.toString())
+          return
+        }
       }
     }
     original(data, unused, url)
@@ -110,9 +121,10 @@ function patchHistory(): void {
   })
 }
 
-/** 新しい版の検知時に呼ぶ */
-export function markUpdateAvailable(): void {
+/** 新しい版の検知時に、切り替え先の版を渡して呼ぶ */
+export function markUpdateAvailable(latestHash: string): void {
   pending = true
+  pendingHash = latestHash
   tryReloadInPlace()
 }
 
@@ -143,6 +155,7 @@ export function installSilentAppUpdate(): void {
 /** テスト用 */
 export function __resetSilentAppUpdateForTest(testLoader?: typeof defaultLoader): void {
   pending = false
+  pendingHash = null
   lastInteractionAt = 0
   loader = testLoader ?? defaultLoader
 }
