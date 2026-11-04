@@ -1421,5 +1421,18 @@
     "body_md5": "03ee56ad1f7081915394e663b17ef6a3",
     "language": "plpgsql",
     "security_definer": true
+  },
+  "notify_private_booking_discord_trigger()": {
+    "acl": [
+      "=X/postgres",
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "trigger",
+    "body_md5": "138638a7b4cb47c07f93cd3b51f0981b",
+    "language": "plpgsql",
+    "security_definer": true
   }
 }
