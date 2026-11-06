@@ -38,7 +38,8 @@ type OrganizationData = { organization: Organization | null; staff: Staff | null
 const GUEST: OrganizationData = { organization: null, staff: null, organizationId: null, userId: null }
 
 // 取得の失敗の種類（報告の tag）と補足。種類と補足はここに置く
-const failureInfo = new WeakMap<object, { kind: string; extra?: Record<string, unknown> }>()
+// forUserId: その取得を始めたときのログインの利用者（報告には載せない。利用者の切り替えの判断に使う）
+const failureInfo = new WeakMap<object, { kind: string; extra?: Record<string, unknown>; forUserId?: string | null }>()
 const KEPT_FIELDS = ['code', 'status', 'hint'] as const
 // PostgREST は失敗を普通のオブジェクト（{ message, code, details, hint }）で返す。Error に包み直しても message・code・status・hint は残す
 // （再試行の判断と報告で使う）。details は行の値を含み得るので報告には載せない
@@ -50,9 +51,9 @@ function toError(error: unknown, kind: string): Error {
   for (const k of KEPT_FIELDS) if (o[k] !== undefined) (e as unknown as Record<string, unknown>)[k] = o[k]
   return e
 }
-function failWith(error: unknown, kind: string, extra?: Record<string, unknown>): never {
+function failWith(error: unknown, kind: string, extra?: Record<string, unknown>, forUserId?: string | null): never {
   const e = toError(error, kind)
-  failureInfo.set(e, { kind, extra })
+  failureInfo.set(e, { kind, extra, forUserId })
   throw e
 }
 
@@ -62,14 +63,19 @@ function failWith(error: unknown, kind: string, extra?: Record<string, unknown>)
  * - ログインの記録があるのに認証・スタッフ情報の取得が失敗したら、エラーとして投げる（未ログインの成功に置き換えない）。
  *   報告は useOrganization の retry で、1 回の取得の最後の失敗につき 1 回だけ行う
  */
-async function fetchOrganizationData(): Promise<OrganizationData> {
+// 途中の取得がどの利用者のためのものか（QueryClient ごと）。利用者の切り替えの判断に使う
+const inFlightUserByClient = new WeakMap<QueryClient, string | null>()
+async function fetchOrganizationData({ client }: { client?: QueryClient } = {}): Promise<OrganizationData> {
+  if (client) inFlightUserByClient.delete(client) // 前の取得の利用者を残さない（確認の前は「まだ分からない」）
   const { data: { session }, error: sessionError } = await supabase.auth.getSession()
   if (sessionError) failWith(sessionError, 'auth-session-error')
+  const sessionUserId = session?.user?.id ?? null
+  if (client) inFlightUserByClient.set(client, sessionUserId)
   if (!session) return GUEST
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   // ログインの記録があるのに利用者を確かめられない（サーバー側で接続が無い・認証の異常・通信の失敗）は本当の失敗
-  if (authError || !user) failWith(authError ?? new Error('getUser: user が無い'), 'auth-error')
+  if (authError || !user) failWith(authError ?? new Error('getUser: user が無い'), 'auth-error', undefined, sessionUserId)
 
   // 見ている組織はサーバー・DB と同じく users.organization_id を正とする。
   // スタッフ行の所属で決めると、マスターが別組織へ切り替えたときに本部のデータが混ざる。
@@ -79,7 +85,7 @@ async function fetchOrganizationData(): Promise<OrganizationData> {
   ])
   const { data: staffRows, error: staffError } = staffResult
 
-  if (staffError) failWith(staffError, 'staff-query-error', { userId: user.id })
+  if (staffError) failWith(staffError, 'staff-query-error', { userId: user.id }, user.id)
 
   const staffData = staffRows?.find(row => row.organization_id === currentOrgId) ?? staffRows?.[0] ?? null
   if (!staffData) {
@@ -164,11 +170,26 @@ function syncOrganizationWithAuth(queryClient: QueryClient): void {
   supabase.auth.onAuthStateChange((event, session) => {
     if (event !== 'SIGNED_IN' && event !== 'SIGNED_OUT' && event !== 'USER_UPDATED') return
     const nextUserId = event === 'SIGNED_OUT' ? null : session?.user?.id ?? null
-    const state = queryClient.getQueryState<OrganizationData>(organizationKeys.current)
-    if (!state) return
-    if (state.status === 'success' && state.fetchStatus === 'idle' && (state.data?.userId ?? null) === nextUserId) return
-    // 認証の通知の中で Supabase の呼出しを待たない（auth-js の注意）。次の順番で捨てて取り直す
-    setTimeout(() => { void queryClient.resetQueries({ queryKey: organizationKeys.current, exact: true }) }, 0)
+    // 認証の通知の中で Supabase の呼出しを待たない（auth-js の注意）。判断と取り直しは次の順番で、その時点の状態で行う
+    // （auth-js は購読の開始や初期化のときにも今のログインを SIGNED_IN で知らせるので、途中の取得の結果が出てから判断する）
+    const receivedAt = Date.now()
+    setTimeout(() => {
+      const now = queryClient.getQueryState<OrganizationData>(organizationKeys.current)
+      if (!now) return
+      const info = now.status === 'error' && now.error && typeof now.error === 'object' ? failureInfo.get(now.error) : undefined
+      // 今の結果（取得の途中なら、その取得）がどの利用者のものか。成功はその利用者、失敗はその取得を始めたときの利用者。
+      // まだ分からない（取得の始めの確認の前）は undefined で、取り直す側に倒す
+      const resultUserId = now.fetchStatus === 'fetching'
+        ? (inFlightUserByClient.has(queryClient) ? inFlightUserByClient.get(queryClient) : undefined)
+        : now.status === 'success' ? (now.data?.userId ?? null) : info?.forUserId
+      // 同じ利用者のまま（トークンの更新・タブの復帰・購読の開始の知らせ）なら取り直さない
+      if (resultUserId !== undefined && resultUserId === nextUserId) return
+      // ログインの記録があるのにサーバーが接続なしと答えると、auth-js は記録を消して SIGNED_OUT を出す（getUser の途中）。
+      // その失敗でこの通知の後にエラーになった取得は、未ログインの成功で消さずに残す（報告済み。次の付け直し・本人の取り直しで回復する）。
+      // 本人の明示のログアウトなど、通知より前の状態からの SIGNED_OUT は今までどおり捨てて未ログインにする
+      if (event === 'SIGNED_OUT' && now.status === 'error' && now.errorUpdatedAt >= receivedAt && info?.kind === 'auth-error') return
+      void queryClient.resetQueries({ queryKey: organizationKeys.current, exact: true })
+    }, 0)
   })
 }
 

@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { createClient } from '@supabase/supabase-js'
 
 type AuthCb = (event: string, session: { user: { id: string } } | null) => void
 const mocks = vi.hoisted(() => ({
@@ -239,6 +240,19 @@ describe('利用者の切り替え・ログアウト・取り消し', () => {
     await h.unmountAll()
   })
 
+  it('最初の取得の途中に同じ利用者の SIGNED_IN（購読の開始・初期化の知らせ）が来ても、取り消して始め直さない', async () => {
+    mocks.getSession.mockResolvedValue(session('u1'))
+    mocks.getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
+    let release: (v: unknown) => void = () => {}
+    mocks.listByUserId.mockImplementationOnce(() => new Promise(r => { release = r }))
+    const h = harness(); await h.mount()
+    await emitAuth('SIGNED_IN', { user: { id: 'u1' } })
+    release(staffOk('s1')); await tick()
+    expect(mocks.listByUserId).toHaveBeenCalledTimes(1)
+    expect(h.last().staff?.id).toBe('s1')
+    await h.unmountAll()
+  })
+
   it('同じ利用者のまま（トークンの更新・タブの復帰）では取り直さない', async () => {
     mocks.getSession.mockResolvedValue(session('u1'))
     mocks.getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
@@ -248,5 +262,48 @@ describe('利用者の切り替え・ログアウト・取り消し', () => {
     await emitAuth('SIGNED_IN', { user: { id: 'u1' } })
     expect(mocks.listByUserId).toHaveBeenCalledTimes(1)
     await h.unmountAll()
+  })
+})
+
+// 実際の auth-js（2.87.1）で、ログインの記録があるのにサーバーが session_not_found を返す順序（通信は偽物の Response だけ・実通信なし）
+describe('実際の auth-js: 失効した接続の削除と SIGNED_OUT の通知の順序', () => {
+  function realAuth() {
+    const key = 'fixture-auth', memory = new Map<string, string>([[key, JSON.stringify({ access_token: 'fixture-access', refresh_token: 'fixture-refresh', expires_at: Math.floor(Date.now() / 1000) + 3600, expires_in: 3600, token_type: 'bearer', user: { id: 'u1' } })]])
+    const requests: string[] = []
+    const sdk = createClient('https://fixture.invalid', 'fixture-publishable', {
+      auth: { storageKey: key, storage: { getItem: k => memory.get(k) ?? null, setItem: (k, v) => { memory.set(k, v) }, removeItem: k => { memory.delete(k) } }, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { fetch: async (input: RequestInfo | URL) => {
+        const url = String(input); requests.push(new URL(url).pathname)
+        if (!url.endsWith('/auth/v1/user')) throw new Error('想定外の要求')
+        return new Response(JSON.stringify({ code: 'session_not_found', message: 'fixture session revoked' }), { status: 403, headers: { 'content-type': 'application/json', 'x-supabase-api-version': '2024-01-01' } })
+      } },
+    })
+    mocks.getSession.mockImplementation(() => sdk.auth.getSession())
+    mocks.getUser.mockImplementation(() => sdk.auth.getUser())
+    mocks.onAuthStateChange.mockImplementation((cb: AuthCb) => sdk.auth.onAuthStateChange(cb as never))
+    return { sdk, requests }
+  }
+
+  it('サーバー側で失効して auth-js が SIGNED_OUT を出しても、真の失敗を未ログインの成功で消さない（報告 1 件・エラーを残す）', async () => {
+    const { sdk, requests } = realAuth()
+    const h = harness(); await h.mount(); await tick(20)
+    expect(requests).toEqual(['/auth/v1/user'])
+    expect(reported('auth-error')).toBe(1)
+    expect(h.last().error).not.toBeNull()
+    // 回復: 次の付け直しで取り直すと、記録は消えているので未ログインの成功になる（追加の報告なし）
+    await h.unmountAll(); await h.mount(); await tick(20)
+    expect(h.last().error).toBeNull(); expect(h.last().userId).toBeNull()
+    expect(reported()).toBe(1)
+    await h.unmountAll(); await sdk.auth.stopAutoRefresh()
+  })
+
+  it('その後の本人の明示のログアウトでは、報告なしで未ログインになる', async () => {
+    const { sdk } = realAuth()
+    const h = harness(); await h.mount(); await tick(20)
+    expect(h.last().error).not.toBeNull()
+    await act(async () => { await sdk.auth.signOut({ scope: 'local' }) }); await tick(20)
+    expect(h.last().error).toBeNull(); expect(h.last().userId).toBeNull()
+    expect(reported()).toBe(1)
+    await h.unmountAll(); await sdk.auth.stopAutoRefresh()
   })
 })
