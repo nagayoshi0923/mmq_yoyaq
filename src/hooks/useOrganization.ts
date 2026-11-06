@@ -39,7 +39,8 @@ const GUEST: OrganizationData = { organization: null, staff: null, organizationI
 
 // 取得の失敗の種類（報告の tag）と補足。種類と補足はここに置く
 // forUserId: その取得を始めたときのログインの利用者（報告には載せない。利用者の切り替えの判断に使う）
-const failureInfo = new WeakMap<object, { kind: string; extra?: Record<string, unknown>; forUserId?: string | null }>()
+// verifiedUserId: その取得の中でサーバーに確かめられた利用者（getUser の成功の後の失敗だけ）。認証の失敗では無い
+const failureInfo = new WeakMap<object, { kind: string; extra?: Record<string, unknown>; forUserId?: string | null; verifiedUserId?: string }>()
 const KEPT_FIELDS = ['code', 'status', 'hint'] as const
 // PostgREST は失敗を普通のオブジェクト（{ message, code, details, hint }）で返す。Error に包み直しても message・code・status・hint は残す
 // （再試行の判断と報告で使う）。details は行の値を含み得るので報告には載せない
@@ -51,10 +52,22 @@ function toError(error: unknown, kind: string): Error {
   for (const k of KEPT_FIELDS) if (o[k] !== undefined) (e as unknown as Record<string, unknown>)[k] = o[k]
   return e
 }
-function failWith(error: unknown, kind: string, extra?: Record<string, unknown>, forUserId?: string | null): never {
+function failWith(error: unknown, kind: string, extra?: Record<string, unknown>, forUserId?: string | null, verifiedUserId?: string): never {
   const e = toError(error, kind)
-  failureInfo.set(e, { kind, extra, forUserId })
+  failureInfo.set(e, { kind, extra, forUserId, verifiedUserId })
   throw e
+}
+
+/**
+ * 取得が失敗した後も、手元の前の組織情報を返してよいか。
+ * 返してよいのは、その失敗の取得の中で同じ利用者がサーバーに確かめられていたときだけ（同じ利用者のスタッフ情報の DB の異常）。
+ * 認証の失敗（ログインの失効・期限切れの更新の拒否・認証の異常）、確かめられた利用者が違うとき、どの利用者か分からない失敗は、
+ * 前の利用者の組織・スタッフ・権限を返さない（失敗のエラーと報告はそのまま残す）
+ */
+function keepsPreviousData(data: OrganizationData | undefined, error: unknown): boolean {
+  if (!data || !error || typeof error !== 'object') return !!data && !error
+  const verified = failureInfo.get(error)?.verifiedUserId
+  return verified !== undefined && verified === data.userId
 }
 
 /**
@@ -85,7 +98,7 @@ async function fetchOrganizationData({ client }: { client?: QueryClient } = {}):
   ])
   const { data: staffRows, error: staffError } = staffResult
 
-  if (staffError) failWith(staffError, 'staff-query-error', { userId: user.id }, user.id)
+  if (staffError) failWith(staffError, 'staff-query-error', { userId: user.id }, user.id, user.id)
 
   const staffData = staffRows?.find(row => row.organization_id === currentOrgId) ?? staffRows?.[0] ?? null
   if (!staffData) {
@@ -223,16 +236,27 @@ export function useOrganization(): UseOrganizationResult {
 
   useEffect(() => { syncOrganizationWithAuth(queryClient) }, [queryClient])
 
+  // 返さない前の組織情報は、共有の置き場（QueryClient）からも消す（エラーの状態と報告はそのまま）
+  const shown = keepsPreviousData(data, error) ? data : undefined
+  useEffect(() => {
+    if (!error || !data || shown) return
+    const query = queryClient.getQueryCache().find<OrganizationData>({ queryKey: organizationKeys.current, exact: true })
+    // 消す時点でも同じ失敗・同じ前の情報のときだけ（その間に取り直しが成功した新しい情報は消さない）
+    if (query && query.state.status === 'error' && query.state.error === error && query.state.data === data) {
+      query.setState({ data: undefined, dataUpdatedAt: 0 })
+    }
+  }, [queryClient, error, data, shown])
+
   const refetch = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: organizationKeys.current })
   }, [queryClient])
 
   return {
-    organization: data?.organization ?? null,
-    staff: data?.staff ?? null,
-    organizationId: data?.organizationId ?? null,
-    userId: data?.userId ?? null,
-    isLicenseManager: data?.organization?.is_license_manager ?? false,
+    organization: shown?.organization ?? null,
+    staff: shown?.staff ?? null,
+    organizationId: shown?.organizationId ?? null,
+    userId: shown?.userId ?? null,
+    isLicenseManager: shown?.organization?.is_license_manager ?? false,
     isLoading,
     error: error as Error | null,
     refetch,

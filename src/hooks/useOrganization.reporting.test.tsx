@@ -333,3 +333,82 @@ describe('実際の auth-js: 失効した接続の削除と SIGNED_OUT の通知
     await h.unmountAll(); await sdk.auth.stopAutoRefresh()
   })
 })
+
+// #1279: スタッフの組織情報を一度出した後に、ログインが失効・期限切れの更新の拒否・認証の異常になったら、
+// エラーと報告（1 回）は残したまま、前の利用者の組織・スタッフ・権限を、どの部品にも共有の置き場（QueryClient）にも残さない
+describe('失効の後に前の利用者の組織情報を返さない（#1279）', () => {
+  // 実際の auth-js（2.87.1）。通信は偽物の Response だけ（実通信なし）
+  function liveAuth() {
+    const key = 'fixture-1279', future = { access_token: 'fixture-access', refresh_token: 'fixture-refresh', expires_at: Math.floor(Date.now() / 1000) + 3600, expires_in: 3600, token_type: 'bearer', user: { id: 'u1' } }
+    const memory = new Map<string, string>([[key, JSON.stringify(future)]]), requests: string[] = []
+    let revoked = false
+    const sdk = createClient('https://fixture.invalid', 'fixture-publishable', {
+      auth: { storageKey: key, storage: { getItem: k => memory.get(k) ?? null, setItem: (k, v) => { memory.set(k, v) }, removeItem: k => { memory.delete(k) } }, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { fetch: async (input: RequestInfo | URL) => {
+        const path = new URL(String(input)).pathname; requests.push(path)
+        const h = { 'content-type': 'application/json', 'x-supabase-api-version': '2024-01-01' }
+        if (path === '/auth/v1/user') return revoked
+          ? new Response(JSON.stringify({ code: 'session_not_found', message: 'fixture session revoked' }), { status: 403, headers: h })
+          : new Response(JSON.stringify({ id: 'u1', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, identities: [], created_at: '2026-01-01T00:00:00Z' }), { status: 200, headers: h })
+        if (path === '/auth/v1/token') return new Response(JSON.stringify({ code: 'refresh_token_not_found', message: 'fixture expired refresh token' }), { status: 400, headers: h })
+        throw new Error('想定外の要求')
+      } },
+    })
+    mocks.getSession.mockImplementation(() => sdk.auth.getSession())
+    mocks.getUser.mockImplementation(() => sdk.auth.getUser())
+    mocks.onAuthStateChange.mockImplementation((cb: AuthCb) => sdk.auth.onAuthStateChange(cb as never))
+    return { sdk, requests, revoke() { revoked = true }, expire() { memory.set(key, JSON.stringify({ ...future, expires_at: Math.floor(Date.now() / 1000) - 5 })) } }
+  }
+  const nothing = { organization: null, staff: null, organizationId: null, userId: null, isLicenseManager: false }
+  const visible = (r: Result) => ({ organization: r.organization, staff: r.staff, organizationId: r.organizationId, userId: r.userId, isLicenseManager: r.isLicenseManager })
+  function expectHidden(h: ReturnType<typeof harness>) {
+    for (const r of h.results) { expect(visible(r.value!)).toEqual(nothing); expect(r.value!.error).not.toBeNull() }
+    const q = h.client.getQueryState(['organization', 'current'])
+    expect(q?.status).toBe('error'); expect(q?.data).toBeUndefined()
+  }
+  beforeEach(() => {
+    mocks.listByUserId.mockResolvedValue(staffOk('s1'))
+    mocks.fetchOrganizationForStaffSession.mockImplementation(async (id: string) => ({ id, name: id, is_license_manager: true }))
+  })
+
+  for (const mode of ['revoke', 'expire'] as const) {
+    it(`${mode === 'revoke' ? 'サーバー側の失効（getUser）' : '期限切れの更新の拒否（getSession）'}: 2 つの部品と QueryClient から前の組織を消し、エラーと報告 1 回は残す`, async () => {
+      const f = liveAuth()
+      const h = harness(); await h.mount(2); await tick(20)
+      for (const r of h.results) { expect(r.value!.staff?.id).toBe('s1'); expect(r.value!.isLicenseManager).toBe(true) }
+      f[mode]()
+      await act(async () => { await h.last().refetch() }); await tick(20)
+      expect(f.requests).toEqual(mode === 'revoke' ? ['/auth/v1/user', '/auth/v1/user'] : ['/auth/v1/user', '/auth/v1/token'])
+      expectHidden(h)
+      expect(reported(mode === 'revoke' ? 'auth-error' : 'auth-session-error')).toBe(1); expect(reported()).toBe(1)
+      // 付け直し（ページの移動）でも前の組織は出ず、取り直して未ログインへ回復する（追加の報告なし）
+      await h.unmountAll(); await h.mount(); await tick(20)
+      expect(visible(h.last())).toEqual(nothing); expect(h.last().error).toBeNull(); expect(reported()).toBe(1)
+      await h.unmountAll(); await f.sdk.auth.stopAutoRefresh()
+    })
+  }
+
+  it('ログインの記録は残ったままの認証のサーバーの異常（500）でも、確かめられない前の組織は返さない（報告は再試行の後の 1 回）', async () => {
+    mocks.getSession.mockResolvedValue(session('u1'))
+    mocks.getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
+    const h = harness(); await h.mount(2)
+    expect(h.last().staff?.id).toBe('s1')
+    mocks.getUser.mockResolvedValue({ data: { user: null }, error: authError('AuthApiError', 500) })
+    await act(async () => { await h.last().refetch() }); await tick(20)
+    expectHidden(h)
+    expect(reported('auth-error')).toBe(1)
+    await h.unmountAll()
+  })
+
+  it('同じ利用者を確かめた後のスタッフ情報の DB の異常では、その利用者の前の組織を出し続ける（エラーと報告 1 回は残す）', async () => {
+    mocks.getSession.mockResolvedValue(session('u1'))
+    mocks.getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
+    const h = harness(); await h.mount(2)
+    mocks.listByUserId.mockResolvedValue({ data: null, error: pgError('08006') })
+    await act(async () => { await h.last().refetch() }); await tick(20)
+    for (const r of h.results) { expect(r.value!.staff?.id).toBe('s1'); expect(r.value!.userId).toBe('u1'); expect(r.value!.error).not.toBeNull() }
+    expect(h.client.getQueryState(['organization', 'current'])?.data).toMatchObject({ userId: 'u1' })
+    expect(reported('staff-query-error')).toBe(1)
+    await h.unmountAll()
+  })
+})
