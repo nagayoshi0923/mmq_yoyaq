@@ -11,7 +11,12 @@ const mocks = vi.hoisted(() => ({
   fetchOrganizationForStaffSession: vi.fn(),
 }))
 
-vi.mock('@/lib/supabase', () => ({ supabase: { auth: { getUser: mocks.getUser } } }))
+vi.mock('@/lib/supabase', () => ({ supabase: { auth: {
+  // ログインの記録あり（未ログインの扱いは useOrganization.reporting.test.tsx）
+  getSession: async () => ({ data: { session: { access_token: 't', user: { id: 'u1' } } }, error: null }),
+  getUser: mocks.getUser,
+  onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+} } }))
 vi.mock('@/lib/sentry', () => ({ Sentry: { captureException: vi.fn() } }))
 vi.mock('@/lib/api/settingsReadApi', () => ({ staffSettingsReadApi: { listByUserId: mocks.listByUserId } }))
 vi.mock('@/lib/organization', () => ({
