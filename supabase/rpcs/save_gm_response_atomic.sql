@@ -1,6 +1,9 @@
--- QW-20260917-001: candidate and response baselines are checked under the reservation lock.
+-- QW-20261023-001: 候補・回答の競合を ERRCODE 40001 から PT409 に変える（判定・権限・保存内容は変えない）。
+-- 40001（serialization_failure）は PostgREST が同じ要求を自動で再試行するため、競合が解けない呼出しで無限に再試行され、
+-- 本番で 1 秒あたり約 1,000 件の取消が続いた（2026-11-06 読取）。PT409 は再試行されず HTTP 409 で返る。
+-- 参考: https://supabase.com/kb/troubleshooting/high-cpu-and-infinite-transaction-retries-when-using-custom-error-codes-in-rpc-functions
 -- Service only: the API / signed Discord handler authorizes the actor before calling.
-CREATE FUNCTION public.save_gm_response_atomic(p_org uuid,p_reservation uuid,p_staff uuid,p_candidates jsonb,p_expected_response jsonb,p_patch jsonb)
+CREATE OR REPLACE FUNCTION public.save_gm_response_atomic(p_org uuid,p_reservation uuid,p_staff uuid,p_candidates jsonb,p_expected_response jsonb,p_patch jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 DECLARE booking public.reservations; previous public.gm_availability_responses; saved public.gm_availability_responses; gm public.staff; indices jsonb; response_state text;
 BEGIN
@@ -9,14 +12,14 @@ BEGIN
  SELECT * INTO gm FROM staff WHERE id=p_staff AND organization_id=p_org AND status='active' FOR SHARE;
  IF NOT FOUND THEN RAISE EXCEPTION 'Staff unavailable' USING ERRCODE='42501'; END IF;
  IF jsonb_typeof(p_candidates) IS DISTINCT FROM 'array' OR coalesce(booking.candidate_datetimes->'candidates','[]') IS DISTINCT FROM p_candidates THEN
-   RAISE EXCEPTION 'Candidates changed' USING ERRCODE='40001';
+   RAISE EXCEPTION 'Candidates changed' USING ERRCODE='PT409';
  END IF;
  SELECT * INTO previous FROM gm_availability_responses WHERE reservation_id=p_reservation AND staff_id=p_staff FOR UPDATE;
  IF (previous.id IS NULL AND p_expected_response IS NOT NULL AND p_expected_response <> 'null') OR
     (previous.id IS NOT NULL AND (p_expected_response IS NULL OR p_expected_response='null' OR
       previous.id::text IS DISTINCT FROM p_expected_response->>'id' OR
       previous.updated_at IS DISTINCT FROM (p_expected_response->>'updated_at')::timestamptz)) THEN
-   RAISE EXCEPTION 'Response changed' USING ERRCODE='40001';
+   RAISE EXCEPTION 'Response changed' USING ERRCODE='PT409';
  END IF;
  IF previous.id IS NOT NULL AND previous.organization_id IS DISTINCT FROM p_org THEN
    RAISE EXCEPTION 'Response organization mismatch' USING ERRCODE='42501';

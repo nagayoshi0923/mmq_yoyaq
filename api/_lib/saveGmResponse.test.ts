@@ -18,6 +18,10 @@ it('管理者の同組織への手動回答を許可し、候補競合は409で�
  user.role='admin';user.userId='admin';rpc.mockResolvedValue({error:{code:'40001'}})
  await expect(saveGmResponse(database,user,body)).rejects.toMatchObject({status:409})
 })
+it('PT409 の候補競合も409で返す（DB 適用後の番号）',async()=>{
+ rpc.mockResolvedValue({error:{code:'PT409'}})
+ await expect(saveGmResponse(database,user,body)).rejects.toMatchObject({status:409})
+})
 it('他組織または停止済みスタッフを許可しない',async()=>{
  target=null;await expect(saveGmResponse(database,user,body)).rejects.toMatchObject({status:403});expect(rpc).not.toHaveBeenCalled()
 })

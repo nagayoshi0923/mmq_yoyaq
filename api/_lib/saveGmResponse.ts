@@ -19,7 +19,8 @@ export async function saveGmResponse(database: SupabaseClient, user: AuthUser, b
     p_candidates:body.candidates,p_expected_response:body.expectedResponse,
     p_patch:{available_candidates:body.availableCandidates,response_status:body.responseStatus,notes:body.notes ?? null},
   })
-  if(error?.code==='40001'||error?.code==='55P03') throw new ApiError(409,'候補日時またはGM回答が変更されました。画面を更新して、選び直してください。')
+  // 競合は PT409（20261106130000）。旧定義の 40001 も同じ扱いにする（DB 適用の前後どちらでも 409）
+  if(error?.code==='PT409'||error?.code==='40001'||error?.code==='55P03') throw new ApiError(409,'候補日時またはGM回答が変更されました。画面を更新して、選び直してください。')
   if(error?.code==='42501') throw new ApiError(403,'予約またはスタッフ情報を確認できません')
   if(error?.code==='22023') throw new ApiError(400,'候補日時を確認して、選び直してください。')
   if(error) throw new ApiError(500,'回答を保存できませんでした。再度お試しください。')

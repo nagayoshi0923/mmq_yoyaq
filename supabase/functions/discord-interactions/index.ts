@@ -159,7 +159,7 @@ async function persistGmResponse(org: string,request: string,staff: string,candi
     p_org:org,p_reservation:request,p_staff:staff,p_candidates:candidates,
     p_expected_response:previous ? {id:previous.id,updated_at:previous.updated_at} : null,p_patch:patch,
   })
-  if(error?.code==='40001'||error?.code==='55P03') throw new Error('候補日時または回答が変更されました。WebのGM確認画面を更新して選び直してください。')
+  if(error?.code==='PT409'||error?.code==='40001'||error?.code==='55P03') throw new Error('候補日時または回答が変更されました。WebのGM確認画面を更新して選び直してください。')
   if(error) throw new Error('回答を保存できませんでした。WebのGM確認画面で再確認してください。')
   return data
 }
