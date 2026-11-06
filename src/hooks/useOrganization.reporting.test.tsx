@@ -38,7 +38,8 @@ type Result = ReturnType<typeof useOrganization>
 // auth-js と同じ名前・形の架空のエラー（実際の通信はしない）
 function authError(name: string, status?: number) { const e = new Error(name) as Error & { status?: number; __isAuthError: boolean }; e.name = name; e.status = status; e.__isAuthError = true; return e }
 const sessionMissing = () => authError('AuthSessionMissingError', 400)
-const pgError = (code: string, message = 'db error') => Object.assign(new Error(message), { code, details: null, hint: null })
+// postgrest-js 2.87.1 と同じく、失敗は普通のオブジェクト（Error ではない）
+const pgError = (code: string, message = 'db error') => ({ message, code, details: 'fixture details', hint: 'fixture hint' })
 const session = (id: string) => ({ data: { session: { access_token: 't', user: { id } } }, error: null })
 const noSession = () => ({ data: { session: null }, error: null })
 const staffOk = (id = 's1') => ({ data: [{ id, organization_id: 'hq' }], error: null })
@@ -50,15 +51,14 @@ function harness() {
   const client = new QueryClient({ defaultOptions: { queries: { retryDelay: 0 } } })
   const results: Array<{ value: Result | null }> = []
   const roots: Root[] = []
+  // count 個の部品を同じ描画で同時に付ける（ヘッダーとサイドバーが同じ画面で同時に使う形）
   async function mount(count = 1) {
-    for (let i = 0; i < count; i++) {
-      const slot: { value: Result | null } = { value: null }
-      results.push(slot)
-      function Probe() { slot.value = useOrganization(); return null }
-      const root = createRoot(document.createElement('div'))
-      roots.push(root)
-      await act(async () => root.render(<QueryClientProvider client={client}><Probe /></QueryClientProvider>))
-    }
+    const slots = Array.from({ length: count }, () => ({ value: null as Result | null }))
+    results.push(...slots)
+    const probes = slots.map((slot, i) => { function Probe() { slot.value = useOrganization(); return null }; return <Probe key={i} /> })
+    const root = createRoot(document.createElement('div'))
+    roots.push(root)
+    await act(async () => root.render(<QueryClientProvider client={client}>{probes}</QueryClientProvider>))
     await tick()
   }
   async function unmountAll() { for (const r of roots.splice(0)) await act(async () => r.unmount()) }
@@ -142,11 +142,38 @@ describe('スタッフ情報の取得の失敗: 1 回の取得の失敗につき
     await h.unmountAll()
   })
 
-  it('権限の拒否（42501）は再試行せず、1 回だけ報告する', async () => {
-    mocks.listByUserId.mockResolvedValue({ data: null, error: pgError('42501', 'permission denied') })
+  it('権限の拒否（42501・普通のオブジェクト）は再試行せず、1 回だけ報告し、本当の message と code を残す（details は送らない）', async () => {
+    mocks.listByUserId.mockResolvedValue({ data: null, error: pgError('42501', 'permission denied for table staff') })
     const h = harness(); await h.mount()
     expect(mocks.listByUserId).toHaveBeenCalledTimes(1)
     expect(reported('staff-query-error')).toBe(1)
+    const [err, ctx] = mocks.captureException.mock.calls[0]
+    expect(err).toBeInstanceOf(Error)
+    expect((err as Error).message).toBe('permission denied for table staff')
+    expect((err as { code?: string }).code).toBe('42501')
+    expect(ctx.tags.code).toBe('42501'); expect(ctx.extra.hint).toBe('fixture hint'); expect(ctx.extra.details).toBeUndefined()
+    expect((h.last().error as { code?: string } | null)?.code).toBe('42501')
+    await h.unmountAll()
+  })
+
+  it('DB の異常（08006・普通のオブジェクト）は 1 回再試行し、最後の失敗で message と code を残して 1 回報告する', async () => {
+    mocks.listByUserId.mockResolvedValue({ data: null, error: pgError('08006', 'connection failure') })
+    const h = harness(); await h.mount()
+    expect(mocks.listByUserId).toHaveBeenCalledTimes(2)
+    const [err, ctx] = mocks.captureException.mock.calls[0]
+    expect(mocks.captureException).toHaveBeenCalledTimes(1)
+    expect((err as Error).message).toBe('connection failure'); expect(ctx.tags.code).toBe('08006')
+    await h.unmountAll()
+  })
+
+  it('PostgREST の通信の失敗（普通のオブジェクト・code 空）は 1 回再試行し、最後の失敗を通信の失敗として 1 回報告する', async () => {
+    mocks.listByUserId.mockResolvedValue({ data: null, error: { message: 'TypeError: Failed to fetch', details: 'stack', hint: '', code: '' } })
+    const h = harness(); await h.mount()
+    expect(mocks.listByUserId).toHaveBeenCalledTimes(2)
+    expect(mocks.captureException).toHaveBeenCalledTimes(1)
+    const [err, ctx] = mocks.captureException.mock.calls[0]
+    expect((err as Error).message).toBe('useOrganization staff-query-error: 通信の失敗（fetch-failed）')
+    expect(ctx.tags.network).toBe('fetch-failed')
     await h.unmountAll()
   })
 

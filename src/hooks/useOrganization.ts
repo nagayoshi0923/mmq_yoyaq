@@ -37,10 +37,21 @@ export const organizationKeys = {
 type OrganizationData = { organization: Organization | null; staff: Staff | null; organizationId: string | null; userId: string | null }
 const GUEST: OrganizationData = { organization: null, staff: null, organizationId: null, userId: null }
 
-// 取得の失敗の種類（報告の tag）。エラーそのものは変えずに投げ、種類と補足はここに置く
+// 取得の失敗の種類（報告の tag）と補足。種類と補足はここに置く
 const failureInfo = new WeakMap<object, { kind: string; extra?: Record<string, unknown> }>()
+const KEPT_FIELDS = ['code', 'status', 'hint'] as const
+// PostgREST は失敗を普通のオブジェクト（{ message, code, details, hint }）で返す。Error に包み直しても message・code・status・hint は残す
+// （再試行の判断と報告で使う）。details は行の値を含み得るので報告には載せない
+function toError(error: unknown, kind: string): Error {
+  if (error instanceof Error) return error
+  const o = (error && typeof error === 'object' ? error : {}) as Record<string, unknown>
+  const e = new Error(typeof o.message === 'string' && o.message ? o.message : `useOrganization: ${kind}`)
+  if (typeof o.name === 'string' && o.name) e.name = o.name
+  for (const k of KEPT_FIELDS) if (o[k] !== undefined) (e as unknown as Record<string, unknown>)[k] = o[k]
+  return e
+}
 function failWith(error: unknown, kind: string, extra?: Record<string, unknown>): never {
-  const e = error instanceof Error ? error : new Error(String(error ?? kind))
+  const e = toError(error, kind)
   failureInfo.set(e, { kind, extra })
   throw e
 }
@@ -102,12 +113,44 @@ function isRetryableFailure(error: unknown): boolean {
   return true
 }
 
+// ブラウザの通信の失敗の文言（全体の除外 src/lib/sentry.ts の ignoreErrors・beforeSend に当たる）。
+// この取得の最後の失敗は本当の通信の異常として残すため、除外に当たらない文言の Error に包み直して 1 件だけ送る（全体の除外は変えない）
+const NETWORK_FAILURE = [
+  { re: /Failed to fetch/, label: 'fetch-failed' },
+  { re: /Load failed/, label: 'load-failed' },
+  { re: /NetworkError/, label: 'network-error' },
+]
+// Sentry SDK の Dedupe（既定の動き）は、直前の event と同じ中身の event を落とす。本人の明示の取り直しなどで起きた
+// 「同じ中身の新しい失敗」まで落ちないよう、この取得の報告だけ、直前の報告と同じ中身のときは文言に「（同じ失敗の再発）」を付けて別の 1 件にする。
+// Dedupe 全体・報告のまとめ方（指紋）は変えない。stack は元のまま（まとまり方は変わらない）
+// 直前の報告は Sentry の client ごとに覚える（Dedupe の状態も client ごと。初期化し直せば空に戻る）
+const lastReportByClient = new WeakMap<object, { signature: string; repeated: boolean }>()
+const NO_CLIENT = {}
+function distinctFromPrevious(reported: unknown, signature: string): unknown {
+  const key = (typeof Sentry.getClient === 'function' ? Sentry.getClient() : undefined) ?? NO_CLIENT
+  const last = lastReportByClient.get(key)
+  const repeat = last?.signature === signature && !last.repeated
+  lastReportByClient.set(key, { signature, repeated: repeat })
+  if (!repeat || !(reported instanceof Error)) return reported
+  const copy = new Error(`${reported.message}（同じ失敗の再発）`)
+  copy.name = reported.name
+  if (reported.stack) copy.stack = reported.stack.replace(reported.message, copy.message)
+  for (const k of KEPT_FIELDS) if ((reported as unknown as Record<string, unknown>)[k] !== undefined) (copy as unknown as Record<string, unknown>)[k] = (reported as unknown as Record<string, unknown>)[k]
+  return copy
+}
+
 function reportOrganizationLoadFailure(error: unknown): void {
   const info = error && typeof error === 'object' ? failureInfo.get(error) : undefined
-  Sentry.captureException(error, {
+  const kind = info?.kind ?? 'unknown'
+  const fields = Object.fromEntries(KEPT_FIELDS.map(k => [k, (error as Record<string, unknown> | null)?.[k]]).filter(([, v]) => v !== undefined && v !== ''))
+  const message = error instanceof Error ? error.message : String((error as { message?: unknown } | null)?.message ?? '')
+  const network = NETWORK_FAILURE.find(n => n.re.test(message))
+  const reported = network ? Object.assign(new Error(`useOrganization ${kind}: 通信の失敗（${network.label}）`), { name: 'OrganizationLoadConnectionFailure' }) : error
+  const signature = [kind, reported instanceof Error ? reported.name : '', reported instanceof Error ? reported.message : message, String(fields.code ?? '')].join('|')
+  Sentry.captureException(distinctFromPrevious(reported, signature), {
     level: 'warning',
-    tags: { source: 'useOrganization', kind: info?.kind ?? 'unknown' },
-    ...(info?.extra ? { extra: info.extra } : {}),
+    tags: { source: 'useOrganization', kind, ...(network ? { network: network.label } : {}), ...(typeof fields.code === 'string' ? { code: fields.code } : {}) },
+    extra: { ...(info?.extra ?? {}), ...fields, ...(network ? { originalName: (error as { name?: unknown } | null)?.name ?? null } : {}) },
   })
 }
 
