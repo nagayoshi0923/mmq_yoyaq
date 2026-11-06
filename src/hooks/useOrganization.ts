@@ -184,10 +184,11 @@ function syncOrganizationWithAuth(queryClient: QueryClient): void {
         : now.status === 'success' ? (now.data?.userId ?? null) : info?.forUserId
       // 同じ利用者のまま（トークンの更新・タブの復帰・購読の開始の知らせ）なら取り直さない
       if (resultUserId !== undefined && resultUserId === nextUserId) return
-      // ログインの記録があるのにサーバーが接続なしと答えると、auth-js は記録を消して SIGNED_OUT を出す（getUser の途中）。
-      // その失敗でこの通知の後にエラーになった取得は、未ログインの成功で消さずに残す（報告済み。次の付け直し・本人の取り直しで回復する）。
+      // ログインの記録があるのに、サーバーが接続なしと答えた（getUser）・期限切れの更新（refresh）が断られた（getSession）とき、
+      // auth-js は記録を消して SIGNED_OUT を出す。その失敗でこの通知の後にエラーになった取得は、未ログインの成功で消さずに残す
+      // （報告済み。次の付け直し・本人の取り直しで回復する）。
       // 本人の明示のログアウトなど、通知より前の状態からの SIGNED_OUT は今までどおり捨てて未ログインにする
-      if (event === 'SIGNED_OUT' && now.status === 'error' && now.errorUpdatedAt >= receivedAt && info?.kind === 'auth-error') return
+      if (event === 'SIGNED_OUT' && now.status === 'error' && now.errorUpdatedAt >= receivedAt && (info?.kind === 'auth-error' || info?.kind === 'auth-session-error')) return
       void queryClient.resetQueries({ queryKey: organizationKeys.current, exact: true })
     }, 0)
   })

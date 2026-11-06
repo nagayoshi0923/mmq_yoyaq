@@ -297,6 +297,32 @@ describe('実際の auth-js: 失効した接続の削除と SIGNED_OUT の通知
     await h.unmountAll(); await sdk.auth.stopAutoRefresh()
   })
 
+  it('スタッフ表示の後に期限が切れ、本人の取り直しで更新（refresh）が失敗して SIGNED_OUT が出ても、真の失敗を未ログインの成功で消さない', async () => {
+    const key = 'fixture-expired', future = { access_token: 'fixture-access', refresh_token: 'fixture-refresh', expires_at: Math.floor(Date.now() / 1000) + 3600, expires_in: 3600, token_type: 'bearer', user: { id: 'u1' } }
+    const memory = new Map<string, string>([[key, JSON.stringify(future)]]), requests: string[] = []
+    const sdk = createClient('https://fixture.invalid', 'fixture-publishable', {
+      auth: { storageKey: key, storage: { getItem: k => memory.get(k) ?? null, setItem: (k, v) => { memory.set(k, v) }, removeItem: k => { memory.delete(k) } }, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { fetch: async (input: RequestInfo | URL) => {
+        const path = new URL(String(input)).pathname; requests.push(path)
+        if (path === '/auth/v1/user') return new Response(JSON.stringify({ id: 'u1', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, identities: [], created_at: '2026-01-01T00:00:00Z' }), { status: 200, headers: { 'content-type': 'application/json' } })
+        if (path === '/auth/v1/token') return new Response(JSON.stringify({ code: 'refresh_token_not_found', message: 'fixture expired refresh token' }), { status: 400, headers: { 'content-type': 'application/json', 'x-supabase-api-version': '2024-01-01' } })
+        throw new Error('想定外の要求')
+      } },
+    })
+    mocks.getSession.mockImplementation(() => sdk.auth.getSession())
+    mocks.getUser.mockImplementation(() => sdk.auth.getUser())
+    mocks.onAuthStateChange.mockImplementation((cb: AuthCb) => sdk.auth.onAuthStateChange(cb as never))
+    mocks.listByUserId.mockResolvedValue(staffOk('s1'))
+    const h = harness(); await h.mount(); await tick(20)
+    expect(h.last().staff?.id).toBe('s1')
+    memory.set(key, JSON.stringify({ ...future, expires_at: Math.floor(Date.now() / 1000) - 5 }))
+    await act(async () => { await h.last().refetch() }); await tick(20)
+    expect(requests).toEqual(['/auth/v1/user', '/auth/v1/token'])
+    expect(reported('auth-session-error')).toBe(1)
+    expect(h.last().error).not.toBeNull()
+    await h.unmountAll(); await sdk.auth.stopAutoRefresh()
+  })
+
   it('その後の本人の明示のログアウトでは、報告なしで未ログインになる', async () => {
     const { sdk } = realAuth()
     const h = harness(); await h.mount(); await tick(20)
