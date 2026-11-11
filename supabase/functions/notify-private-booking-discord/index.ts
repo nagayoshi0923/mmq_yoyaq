@@ -7,6 +7,7 @@ import { getDiscordSettings, getNotificationSettings } from '../_shared/organiza
 import { errorResponse, getCorsHeaders, sanitizeErrorMessage, timingSafeEqualString, verifyAuth, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
 import { loadPrivateBookingNotificationContext, loadPrivateBookingAssignedStaff } from '../_shared/private-booking-notification-context.ts'
 import { buildDiscordUserMentions } from '../_shared/discord-mentions.ts'
+import { isQaTestCustomerEmail } from '../_shared/qa-test-customers.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = getServiceRoleKey()
@@ -553,6 +554,15 @@ serve(async (req) => {
     if (booking.reservation_source === 'demo' || booking.reservation_source === 'demo_auto') {
       return new Response(
         JSON.stringify({ message: 'Demo reservation - notification skipped' }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      )
+    }
+
+    // 毎日の本番点検のテスト申込は、スタッフ・GM へ通知しない（点検の後に削除する）
+    if (isQaTestCustomerEmail(booking.customer_email, Deno.env.get('QA_TEST_CUSTOMER_EMAILS'))) {
+      console.log('ℹ️ QA test request - staff notification skipped')
+      return new Response(
+        JSON.stringify({ message: 'QA test request - notification skipped' }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
       )
     }
