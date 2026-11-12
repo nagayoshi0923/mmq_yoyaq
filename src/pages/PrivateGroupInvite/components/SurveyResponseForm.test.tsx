@@ -30,7 +30,7 @@ it('全画面のシートとして、題名・帯・作品と開催日時・店�
  const {host,root}=await render({scenarioTitle:'告別詩',performanceDate:'2099-11-07',startTime:'14:00:00',storeName:'高田馬場店'})
  try {
   expect(host.textContent).toContain('事前配役アンケート')
-  expect(host.textContent).toContain('回答は店舗と GM にだけ届きます。配役は当日お伝えします。')
+  expect(host.textContent).toContain('回答は店舗と GM にだけ届きます。アンケートを参考に配役を決めますので、お知らせをお待ちください。')
   const meta=host.querySelector('[data-testid="survey-meta"]')!.textContent!
   expect(meta).toContain('告別詩');expect(meta).toContain('14:00 高田馬場店');expect(meta).toMatch(/回答期限 11\/5\(.\)/)
   expect(submitButton(host)!.textContent).toBe('回答を送る')
