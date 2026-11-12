@@ -86,13 +86,16 @@ export function PolicyTypeSection({
       <div className="border bg-muted/20 p-3 space-y-1">
         <div className="flex items-center gap-2 ts-label">
           <Clock className="h-4 w-4" aria-hidden="true" />
-          キャンセル受付期限
+          マイページからキャンセルできる期間
         </div>
         <p className="ts-body">
           {deadlineHours == null
             ? '店舗へお問い合わせください'
             : formatPolicyDeadline(deadlineHours)}
         </p>
+        {deadlineHours != null && (
+          <p className="ts-caption text-muted-foreground">この期間を過ぎてからのキャンセルは、店舗へお問い合わせください。</p>
+        )}
       </div>
 
       <div className="border overflow-x-auto">
