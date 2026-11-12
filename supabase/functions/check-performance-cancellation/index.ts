@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 import { isRecruitmentSchedulerCall } from '../_shared/recruitment-auth.ts'
 import { isRecruitmentExtensionCurrent } from '../_shared/recruitment-send-guard.ts'
 import { sendRecruitmentXPosts } from '../_shared/recruitment-x.ts'

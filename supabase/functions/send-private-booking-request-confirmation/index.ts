@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 import { formatPrivateBookingQuoteTotal } from '../_shared/privateBookingQuote.ts'
 // @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
