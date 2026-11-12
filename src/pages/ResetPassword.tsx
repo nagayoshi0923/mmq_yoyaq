@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
 import { logger } from '@/utils/logger'
 import { getErrorMessage } from '@/lib/errorFields'
+import { ensureRecoverySession } from './resetPassword/recoverySession'
 
 // パスワードリセット中フラグ（AuthContextがロールを更新しないようにするため）
 // sessionStorageを使用（XSS対策としてグローバル変数より安全）
@@ -59,6 +60,14 @@ export function ResetPassword() {
         const accessToken = extractParam('access_token')
         const refreshToken = extractParam('refresh_token')
         const type = extractParam('type')
+        // 使用済み・期限切れのリンクは、認証サーバーが error_code を付けて戻す（例: otp_expired）
+        const linkErrorCode = extractParam('error_code')
+        if (linkErrorCode && !accessToken) {
+          logger.warn('リセットリンクのエラー:', linkErrorCode)
+          setError('リセットリンクの有効期限が切れているか、すでに使われています。もう一度パスワードリセットを申請してください。')
+          setIsCheckingSession(false)
+          return
+        }
 
         logger.log('🔧 ResetPassword: URL解析 v3', {
           hasAccessToken: !!accessToken,
@@ -137,58 +146,9 @@ export function ResetPassword() {
     sessionStorage.setItem(PASSWORD_RESET_FLAG_KEY, 'true')
     
     try {
-      // 1. トークンがある場合は、既存セッションを無視して強制的にセッションを再確立する
-      // これにより、recoveryモードでの正しいセッション状態にする
-      if (tokens.accessToken && tokens.refreshToken) {
-        logger.log('🔒 リカバリートークンでセッションを確立中...')
-        
-        // Safari/iOS対応: 既存のセッションをクリアしてから新しいセッションを設定
-        // Safariではセッションの上書きが正常に機能しない場合があるため
-        try {
-          await supabase.auth.signOut({ scope: 'local' }) // ローカルのみクリア
-        } catch (signOutError) {
-          // サインアウトに失敗しても続行
-          logger.warn('SignOut before setSession failed:', signOutError)
-        }
-
-        const { data, error: sessionError } = await supabase.auth.setSession({
-          access_token: tokens.accessToken,
-          refresh_token: tokens.refreshToken,
-        })
-
-        if (sessionError) {
-          logger.error('Session establishment failed:', sessionError)
-          // より詳細なエラーメッセージを提供
-          if (sessionError.message?.includes('expired')) {
-            throw new Error('リセットリンクの有効期限が切れています。もう一度パスワードリセットを申請してください。')
-          }
-          if (sessionError.message?.includes('Invalid')) {
-            throw new Error('無効なリセットリンクです。メールのリンクをもう一度クリックするか、再申請してください。')
-          }
-          throw new Error('セッションの確立に失敗しました。ブラウザを再読み込みしてもう一度お試しください。')
-        }
-        
-        logger.log('✅ セッション確立成功:', data.session ? 'Session Active' : 'No Session Data')
-        
-        // セッションが確立されたか検証
-        if (!data?.session) {
-          // 明示的にセッションを取得して再確認
-          const { data: sessionData, error: getSessionError } = await supabase.auth.getSession()
-          if (getSessionError || !sessionData?.session) {
-            throw new Error('セッションの確立に失敗しました。ブラウザを再読み込みしてもう一度お試しください。')
-          }
-          logger.log('✅ getSession で確認:', sessionData.session ? 'Session Active' : 'No Session')
-        }
-        
-        // セッション確立後、少し待機して内部状態を安定させる（Safari対応で長めに）
-        await new Promise(resolve => setTimeout(resolve, 1000))
-      }
-
-      // 2. パスワードを更新する前にセッションを再確認
-      const { data: currentSession } = await supabase.auth.getSession()
-      if (!currentSession?.session) {
-        throw new Error('セッションが無効です。もう一度パスワードリセットを申請してください。')
-      }
+      // 1. リンクで作られたログインを使う（ログアウトはしない。src/pages/resetPassword/recoverySession.ts）
+      const sessionResult = await ensureRecoverySession(supabase.auth, tokens)
+      if (!sessionResult.ok) throw new Error(sessionResult.message)
       
       logger.log('🔑 パスワード更新リクエスト送信...')
       const { data: updateData, error } = await supabase.auth.updateUser({
