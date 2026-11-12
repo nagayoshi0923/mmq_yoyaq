@@ -67,6 +67,14 @@ describe('検証環境から外部へ送らない守り（#1281）', () => {
     if (decision.action === 'block') expect(blockedResponseBody(decision)).toMatchObject({ id: '0', code: 'staging-blocked' })
   })
 
+  it('止めた作成で返した仮の ID（0）への後続の読み取りも本物へ送らない', () => {
+    const decision = decideOutbound({ url: 'https://discord.com/api/v10/channels/0', method: 'GET' }, staging)
+    expect(decision).toMatchObject({ action: 'block', reason: 'staging_placeholder_id' })
+    if (decision.action === 'block') expect(blockedResponseBody(decision)).toMatchObject({ permission_overwrites: [] })
+    expect(decideOutbound({ url: 'https://discord.com/api/v10/channels/0', method: 'GET' }, production)).toEqual({ action: 'allow' })
+    expect(decideOutbound({ url: 'https://discord.com/api/v10/channels/123456789012345678', method: 'GET' }, staging)).toEqual({ action: 'allow' })
+  })
+
   it('X への投稿も止める', () => {
     expect(decideOutbound({ url: 'https://api.twitter.com/2/tweets', method: 'POST', body: '{}' }, staging).action).toBe('block')
   })

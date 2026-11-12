@@ -108,8 +108,12 @@ export function decideOutbound(
   }
 
   if (DISCORD_HOSTS.has(host)) {
-    if (method === 'GET' || method === 'HEAD') return { action: 'allow' }
     const path = parsed.pathname
+    // 止めた作成で返した仮の ID（0）への後続の操作は、読み取りも含めて本物へ送らず仮の応答を返す
+    if (/\/(channels|guilds|roles|messages|webhooks|invites)\/0(\/|$)/.test(path)) {
+      return { action: 'block', channel: 'discord', reason: 'staging_placeholder_id' }
+    }
+    if (method === 'GET' || method === 'HEAD') return { action: 'allow' }
     if (/\/interactions\/\d+\/[^/]+\/callback/.test(path)) return { action: 'allow' }
     if (path.endsWith('/oauth2/token')) return { action: 'allow' }
     // ボタン操作への返信（/webhooks/{アプリID}/{interaction token}/...）。interaction token は
@@ -140,7 +144,7 @@ export function blockedResponseBody(decision: Extract<OutboundDecision, { action
   if (decision.channel === 'x') return { data: { id, text: '' } }
   if (decision.channel === 'discord') {
     // チャンネル・ロール・招待・メッセージの作成で呼び出し側が読む項目をそろえる（招待は code が必須）
-    return { id: '0', code: 'staging-blocked', channel_id: '0', name: 'staging-blocked', type: 0, content: '' }
+    return { id: '0', code: 'staging-blocked', channel_id: '0', name: 'staging-blocked', type: 0, content: '', permission_overwrites: [] }
   }
   return { id }
 }
