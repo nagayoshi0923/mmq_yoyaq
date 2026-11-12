@@ -51,6 +51,11 @@ export function useAutoDraft({ organizationId, slotTimes }: UseAutoDraftOptions)
    * サーバーが同じ要求を 1 回だけ作る（二重に作らない）。
    */
   const requestIds = useRef(new Map<string, string>())
+  /**
+   * 作成されたか分からなかった枠と、そのとき送った作品。照合が済むまで作品は変えられない
+   * （別の作品で新しい要求を送ると、作成済みだった場合に同じ枠へ二重に作ってしまう）。
+   */
+  const [pendingScenarioByKey, setPendingScenarioByKey] = useState<Record<string, string>>({})
 
   const loadRules = useCallback(async () => {
     if (!organizationId) return
@@ -157,6 +162,7 @@ export function useAutoDraft({ organizationId, slotTimes }: UseAutoDraftOptions)
       for (const { proposal, scenario, storeName } of items) {
         const requestKey = `${proposal.key}|${scenario.scenario_master_id}`
         const requestId = requestIds.current.get(requestKey) ?? crypto.randomUUID()
+        const endTime = resolveEndTime(proposal.start_time, proposal.slot_end_time, scenario, proposal.is_weekend)
         requestIds.current.set(requestKey, requestId)
         try {
           await scheduleApi.create({
@@ -168,7 +174,7 @@ export function useAutoDraft({ organizationId, slotTimes }: UseAutoDraftOptions)
             organization_scenario_id: scenario.organization_scenario_id,
             category: 'open',
             start_time: proposal.start_time,
-            end_time: resolveEndTime(proposal.start_time, proposal.slot_end_time, scenario, proposal.is_weekend),
+            end_time: endTime,
             capacity: scenario.max_participants,
             gms: [],
             gm_roles: {},
@@ -180,9 +186,24 @@ export function useAutoDraft({ organizationId, slotTimes }: UseAutoDraftOptions)
           })
           created += 1
           requestIds.current.delete(requestKey)
+          setPendingScenarioByKey(prev => {
+            if (!(proposal.key in prev)) return prev
+            const { [proposal.key]: _done, ...rest } = prev
+            return rest
+          })
+          // 作れた公演も、残りの案を登録し直すときの確かめ直しに含める
+          setExistingEvents(prev => [...prev, {
+            date: proposal.date,
+            store_id: proposal.store_id,
+            time_slot: timeSlotEnToSchedule(proposal.time_slot),
+            start_time: proposal.start_time,
+            end_time: endTime,
+            scenario_master_id: scenario.scenario_master_id,
+          }])
         } catch (e) {
           const unknown = !(e instanceof ApiClientError) || e.status >= 502 || e.body?.outcome === 'unknown'
           if (e instanceof ApiClientError && e.body?.outcome === 'cancelled') requestIds.current.delete(requestKey)
+          if (unknown) setPendingScenarioByKey(prev => ({ ...prev, [proposal.key]: scenario.scenario_master_id }))
           const message = e instanceof Error ? e.message : String(e)
           failed.push({
             key: proposal.key,
@@ -204,6 +225,7 @@ export function useAutoDraft({ organizationId, slotTimes }: UseAutoDraftOptions)
     proposals,
     setProposals,
     existingEvents,
+    pendingScenarioByKey,
     generate,
     isGenerating,
     createDrafts,

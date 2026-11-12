@@ -151,7 +151,7 @@ export function AutoDraftModal({ open, onClose, organizationId, stores, canEditR
   }
 
   const scenarioFor = (p: DraftProposal): DraftScenario | null => {
-    const id = chosenScenario[p.key]
+    const id = draft.pendingScenarioByKey[p.key] ?? chosenScenario[p.key]
     if (!id || id === NO_SCENARIO) return null
     return [p.scenario, ...p.alternatives].find(s => s?.scenario_master_id === id) ?? null
   }
@@ -300,7 +300,11 @@ export function AutoDraftModal({ open, onClose, organizationId, stores, canEditR
                     })()}
                   </span>
                   {options.length > 0 ? (
-                    <Select value={chosenScenario[p.key] ?? NO_SCENARIO} onValueChange={v => setChosenScenario(prev => ({ ...prev, [p.key]: v }))}>
+                    <Select
+                      value={draft.pendingScenarioByKey[p.key] ?? chosenScenario[p.key] ?? NO_SCENARIO}
+                      onValueChange={v => setChosenScenario(prev => ({ ...prev, [p.key]: v }))}
+                      disabled={p.key in draft.pendingScenarioByKey}
+                    >
                       <SelectTrigger className="w-72"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {options.map(s => <SelectItem key={s.scenario_master_id} value={s.scenario_master_id}>{s.title}</SelectItem>)}
@@ -313,6 +317,9 @@ export function AutoDraftModal({ open, onClose, organizationId, stores, canEditR
                   <div className="flex flex-wrap gap-1">
                     {p.reasons.map(r => <Badge key={r} variant="outline">{r}</Badge>)}
                   </div>
+                  {p.key in draft.pendingScenarioByKey && (
+                    <p className="w-full text-muted-foreground">前回の登録が作成されたか確認できていないため、作品は変えられません。もう一度登録すると、作成済みなら二重には作りません</p>
+                  )}
                   {conflicts.has(p.key) && (
                     <p className="w-full text-destructive">登録できません：{conflicts.get(p.key)}。別の作品を選ぶか「入れない」にしてください</p>
                   )}

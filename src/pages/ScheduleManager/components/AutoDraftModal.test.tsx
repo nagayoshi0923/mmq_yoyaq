@@ -35,15 +35,15 @@ vi.mock('@/utils/toast', () => ({ showToast: { success: vi.fn(), error: vi.fn() 
 vi.mock('@/components/ui/select', async () => {
   // 画面の選択肢をテストから選べるよう、ふつうの select に置き換える
   const React = await import('react')
-  type Props = { value?: string; onValueChange?: (v: string) => void; children?: React.ReactNode }
+  type Props = { value?: string; onValueChange?: (v: string) => void; disabled?: boolean; children?: React.ReactNode }
   const Ctx = React.createContext<Props>({})
   return {
-    Select: ({ value, onValueChange, children }: Props) => React.createElement(Ctx.Provider, { value: { value, onValueChange } }, children),
+    Select: ({ value, onValueChange, disabled, children }: Props) => React.createElement(Ctx.Provider, { value: { value, onValueChange, disabled } }, children),
     SelectTrigger: () => null,
     SelectValue: () => null,
     SelectContent: ({ children }: Props) => {
       const ctx = React.useContext(Ctx)
-      return React.createElement('select', { 'data-testid': 'select', value: ctx.value, onChange: (e: { target: { value: string } }) => ctx.onValueChange?.(e.target.value) }, children)
+      return React.createElement('select', { 'data-testid': 'select', value: ctx.value, disabled: ctx.disabled, onChange: (e: { target: { value: string } }) => ctx.onValueChange?.(e.target.value) }, children)
     },
     SelectItem: ({ value, children }: Props) => React.createElement('option', { value }, children),
   }
@@ -271,4 +271,48 @@ it('入れ替えた作品の登録に失敗しても、登録し直すときは�
   expect(registerButton().textContent).toBe('選んだ1件を下書きとして登録')
   await act(async () => { registerButton().click(); await flush() })
   expect(mock.create.mock.calls.at(-1)![0]).toMatchObject({ date: '2026-12-04', scenario_master_id: 'master-b', end_time: '22:30' })
+})
+
+it('作成されたか分からなかった枠は、作品を変えられないようにする', async () => {
+  mock.getData.mockResolvedValue({
+    rules: fridayEvening,
+    scenarios: [scenarioRow('master-a', '検証作品A', 150), scenarioRow('master-b', '検証作品B', 210)],
+    main_gm_counts: { 'master-a': 2, 'master-b': 2 },
+    nearby_events: [], demand_events: [], blocked_slots: [],
+  })
+  mock.create.mockReset()
+  mock.create.mockImplementation(async (e: { date: string }) => {
+    if (e.date === '2026-12-04') throw new Error('network')
+    return { id: 'new-event' }
+  })
+  await render()
+  await act(async () => { button('下書き案を作る')!.click(); await flush() })
+  await act(async () => { registerButton().click(); await flush() })
+  const select = document.querySelectorAll('select')[2] as HTMLSelectElement
+  expect(select.disabled).toBe(true)
+  expect(document.body.textContent).toContain('作品は変えられません')
+})
+
+it('一部だけ登録できたとき、登録できた公演も残りの案の確かめ直しに含める', async () => {
+  mock.getData.mockResolvedValue({
+    rules: [{ store_id: OKUBO, weekday: 5, time_slot: 'evening', is_open: true }, { store_id: OKUBO, weekday: 6, time_slot: 'evening', is_open: true }],
+    scenarios: [scenarioRow('master-a', '検証作品A', 150), scenarioRow('master-b', '検証作品B', 150)],
+    main_gm_counts: { 'master-a': 2, 'master-b': 2 },
+    nearby_events: [], demand_events: [], blocked_slots: [],
+  })
+  mock.create.mockReset()
+  mock.create.mockResolvedValue({ id: 'new-event' })
+  await render()
+  await act(async () => { button('下書き案を作る')!.click(); await flush() })
+  const secondScenario = ([...document.querySelectorAll('select')][3] as HTMLSelectElement).value
+  // 12/4 だけ「作成されなかった」と分かる失敗にする（作品を変えられるよう、ApiClientError の 400 を使う）
+  const { ApiClientError } = await import('@/lib/apiClient')
+  mock.create.mockImplementation(async (e: { date: string }) => {
+    if (e.date === '2026-12-04') throw new (ApiClientError as unknown as new (s: number, m: string) => Error)(400, '入力が正しくありません')
+    return { id: 'new-event' }
+  })
+  await act(async () => { registerButton().click(); await flush() })
+  // 残った 12/4 の案を、登録できた 12/5 と同じ作品に変えると止まる
+  await chooseScenario(0, secondScenario)
+  expect(document.body.textContent).toContain('同じ店舗で7日以内に同じ作品があります')
 })

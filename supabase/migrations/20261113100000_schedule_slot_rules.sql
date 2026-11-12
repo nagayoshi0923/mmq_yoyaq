@@ -2,7 +2,7 @@
 -- 公演スケジュールの下書き自動作成で、作品を入れる枠を決めるのに使う。
 -- weekday: 0=日 1=月 … 6=土 7=祝日（祝日の行が無ければ、その日の曜日の行を使う）。
 -- 行が無い枠は「未設定」＝下書きを作らない。
--- 閲覧は同じ組織のスタッフ、書き込みは同じ組織の管理者のみ（店舗の募集停止と同じ決まり）。
+-- 閲覧は同じ組織のスタッフ、書き込みは同じ組織の管理者のみ（license_admin は含めない。is_org_admin()）。
 
 CREATE TABLE IF NOT EXISTS public.schedule_slot_rules (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -36,20 +36,20 @@ CREATE POLICY schedule_slot_rules_select_staff ON public.schedule_slot_rules
 CREATE POLICY schedule_slot_rules_insert_admin ON public.schedule_slot_rules
   FOR INSERT TO authenticated
   WITH CHECK (
-    public.is_admin()
+    public.is_org_admin()
     AND organization_id = public.get_user_organization_id()
     AND store_id IN (SELECT s.id FROM public.stores s WHERE s.organization_id = public.get_user_organization_id())
   );
 
 CREATE POLICY schedule_slot_rules_update_admin ON public.schedule_slot_rules
   FOR UPDATE TO authenticated
-  USING (public.is_admin() AND organization_id = public.get_user_organization_id())
+  USING (public.is_org_admin() AND organization_id = public.get_user_organization_id())
   WITH CHECK (
-    public.is_admin()
+    public.is_org_admin()
     AND organization_id = public.get_user_organization_id()
     AND store_id IN (SELECT s.id FROM public.stores s WHERE s.organization_id = public.get_user_organization_id())
   );
 
 CREATE POLICY schedule_slot_rules_delete_admin ON public.schedule_slot_rules
   FOR DELETE TO authenticated
-  USING (public.is_admin() AND organization_id = public.get_user_organization_id());
+  USING (public.is_org_admin() AND organization_id = public.get_user_organization_id());

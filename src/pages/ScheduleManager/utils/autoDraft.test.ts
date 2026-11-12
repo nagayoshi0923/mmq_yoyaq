@@ -248,3 +248,18 @@ describe('登録前の確かめ直し', () => {
     ]).get(`2026-12-04|${OKUBO}|evening`)).toContain('時間が重なります')
   })
 })
+
+describe('日付をまたぐ公演', () => {
+  it('終了時刻は翌日の時刻になり、23:59 に切り詰めない', () => {
+    expect(resolveEndTime('19:00', '23:00', scenario('long', { duration_minutes: 360 }), false)).toBe('01:00')
+  })
+
+  it('夜の公演が翌日にかかっても、同じ日の重なりの判定では夜のうちの重なりとして扱う', () => {
+    const conflicts = findSelectionConflicts([
+      { proposal: { key: 'k', date: '2026-12-04', store_id: OKUBO, time_slot: 'evening', start_time: '21:00', end_time: '23:00', slot_end_time: '23:00', is_weekend: false, scenario: null, alternatives: [], reasons: [] }, scenario: scenario('c', { duration_minutes: 120 }) },
+    ], [
+      { date: '2026-12-04', store_id: OKUBO, time_slot: '夜', start_time: '19:00', end_time: '01:00', scenario_master_id: 'x' },
+    ])
+    expect(conflicts.get('k')).toContain('時間が重なります')
+  })
+})

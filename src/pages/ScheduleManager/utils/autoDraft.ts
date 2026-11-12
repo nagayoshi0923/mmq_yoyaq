@@ -131,12 +131,13 @@ function toMinutes(time: string): number {
   return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0)
 }
 
+/** 分を時刻にする。24 時を過ぎたら翌日の時刻（例: 25:00 → 01:00）。重なりの判定では終了が開始より前なら翌日として扱う */
 function fromMinutes(total: number): string {
-  const clamped = Math.max(0, Math.min(total, 24 * 60 - 1))
-  return `${String(Math.floor(clamped / 60)).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`
+  const wrapped = ((Math.round(total) % 1440) + 1440) % 1440
+  return `${String(Math.floor(wrapped / 60)).padStart(2, '0')}:${String(wrapped % 60).padStart(2, '0')}`
 }
 
-/** 作品の公演時間から終了時刻を出す（公演時間が分からなければ時間帯の既定） */
+/** 作品の公演時間から終了時刻を出す（公演時間が分からなければ時間帯の既定）。日付をまたぐときは翌日の時刻 */
 export function resolveEndTime(startTime: string, slotEnd: string, scenario: DraftScenario | null, weekend: boolean): string {
   const minutes = scenario ? (weekend && scenario.weekend_duration_minutes ? scenario.weekend_duration_minutes : scenario.duration_minutes) : 0
   if (!minutes || minutes <= 0) return slotEnd
@@ -220,7 +221,7 @@ export function rankScenariosForSlot(
     if (timing) {
       const startMin = toMinutes(timing.start_time)
       const endMin = toMinutes(resolveEndTime(timing.start_time, timing.slot_end_time, scenario, timing.weekend))
-      if (overlapsAny(date, storeId, startMin, endMin > startMin ? endMin : startMin + 1, placements)) continue
+      if (overlapsAny(date, storeId, startMin, endMin > startMin ? endMin : endMin + 24 * 60, placements)) continue
     }
     const score = scenario.demand_score + (scenario.is_new ? 0.5 : 0) - 0.3 * (monthCounts.get(scenario.scenario_master_id) ?? 0)
     ranked.push({ scenario, score })

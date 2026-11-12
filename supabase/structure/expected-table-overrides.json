@@ -4914,13 +4914,13 @@
     "roles": [
      "authenticated"
     ],
-    "using": "(is_admin() AND (organization_id = get_user_organization_id()))",
+    "using": "(is_org_admin() AND (organization_id = get_user_organization_id()))",
     "permissive": true
    },
    {
     "cmd": "a",
     "name": "schedule_slot_rules_insert_admin",
-    "check": "(is_admin() AND (organization_id = get_user_organization_id()) AND (store_id IN ( SELECT s.id\n   FROM stores s\n  WHERE (s.organization_id = get_user_organization_id()))))",
+    "check": "(is_org_admin() AND (organization_id = get_user_organization_id()) AND (store_id IN ( SELECT s.id\n   FROM stores s\n  WHERE (s.organization_id = get_user_organization_id()))))",
     "roles": [
      "authenticated"
     ],
@@ -4940,11 +4940,11 @@
    {
     "cmd": "w",
     "name": "schedule_slot_rules_update_admin",
-    "check": "(is_admin() AND (organization_id = get_user_organization_id()) AND (store_id IN ( SELECT s.id\n   FROM stores s\n  WHERE (s.organization_id = get_user_organization_id()))))",
+    "check": "(is_org_admin() AND (organization_id = get_user_organization_id()) AND (store_id IN ( SELECT s.id\n   FROM stores s\n  WHERE (s.organization_id = get_user_organization_id()))))",
     "roles": [
      "authenticated"
     ],
-    "using": "(is_admin() AND (organization_id = get_user_organization_id()))",
+    "using": "(is_org_admin() AND (organization_id = get_user_organization_id()))",
     "permissive": true
    }
   ],
