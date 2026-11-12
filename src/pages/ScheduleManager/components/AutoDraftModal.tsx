@@ -19,7 +19,7 @@ import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { formatJstMonthDay, getJstWeekdayIndex } from '@/utils/jstDate'
 import { timeSlotEnToLabel, type TimeSlotEn } from '@/lib/timeSlot'
 import { useAutoDraft, type AutoDraftStore } from '../hooks/useAutoDraft'
-import { AUTO_DRAFT_SLOTS, HOLIDAY_WEEKDAY, type DraftProposal, type DraftScenario } from '../utils/autoDraft'
+import { AUTO_DRAFT_SLOTS, HOLIDAY_WEEKDAY, findSelectionConflicts, resolveEndTime, type DraftProposal, type DraftScenario } from '../utils/autoDraft'
 
 const WEEKDAY_COLUMNS: Array<{ value: number; label: string }> = [
   { value: 1, label: '月' },
@@ -73,9 +73,13 @@ function monthOptions(year: number, month: number) {
 }
 
 export function AutoDraftModal({ open, onClose, organizationId, stores, canEditRules, defaultYear, defaultMonth, onCreated }: AutoDraftModalProps) {
-  const { getSlotDefaults } = useTimeSlotSettings()
+  const { settings: timeSlotSettings } = useTimeSlotSettings()
   const { customHolidays } = useCustomHolidays()
-  const slotTimes = useCallback((date: string, slot: TimeSlotEn) => getSlotDefaults(date, slot), [getSlotDefaults])
+  // 土日祝の判定は下書き生成と同じもの（独自休日と祝日）を使う
+  const slotTimes = useCallback(
+    (_date: string, slot: TimeSlotEn, holiday: boolean) => (holiday ? timeSlotSettings.holiday : timeSlotSettings.weekday)[slot],
+    [timeSlotSettings],
+  )
   const draft = useAutoDraft({ organizationId, slotTimes })
   const { loadRules } = draft
 
@@ -146,10 +150,13 @@ export function AutoDraftModal({ open, onClose, organizationId, stores, canEditR
     return [p.scenario, ...p.alternatives].find(s => s?.scenario_master_id === id) ?? null
   }
 
-  const createTargets = draft.proposals
+  const selectedTargets = draft.proposals
     .filter(p => selectedKeys.has(p.key))
     .map(p => ({ proposal: p, scenario: scenarioFor(p) }))
     .filter((t): t is { proposal: DraftProposal; scenario: DraftScenario } => t.scenario !== null)
+  // 作品を入れ替えると、案どうしの間隔・キット数・時間の重なりが崩れることがあるので、登録前に確かめ直す
+  const conflicts = findSelectionConflicts(selectedTargets, draft.existingEvents)
+  const createTargets = selectedTargets.filter(t => !conflicts.has(t.proposal.key))
 
   const handleCreate = async () => {
     if (createTargets.length === 0) return
@@ -278,7 +285,12 @@ export function AutoDraftModal({ open, onClose, organizationId, stores, canEditR
                     aria-label={`${p.date} ${timeSlotEnToLabel(p.time_slot)} を登録する`}
                   />
                   <span className="w-28">{formatJstMonthDay(p.date)}（{weekday}）</span>
-                  <span className="w-24">{timeSlotEnToLabel(p.time_slot)} {p.start_time}</span>
+                  <span className="w-32">
+                    {timeSlotEnToLabel(p.time_slot)} {p.start_time}〜{(() => {
+                      const s = scenarioFor(p)
+                      return s ? resolveEndTime(p.start_time, p.slot_end_time, s, p.is_weekend) : ''
+                    })()}
+                  </span>
                   {options.length > 0 ? (
                     <Select value={chosenScenario[p.key] ?? NO_SCENARIO} onValueChange={v => setChosenScenario(prev => ({ ...prev, [p.key]: v }))}>
                       <SelectTrigger className="w-72"><SelectValue /></SelectTrigger>
@@ -293,6 +305,9 @@ export function AutoDraftModal({ open, onClose, organizationId, stores, canEditR
                   <div className="flex flex-wrap gap-1">
                     {p.reasons.map(r => <Badge key={r} variant="outline">{r}</Badge>)}
                   </div>
+                  {conflicts.has(p.key) && (
+                    <p className="w-full text-destructive">登録できません：{conflicts.get(p.key)}。別の作品を選ぶか「入れない」にしてください</p>
+                  )}
                 </div>
               )
             })}

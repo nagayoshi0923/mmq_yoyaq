@@ -53,6 +53,8 @@ export interface ExistingEvent {
   store_id: string
   time_slot: string | null
   start_time: string | null
+  /** 分かれば実時間の重なりを確かめる */
+  end_time?: string | null
   scenario_master_id: string | null
 }
 
@@ -69,6 +71,10 @@ export interface DraftProposal {
   time_slot: TimeSlotEn
   start_time: string
   end_time: string
+  /** 時間帯の既定の終了時刻（作品を入れ替えたときに終了時刻を出し直すのに使う） */
+  slot_end_time: string
+  /** 土日祝か（土日祝の公演時間を使う） */
+  is_weekend: boolean
   /** 当てた作品。条件に合う作品が無ければ null */
   scenario: DraftScenario | null
   /** 入れ替え候補（点数の高い順、当てた作品は含まない） */
@@ -88,8 +94,8 @@ export interface GenerateDraftInput {
   existingEvents: ExistingEvent[]
   blockedSlots: BlockedSlot[]
   scenarios: DraftScenario[]
-  /** 日付・時間帯ごとの開始・終了の既定（公演時間帯設定） */
-  slotTimes: (date: string, slot: TimeSlotEn) => { start_time: string; end_time: string }
+  /** 日付・時間帯ごとの開始・終了の既定（公演時間帯設定）。holiday は土日祝か（holidays と同じ判定） */
+  slotTimes: (date: string, slot: TimeSlotEn, holiday: boolean) => { start_time: string; end_time: string }
   /** 入れ替え候補として返す最大件数 */
   alternativeCount?: number
 }
@@ -150,7 +156,31 @@ function storeAllowed(storeId: string, scenario: DraftScenario): boolean {
 interface Placement {
   date: string
   store_id: string
-  scenario_master_id: string
+  scenario_master_id: string | null
+  /** 開始・終了（分）。分からなければ null（時間帯の重なりだけで見る） */
+  start_min: number | null
+  end_min: number | null
+}
+
+/** 案の枠の開始時刻と、終了時刻を出すための情報 */
+export interface SlotTiming {
+  start_time: string
+  slot_end_time: string
+  weekend: boolean
+}
+
+function overlapsAny(date: string, storeId: string, startMin: number, endMin: number, placements: Placement[]): boolean {
+  return placements.some(p =>
+    p.date === date && p.store_id === storeId && p.start_min !== null && p.end_min !== null &&
+    startMin < p.end_min && p.start_min < endMin,
+  )
+}
+
+function placementOf(date: string, storeId: string, scenarioId: string | null, start: string | null | undefined, end: string | null | undefined): Placement {
+  const startMin = start ? toMinutes(start) : null
+  let endMin = end ? toMinutes(end) : null
+  if (startMin !== null && endMin !== null && endMin <= startMin) endMin += 24 * 60
+  return { date, store_id: storeId, scenario_master_id: scenarioId, start_min: startMin, end_min: startMin !== null ? endMin : null }
 }
 
 function daysBetween(a: string, b: string): number {
@@ -159,7 +189,8 @@ function daysBetween(a: string, b: string): number {
 
 /**
  * 1 つの枠について、条件に合う作品を点数の高い順に並べる。
- * 条件（外せない）: メインGMがいる・その店舗で公演できる・公演期間内・同じ日のキット数を超えない・同じ店舗で 7 日以内に同じ作品がない。
+ * 条件（外せない）: メインGMがいる・その店舗で公演できる・公演期間内・同じ日のキット数を超えない・同じ店舗で 7 日以内に同じ作品がない・
+ * （timing があれば）同じ店舗の別の公演と実際の時間が重ならない。
  * 点数: 予約の入りやすさ ＋ 新作 − その月に入れた回数。
  */
 export function rankScenariosForSlot(
@@ -168,10 +199,11 @@ export function rankScenariosForSlot(
   scenarios: DraftScenario[],
   placements: Placement[],
   monthCounts: ReadonlyMap<string, number>,
+  timing?: SlotTiming,
 ): Array<{ scenario: DraftScenario; score: number }> {
   const sameDateCounts = new Map<string, number>()
   for (const p of placements) {
-    if (p.date === date) sameDateCounts.set(p.scenario_master_id, (sameDateCounts.get(p.scenario_master_id) ?? 0) + 1)
+    if (p.date === date && p.scenario_master_id) sameDateCounts.set(p.scenario_master_id, (sameDateCounts.get(p.scenario_master_id) ?? 0) + 1)
   }
   const ranked: Array<{ scenario: DraftScenario; score: number }> = []
   for (const scenario of scenarios) {
@@ -185,6 +217,11 @@ export function rankScenariosForSlot(
       Math.abs(daysBetween(p.date, date)) < SAME_STORE_GAP_DAYS,
     )
     if (tooClose) continue
+    if (timing) {
+      const startMin = toMinutes(timing.start_time)
+      const endMin = toMinutes(resolveEndTime(timing.start_time, timing.slot_end_time, scenario, timing.weekend))
+      if (overlapsAny(date, storeId, startMin, endMin > startMin ? endMin : startMin + 1, placements)) continue
+    }
     const score = scenario.demand_score + (scenario.is_new ? 0.5 : 0) - 0.3 * (monthCounts.get(scenario.scenario_master_id) ?? 0)
     ranked.push({ scenario, score })
   }
@@ -213,9 +250,9 @@ export function generateDraftProposals(input: GenerateDraftInput): DraftProposal
 
   for (const e of input.existingEvents) {
     occupied.add(`${e.date}|${e.store_id}|${eventSlot(e)}`)
-    if (e.scenario_master_id) {
-      placements.push({ date: e.date, store_id: e.store_id, scenario_master_id: e.scenario_master_id })
-      if (monthDates.has(e.date)) monthCounts.set(e.scenario_master_id, (monthCounts.get(e.scenario_master_id) ?? 0) + 1)
+    placements.push(placementOf(e.date, e.store_id, e.scenario_master_id, e.start_time, e.end_time))
+    if (e.scenario_master_id && monthDates.has(e.date)) {
+      monthCounts.set(e.scenario_master_id, (monthCounts.get(e.scenario_master_id) ?? 0) + 1)
     }
   }
   for (const b of input.blockedSlots) occupied.add(`${b.date}|${b.store_id}|${b.time_slot}`)
@@ -229,11 +266,13 @@ export function generateDraftProposals(input: GenerateDraftInput): DraftProposal
         if (occupied.has(key)) continue
         if (!isOpenSlot(date, storeId, slot, input.rules, input.holidays)) continue
 
-        const ranked = rankScenariosForSlot(date, storeId, input.scenarios, placements, monthCounts)
+        const times = input.slotTimes(date, slot, weekend)
+        const timing: SlotTiming = { start_time: times.start_time, slot_end_time: times.end_time, weekend }
+        const ranked = rankScenariosForSlot(date, storeId, input.scenarios, placements, monthCounts, timing)
         const chosen = ranked[0]?.scenario ?? null
-        const times = input.slotTimes(date, slot)
+        const endTime = resolveEndTime(times.start_time, times.end_time, chosen, weekend)
         if (chosen) {
-          placements.push({ date, store_id: storeId, scenario_master_id: chosen.scenario_master_id })
+          placements.push(placementOf(date, storeId, chosen.scenario_master_id, times.start_time, endTime))
           monthCounts.set(chosen.scenario_master_id, (monthCounts.get(chosen.scenario_master_id) ?? 0) + 1)
         }
         occupied.add(key)
@@ -243,7 +282,9 @@ export function generateDraftProposals(input: GenerateDraftInput): DraftProposal
           store_id: storeId,
           time_slot: slot,
           start_time: times.start_time,
-          end_time: resolveEndTime(times.start_time, times.end_time, chosen, weekend),
+          end_time: endTime,
+          slot_end_time: times.end_time,
+          is_weekend: weekend,
           scenario: chosen,
           alternatives: ranked.slice(1, 1 + alternativeCount).map(r => r.scenario),
           reasons: chosen ? reasonsFor(chosen, (monthCounts.get(chosen.scenario_master_id) ?? 1) - 1) : ['条件に合う作品がありません'],
@@ -252,6 +293,39 @@ export function generateDraftProposals(input: GenerateDraftInput): DraftProposal
     }
   }
   return proposals
+}
+
+export interface DraftSelection {
+  proposal: DraftProposal
+  scenario: DraftScenario
+}
+
+/**
+ * 登録する直前に、選んだ案どうし・既存の公演と組み合わせて条件を確かめ直す（作品を入れ替えると崩れることがあるため）。
+ * 日付の早い順に見て、条件に合わない案の key と理由を返す。終了時刻は選んだ作品の公演時間で出し直す。
+ */
+export function findSelectionConflicts(selections: DraftSelection[], existingEvents: ExistingEvent[]): Map<string, string> {
+  const placements: Placement[] = existingEvents.map(e => placementOf(e.date, e.store_id, e.scenario_master_id, e.start_time, e.end_time))
+  const conflicts = new Map<string, string>()
+  const ordered = [...selections].sort((a, b) =>
+    a.proposal.date.localeCompare(b.proposal.date) || a.proposal.start_time.localeCompare(b.proposal.start_time) || a.proposal.key.localeCompare(b.proposal.key))
+  for (const { proposal, scenario } of ordered) {
+    const id = scenario.scenario_master_id
+    const endTime = resolveEndTime(proposal.start_time, proposal.slot_end_time, scenario, proposal.is_weekend)
+    const self = placementOf(proposal.date, proposal.store_id, id, proposal.start_time, endTime)
+    const sameDate = placements.filter(p => p.date === proposal.date && p.scenario_master_id === id).length
+    let reason: string | null = null
+    if (sameDate >= Math.max(1, scenario.kit_count)) {
+      reason = `同じ日にキットの数（${Math.max(1, scenario.kit_count)}）を超えます`
+    } else if (placements.some(p => p.store_id === proposal.store_id && p.scenario_master_id === id && Math.abs(daysBetween(p.date, proposal.date)) < SAME_STORE_GAP_DAYS)) {
+      reason = `同じ店舗で${SAME_STORE_GAP_DAYS}日以内に同じ作品があります`
+    } else if (self.start_min !== null && self.end_min !== null && overlapsAny(proposal.date, proposal.store_id, self.start_min, self.end_min, placements)) {
+      reason = '同じ店舗の別の公演と時間が重なります'
+    }
+    if (reason) conflicts.set(proposal.key, reason)
+    else placements.push(self)
+  }
+  return conflicts
 }
 
 export interface DemandEvent {

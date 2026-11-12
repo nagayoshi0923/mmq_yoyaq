@@ -2,9 +2,10 @@
  * 公演スケジュールの下書き自動作成（QW-20261113-001）の読み込み・案づくり・登録。
  * 下書きは「オープン公演・GM未定・予約受付OFF（非公開）」で作る。公開は今までどおり公演ごとに行う。
  */
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { autoDraftApi, type SlotRuleRow } from '@/lib/api/autoDraftApi'
 import { scheduleApi } from '@/lib/api/scheduleApi'
+import { ApiClientError } from '@/lib/apiClient'
 import { timeSlotEnToSchedule, type TimeSlotEn } from '@/lib/timeSlot'
 import { addJstDays, jstMonthDateRange, toJstYmd } from '@/utils/jstDate'
 import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
@@ -13,8 +14,10 @@ import {
   computeDemandScores,
   generateDraftProposals,
   monthDatesFrom,
+  resolveEndTime,
   type DraftProposal,
   type DraftScenario,
+  type ExistingEvent,
 } from '../utils/autoDraft'
 
 /** 予約の入りやすさを見る期間（日） */
@@ -26,7 +29,7 @@ export const AUTO_DRAFT_NOTE = '自動下書き（GM募集前）'
 
 interface UseAutoDraftOptions {
   organizationId: string | null | undefined
-  slotTimes: (date: string, slot: TimeSlotEn) => { start_time: string; end_time: string }
+  slotTimes: (date: string, slot: TimeSlotEn, holiday: boolean) => { start_time: string; end_time: string }
 }
 
 export interface AutoDraftStore {
@@ -41,6 +44,13 @@ export function useAutoDraft({ organizationId, slotTimes }: UseAutoDraftOptions)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** 案を作ったときの既存の公演（登録前の確かめ直しに使う） */
+  const [existingEvents, setExistingEvents] = useState<ExistingEvent[]>([])
+  /**
+   * 案（枠と作品）ごとの作成の要求 ID。作成されたか分からなかった案を登録し直すときも同じ ID で送り、
+   * サーバーが同じ要求を 1 回だけ作る（二重に作らない）。
+   */
+  const requestIds = useRef(new Map<string, string>())
 
   const loadRules = useCallback(async () => {
     if (!organizationId) return
@@ -111,14 +121,16 @@ export function useAutoDraft({ organizationId, slotTimes }: UseAutoDraftOptions)
         })
 
       const holidays = new Set<string>([...params.customHolidays, ...dates.filter(d => isJapaneseHoliday(d))])
+      const existing: ExistingEvent[] = nearbyEvents
+        .filter(e => e.store_id)
+        .map(e => ({ date: e.date, store_id: e.store_id as string, time_slot: e.time_slot, start_time: e.start_time, end_time: e.end_time, scenario_master_id: e.scenario_master_id }))
+      setExistingEvents(existing)
       setProposals(generateDraftProposals({
         dates,
         storeIds: params.storeIds,
         rules: currentRules,
         holidays,
-        existingEvents: nearbyEvents
-          .filter(e => e.store_id)
-          .map(e => ({ date: e.date, store_id: e.store_id as string, time_slot: e.time_slot, start_time: e.start_time, scenario_master_id: e.scenario_master_id })),
+        existingEvents: existing,
         blockedSlots: data.blocked_slots
           .map(b => ({ date: b.date, store_id: b.store_id, time_slot: b.time_slot as TimeSlotEn })),
         scenarios,
@@ -134,7 +146,8 @@ export function useAutoDraft({ organizationId, slotTimes }: UseAutoDraftOptions)
 
   /**
    * 選んだ下書き案を公演として登録する（オープン・GM未定・予約受付OFF）。
-   * 1 件ずつ作り、失敗した枠は理由を返す（ほかの枠は続ける）。
+   * 1 件ずつ作り、失敗した枠は理由を返す（ほかの枠は続ける）。終了時刻は選んだ作品の公演時間で出し直す。
+   * 作成されたか分からなかった枠は、次に登録するとき同じ要求 ID で送り直す（作成済みなら二重に作らない）。
    */
   const createDrafts = useCallback(async (items: Array<{ proposal: DraftProposal; scenario: DraftScenario; storeName: string }>) => {
     setIsCreating(true)
@@ -142,6 +155,9 @@ export function useAutoDraft({ organizationId, slotTimes }: UseAutoDraftOptions)
     let created = 0
     try {
       for (const { proposal, scenario, storeName } of items) {
+        const requestKey = `${proposal.key}|${scenario.scenario_master_id}`
+        const requestId = requestIds.current.get(requestKey) ?? crypto.randomUUID()
+        requestIds.current.set(requestKey, requestId)
         try {
           await scheduleApi.create({
             date: proposal.date,
@@ -152,19 +168,26 @@ export function useAutoDraft({ organizationId, slotTimes }: UseAutoDraftOptions)
             organization_scenario_id: scenario.organization_scenario_id,
             category: 'open',
             start_time: proposal.start_time,
-            end_time: proposal.end_time,
+            end_time: resolveEndTime(proposal.start_time, proposal.slot_end_time, scenario, proposal.is_weekend),
             capacity: scenario.max_participants,
             gms: [],
             gm_roles: {},
             staff_assignment: { gms: [], gm_roles: {}, entries: [] },
-            client_request_id: crypto.randomUUID(),
+            client_request_id: requestId,
             notes: AUTO_DRAFT_NOTE,
             time_slot: timeSlotEnToSchedule(proposal.time_slot),
             is_reservation_enabled: false,
           })
           created += 1
+          requestIds.current.delete(requestKey)
         } catch (e) {
-          failed.push({ key: proposal.key, message: e instanceof Error ? e.message : String(e) })
+          const unknown = !(e instanceof ApiClientError) || e.status >= 502 || e.body?.outcome === 'unknown'
+          if (e instanceof ApiClientError && e.body?.outcome === 'cancelled') requestIds.current.delete(requestKey)
+          const message = e instanceof Error ? e.message : String(e)
+          failed.push({
+            key: proposal.key,
+            message: unknown ? `作成されたか確認できませんでした（もう一度登録しても二重には作りません）：${message}` : message,
+          })
         }
       }
     } finally {
@@ -180,6 +203,7 @@ export function useAutoDraft({ organizationId, slotTimes }: UseAutoDraftOptions)
     saveStoreRules,
     proposals,
     setProposals,
+    existingEvents,
     generate,
     isGenerating,
     createDrafts,

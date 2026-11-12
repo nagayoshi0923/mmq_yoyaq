@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   computeDemandScores,
+  findSelectionConflicts,
   generateDraftProposals,
   isOpenSlot,
   monthDatesFrom,
   resolveEndTime,
+  type DraftProposal,
   type DraftScenario,
   type GenerateDraftInput,
   type SlotRule,
@@ -175,5 +177,74 @@ describe('月の日付', () => {
   it('今日より前の日は含めない', () => {
     expect(monthDatesFrom('2026-11-01', '2026-11-03', '2026-11-02')).toEqual(['2026-11-02', '2026-11-03'])
     expect(monthDatesFrom('2026-12-30', '2026-12-31', '2026-11-13')).toEqual(['2026-12-30', '2026-12-31'])
+  })
+})
+
+describe('実際の時間の重なり', () => {
+  const morningAndAfternoon: SlotRule[] = [
+    { store_id: OKUBO, weekday: 5, time_slot: 'morning', is_open: true },
+    { store_id: OKUBO, weekday: 5, time_slot: 'afternoon', is_open: true },
+  ]
+  const times = (_d: string, slot: string) => slot === 'morning'
+    ? { start_time: '10:00', end_time: '14:00' }
+    : { start_time: '14:30', end_time: '18:30' }
+
+  it('前の枠の作品が次の枠に食い込むなら、次の枠にはその時間に入らない作品を当てない', () => {
+    const proposals = generateDraftProposals(input({
+      rules: morningAndAfternoon,
+      slotTimes: times,
+      scenarios: [scenario('long', { duration_minutes: 300, demand_score: 0.9 }), scenario('short', { duration_minutes: 180, demand_score: 0.1 })],
+    }))
+    expect(proposals.map(p => [p.time_slot, p.scenario?.scenario_master_id, p.end_time])).toEqual([
+      ['morning', 'long', '15:00'],
+      ['afternoon', undefined, '18:30'],
+    ])
+  })
+
+  it('既存の公演の終了時刻とも重ならないようにする', () => {
+    const proposals = generateDraftProposals(input({
+      rules: [{ store_id: OKUBO, weekday: 5, time_slot: 'afternoon', is_open: true }],
+      slotTimes: times,
+      existingEvents: [{ date: '2026-12-04', store_id: OKUBO, time_slot: '朝', start_time: '10:00', end_time: '15:00', scenario_master_id: 'x' }],
+      scenarios: [scenario('a')],
+    }))
+    expect(proposals[0].scenario).toBeNull()
+  })
+
+  it('時間帯の設定には土日祝かどうかを渡す', () => {
+    const seen: Array<[string, boolean]> = []
+    generateDraftProposals(input({
+      dates: ['2026-12-04', '2026-12-05'],
+      rules: [{ store_id: OKUBO, weekday: 5, time_slot: 'evening', is_open: true }, { store_id: OKUBO, weekday: 6, time_slot: 'evening', is_open: true }],
+      holidays: new Set(['2026-12-04']),
+      slotTimes: (d, _s, holiday) => { seen.push([d, holiday]); return { start_time: '19:00', end_time: '23:00' } },
+    }))
+    expect(seen).toEqual([['2026-12-04', true], ['2026-12-05', true]])
+  })
+})
+
+describe('登録前の確かめ直し', () => {
+  const proposal = (date: string, patch: Partial<DraftProposal> = {}): DraftProposal => ({
+    key: `${date}|${OKUBO}|evening`, date, store_id: OKUBO, time_slot: 'evening', start_time: '19:00', end_time: '22:00',
+    slot_end_time: '23:00', is_weekend: false, scenario: null, alternatives: [], reasons: [], ...patch,
+  })
+
+  it('入れ替えで同じ店舗に 7 日以内の同じ作品ができたら、あとの日の案を止める', () => {
+    const b = scenario('b')
+    const conflicts = findSelectionConflicts([
+      { proposal: proposal('2026-12-05'), scenario: b },
+      { proposal: proposal('2026-12-04'), scenario: b },
+    ], [])
+    expect([...conflicts.keys()]).toEqual([`2026-12-05|${OKUBO}|evening`])
+  })
+
+  it('既存の公演とキット数・時間の重なりも確かめる', () => {
+    const a = scenario('a', { kit_count: 1 })
+    expect(findSelectionConflicts([{ proposal: proposal('2026-12-04'), scenario: a }], [
+      { date: '2026-12-04', store_id: BABA, time_slot: '夜', start_time: '19:00', end_time: '22:00', scenario_master_id: 'a' },
+    ]).get(`2026-12-04|${OKUBO}|evening`)).toContain('キット')
+    expect(findSelectionConflicts([{ proposal: proposal('2026-12-04'), scenario: scenario('c', { duration_minutes: 240 }) }], [
+      { date: '2026-12-04', store_id: OKUBO, time_slot: '昼', start_time: '14:30', end_time: '19:30', scenario_master_id: 'x' },
+    ]).get(`2026-12-04|${OKUBO}|evening`)).toContain('時間が重なります')
   })
 })

@@ -16,7 +16,23 @@ function requireDate(value: unknown, name: string): string {
   return value
 }
 
-const EVENT_FIELDS = 'date, store_id, time_slot, start_time, scenario_master_id, category, current_participants, max_participants'
+const EVENT_FIELDS = 'date, store_id, time_slot, start_time, end_time, scenario_master_id, category, current_participants, max_participants'
+
+/** PostgREST の 1 回の上限（max_rows）より少ない件数ずつ読む */
+const PAGE_SIZE = 1000
+type RangeQuery = { range(from: number, to: number): PromiseLike<{ data: unknown; error: { message: string } | null }> }
+
+/** 上限を超えても欠けないよう、決まった順に並べたうえで全件をページごとに読む */
+async function fetchAll<T>(buildQuery: () => RangeQuery): Promise<{ data: T[]; error: { message: string } | null }> {
+  const all: T[] = []
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await buildQuery().range(offset, offset + PAGE_SIZE - 1)
+    if (error) return { data: all, error }
+    const batch = (data as T[] | null) ?? []
+    all.push(...batch)
+    if (batch.length < PAGE_SIZE) return { data: all, error: null }
+  }
+}
 
 export async function handleAutoDraftData(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   const start = requireDate(req.query.start, 'start')
@@ -27,20 +43,26 @@ export async function handleAutoDraftData(req: VercelRequest, res: VercelRespons
 
   const orgId = user.orgId
   const [rules, scenarios, gms, nearby, demand, blocked] = await Promise.all([
-    db!.from('schedule_slot_rules').select('store_id, weekday, time_slot, is_open').eq('organization_id', orgId),
-    db!.from('organization_scenarios_with_master')
+    fetchAll(() => db!.from('schedule_slot_rules').select('store_id, weekday, time_slot, is_open').eq('organization_id', orgId)
+      .order('id')),
+    fetchAll(() => db!.from('organization_scenarios_with_master')
       .select('id, org_scenario_id, title, status, player_count_max, duration, weekend_duration, available_stores, kit_count, scenario_kind, available_from, available_until, created_at')
       .eq('organization_id', orgId)
-      .eq('status', 'available'),
-    db!.from('staff_scenario_assignments')
+      .eq('status', 'available')
+      .order('id')),
+    fetchAll(() => db!.from('staff_scenario_assignments')
       .select('scenario_master_id, staff_id, staff!inner(status, organization_id)')
       .eq('organization_id', orgId)
       .eq('can_main_gm', true)
       .eq('staff.status', 'active')
-      .eq('staff.organization_id', orgId),
-    db!.from('schedule_events').select(EVENT_FIELDS).eq('organization_id', orgId).eq('is_cancelled', false).gte('date', start).lte('date', end).limit(5000),
-    db!.from('schedule_events').select(EVENT_FIELDS).eq('organization_id', orgId).eq('is_cancelled', false).gte('date', demandFrom).lte('date', demandTo).limit(10000),
-    db!.from('schedule_blocked_slots').select('date, store_id, time_slot').eq('organization_id', orgId).gte('date', start).lte('date', end),
+      .eq('staff.organization_id', orgId)
+      .order('scenario_master_id').order('staff_id').order('scenario_id')),
+    fetchAll(() => db!.from('schedule_events').select(EVENT_FIELDS).eq('organization_id', orgId).eq('is_cancelled', false)
+      .gte('date', start).lte('date', end).order('id')),
+    fetchAll(() => db!.from('schedule_events').select(EVENT_FIELDS).eq('organization_id', orgId).eq('is_cancelled', false)
+      .gte('date', demandFrom).lte('date', demandTo).order('id')),
+    fetchAll(() => db!.from('schedule_blocked_slots').select('date, store_id, time_slot').eq('organization_id', orgId)
+      .gte('date', start).lte('date', end).order('id')),
   ])
   for (const r of [rules, scenarios, gms, nearby, demand, blocked]) {
     if (r.error) {
@@ -50,19 +72,19 @@ export async function handleAutoDraftData(req: VercelRequest, res: VercelRespons
   }
 
   const staffByScenario = new Map<string, Set<string>>()
-  for (const row of (gms.data ?? []) as Array<{ scenario_master_id: string; staff_id: string }>) {
+  for (const row of gms.data as Array<{ scenario_master_id: string; staff_id: string }>) {
     const set = staffByScenario.get(row.scenario_master_id) ?? new Set<string>()
     set.add(row.staff_id)
     staffByScenario.set(row.scenario_master_id, set)
   }
 
   return res.status(200).json({
-    rules: rules.data ?? [],
-    scenarios: scenarios.data ?? [],
+    rules: rules.data,
+    scenarios: scenarios.data,
     main_gm_counts: Object.fromEntries([...staffByScenario].map(([id, set]) => [id, set.size])),
-    nearby_events: nearby.data ?? [],
-    demand_events: demand.data ?? [],
-    blocked_slots: blocked.data ?? [],
+    nearby_events: nearby.data,
+    demand_events: demand.data,
+    blocked_slots: blocked.data,
   })
 }
 

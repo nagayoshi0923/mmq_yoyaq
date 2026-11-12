@@ -34,6 +34,7 @@ export interface DraftEventRow {
   store_id: string | null
   time_slot: string | null
   start_time: string | null
+  end_time: string | null
   scenario_master_id: string | null
   category: string | null
   current_participants: number | null

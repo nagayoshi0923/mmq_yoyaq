@@ -8,7 +8,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 const mock = vi.hoisted(() => ({
   role: 'admin' as string,
   storeFound: true,
-  calls: [] as Array<{ table: string; op: string; filters: Array<[string, string, unknown]>; payload?: unknown }>,
+  calls: [] as Array<{ table: string; op: string; filters: Array<[string, string, unknown]>; payload?: unknown; range?: [number, number] }>,
   rows: {} as Record<string, unknown[]>,
 }))
 
@@ -16,7 +16,7 @@ vi.mock('./_lib/db.js', () => ({
   getMissingEnvError: () => null,
   db: {
     from: (table: string) => {
-      const call = { table, op: 'select', filters: [] as Array<[string, string, unknown]>, payload: undefined as unknown }
+      const call = { table, op: 'select', filters: [] as Array<[string, string, unknown]>, payload: undefined as unknown, range: undefined as [number, number] | undefined }
       mock.calls.push(call)
       const q: Record<string, unknown> = {}
       q.select = () => q
@@ -24,8 +24,13 @@ vi.mock('./_lib/db.js', () => ({
       q.delete = () => { call.op = 'delete'; return q }
       for (const m of ['eq', 'gte', 'lte', 'in']) q[m] = (col: string, val: unknown) => { call.filters.push([m, col, val]); return q }
       q.limit = () => q
+      q.order = () => q
+      q.range = (from: number, to: number) => { call.range = [from, to]; return q }
       q.maybeSingle = async () => ({ data: table === 'stores' && mock.storeFound ? { id: 's1' } : null, error: null })
-      q.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: mock.rows[table] ?? [], error: null }).then(resolve)
+      q.then = (resolve: (v: unknown) => unknown) => {
+        const rows = mock.rows[table] ?? []
+        return Promise.resolve({ data: call.range ? rows.slice(call.range[0], call.range[1] + 1) : rows, error: null }).then(resolve)
+      }
       return q
     },
   },
@@ -70,6 +75,16 @@ describe('GET /api/schedule?type=auto-draft-data', () => {
     const gmCall = mock.calls.find(c => c.table === 'staff_scenario_assignments')!
     expect(gmCall.filters).toContainEqual(['eq', 'staff.status', 'active'])
     expect(gmCall.filters).toContainEqual(['eq', 'can_main_gm', true])
+  })
+
+  it('1000 件を超える公演もページごとに読んで欠けずに返す', async () => {
+    mock.rows.schedule_events = Array.from({ length: 2300 }, (_, i) => ({ date: '2026-12-01', store_id: 's1', scenario_master_id: `m${i}` }))
+    const { status, body } = await call('GET', { type: 'auto-draft-data', start: '2026-11-24', end: '2027-01-07', demand_from: '2026-07-16', demand_to: '2026-11-13' })
+    expect(status).toBe(200)
+    expect(body.nearby_events).toHaveLength(2300)
+    expect(body.demand_events).toHaveLength(2300)
+    const ranges = mock.calls.filter(c => c.table === 'schedule_events').map(c => c.range)
+    expect(ranges).toEqual(expect.arrayContaining([[0, 999], [1000, 1999], [2000, 2999]]))
   })
 
   it('日付の形が違えば 400', async () => {
