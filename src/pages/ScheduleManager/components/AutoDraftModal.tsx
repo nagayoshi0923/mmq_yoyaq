@@ -5,7 +5,7 @@
  * 2. 下書き案: 固定枠の空いている枠に作品を当てた案を出す。作品は入れ替えられる
  * 3. 登録: 選んだ案を「オープン公演・GM未定・予約受付OFF」で作る（公開は今までどおり公演ごと）
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -91,6 +91,8 @@ export function AutoDraftModal({ open, onClose, organizationId, stores, canEditR
   const [isSavingRules, setIsSavingRules] = useState(false)
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
   const [chosenScenario, setChosenScenario] = useState<Record<string, string>>({})
+  /** 登録に失敗した案だけを残すときは、選んだ作品とチェックをそのまま保つ（登録し直しで内容が変わらないように） */
+  const keepChoicesRef = useRef(false)
 
   useEffect(() => {
     if (!open) return
@@ -112,6 +114,10 @@ export function AutoDraftModal({ open, onClose, organizationId, stores, canEditR
   }, [draft.rules, storeId])
 
   useEffect(() => {
+    if (keepChoicesRef.current) {
+      keepChoicesRef.current = false
+      return
+    }
     setSelectedKeys(new Set(draft.proposals.filter(p => p.scenario).map(p => p.key)))
     setChosenScenario(Object.fromEntries(draft.proposals.map(p => [p.key, p.scenario?.scenario_master_id ?? NO_SCENARIO])))
   }, [draft.proposals])
@@ -169,6 +175,8 @@ export function AutoDraftModal({ open, onClose, organizationId, stores, canEditR
     }
     showToast.error(`${result.created}件を登録し、${result.failed.length}件は登録できませんでした：${result.failed[0].message}`)
     const failedKeys = new Set(result.failed.map(f => f.key))
+    keepChoicesRef.current = true
+    setSelectedKeys(prev => new Set([...prev].filter(k => failedKeys.has(k))))
     draft.setProposals(draft.proposals.filter(p => failedKeys.has(p.key)))
   }
 

@@ -16,7 +16,7 @@ function requireDate(value: unknown, name: string): string {
   return value
 }
 
-const EVENT_FIELDS = 'date, store_id, time_slot, start_time, end_time, scenario_master_id, category, current_participants, max_participants'
+const EVENT_FIELDS = 'date, store_id, time_slot, start_time, end_time, scenario_master_id, category, current_participants, max_participants, capacity'
 
 /** PostgREST の 1 回の上限（max_rows）より少ない件数ずつ読む */
 const PAGE_SIZE = 1000
@@ -78,12 +78,24 @@ export async function handleAutoDraftData(req: VercelRequest, res: VercelRespons
     staffByScenario.set(row.scenario_master_id, set)
   }
 
+  // 定員は既存の一覧取得（resolveMaxParticipants）と同じ順で決める: 組織の作品の定員 → 公演の max_participants → capacity。
+  // 手動作成・下書きの公演は定員を capacity にだけ入れるので、ここで補わないと満席でも需要に数えられない
+  const playerCountByMaster = new Map<string, number>()
+  for (const row of scenarios.data as Array<{ id: string; player_count_max: number | null }>) {
+    if (row.player_count_max) playerCountByMaster.set(row.id, row.player_count_max)
+  }
+  type EventRow = { scenario_master_id: string | null; max_participants: number | null; capacity?: number | null }
+  const withCapacity = (rows: unknown[]) => (rows as EventRow[]).map(({ capacity, ...e }) => ({
+    ...e,
+    max_participants: (e.scenario_master_id ? playerCountByMaster.get(e.scenario_master_id) : undefined) ?? (e.max_participants || capacity || null),
+  }))
+
   return res.status(200).json({
     rules: rules.data,
     scenarios: scenarios.data,
     main_gm_counts: Object.fromEntries([...staffByScenario].map(([id, set]) => [id, set.size])),
-    nearby_events: nearby.data,
-    demand_events: demand.data,
+    nearby_events: withCapacity(nearby.data),
+    demand_events: withCapacity(demand.data),
     blocked_slots: blocked.data,
   })
 }

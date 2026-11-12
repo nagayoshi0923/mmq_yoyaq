@@ -252,3 +252,23 @@ it('祝日（独自休日を含む）は休日の時間帯設定で枠の時刻�
   expect(byDate['2027-01-01']).toBe('18:30')
   expect(byDate['2027-01-08']).toBe('19:00')
 })
+
+it('入れ替えた作品の登録に失敗しても、登録し直すときは入れ替えた作品のまま送る', async () => {
+  mock.getData.mockResolvedValue({
+    rules: fridayEvening,
+    scenarios: [scenarioRow('master-a', '検証作品A', 150), scenarioRow('master-b', '検証作品B', 210)],
+    main_gm_counts: { 'master-a': 2, 'master-b': 2 },
+    nearby_events: [], demand_events: [], blocked_slots: [],
+  })
+  mock.create.mockImplementation(async (e: { date: string }) => {
+    if (e.date === '2026-12-04' && mock.create.mock.calls.length === 1) throw new Error('一時的な失敗')
+    return { id: 'new-event' }
+  })
+  await render()
+  await act(async () => { button('下書き案を作る')!.click(); await flush() })
+  await chooseScenario(0, 'master-b')
+  await act(async () => { registerButton().click(); await flush() })
+  expect(registerButton().textContent).toBe('選んだ1件を下書きとして登録')
+  await act(async () => { registerButton().click(); await flush() })
+  expect(mock.create.mock.calls.at(-1)![0]).toMatchObject({ date: '2026-12-04', scenario_master_id: 'master-b', end_time: '22:30' })
+})

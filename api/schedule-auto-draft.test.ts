@@ -87,6 +87,18 @@ describe('GET /api/schedule?type=auto-draft-data', () => {
     expect(ranges).toEqual(expect.arrayContaining([[0, 999], [1000, 1999], [2000, 2999]]))
   })
 
+  it('定員が capacity にだけある公演も、作品の定員 → max_participants → capacity の順で定員を補って返す', async () => {
+    mock.rows.organization_scenarios_with_master = [{ id: 'a', player_count_max: 7 }]
+    mock.rows.schedule_events = [
+      { date: '2026-12-01', scenario_master_id: 'a', max_participants: null, capacity: 6, current_participants: 6 },
+      { date: '2026-12-02', scenario_master_id: 'z', max_participants: null, capacity: 6, current_participants: 6 },
+      { date: '2026-12-03', scenario_master_id: 'z', max_participants: 5, capacity: 6, current_participants: 5 },
+    ]
+    const { body } = await call('GET', { type: 'auto-draft-data', start: '2026-11-24', end: '2027-01-07', demand_from: '2026-07-16', demand_to: '2026-11-13' })
+    expect(body.demand_events.map((e: { max_participants: number }) => e.max_participants)).toEqual([7, 6, 5])
+    expect(body.demand_events[0]).not.toHaveProperty('capacity')
+  })
+
   it('日付の形が違えば 400', async () => {
     const { status } = await call('GET', { type: 'auto-draft-data', start: '2026/11/24', end: '2027-01-07', demand_from: '2026-07-16', demand_to: '2026-11-13' })
     expect(status).toBe(400)
