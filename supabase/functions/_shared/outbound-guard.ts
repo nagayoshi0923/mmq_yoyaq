@@ -6,7 +6,7 @@
 // 伏せ漏れがあってもここで止めるのが二つ目の守り。
 // 検証用に実際に届けたい宛先は STAGING_EMAIL_ALLOWLIST / STAGING_DISCORD_ALLOWLIST に入れる。
 
-import { blockedResponseBody, decideOutbound, isStagingEnvironment, type OutboundGuardEnv } from './outbound-guard-core.ts'
+import { blockedResponseBody, decideOutbound, isStagingEnvironment, stagingIdempotencyKey, type OutboundGuardEnv } from './outbound-guard-core.ts'
 
 const INSTALLED = Symbol.for('mmq.outboundGuardInstalled')
 
@@ -65,6 +65,14 @@ function installOutboundGuard(): void {
     const text = await bodyText(input, init)
     const decision = decideOutbound({ url, method, body: text }, env)
     if (decision.action === 'allow') {
+      // 本番と同じ重複防止キーを使うと本番の送信が 409 で弾かれるため、検証環境のキーは付け替える
+      const headers = new Headers(input instanceof Request ? input.headers : undefined)
+      new Headers(init?.headers).forEach((value, name) => headers.set(name, value))
+      const idempotencyKey = headers.get('idempotency-key')
+      if (host === 'api.resend.com' && idempotencyKey) {
+        headers.set('idempotency-key', stagingIdempotencyKey(idempotencyKey))
+        return originalFetch(input, { ...init, headers, ...(text !== null ? { body: text } : {}) })
+      }
       if (init?.body !== undefined && init.body !== null && typeof init.body !== 'string' && text !== null) {
         return originalFetch(input, { ...init, body: text })
       }

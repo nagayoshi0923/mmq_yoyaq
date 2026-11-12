@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blockedResponseBody, decideOutbound, isStagingEnvironment } from '../../supabase/functions/_shared/outbound-guard-core'
+import { blockedResponseBody, decideOutbound, isStagingEnvironment, stagingIdempotencyKey } from '../../supabase/functions/_shared/outbound-guard-core'
 
 const staging = { supabaseUrl: 'https://lavutzztfqbdndjiwluc.supabase.co' }
 const production = { supabaseUrl: 'https://cznpcewciwywcqcxktba.supabase.co' }
@@ -81,5 +81,10 @@ describe('検証環境から外部へ送らない守り（#1281）', () => {
 
   it('ほかの宛先（Supabase など）は触らない', () => {
     expect(decideOutbound({ url: 'https://lavutzztfqbdndjiwluc.supabase.co/rest/v1/x', method: 'POST' }, staging)).toEqual({ action: 'allow' })
+  })
+
+  it('検証環境の Resend 重複防止キーは本番と重ならないよう前置きを付ける（二重に付けない）', () => {
+    expect(stagingIdempotencyKey('private-rejection/abc')).toBe('mmq-staging/private-rejection/abc')
+    expect(stagingIdempotencyKey('mmq-staging/private-rejection/abc')).toBe('mmq-staging/private-rejection/abc')
   })
 })

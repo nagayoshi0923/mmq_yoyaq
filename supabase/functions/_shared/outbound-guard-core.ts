@@ -148,3 +148,13 @@ export function blockedResponseBody(decision: Extract<OutboundDecision, { action
   }
   return { id }
 }
+
+/**
+ * 検証環境から Resend へ送るときの重複防止キー。本番と同じ送信 ID を持つ写しの行が同じキーを使うと、
+ * 24 時間は本番の送信が 409 で弾かれ、お客様へ届かない（2026-11-13、貸切お断り 9 件で発生）。
+ * 検証環境のキーには前置きを付けて、本番のキーと重ならないようにする。
+ */
+export const STAGING_IDEMPOTENCY_PREFIX = 'mmq-staging/'
+export function stagingIdempotencyKey(key: string): string {
+  return key.startsWith(STAGING_IDEMPOTENCY_PREFIX) ? key : `${STAGING_IDEMPOTENCY_PREFIX}${key}`
+}
