@@ -14,6 +14,7 @@ describe('送れていない通知の毎朝の点検（#1273）', () => {
     expect(sql).toMatch(/private_booking_rejection_deliveries[\s\S]*?status::text IN \('failed','uncertain'\) AND updated_at >/)
     // 意図して送らない状態は滞留に数えない
     expect(sql).toContain("'expired'")
+    expect(sql).toContain('FROM public.waitlist_notice_events')
   })
 
   it('問題がなければ ok', () => {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// 本番の「送れていない通知」を数える毎朝の点検（#1273 の再発防止）。
+// 本番の「送れていない通知」を数える定期点検（4 時間ごと）（#1273 の再発防止）。
 // 2026-11 に定期送信が 401 で 10 日止まっても誰も気づかなかったため、送信待ち・失敗・
-// 定期実行の失敗・Edge Function 呼び出しの失敗を毎朝数え、1 件でもあれば終了コード 1 にする。
+// 定期実行の失敗・Edge Function 呼び出しの失敗を 4 時間ごとに数え、1 件でもあれば終了コード 1 にする。
 // GitHub Actions からは直接 DB に繋がらないので Management API を使う（db-drift.yml と同じ）。
 //
 //   SUPABASE_ACCESS_TOKEN=... node scripts/check-stuck-deliveries.mjs [prod|staging] [--out report.md]
@@ -30,7 +30,7 @@ export const DELIVERY_TABLES = [
   ['private_group_survey_deliveries', '貸切アンケート', 'created_at', 'updated_at'],
   ['private_group_survey_reminders', '貸切アンケートのリマインド', 'created_at', 'greatest(created_at, next_attempt_at)'],
   ['scheduled_reminder_deliveries', '公演前リマインド', 'created_at', 'greatest(created_at, attempted_at)'],
-  ['waitlist_notification_queue', 'キャンセル待ちの案内', 'created_at', 'updated_at'],
+  ['waitlist_notification_queue', 'キャンセル待ちの案内（旧）', 'created_at', 'updated_at'],
   ['web_push_outbox', 'Web Push', 'created_at', 'greatest(created_at, last_message_at)'],
 ]
 // 送り終えた・送らないと決めた状態。これ以外が長く残っていれば止まっている。
@@ -49,6 +49,13 @@ export function buildSql() {
    WHERE (status::text IN (${failed}) AND ${changedAt} > now() - interval '${FAILED_LOOKBACK}')
       OR (status::text NOT IN (${done}) AND ${createdAt} < now() - interval '${STUCK_AFTER}')
    GROUP BY status`)
+  // キャンセル待ちの現行の送信（waitlist_notice_events）は status を持たない。
+  // 終わっていない（completed_at が空）まま要確認になったもの・2 時間以上残っているものを数える。
+  parts.push(`
+  SELECT 'delivery', 'waitlist_notice_events', CASE WHEN requires_review THEN 'requires_review' ELSE 'pending' END, count(*)::int, min(created_at)::text
+    FROM public.waitlist_notice_events
+   WHERE completed_at IS NULL AND (requires_review OR created_at < now() - interval '${STUCK_AFTER}')
+   GROUP BY 3`)
   parts.push(`
   SELECT 'cron', j.jobname, left(coalesce(d.return_message, ''), 120), count(*)::int, min(d.start_time)::text
     FROM cron.job_run_details d JOIN cron.job j USING (jobid)
@@ -62,7 +69,7 @@ export function buildSql() {
   return parts.join('\n  UNION ALL') + '\n  ORDER BY 1, 2, 3'
 }
 
-const LABELS = Object.fromEntries(DELIVERY_TABLES.map(([t, label]) => [t, label]))
+const LABELS = { ...Object.fromEntries(DELIVERY_TABLES.map(([t, label]) => [t, label])), waitlist_notice_events: 'キャンセル待ちの案内（現行）' }
 
 export function formatReport(rows, envName) {
   // 呼び出しの時間切れ（status_code なし）は 1 日数件あるので 10 件以上だけ問題にする
@@ -82,7 +89,7 @@ export function formatReport(rows, envName) {
   section('delivery', `送信待ち（失敗・判定不能は ${FAILED_LOOKBACK} 以内、送信待ちは ${STUCK_AFTER} 以上前のもの）`, (r) => `${LABELS[r.name] ?? r.name}（${r.name}）`)
   section('cron', '定期実行の失敗（24 時間以内）', (r) => r.name)
   section('http', 'Edge Function 呼び出しの失敗（24 時間以内、net._http_response）', (r) => `HTTP ${r.name}`)
-  lines.push('この Issue は毎朝の点検（`.github/workflows/stuck-deliveries.yml`）が自動で更新し、問題がなくなると閉じます。')
+  lines.push('この Issue は 4 時間ごとの点検（`.github/workflows/stuck-deliveries.yml`）が自動で更新し、問題がなくなると閉じます。')
   return { ok: false, text: lines.join('\n') }
 }
 
