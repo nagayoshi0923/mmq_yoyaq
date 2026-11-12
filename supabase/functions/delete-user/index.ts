@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 // ユーザー削除機能
 // 管理者がユーザーを削除する際に使用
 // auth.users から削除すると、外部キー制約により public.users も自動的に削除される

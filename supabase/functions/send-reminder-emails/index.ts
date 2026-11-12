@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 import { isPrivateReminder, privateReminderDefault } from '../_shared/reminder-kind.ts'
 import { REMINDER_ELIGIBLE_STATUSES } from '../_shared/reminder-send-guard.ts'
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
