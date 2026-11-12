@@ -95,7 +95,7 @@ export function ScheduleManager() {
   const getRecruitmentPauseLabel = useStoreRecruitmentPauseLabels(Boolean(organizationId))
   
   // カスタム休日管理
-  const { isCustomHoliday, toggleHoliday } = useCustomHolidays()
+  const { customHolidays, isCustomHoliday, toggleHoliday } = useCustomHolidays()
 
   // GMリスト（scheduleStaff キャッシュから初期化して即座に表示 → selectedGMs フィルターが空白にならない）
   const [gmList, setGmList] = useState<Staff[]>(() => {
@@ -837,6 +837,7 @@ export function ScheduleManager() {
           canEditRules={isAdmin}
           defaultYear={currentDate.getFullYear()}
           defaultMonth={currentDate.getMonth() + 1}
+          customHolidays={customHolidays}
           onCreated={() => scheduleTableProps.fetchSchedule?.()}
         />
       )}

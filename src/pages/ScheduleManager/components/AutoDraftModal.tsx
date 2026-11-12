@@ -15,7 +15,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { showToast } from '@/utils/toast'
 import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
-import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { formatJstMonthDay, getJstWeekdayIndex } from '@/utils/jstDate'
 import { timeSlotEnToLabel, type TimeSlotEn } from '@/lib/timeSlot'
 import { useAutoDraft, type AutoDraftStore } from '../hooks/useAutoDraft'
@@ -45,6 +44,8 @@ interface AutoDraftModalProps {
   canEditRules: boolean
   defaultYear: number
   defaultMonth: number
+  /** 独自休日（スケジュール画面で設定・解除したものをそのまま使う） */
+  customHolidays: string[]
   /** 下書きを登録したあとにスケジュールを読み直す */
   onCreated: () => void
 }
@@ -72,9 +73,8 @@ function monthOptions(year: number, month: number) {
   })
 }
 
-export function AutoDraftModal({ open, onClose, organizationId, stores, canEditRules, defaultYear, defaultMonth, onCreated }: AutoDraftModalProps) {
+export function AutoDraftModal({ open, onClose, organizationId, stores, canEditRules, defaultYear, defaultMonth, customHolidays, onCreated }: AutoDraftModalProps) {
   const { settings: timeSlotSettings } = useTimeSlotSettings()
-  const { customHolidays } = useCustomHolidays()
   // 土日祝の判定は下書き生成と同じもの（独自休日と祝日）を使う
   const slotTimes = useCallback(
     (_date: string, slot: TimeSlotEn, holiday: boolean) => (holiday ? timeSlotSettings.holiday : timeSlotSettings.weekday)[slot],

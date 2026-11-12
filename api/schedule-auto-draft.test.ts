@@ -22,7 +22,7 @@ vi.mock('./_lib/db.js', () => ({
       q.select = () => q
       q.upsert = (p: unknown) => { call.op = 'upsert'; call.payload = p; return q }
       q.delete = () => { call.op = 'delete'; return q }
-      for (const m of ['eq', 'gte', 'lte', 'in']) q[m] = (col: string, val: unknown) => { call.filters.push([m, col, val]); return q }
+      for (const m of ['eq', 'gte', 'lte', 'in', 'is']) q[m] = (col: string, val: unknown) => { call.filters.push([m, col, val]); return q }
       q.limit = () => q
       q.order = () => q
       q.range = (from: number, to: number) => { call.range = [from, to]; return q }
@@ -97,6 +97,20 @@ describe('GET /api/schedule?type=auto-draft-data', () => {
     const { body } = await call('GET', { type: 'auto-draft-data', start: '2026-11-24', end: '2027-01-07', demand_from: '2026-07-16', demand_to: '2026-11-13' })
     expect(body.demand_events.map((e: { max_participants: number }) => e.max_participants)).toEqual([7, 6, 5])
     expect(body.demand_events[0]).not.toHaveProperty('capacity')
+  })
+
+  it('公演と結びついていない確定済みの貸切も、その店舗・日時を使っている公演として返す', async () => {
+    mock.rows.reservations = [
+      { store_id: 's1', scenario_master_id: 'p', candidate_datetimes: { candidates: [
+        { order: 1, date: '2026-12-05', startTime: '13:00', endTime: '17:00', timeSlot: '昼', status: 'rejected' },
+        { order: 2, date: '2026-12-06', startTime: '19:00', endTime: '22:00', timeSlot: '夜', status: 'confirmed' },
+      ] } },
+      { store_id: 's1', scenario_master_id: 'q', candidate_datetimes: { candidates: [{ order: 1, date: '2027-03-01', timeSlot: '夜', status: 'confirmed' }] } },
+    ]
+    const { body } = await call('GET', { type: 'auto-draft-data', start: '2026-11-24', end: '2027-01-07', demand_from: '2026-07-16', demand_to: '2026-11-13' })
+    expect(body.nearby_events).toEqual([expect.objectContaining({ date: '2026-12-06', store_id: 's1', start_time: '19:00', end_time: '22:00', scenario_master_id: 'p', category: 'private' })])
+    const resCall = mock.calls.find(c => c.table === 'reservations')!
+    expect(resCall.filters).toEqual(expect.arrayContaining([['eq', 'status', 'confirmed'], ['eq', 'reservation_source', 'web_private'], ['is', 'schedule_event_id', null]]))
   })
 
   it('日付の形が違えば 400', async () => {

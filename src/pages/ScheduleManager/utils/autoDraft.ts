@@ -158,7 +158,7 @@ interface Placement {
   date: string
   store_id: string
   scenario_master_id: string | null
-  /** 開始・終了（分）。分からなければ null（時間帯の重なりだけで見る） */
+  /** 開始・終了（日付込みの通しの分。日付をまたぐ公演も前日・翌日の公演と比べられる）。分からなければ null（時間帯の重なりだけで見る） */
   start_min: number | null
   end_min: number | null
 }
@@ -170,16 +170,22 @@ export interface SlotTiming {
   weekend: boolean
 }
 
-function overlapsAny(date: string, storeId: string, startMin: number, endMin: number, placements: Placement[]): boolean {
+/** 日付の通し番号（日） */
+function dayNumber(date: string): number {
+  return Math.round(Date.parse(`${date}T00:00:00Z`) / 86400000)
+}
+
+function overlapsAny(storeId: string, startMin: number, endMin: number, placements: Placement[]): boolean {
   return placements.some(p =>
-    p.date === date && p.store_id === storeId && p.start_min !== null && p.end_min !== null &&
+    p.store_id === storeId && p.start_min !== null && p.end_min !== null &&
     startMin < p.end_min && p.start_min < endMin,
   )
 }
 
 function placementOf(date: string, storeId: string, scenarioId: string | null, start: string | null | undefined, end: string | null | undefined): Placement {
-  const startMin = start ? toMinutes(start) : null
-  let endMin = end ? toMinutes(end) : null
+  const base = dayNumber(date) * 24 * 60
+  const startMin = start ? base + toMinutes(start) : null
+  let endMin = end ? base + toMinutes(end) : null
   if (startMin !== null && endMin !== null && endMin <= startMin) endMin += 24 * 60
   return { date, store_id: storeId, scenario_master_id: scenarioId, start_min: startMin, end_min: startMin !== null ? endMin : null }
 }
@@ -219,9 +225,8 @@ export function rankScenariosForSlot(
     )
     if (tooClose) continue
     if (timing) {
-      const startMin = toMinutes(timing.start_time)
-      const endMin = toMinutes(resolveEndTime(timing.start_time, timing.slot_end_time, scenario, timing.weekend))
-      if (overlapsAny(date, storeId, startMin, endMin > startMin ? endMin : endMin + 24 * 60, placements)) continue
+      const self = placementOf(date, storeId, null, timing.start_time, resolveEndTime(timing.start_time, timing.slot_end_time, scenario, timing.weekend))
+      if (overlapsAny(storeId, self.start_min as number, self.end_min as number, placements)) continue
     }
     const score = scenario.demand_score + (scenario.is_new ? 0.5 : 0) - 0.3 * (monthCounts.get(scenario.scenario_master_id) ?? 0)
     ranked.push({ scenario, score })
@@ -320,7 +325,7 @@ export function findSelectionConflicts(selections: DraftSelection[], existingEve
       reason = `同じ日にキットの数（${Math.max(1, scenario.kit_count)}）を超えます`
     } else if (placements.some(p => p.store_id === proposal.store_id && p.scenario_master_id === id && Math.abs(daysBetween(p.date, proposal.date)) < SAME_STORE_GAP_DAYS)) {
       reason = `同じ店舗で${SAME_STORE_GAP_DAYS}日以内に同じ作品があります`
-    } else if (self.start_min !== null && self.end_min !== null && overlapsAny(proposal.date, proposal.store_id, self.start_min, self.end_min, placements)) {
+    } else if (self.start_min !== null && self.end_min !== null && overlapsAny(proposal.store_id, self.start_min, self.end_min, placements)) {
       reason = '同じ店舗の別の公演と時間が重なります'
     }
     if (reason) conflicts.set(proposal.key, reason)

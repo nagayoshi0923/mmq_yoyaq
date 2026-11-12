@@ -30,7 +30,6 @@ vi.mock('@/lib/apiClient', () => ({
 vi.mock('@/hooks/useTimeSlotSettings', () => ({
   useTimeSlotSettings: () => ({ settings: mock.settings }),
 }))
-vi.mock('@/hooks/useCustomHolidays', () => ({ useCustomHolidays: () => ({ customHolidays: [] }) }))
 vi.mock('@/utils/toast', () => ({ showToast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('@/components/ui/select', async () => {
   // 画面の選択肢をテストから選べるよう、ふつうの select に置き換える
@@ -76,6 +75,7 @@ async function render(props: Partial<Parameters<typeof AutoDraftModal>[0]> = {})
         canEditRules
         defaultYear={2026}
         defaultMonth={12}
+        customHolidays={[]}
         onCreated={() => {}}
         {...props}
       />,

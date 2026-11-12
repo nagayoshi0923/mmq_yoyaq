@@ -6,6 +6,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from '../db.js'
 import { ApiError, type AuthUser } from '../auth.js'
+import { RESERVATION_SOURCE_WEB_PRIVATE, type CandidateDateTime } from './common.js'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const SLOTS = ['morning', 'afternoon', 'evening'] as const
@@ -42,7 +43,7 @@ export async function handleAutoDraftData(req: VercelRequest, res: VercelRespons
   if (start > end || demandFrom > demandTo) throw new ApiError(400, '期間の指定が正しくありません')
 
   const orgId = user.orgId
-  const [rules, scenarios, gms, nearby, demand, blocked] = await Promise.all([
+  const [rules, scenarios, gms, nearby, demand, blocked, privateBookings] = await Promise.all([
     fetchAll(() => db!.from('schedule_slot_rules').select('store_id, weekday, time_slot, is_open').eq('organization_id', orgId)
       .order('id')),
     fetchAll(() => db!.from('organization_scenarios_with_master')
@@ -63,8 +64,15 @@ export async function handleAutoDraftData(req: VercelRequest, res: VercelRespons
       .gte('date', demandFrom).lte('date', demandTo).order('id')),
     fetchAll(() => db!.from('schedule_blocked_slots').select('date, store_id, time_slot').eq('organization_id', orgId)
       .gte('date', start).lte('date', end).order('id')),
+    // 公演とまだ結びついていない確定済みの貸切（月の表示と同じもの）。その店舗・日時は空いていない
+    fetchAll(() => db!.from('reservations').select('store_id, scenario_master_id, candidate_datetimes')
+      .eq('organization_id', orgId)
+      .eq('reservation_source', RESERVATION_SOURCE_WEB_PRIVATE)
+      .eq('status', 'confirmed')
+      .is('schedule_event_id', null)
+      .order('id')),
   ])
-  for (const r of [rules, scenarios, gms, nearby, demand, blocked]) {
+  for (const r of [rules, scenarios, gms, nearby, demand, blocked, privateBookings]) {
     if (r.error) {
       console.error('[schedule] auto-draft-data error:', r.error)
       return res.status(500).json({ error: 'データ取得に失敗しました', detail: r.error.message })
@@ -90,11 +98,31 @@ export async function handleAutoDraftData(req: VercelRequest, res: VercelRespons
     max_participants: (e.scenario_master_id ? playerCountByMaster.get(e.scenario_master_id) : undefined) ?? (e.max_participants || capacity || null),
   }))
 
+  // 確定した候補（無ければ 1 つめ）の日時を、月の表示と同じように公演として扱う
+  type PrivateBookingRow = { store_id: string | null; scenario_master_id: string | null; candidate_datetimes?: { candidates?: CandidateDateTime[] } | null }
+  const privateEvents = (privateBookings.data as PrivateBookingRow[]).flatMap(b => {
+    const candidates = b.candidate_datetimes?.candidates ?? []
+    const candidate = candidates.find(c => c.status === 'confirmed') ?? candidates[0]
+    const date = typeof candidate?.date === 'string' ? candidate.date.slice(0, 10) : ''
+    if (!b.store_id || !DATE_RE.test(date) || date < start || date > end) return []
+    return [{
+      date,
+      store_id: b.store_id,
+      time_slot: candidate.timeSlot || null,
+      start_time: candidate.startTime || '18:00:00',
+      end_time: candidate.endTime || '21:00:00',
+      scenario_master_id: b.scenario_master_id,
+      category: 'private',
+      current_participants: null,
+      max_participants: null,
+    }]
+  })
+
   return res.status(200).json({
     rules: rules.data,
     scenarios: scenarios.data,
     main_gm_counts: Object.fromEntries([...staffByScenario].map(([id, set]) => [id, set.size])),
-    nearby_events: withCapacity(nearby.data),
+    nearby_events: [...withCapacity(nearby.data), ...privateEvents],
     demand_events: withCapacity(demand.data),
     blocked_slots: blocked.data,
   })

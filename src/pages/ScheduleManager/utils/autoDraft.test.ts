@@ -263,3 +263,12 @@ describe('日付をまたぐ公演', () => {
     expect(conflicts.get('k')).toContain('時間が重なります')
   })
 })
+
+it('前日から日付をまたいで続く公演とも重なりを確かめる', () => {
+  const conflicts = findSelectionConflicts([
+    { proposal: { key: 'k', date: '2026-12-05', store_id: OKUBO, time_slot: 'morning', start_time: '00:30', end_time: '03:00', slot_end_time: '03:00', is_weekend: true, scenario: null, alternatives: [], reasons: [] }, scenario: scenario('c', { duration_minutes: 120 }) },
+  ], [
+    { date: '2026-12-04', store_id: OKUBO, time_slot: '夜', start_time: '19:00', end_time: '01:00', scenario_master_id: 'x' },
+  ])
+  expect(conflicts.get('k')).toContain('時間が重なります')
+})
