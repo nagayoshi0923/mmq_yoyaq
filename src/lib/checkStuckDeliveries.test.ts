@@ -9,6 +9,11 @@ describe('送れていない通知の毎朝の点検（#1273）', () => {
     expect(sql).toContain('cron.job_run_details')
     expect(sql).toContain('net._http_response')
     expect(sql).toContain('min(started_at)')
+    expect(sql).toContain('FROM public.private_group_survey_reminders')
+    // 失敗は最後に変わった日時で見る（古い行の再試行の失敗も拾う）
+    expect(sql).toMatch(/private_booking_rejection_deliveries[\s\S]*?status::text IN \('failed','uncertain'\) AND updated_at >/)
+    // 意図して送らない状態は滞留に数えない
+    expect(sql).toContain("'expired'")
   })
 
   it('問題がなければ ok', () => {

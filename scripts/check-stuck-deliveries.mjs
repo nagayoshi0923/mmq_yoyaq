@@ -16,23 +16,25 @@ const env = args.find((a) => PROJECTS[a]) ?? 'prod'
 const outIndex = args.indexOf('--out')
 const outPath = outIndex >= 0 ? args[outIndex + 1] : null
 
-// 送信待ちを持つ表: [表, 表示名, 作成日時の列（既定 created_at）]
+// 送信待ちを持つ表: [表, 表示名, 作成日時の式, 状態が最後に変わった日時の式]
+// 失敗の検索期間は「最後に変わった日時」で見る（古い行を再試行して失敗し直した分も拾う）。
 export const DELIVERY_TABLES = [
-  ['booking_email_queue', '予約メール'],
-  ['cancellation_billing_notices', 'キャンセル料のお知らせ', 'started_at'],
-  ['compensated_cancellation_notices', '補償つきキャンセルのお知らせ', 'updated_at'],
-  ['customer_notice_emails', 'お客様へのお知らせ（日程確定など）'],
-  ['discord_notification_queue', 'Discord 通知'],
-  ['performance_recruitment_notices', '追加募集のお知らせ'],
-  ['private_booking_approval_deliveries', '貸切の承認通知'],
-  ['private_booking_rejection_deliveries', '貸切のお断り'],
-  ['private_group_survey_deliveries', '貸切アンケート'],
-  ['scheduled_reminder_deliveries', '公演前リマインド'],
-  ['waitlist_notification_queue', 'キャンセル待ちの案内'],
-  ['web_push_outbox', 'Web Push'],
+  ['booking_email_queue', '予約メール', 'created_at', 'updated_at'],
+  ['cancellation_billing_notices', 'キャンセル料のお知らせ', 'started_at', 'started_at'],
+  ['compensated_cancellation_notices', '補償つきキャンセルのお知らせ', 'updated_at', 'updated_at'],
+  ['customer_notice_emails', 'お客様へのお知らせ（日程確定など）', 'created_at', 'greatest(created_at, next_attempt_at)'],
+  ['discord_notification_queue', 'Discord 通知', 'created_at', 'updated_at'],
+  ['performance_recruitment_notices', '追加募集のお知らせ', 'created_at', 'greatest(created_at, first_failed_at)'],
+  ['private_booking_approval_deliveries', '貸切の承認通知', 'created_at', 'updated_at'],
+  ['private_booking_rejection_deliveries', '貸切のお断り', 'created_at', 'updated_at'],
+  ['private_group_survey_deliveries', '貸切アンケート', 'created_at', 'updated_at'],
+  ['private_group_survey_reminders', '貸切アンケートのリマインド', 'created_at', 'greatest(created_at, next_attempt_at)'],
+  ['scheduled_reminder_deliveries', '公演前リマインド', 'created_at', 'greatest(created_at, attempted_at)'],
+  ['waitlist_notification_queue', 'キャンセル待ちの案内', 'created_at', 'updated_at'],
+  ['web_push_outbox', 'Web Push', 'created_at', 'greatest(created_at, last_message_at)'],
 ]
 // 送り終えた・送らないと決めた状態。これ以外が長く残っていれば止まっている。
-export const DONE_STATUSES = ['sent', 'completed', 'skipped', 'superseded', 'cancelled', 'delivered']
+export const DONE_STATUSES = ['sent', 'completed', 'skipped', 'superseded', 'cancelled', 'delivered', 'expired', 'withdrawn']
 export const FAILED_STATUSES = ['failed', 'uncertain']
 
 const FAILED_LOOKBACK = '14 days'
@@ -41,11 +43,11 @@ const STUCK_AFTER = '2 hours'
 export function buildSql() {
   const done = DONE_STATUSES.concat(FAILED_STATUSES).map((s) => `'${s}'`).join(',')
   const failed = FAILED_STATUSES.map((s) => `'${s}'`).join(',')
-  const parts = DELIVERY_TABLES.map(([t, , at = 'created_at']) => `
-  SELECT 'delivery' AS kind, '${t}' AS name, status::text AS detail, count(*)::int AS n, min(${at})::text AS since
+  const parts = DELIVERY_TABLES.map(([t, , createdAt, changedAt]) => `
+  SELECT 'delivery' AS kind, '${t}' AS name, status::text AS detail, count(*)::int AS n, min(${createdAt})::text AS since
     FROM public.${t}
-   WHERE (status::text IN (${failed}) AND ${at} > now() - interval '${FAILED_LOOKBACK}')
-      OR (status::text NOT IN (${done}) AND ${at} < now() - interval '${STUCK_AFTER}')
+   WHERE (status::text IN (${failed}) AND ${changedAt} > now() - interval '${FAILED_LOOKBACK}')
+      OR (status::text NOT IN (${done}) AND ${createdAt} < now() - interval '${STUCK_AFTER}')
    GROUP BY status`)
   parts.push(`
   SELECT 'cron', j.jobname, left(coalesce(d.return_message, ''), 120), count(*)::int, min(d.start_time)::text
