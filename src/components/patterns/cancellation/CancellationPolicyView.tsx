@@ -15,6 +15,7 @@ import {
 } from '@/lib/publicBookingPath'
 import { formatJstDateJa } from '@/utils/jstDate'
 import type { CancellationFeeBasis, CancellationFeeRule } from '@/types'
+import { customerSelfCancelUntilHours, type CancellationPerformanceType } from '@/lib/cancellationPolicy'
 
 interface CancellationPolicyLinkProps {
   organizationSlug?: string | null
@@ -52,6 +53,8 @@ export interface PolicyTypeSectionProps {
   deadlineHours: number | null
   fees: CancellationFeeRule[]
   feeBasis: CancellationFeeBasis | null
+  /** マイページから自分でキャンセルできる期間の判定（既定の読み替え）に使う */
+  performanceType: CancellationPerformanceType
 }
 
 function formatPolicyDeadline(hours: number): string {
@@ -66,6 +69,7 @@ export function PolicyTypeSection({
   deadlineHours,
   fees,
   feeBasis,
+  performanceType,
 }: PolicyTypeSectionProps) {
   const sortedFees = [...fees].sort((a, b) => b.hours_before - a.hours_before)
   return (
@@ -91,7 +95,7 @@ export function PolicyTypeSection({
         <p className="ts-body">
           {deadlineHours == null
             ? '店舗へお問い合わせください'
-            : formatPolicyDeadline(deadlineHours)}
+            : formatPolicyDeadline(customerSelfCancelUntilHours(deadlineHours, fees, performanceType))}
         </p>
         {deadlineHours != null && (
           <p className="ts-caption text-muted-foreground">この期間を過ぎてからのキャンセルは、店舗へお問い合わせください。</p>
@@ -203,6 +207,7 @@ export function CancellationPolicyView({
         deadlineHours={policy.cancellation_deadline_hours}
         fees={policy.cancellation_fees}
         feeBasis={policy.cancellation_fee_basis}
+        performanceType="open"
       />
 
       <PolicyTypeSection
@@ -212,6 +217,7 @@ export function CancellationPolicyView({
         deadlineHours={policy.private_cancellation_deadline_hours}
         fees={policy.private_cancellation_fees}
         feeBasis={policy.private_cancellation_fee_basis}
+        performanceType="private"
       />
 
       {(policy.organizer_cancel_reasons.length > 0 || policy.organizer_cancel_refund_note) && (
