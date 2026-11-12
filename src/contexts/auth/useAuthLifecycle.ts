@@ -29,7 +29,7 @@ import { buildCompleteProfilePath, forgetReturnUrl } from '@/lib/authReturn'
 export interface AuthLifecycleDeps {
   loading: boolean
   resolveDeps: ResolveUserDeps
-  getInitialSession: () => Promise<void>
+  getInitialSession: () => Promise<boolean | void>
   tryRecoverSession: () => Promise<boolean>
   refreshSession: () => Promise<void>
   userRef: MutableRefObject<AuthUser | null>
@@ -81,8 +81,13 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
     }, 10_000)
     
     // 初期認証状態の確認（バックグラウンドで実行）
-    getInitialSession().then(() => {
+    getInitialSession().then((completed) => {
       if (!active) return
+      // 途中で INITIAL_SESSION などの通知に置き換わったときは、利用者がまだ入っていない。
+      // ここで確認済みにすると RequireLogin（マイページ等）が未ログインと判断してログイン画面へ送り、
+      // ログイン画面は利用者が入った途端に戻すので、/mypage ↔ /login を行き来し続けた（2026-11-13 検証環境で再現）。
+      // 確認済みにするのは置き換えた側（handleAuthChangeCore）に任せる。10 秒の安全策は残す。
+      if (completed === false) return
       clearTimeout(loadingTimeout)
       const authEndTime = performance.now()
       authTrace(`⏱️ AuthContext 初期認証完了: ${((authEndTime - authStartTime) / 1000).toFixed(2)}秒`)
