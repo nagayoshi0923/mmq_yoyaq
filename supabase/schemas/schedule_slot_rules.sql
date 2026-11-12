@@ -11,5 +11,5 @@ CREATE TABLE public.schedule_slot_rules (
   is_open boolean NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (organization_id, store_id, weekday, time_slot)
+  CONSTRAINT schedule_slot_rules_slot_key UNIQUE (organization_id, store_id, weekday, time_slot)
 );
