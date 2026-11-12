@@ -56,6 +56,17 @@ describe('検証環境から外部へ送らない守り（#1281）', () => {
     expect(decideOutbound(post('/channels/123456789012345678/messages'), { ...staging, discordAllowlist: '123456789012345678' })).toEqual({ action: 'allow' })
   })
 
+  it('環境変数が無くてもボタン操作への返信（interaction token の webhook）は通す', () => {
+    expect(decideOutbound({ url: 'https://discord.com/api/v10/webhooks/999999999999999999/aW50ZXJhY3Rpb246MTIz/messages/@original', method: 'PATCH', body: '{}' }, staging)).toEqual({ action: 'allow' })
+    expect(decideOutbound({ url: 'https://discord.com/api/webhooks/111111111111111111/abcdefg', method: 'POST', body: '{}' }, staging).action).toBe('block')
+  })
+
+  it('止めた Discord の書き込みには、招待の code など呼び出し側が読む項目を返す', () => {
+    const decision = decideOutbound({ url: 'https://discord.com/api/v10/channels/123456789012345678/invites', method: 'POST', body: '{}' }, staging)
+    expect(decision.action).toBe('block')
+    if (decision.action === 'block') expect(blockedResponseBody(decision)).toMatchObject({ id: '0', code: 'staging-blocked' })
+  })
+
   it('X への投稿も止める', () => {
     expect(decideOutbound({ url: 'https://api.twitter.com/2/tweets', method: 'POST', body: '{}' }, staging).action).toBe('block')
   })

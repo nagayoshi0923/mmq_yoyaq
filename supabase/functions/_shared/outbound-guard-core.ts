@@ -112,6 +112,9 @@ export function decideOutbound(
     const path = parsed.pathname
     if (/\/interactions\/\d+\/[^/]+\/callback/.test(path)) return { action: 'allow' }
     if (path.endsWith('/oauth2/token')) return { action: 'allow' }
+    // ボタン操作への返信（/webhooks/{アプリID}/{interaction token}/...）。interaction token は
+    // 「interaction:」の base64（aW50ZXJhY3Rpb24）で始まるので、環境変数が無くても見分けられる。
+    if (/\/webhooks\/\d+\/aW50ZXJhY3Rpb24/.test(path)) return { action: 'allow' }
     const appId = (env.discordApplicationId || '').trim()
     if (appId && path.includes(`/webhooks/${appId}/`)) return { action: 'allow' }
     const allowed = splitList(env.discordAllowlist)
@@ -135,5 +138,9 @@ export function blockedResponseBody(decision: Extract<OutboundDecision, { action
     return { data: Array.from({ length: decision.batch }, (_, i) => ({ id: `${id}-${i}` })) }
   }
   if (decision.channel === 'x') return { data: { id, text: '' } }
+  if (decision.channel === 'discord') {
+    // チャンネル・ロール・招待・メッセージの作成で呼び出し側が読む項目をそろえる（招待は code が必須）
+    return { id: '0', code: 'staging-blocked', channel_id: '0', name: 'staging-blocked', type: 0, content: '' }
+  }
   return { id }
 }
