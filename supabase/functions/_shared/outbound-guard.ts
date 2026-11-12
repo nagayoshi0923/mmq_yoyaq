@@ -71,6 +71,10 @@ function installOutboundGuard(): void {
       return originalFetch(input, init)
     }
     console.warn(`[outbound-guard] 検証環境のため送信しませんでした: ${decision.channel} ${decision.reason} ${method} ${host}`)
+    // Discord の PUT・DELETE（メンバー追加・権限付与・削除）は本物も 204 を返し、呼び出し側は 201/204 を成功とみなす
+    if (decision.channel === 'discord' && (method.toUpperCase() === 'PUT' || method.toUpperCase() === 'DELETE')) {
+      return new Response(null, { status: 204, headers: { 'x-mmq-staging-blocked': '1' } })
+    }
     return new Response(JSON.stringify(blockedResponseBody(decision)), {
       status: 200,
       headers: { 'content-type': 'application/json', 'x-mmq-staging-blocked': '1' },
