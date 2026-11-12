@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 /**
  * キャンセル待ち通知 Edge Function
  * 

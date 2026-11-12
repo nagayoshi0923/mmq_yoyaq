@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 import { gmCandidateVersion } from '../_shared/gmCandidateVersion.ts'
 // @ts-nocheck
 // Discord Bot経由で通知を送信（ボタン付き）

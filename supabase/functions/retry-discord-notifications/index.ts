@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 import { deliverPrivateCancellations } from '../_shared/private-cancellation-delivery.ts'
 /**
  * Discord通知リトライ Edge Function

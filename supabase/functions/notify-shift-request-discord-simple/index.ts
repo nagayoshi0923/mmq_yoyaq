@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 // Discord Botでシンプルなシフト募集通知を送信（リンク誘導型）
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"

@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 // テスト用: 最小限の実装
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { errorResponse, getCorsHeaders, isCronOrServiceRoleCall } from '../_shared/security.ts'

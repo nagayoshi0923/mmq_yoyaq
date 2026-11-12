@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 // 事前配役アンケートの未回答者へのリマインドメールを送る（5 分ごとに定期実行から呼ばれる。2026-10-06）。
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'

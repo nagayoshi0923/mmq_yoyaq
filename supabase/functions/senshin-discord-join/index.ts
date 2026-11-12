@@ -1,4 +1,5 @@
 // @ts-nocheck
+import '../_shared/outbound-guard.ts'
 // 戦塵貸切: 予約専用 OAuth で本人を特定し、該当チャンネルに本人権限だけ付ける。ロールは付けない。
 // Supabase 共有ドメインは HTML を text/plain にするので、ページは出さず 302 だけ使う。
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
