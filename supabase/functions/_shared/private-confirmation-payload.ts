@@ -35,12 +35,12 @@ export function privateGroupGuideText(groupUrl: string): string {
 グループのご案内
 ━━━━━━━━━━━━━━━━━━━━
 
-この貸切のグループを作成しています。参加される皆さまは、下記のグループページから入室してください。
+この貸切のグループを作成しています。グループページは下記です。
 ${groupUrl}
 
-・グループに入室していない方は、クーポンを利用できません。
-・事前配役アンケートのご案内は、このグループで行います。
-・参加される方へ、このページのURLを共有してください。`
+・グループに入室していない方は、クーポンを利用できません。クーポンをご利用の方は、公演日までにこのページのURLを共有し、入室をお願いします。
+・事前配役がある作品では、配役のご案内をこのグループで行います。
+・事前配役がない作品では、グループへの入室は必須ではありません。`
 }
 
 export function buildPrivateConfirmationPayload(bookingData: PrivateBookingConfirmationRequest, options: {
@@ -134,12 +134,12 @@ export function buildPrivateConfirmationPayload(bookingData: PrivateBookingConfi
   ${htmlData.groupUrl ? `
   <div style="background-color: #ede9fe; border-left: 4px solid #7c3aed; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
     <h3 style="color: #5b21b6; margin-top: 0; font-size: 16px;">グループのご案内</h3>
-    <p style="margin: 0 0 10px 0; color: #4c1d95;">この貸切のグループを作成しています。参加される皆さまは、下記のグループページから入室してください。</p>
+    <p style="margin: 0 0 10px 0; color: #4c1d95;">この貸切のグループを作成しています。グループページは下記です。</p>
     <p style="margin: 0 0 10px 0;"><a href="${htmlData.groupUrl}" style="color: #6d28d9; font-weight: bold;">グループページを開く</a></p>
     <ul style="margin: 0; padding-left: 20px; color: #4c1d95;">
-      <li style="margin-bottom: 6px;">グループに入室していない方は、クーポンを利用できません。</li>
-      <li style="margin-bottom: 6px;">事前配役アンケートのご案内は、このグループで行います。</li>
-      <li style="margin-bottom: 6px;">参加される方へ、このページのURLを共有してください。</li>
+      <li style="margin-bottom: 6px;">グループに入室していない方は、クーポンを利用できません。クーポンをご利用の方は、公演日までにこのページのURLを共有し、入室をお願いします。</li>
+      <li style="margin-bottom: 6px;">事前配役がある作品では、配役のご案内をこのグループで行います。</li>
+      <li style="margin-bottom: 6px;">事前配役がない作品では、グループへの入室は必須ではありません。</li>
     </ul>
   </div>
   ` : ''}
