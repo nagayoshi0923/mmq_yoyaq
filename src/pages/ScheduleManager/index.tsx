@@ -51,6 +51,7 @@ import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
 import { ScheduleToolbar } from './components/ScheduleToolbar'
 import { ScheduleMobileFilters } from './components/ScheduleMobileFilters'
 import { ScheduleModals } from './components/ScheduleModals'
+import { AutoDraftModal } from './components/AutoDraftModal'
 
 // Types
 export type { ScheduleEvent }
@@ -59,6 +60,9 @@ export function ScheduleManager() {
   // 認証情報（権限チェック用）
   const { user } = useAuth()
   const isAdminOrLicenseAdmin = user?.role === 'admin' || user?.role === 'license_admin'
+  const isAdmin = user?.role === 'admin'
+  // 公演の下書き自動作成（QW-20261113-001）
+  const [isAutoDraftOpen, setIsAutoDraftOpen] = useState(false)
   
   // 月ナビゲーション
   const { clearScrollPosition } = useRouteScrollControls()
@@ -91,7 +95,7 @@ export function ScheduleManager() {
   const getRecruitmentPauseLabel = useStoreRecruitmentPauseLabels(Boolean(organizationId))
   
   // カスタム休日管理
-  const { isCustomHoliday, toggleHoliday } = useCustomHolidays()
+  const { customHolidays, isCustomHoliday, toggleHoliday } = useCustomHolidays()
 
   // GMリスト（scheduleStaff キャッシュから初期化して即座に表示 → selectedGMs フィルターが空白にならない）
   const [gmList, setGmList] = useState<Staff[]>(() => {
@@ -675,6 +679,7 @@ export function ScheduleManager() {
           setIsExportModalOpen={setIsExportModalOpen}
           isExporting={isExporting}
           setIsImportModalOpen={setIsImportModalOpen}
+          onOpenAutoDraft={isAdmin ? () => setIsAutoDraftOpen(true) : undefined}
         />
 
         {/* モバイル用フィルターパネル */}
@@ -822,6 +827,20 @@ export function ScheduleManager() {
         isKitManagementOpen={isKitManagementOpen}
         setIsKitManagementOpen={setIsKitManagementOpen}
       />
+
+      {isAdmin && (
+        <AutoDraftModal
+          open={isAutoDraftOpen}
+          onClose={() => setIsAutoDraftOpen(false)}
+          organizationId={organizationId}
+          stores={scheduleTableProps.viewConfig.stores.map(store => ({ id: store.id, name: store.name }))}
+          canEditRules={isAdmin}
+          defaultYear={currentDate.getFullYear()}
+          defaultMonth={currentDate.getMonth() + 1}
+          customHolidays={customHolidays}
+          onCreated={() => scheduleTableProps.fetchSchedule?.()}
+        />
+      )}
 
       {/* 全期間の公演データ修復 確認ダイアログ */}
       <ConfirmDialog

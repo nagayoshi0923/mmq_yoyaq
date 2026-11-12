@@ -5,7 +5,7 @@ import { MultiSelect, type MultiSelectOption } from '@/components/ui/multi-selec
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { HelpButton } from '@/components/ui/help-button'
 import { ActionMenu } from '@/components/patterns/action'
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, SlidersHorizontal, Wrench, Users, Package, Download, Upload } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, SlidersHorizontal, Wrench, Users, Package, Download, Upload, CalendarPlus } from 'lucide-react'
 import type { Staff } from '@/types'
 import type { useScheduleTable } from '@/hooks/useScheduleTable'
 
@@ -43,6 +43,8 @@ interface ScheduleToolbarProps {
   setIsExportModalOpen: React.Dispatch<React.SetStateAction<boolean>>
   isExporting: boolean
   setIsImportModalOpen: React.Dispatch<React.SetStateAction<boolean>>
+  /** 公演の下書き自動作成を開く（管理者のみ渡す） */
+  onOpenAutoDraft?: () => void
 }
 
 export function ScheduleToolbar({
@@ -79,6 +81,7 @@ export function ScheduleToolbar({
   setIsExportModalOpen,
   isExporting,
   setIsImportModalOpen,
+  onOpenAutoDraft,
 }: ScheduleToolbarProps) {
   return (
         <div className="flex items-center h-12 gap-2">
@@ -366,6 +369,16 @@ export function ScheduleToolbar({
                 ]}
               />
             </div>
+            {onOpenAutoDraft && (
+              <button
+                onClick={onOpenAutoDraft}
+                title="公演の下書きを自動で作る"
+                aria-label="公演の下書きを自動で作る"
+                className={`h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors ${isAdminOrLicenseAdmin ? 'border-r border-input' : ''}`}
+              >
+                <CalendarPlus className="h-4 w-4" />
+              </button>
+            )}
             {isAdminOrLicenseAdmin && (
               <>
                 <button

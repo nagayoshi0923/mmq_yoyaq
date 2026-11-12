@@ -15,6 +15,7 @@ import { handleCreate } from './_lib/schedule/create.js'
 import { handleUpdate } from './_lib/schedule/update.js'
 import { handleToggleCancel, handleDelete } from './_lib/schedule/cancelDelete.js'
 import { handleAddDemoParticipants, handleRemoveDemoReservations } from './_lib/schedule/demo.js'
+import { handleAutoDraftData, handleAutoDraftRules, handleAutoDraftRulesGet } from './_lib/schedule/autoDraft.js'
 import { handleExtendRecruitment, handleBookingWindow, handleBookingCutoff, handleScenarioBookingCutoff } from './_lib/schedule/recruitment.js'
 
 // 公演 API の入口。処理は api/_lib/schedule/ に分けてある（整備 Phase 3、#774）。
@@ -80,6 +81,10 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
       return await handleByDateRange(req, res, user)
     case 'by-scenario':
       return await handleByScenario(req, res, user)
+    case 'auto-draft-rules':
+      return await handleAutoDraftRulesGet(req, res, user)
+    case 'auto-draft-data':
+      return await handleAutoDraftData(req, res, user)
     default:
       return res.status(400).json({ error: `未対応の type: ${type}` })
   }
@@ -105,5 +110,6 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
   if (action === 'booking-cutoff') return await handleBookingCutoff(req, res, user)
   if (action === 'extend-recruitment') return await handleExtendRecruitment(req, res, user)
   if (action === 'toggle-cancel') return await handleToggleCancel(req, res, user)
+  if (action === 'auto-draft-rules') return await handleAutoDraftRules(req, res, user)
   return await handleUpdate(req, res, user)
 }
