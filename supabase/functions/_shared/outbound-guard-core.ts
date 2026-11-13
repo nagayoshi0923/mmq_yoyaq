@@ -196,3 +196,16 @@ export function isStagingEmailEvent(data: { to?: unknown; tags?: unknown } | nul
   const addresses = to.map(a => String(a).trim().toLowerCase().replace(/^.*<([^>]+)>.*$/, '$1')).filter(Boolean)
   return addresses.length > 0 && addresses.every(a => a.endsWith(`@${MASKED_EMAIL_DOMAIN}`))
 }
+
+/** メール送信 1 通ごとにあける間隔（本番・検証環境とも）。溜まった分を一気に流さない。 */
+export const EMAIL_SEND_GAP_MS = 1500
+
+/** Resend のメール送信（単発・まとめ送信）の URL か。 */
+export function isResendSendUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return parsed.hostname.toLowerCase() === 'api.resend.com' && /^\/emails(\/batch)?\/?$/.test(parsed.pathname)
+  } catch {
+    return false
+  }
+}

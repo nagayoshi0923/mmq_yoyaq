@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blockedResponseBody, decideOutbound, isStagingEmailEvent, isStagingEnvironment, stagingIdempotencyKey, tagStagingEmailBody } from '../../supabase/functions/_shared/outbound-guard-core'
+import { blockedResponseBody, decideOutbound, isResendSendUrl, isStagingEmailEvent, isStagingEnvironment, stagingIdempotencyKey, tagStagingEmailBody } from '../../supabase/functions/_shared/outbound-guard-core'
 
 const staging = { supabaseUrl: 'https://lavutzztfqbdndjiwluc.supabase.co' }
 const production = { supabaseUrl: 'https://cznpcewciwywcqcxktba.supabase.co' }
@@ -106,5 +106,13 @@ describe('検証環境から外部へ送らない守り（#1281）', () => {
     expect(isStagingEmailEvent({ to: ['x@gmail.com'], tags: [{ name: 'mmq_delivery', value: 'y' }] })).toBe(false)
     expect(isStagingEmailEvent({ to: ['masked+abc@example.invalid', 'x@gmail.com'] })).toBe(false)
     expect(isStagingEmailEvent({})).toBe(false)
+  })
+
+  it('間隔をあける対象はメール送信だけ（読み取りや他の API は待たせない）', () => {
+    expect(isResendSendUrl('https://api.resend.com/emails')).toBe(true)
+    expect(isResendSendUrl('https://api.resend.com/emails/batch')).toBe(true)
+    expect(isResendSendUrl('https://api.resend.com/emails/abc-123')).toBe(false)
+    expect(isResendSendUrl('https://api.resend.com/domains')).toBe(false)
+    expect(isResendSendUrl('https://example.com/emails')).toBe(false)
   })
 })
