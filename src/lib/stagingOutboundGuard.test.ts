@@ -18,11 +18,11 @@ describe('検証環境から外部へ送らない守り（#1281）', () => {
     expect(decideOutbound({ url: 'https://discord.com/api/v10/channels/123456789012345678/messages', method: 'POST' }, production)).toEqual({ action: 'allow' })
   })
 
-  it('検証環境では実在の宛先へのメールを止め、伏せた宛先だけ送る', () => {
+  it('検証環境では実在の宛先へも伏せた宛先へもメールを送らない（宛先不明の戻りで送り元の評判を下げない）', () => {
     expect(decideOutbound(resend({ to: 'real@gmail.com' }), staging).action).toBe('block')
     expect(decideOutbound(resend({ to: ['masked+abc@example.invalid', 'real@gmail.com'] }), staging).action).toBe('block')
     expect(decideOutbound(resend({ to: 'masked+abc@example.invalid', bcc: 'Real <real@gmail.com>' }), staging).action).toBe('block')
-    expect(decideOutbound(resend({ to: 'テスト <masked+abc@example.invalid>' }), staging)).toEqual({ action: 'allow' })
+    expect(decideOutbound(resend({ to: 'テスト <masked+abc@example.invalid>' }), staging).action).toBe('block')
   })
 
   it('許可リストのアドレスだけは検証環境でも送る', () => {

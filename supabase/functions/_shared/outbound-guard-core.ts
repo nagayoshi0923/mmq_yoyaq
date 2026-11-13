@@ -52,10 +52,11 @@ function recipientsOf(message: unknown): string[] {
   return out.map(emailAddress)
 }
 
+// 伏せた宛先（@example.invalid）へも実際には送らない。存在しない宛先への送信は宛先不明で戻り、
+// 本番と共通の送り元（mmq.game）の評判を下げる（2026-11、約230通が戻り Microsoft 系で遅延が出た）。
+// 検証環境から実際に届けてよいのは STAGING_EMAIL_ALLOWLIST のアドレスだけ。
 export function isAllowedStagingEmail(address: string, env: OutboundGuardEnv): boolean {
-  const normalized = emailAddress(address)
-  if (normalized.endsWith(`@${MASKED_EMAIL_DOMAIN}`)) return true
-  return splitList(env.emailAllowlist).has(normalized)
+  return splitList(env.emailAllowlist).has(emailAddress(address))
 }
 
 export type OutboundDecision =
