@@ -117,3 +117,24 @@ UPDATE discord_notification_queue SET status = 'completed', last_error = 'stagin
 DELETE FROM app_config WHERE key = 'survey_reminder_auto';
 UPDATE private_group_survey_reminders SET status = 'skipped', last_error = 'staging_mirror_no_send'
   WHERE status IN ('pending', 'sending');
+-- 貸切の承認通知（確定メール・GM のメール・GM の Discord）とお客様へのお知らせメールの送信待ちも、
+-- 本番から写したものは送らない（2026-11-13、#1281）。
+-- 送信待ちの写しに本番のお客様のメールが入ったままで、ステージングの定期送信が毎朝それを実在のお客様へ送り、
+-- 夜の写しで送信待ちに戻るため、同じ確定メールが数日にわたって何度も届いていた。
+UPDATE private_booking_approval_deliveries SET
+  status = 'skipped', last_error = 'staging_mirror_no_send', lease_token = NULL, lease_until = NULL
+  WHERE status IN ('pending', 'sending', 'failed', 'uncertain');
+UPDATE private_booking_approval_deliveries SET
+  snapshot = snapshot
+    || CASE WHEN snapshot ? 'customerEmail' THEN jsonb_build_object('customerEmail', pg_temp.mask_email(snapshot->>'customerEmail')) ELSE '{}'::jsonb END
+    || CASE WHEN snapshot ? 'customerName' THEN jsonb_build_object('customerName', pg_temp.mask_name(snapshot->>'customerName', 'テスト顧客')) ELSE '{}'::jsonb END
+    || CASE WHEN snapshot ? 'gmEmail' THEN jsonb_build_object('gmEmail', pg_temp.mask_email(snapshot->>'gmEmail')) ELSE '{}'::jsonb END
+    || CASE WHEN snapshot ? 'gmDiscordChannelId' THEN jsonb_build_object('gmDiscordChannelId', NULL) ELSE '{}'::jsonb END
+    || CASE WHEN snapshot ? 'gmDiscordUserId' THEN jsonb_build_object('gmDiscordUserId', NULL) ELSE '{}'::jsonb END,
+  provider_target = CASE WHEN kind = 'gm_discord' THEN NULL ELSE pg_temp.mask_email(provider_target) END,
+  provider_payload = NULL;
+UPDATE customer_notice_emails SET
+  to_name = pg_temp.mask_name(to_name, 'テスト顧客'),
+  to_email = pg_temp.mask_email(to_email);
+UPDATE customer_notice_emails SET status = 'skipped', last_error = 'staging_mirror_no_send', lease_until = NULL
+  WHERE status IN ('pending', 'sending');

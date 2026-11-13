@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 /**
  * Resend に残っているメール本文 + ステータスを email_logs に同期する
  *
