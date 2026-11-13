@@ -6,7 +6,7 @@
 // 伏せ漏れがあってもここで止めるのが二つ目の守り。
 // 検証用に実際に届けたい宛先は STAGING_EMAIL_ALLOWLIST / STAGING_DISCORD_ALLOWLIST に入れる。
 
-import { blockedResponseBody, decideOutbound, isStagingEnvironment, stagingIdempotencyKey, type OutboundGuardEnv } from './outbound-guard-core.ts'
+import { blockedResponseBody, decideOutbound, isStagingEnvironment, stagingIdempotencyKey, tagStagingEmailBody, type OutboundGuardEnv } from './outbound-guard-core.ts'
 
 const INSTALLED = Symbol.for('mmq.outboundGuardInstalled')
 
@@ -69,9 +69,12 @@ function installOutboundGuard(): void {
       const headers = new Headers(input instanceof Request ? input.headers : undefined)
       new Headers(init?.headers).forEach((value, name) => headers.set(name, value))
       const idempotencyKey = headers.get('idempotency-key')
-      if (host === 'api.resend.com' && idempotencyKey) {
-        headers.set('idempotency-key', stagingIdempotencyKey(idempotencyKey))
-        return originalFetch(input, { ...init, headers, ...(text !== null ? { body: text } : {}) })
+      // 送信には検証環境の目印タグを付ける（本番の Webhook が本番の送信ログへ書かないように）
+      const isResendSend = host === 'api.resend.com' && method.toUpperCase() === 'POST' && new URL(url).pathname.startsWith('/emails')
+      if (isResendSend || (host === 'api.resend.com' && idempotencyKey)) {
+        if (idempotencyKey) headers.set('idempotency-key', stagingIdempotencyKey(idempotencyKey))
+        const sendBody = isResendSend ? tagStagingEmailBody(text) : text
+        return originalFetch(input, { ...init, headers, ...(sendBody !== null ? { body: sendBody } : {}) })
       }
       if (init?.body !== undefined && init.body !== null && typeof init.body !== 'string' && text !== null) {
         return originalFetch(input, { ...init, body: text })
