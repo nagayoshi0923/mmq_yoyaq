@@ -49,14 +49,16 @@ function installOutboundGuard(): void {
 
   // 本番も検証環境も、Resend へのメール送信は 1 通ごとに間隔をあける（迷惑メールに見える一斉送信をしない）。
   // 2026-11-13、停止明けに約100通を短時間で流し、Microsoft 系で配信遅延が出た。
-  let lastSendAt = 0
+  // 並列に呼ばれても重ならないよう、待つ前に送信枠を予約する（同期的に nextSendAt を進める）
+  let nextSendAt = 0
   const pacedFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = input instanceof Request ? input.url : String(input)
     const method = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase()
     if (method === 'POST' && isResendSendUrl(url)) {
-      const wait = lastSendAt + EMAIL_SEND_GAP_MS - Date.now()
-      if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait))
-      lastSendAt = Date.now()
+      const now = Date.now()
+      const slot = Math.max(now, nextSendAt)
+      nextSendAt = slot + EMAIL_SEND_GAP_MS
+      if (slot > now) await new Promise(resolve => setTimeout(resolve, slot - now))
     }
     return rawFetch(input, init)
   }
