@@ -186,6 +186,21 @@ describe('認証方式によらない情報取得失敗と回復', () => {
     expect(host.querySelector('[role="alert"]')).not.toBeNull()
     expect(m.signOut).not.toHaveBeenCalled()
   })
+  it('保存sessionの初期確認がINITIAL_SESSIONに置き換わっても、利用者が入るまで確認済みにしない（/mypage↔/login の行き来）', async () => {
+    let finishSession!: (value: unknown) => void
+    let finishRole!: (value: unknown) => void
+    m.getSession.mockImplementation(() => new Promise(resolve => { finishSession = resolve }))
+    m.role.mockImplementation(() => new Promise(resolve => { finishRole = resolve }))
+    await render()
+    m.callback!('INITIAL_SESSION', S) // 実ブラウザでは getSession より先に届き、世代が進む
+    await act(async () => finishSession({ data: { session: S }, error: null }))
+    await tick()
+    expect(host.textContent).toContain('pending') // ここで ready:none になると RequireLogin がログインへ送っていた
+    await act(async () => finishRole({ data: { role: 'customer' }, error: null }))
+    await tick()
+    expect(host.querySelector('output')?.getAttribute('data-user')).toBe('fake-u')
+    expect(host.textContent).toContain('ready:customer')
+  })
   it('利用者Aの応答が利用者Bへの切替後に到着してもAへ戻らない', async () => {
     let finish!: (value: unknown) => void
     m.role.mockImplementation((id: string) => id === 'fake-u' ? new Promise(resolve => { finish = resolve }) : Promise.resolve({ data: { role: 'staff' }, error: null }))
