@@ -8,6 +8,7 @@ set -euo pipefail
 # スキーマ（テーブル定義）はコピーしない（マイグレーションで管理）。
 # お客様・作者の名前/メール/電話/住所は scripts/mask-staging-pii.sql で伏せる。
 # auth.users や supabase_migrations は対象外。
+# 検証環境で作った点検用アカウントのアプリ側の情報は scripts/seed-staging-qa-accounts.sql で作り直す。
 #
 # 本番にだけ存在するアドホックなバックアップ表（例: customers_org_backfill_20260707）
 # はステージングに定義がなくリストアが失敗するため除外する。
@@ -195,6 +196,9 @@ echo "[4/5] ステージングDBにリストア中..."
   echo ""
   echo "-- 5b. お客様情報を伏せる（トリガー無効のまま・同じトランザクション内。失敗したら全体を取り消す）"
   cat "$(dirname "$0")/mask-staging-pii.sql"
+  echo ""
+  echo "-- 5c. 点検用アカウント（顧客A・B・管理者スタッフ）のアプリ側の情報を作り直す（検証環境だけ）"
+  cat "$(dirname "$0")/seed-staging-qa-accounts.sql"
   echo ""
   echo "-- 6. ユーザー定義トリガーをミラー前の状態に戻す（止めていたものは止めたまま）"
   echo "$TRIGGERS_ENABLE"
