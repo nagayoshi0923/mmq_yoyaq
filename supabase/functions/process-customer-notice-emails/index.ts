@@ -27,7 +27,7 @@ serve(async req => {
   const result = { sent: 0, failed: 0 }
   try {
     if (only.onlyIds) console.log('customer_notice_only_ids', { count: only.onlyIds.length })
-    const { data, error } = await db.rpc('claim_customer_notice_emails', only.onlyIds ? { p_limit: 20, p_only_ids: only.onlyIds } : { p_limit: 20 })
+    const { data, error } = await db.rpc('claim_customer_notice_emails', only.onlyIds ? { p_limit: 6, p_only_ids: only.onlyIds } : { p_limit: 6 }) // 1回 6 通まで（溜まった分を一気に流さない）
     if (error) throw error
     const keys = new Map<string, string>()
     for (const row of (data ?? []) as Row[]) {

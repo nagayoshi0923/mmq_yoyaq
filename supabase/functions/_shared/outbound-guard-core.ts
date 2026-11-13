@@ -52,10 +52,11 @@ function recipientsOf(message: unknown): string[] {
   return out.map(emailAddress)
 }
 
+// 伏せた宛先（@example.invalid）へも実際には送らない。存在しない宛先への送信は宛先不明で戻り、
+// 本番と共通の送り元（mmq.game）の評判を下げる（2026-11、約230通が戻り Microsoft 系で遅延が出た）。
+// 検証環境から実際に届けてよいのは STAGING_EMAIL_ALLOWLIST のアドレスだけ。
 export function isAllowedStagingEmail(address: string, env: OutboundGuardEnv): boolean {
-  const normalized = emailAddress(address)
-  if (normalized.endsWith(`@${MASKED_EMAIL_DOMAIN}`)) return true
-  return splitList(env.emailAllowlist).has(normalized)
+  return splitList(env.emailAllowlist).has(emailAddress(address))
 }
 
 export type OutboundDecision =
@@ -157,4 +158,54 @@ export function blockedResponseBody(decision: Extract<OutboundDecision, { action
 export const STAGING_IDEMPOTENCY_PREFIX = 'mmq-staging/'
 export function stagingIdempotencyKey(key: string): string {
   return key.startsWith(STAGING_IDEMPOTENCY_PREFIX) ? key : `${STAGING_IDEMPOTENCY_PREFIX}${key}`
+}
+
+/**
+ * 検証環境から送ったメールの目印。Resend のアカウントと Webhook は本番と共通なので、
+ * 検証環境の送信の配信イベントも本番の resend-webhook に届き、本番の送信ログ（email_logs）に
+ * 書かれていた（2026-11、伏せた宛先の bounced / delivery_delayed が本番の画面に出た）。
+ * 検証環境の送信にこのタグを付け、本番の Webhook はタグか伏せた宛先で見分けて書かない。
+ */
+export const STAGING_EMAIL_TAG = { name: 'mmq_env', value: 'staging' } as const
+
+function withStagingTag(message: unknown): unknown {
+  if (!message || typeof message !== 'object' || Array.isArray(message)) return message
+  const record = message as Record<string, unknown>
+  const tags = Array.isArray(record.tags) ? record.tags.filter(t => !(t && typeof t === 'object' && (t as { name?: unknown }).name === STAGING_EMAIL_TAG.name)) : []
+  return { ...record, tags: [...tags, { ...STAGING_EMAIL_TAG }] }
+}
+
+/** Resend /emails（まとめ送信も）の本文に検証環境の目印タグを足す。読めない本文はそのまま返す。 */
+export function tagStagingEmailBody(body: string | null): string | null {
+  if (body === null) return null
+  try {
+    const payload = JSON.parse(body)
+    return JSON.stringify(Array.isArray(payload) ? payload.map(withStagingTag) : withStagingTag(payload))
+  } catch {
+    return body
+  }
+}
+
+/** Webhook のイベントが検証環境の送信のものか（目印タグがある、または宛先が全部伏せたアドレス）。 */
+export function isStagingEmailEvent(data: { to?: unknown; tags?: unknown } | null | undefined): boolean {
+  if (!data) return false
+  const tags = data.tags
+  if (Array.isArray(tags) && tags.some(t => t && typeof t === 'object' && (t as { name?: unknown }).name === STAGING_EMAIL_TAG.name && (t as { value?: unknown }).value === STAGING_EMAIL_TAG.value)) return true
+  if (tags && typeof tags === 'object' && !Array.isArray(tags) && (tags as Record<string, unknown>)[STAGING_EMAIL_TAG.name] === STAGING_EMAIL_TAG.value) return true
+  const to = Array.isArray(data.to) ? data.to : typeof data.to === 'string' ? [data.to] : []
+  const addresses = to.map(a => String(a).trim().toLowerCase().replace(/^.*<([^>]+)>.*$/, '$1')).filter(Boolean)
+  return addresses.length > 0 && addresses.every(a => a.endsWith(`@${MASKED_EMAIL_DOMAIN}`))
+}
+
+/** メール送信 1 通ごとにあける間隔（本番・検証環境とも）。溜まった分を一気に流さない。 */
+export const EMAIL_SEND_GAP_MS = 1500
+
+/** Resend のメール送信（単発・まとめ送信）の URL か。 */
+export function isResendSendUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return parsed.hostname.toLowerCase() === 'api.resend.com' && /^\/emails(\/batch)?\/?$/.test(parsed.pathname)
+  } catch {
+    return false
+  }
 }

@@ -1,12 +1,12 @@
 // 検証環境（ステージング）から実在の宛先へメール・Discord・X を送らない守り（#1281）。
 // 各 Edge Function の先頭で `import '../_shared/outbound-guard.ts'` するだけで、
-// その関数の fetch を差し替える。本番では何もしない。
+// その関数の fetch を差し替える。本番ではメール送信の間隔あけだけを行う。
 //
 // 写しのデータを伏せる（scripts/mask-staging-pii.sql）のが一つ目の守りで、
 // 伏せ漏れがあってもここで止めるのが二つ目の守り。
 // 検証用に実際に届けたい宛先は STAGING_EMAIL_ALLOWLIST / STAGING_DISCORD_ALLOWLIST に入れる。
 
-import { blockedResponseBody, decideOutbound, isStagingEnvironment, stagingIdempotencyKey, type OutboundGuardEnv } from './outbound-guard-core.ts'
+import { blockedResponseBody, decideOutbound, EMAIL_SEND_GAP_MS, isResendSendUrl, isStagingEnvironment, stagingIdempotencyKey, tagStagingEmailBody, type OutboundGuardEnv } from './outbound-guard-core.ts'
 
 const INSTALLED = Symbol.for('mmq.outboundGuardInstalled')
 
@@ -45,9 +45,30 @@ function installOutboundGuard(): void {
   globalRecord[INSTALLED] = true
 
   const env = readEnv()
-  if (!isStagingEnvironment(env)) return
+  const rawFetch = globalThis.fetch.bind(globalThis)
 
-  const originalFetch = globalThis.fetch.bind(globalThis)
+  // 本番も検証環境も、Resend へのメール送信は 1 通ごとに間隔をあける（迷惑メールに見える一斉送信をしない）。
+  // 2026-11-13、停止明けに約100通を短時間で流し、Microsoft 系で配信遅延が出た。
+  // 並列に呼ばれても重ならないよう、待つ前に送信枠を予約する（同期的に nextSendAt を進める）
+  let nextSendAt = 0
+  const pacedFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = input instanceof Request ? input.url : String(input)
+    const method = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase()
+    if (method === 'POST' && isResendSendUrl(url)) {
+      const now = Date.now()
+      const slot = Math.max(now, nextSendAt)
+      nextSendAt = slot + EMAIL_SEND_GAP_MS
+      if (slot > now) await new Promise(resolve => setTimeout(resolve, slot - now))
+    }
+    return rawFetch(input, init)
+  }
+
+  if (!isStagingEnvironment(env)) {
+    globalThis.fetch = pacedFetch
+    return
+  }
+
+  const originalFetch = pacedFetch
   globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = input instanceof Request ? input.url : String(input)
     const method = init?.method || (input instanceof Request ? input.method : 'GET')
@@ -69,9 +90,12 @@ function installOutboundGuard(): void {
       const headers = new Headers(input instanceof Request ? input.headers : undefined)
       new Headers(init?.headers).forEach((value, name) => headers.set(name, value))
       const idempotencyKey = headers.get('idempotency-key')
-      if (host === 'api.resend.com' && idempotencyKey) {
-        headers.set('idempotency-key', stagingIdempotencyKey(idempotencyKey))
-        return originalFetch(input, { ...init, headers, ...(text !== null ? { body: text } : {}) })
+      // 送信には検証環境の目印タグを付ける（本番の Webhook が本番の送信ログへ書かないように）
+      const isResendSend = method.toUpperCase() === 'POST' && isResendSendUrl(url)
+      if (isResendSend || (host === 'api.resend.com' && idempotencyKey)) {
+        if (idempotencyKey) headers.set('idempotency-key', stagingIdempotencyKey(idempotencyKey))
+        const sendBody = isResendSend ? tagStagingEmailBody(text) : text
+        return originalFetch(input, { ...init, headers, ...(sendBody !== null ? { body: sendBody } : {}) })
       }
       if (init?.body !== undefined && init.body !== null && typeof init.body !== 'string' && text !== null) {
         return originalFetch(input, { ...init, body: text })
