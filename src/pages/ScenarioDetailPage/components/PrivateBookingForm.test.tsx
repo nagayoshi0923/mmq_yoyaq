@@ -100,4 +100,9 @@ it('締切済みの日は 1 行にたたみ、空きのない日は省く。押�
     availableDates={['2030-01-01', '2030-01-20', '2030-01-21']} slotAvailability={availability}
     deadlineDays={0} dateFilter={(d: string) => d !== '2030-01-20'} />))
   expect(seen.grid.availableDates).toEqual([])
+  // 時間帯で絞ったら、その時間帯に空きのある日だけ（夜だけ空いている日は「午前」では出さない。Codex 指摘）
+  await act(async () => root.render(<PrivateBookingForm {...formProps} currentMonth={new Date(2030, 0, 1)}
+    availableDates={['2030-01-01', '2030-01-20', '2030-01-21']} slotAvailability={availability}
+    deadlineDays={0} slotFilter="午前" nextOpenMonth={{ label: '2月', onClick: () => {} }} />))
+  expect(seen.grid.availableDates).toEqual([])
 })

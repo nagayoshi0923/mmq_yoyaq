@@ -60,6 +60,8 @@ interface PrivateBookingFormProps {
   overview?: ReactNode
   /** 絞り込み（土日祝だけ など）に合う日か。合わない日は枠表に出さない */
   dateFilter?: (date: string) => boolean
+  /** 時間帯の絞り込み。'all' 以外なら、その時間帯に空きのある日だけを「空きのある日」とみなす */
+  slotFilter?: 'all' | PrivateBookingSlot['label']
   /** 選べない枠を押したときの代わりの候補（PrivateBookingSlotGrid の describeAlternatives） */
   describeAlternatives?: (date: string, label: PrivateBookingSlot['label']) => string | null
   /** この月に空きが無いとき「次に空きがある月（例 12月）へ」を出す */
@@ -88,6 +90,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   dateFilter,
   describeAlternatives,
   nextOpenMonth = null,
+  slotFilter = 'all',
 }: PrivateBookingFormProps) {
   // 空きのある日だけを並べる（2026-11-14 段階1。締切済みの日は 1 行にたたむ）。押すと空きのない日も出す
   const [showOnlyOpen, setShowOnlyOpen] = useState(true)
@@ -116,18 +119,20 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   }, [deadlineDays])
 
   // 締切済みの日は枠表に並べず「M/D までは受付を終了しています」の 1 行にたたむ
+  const hasOpenSlot = useCallback((date: string) => availableSlotsForDate(slotAvailability, date)
+    .some(slot => slotFilter === 'all' || slot.label === slotFilter), [slotAvailability, slotFilter])
   const tooSoonDates = useMemo(() => availableDates.filter(isTooSoon), [availableDates, isTooSoon])
   const lastTooSoon = tooSoonDates.length > 0 ? tooSoonDates[tooSoonDates.length - 1] : null
   const visibleDates = useMemo(() => availableDates.filter(date => {
     if (isTooSoon(date)) return false
     if (dateFilter && !dateFilter(date)) return false
-    if (showOnlyOpen && availableSlotsForDate(slotAvailability, date).length === 0) return false
+    if (showOnlyOpen && !hasOpenSlot(date)) return false
     return true
-  }), [availableDates, isTooSoon, dateFilter, showOnlyOpen, slotAvailability])
+  }), [availableDates, isTooSoon, dateFilter, showOnlyOpen, hasOpenSlot])
   // 空きが無いので省いた日（絞り込みで外した日は数えない）
   const hiddenCount = useMemo(() => availableDates.filter(date =>
-    !isTooSoon(date) && (!dateFilter || dateFilter(date)) && availableSlotsForDate(slotAvailability, date).length === 0,
-  ).length, [availableDates, isTooSoon, dateFilter, slotAvailability])
+    !isTooSoon(date) && (!dateFilter || dateFilter(date)) && !hasOpenSlot(date),
+  ).length, [availableDates, isTooSoon, dateFilter, hasOpenSlot])
 
   // Auto-select when only one store
   useEffect(() => {
@@ -200,7 +205,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2 ts-caption" data-testid="private-booking-collapsed">
             <span>
               {lastTooSoon && `${Number(lastTooSoon.slice(5, 7))}/${Number(lastTooSoon.slice(8, 10))} までは受付を終了しています。`}
-              {showOnlyOpen && hiddenCount > 0 && `空きのない日（${hiddenCount}日）は省いています。`}
+              {showOnlyOpen && hiddenCount > 0 && `${slotFilter === 'all' ? '空きのない日' : `${slotFilter}に空きのない日`}（${hiddenCount}日）は省いています。`}
             </span>
             {(hiddenCount > 0 || !showOnlyOpen) && (
               <button type="button" className="text-purple-700 underline" onClick={() => setShowOnlyOpen(v => !v)} data-testid="private-booking-toggle-open-only">

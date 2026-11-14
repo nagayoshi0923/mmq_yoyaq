@@ -213,10 +213,21 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
   }, [monthCounts, currentYm])
 
   /** 近い空きのチップを押した: その月を開いて候補に入れる（選択済みなら外す） */
+  // 一覧は読み込んだ時点の空き。表示中の月の最新の判定（slotAvailability）で埋まっていれば足さない。
+  // 別の月なら、その月を読み込んだあとの再検証（上の useEffect）で選べなくなった候補を外す
   const pickOverviewSlot = useCallback((date: string, slot: PrivateBookingSlot) => {
+    const alreadySelected = selectedTimeSlots.some(s => s.date === date && s.slot.label === slot.label)
+    if (!alreadySelected && slotAvailability.slotsByDate[date]) {
+      const latest = availableSlotsForDate(slotAvailability, date).find(s => s.label === slot.label)
+      if (!latest) {
+        showToast.warning('この枠は埋まりました。ほかの空きを選んでください')
+        return
+      }
+      slot = latest
+    }
     showMonthOf(date)
     toggleTimeSlot(date, { label: slot.label, startTime: slot.startTime, endTime: slot.endTime })
-  }, [showMonthOf, toggleTimeSlot])
+  }, [showMonthOf, toggleTimeSlot, selectedTimeSlots, slotAvailability])
 
   const describeAlternatives = useCallback((date: string, label: PrivateBookingSlot['label']) => {
     const alts = nearbyAlternatives(allOpenSlots, date, label)
@@ -270,6 +281,7 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
       pickSlot: pickOverviewSlot,
       describeAlternatives,
       dateFilter: overviewDateFilter,
+      slotFilter: overviewFilter.slot,
       nextOpenMonth,
     },
   }

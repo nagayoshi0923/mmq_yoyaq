@@ -721,6 +721,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     onRetryAvailability={reloadAvailability}
                     horizon={privateBookingHorizon}
                     dateFilter={privateOverview.dateFilter}
+                    slotFilter={privateOverview.slotFilter}
                     describeAlternatives={privateOverview.describeAlternatives}
                     nextOpenMonth={privateOverview.nextOpenMonth
                       ? { label: privateOverview.nextOpenMonth.label, onClick: () => privateOverview.showMonth(privateOverview.nextOpenMonth!.year, privateOverview.nextOpenMonth!.month) }
