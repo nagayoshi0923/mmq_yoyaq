@@ -29,6 +29,8 @@ import { usePrivateBookingDeadlineDays } from '@/hooks/usePrivateBookingDeadline
 import { ScenarioHero } from './components/ScenarioHero'
 import { EventList } from './components/EventList'
 import { PrivateBookingForm } from './components/PrivateBookingForm'
+import { PrivateBookingEntryChoice } from './components/PrivateBookingEntryChoice'
+import { PrivateBookingAvailabilityOverview } from '@/components/private-booking/PrivateBookingAvailabilityOverview'
 import { BookingPanel } from './components/BookingPanel'
 import { PrivateBookingPanel } from './components/PrivateBookingPanel'
 import { VenueAccess } from './components/VenueAccess'
@@ -174,7 +176,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     setSelectedTimeSlots,
     changeMonth,
     toggleTimeSlot,
-    getTimeSlotsForDate
+    getTimeSlotsForDate,
+    overview: privateOverview,
   } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationId, isCustomHoliday, isActive: activeTab === 'private' })
 
   // 貸切タブの選択をタブ内で預かり、ログインの入口などから戻ったときに戻す（B29。組織・作品・利用者が同じときだけ）
@@ -690,35 +693,15 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 {acceptsPrivateBooking && (
                 <TabsContent value="private">
                   <div className="space-y-4">
-                  {/* 日程を決めないで作成するボタン（一番上） */}
-                  <div className="p-3 bg-purple-50 border border-purple-200">
-                    <p className="ts-body text-purple-800 mb-2">
-                      日程やメンバーが決まっていない場合
-                    </p>
-                    <Button
-                      variant="outline"
-                      className="w-full gap-2 border-purple-300 text-purple-700 hover:bg-purple-100"
-                      onClick={() => {
-                        // いま選んでいる希望店舗をグループ作成の初期値にする（ヒーロー・料金パネルのボタンと同じ。?stores= で来たときもその店舗）
-                        const groupCreateUrl = privateGroupCreatePath({
-                          scenarioMasterId: scenario.scenario_master_id,
-                          organizationSlug,
-                          storeIds: privateStoreIdsForLinks,
-                          noDates: true,
-                        })
+                  {/* 入口: 日程が決まっている／まだ決まっていない（2026-11-14 段階1） */}
+                  <PrivateBookingEntryChoice
+                    scenarioMasterId={scenario.scenario_master_id}
+                    scenarioTitle={scenario.scenario_title}
+                    organizationSlug={organizationSlug}
+                    preferredStoreIds={privateStoreIdsForLinks}
+                    isLoggedIn={!!user}
+                  />
 
-                        if (!user) {
-                          navigate(loginUrlWithIntent('login', groupCreateUrl, `「${scenario.scenario_title}」の貸切グループ作成`))
-                          return
-                        }
-                        navigate(groupCreateUrl)
-                      }}
-                    >
-                      <Users className="w-4 h-4" />
-                      まずはメンバーを招待して貸切グループを作成
-                    </Button>
-                  </div>
-                  
                   <PrivateBookingForm
                     stores={availableStores}
                     selectedStoreIds={selectedStoreIds}
@@ -737,6 +720,25 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     availabilityError={availabilityError}
                     onRetryAvailability={reloadAvailability}
                     horizon={privateBookingHorizon}
+                    dateFilter={privateOverview.dateFilter}
+                    describeAlternatives={privateOverview.describeAlternatives}
+                    nextOpenMonth={privateOverview.nextOpenMonth
+                      ? { label: privateOverview.nextOpenMonth.label, onClick: () => privateOverview.showMonth(privateOverview.nextOpenMonth!.year, privateOverview.nextOpenMonth!.month) }
+                      : null}
+                    overview={
+                      <PrivateBookingAvailabilityOverview
+                        openSlots={privateOverview.openSlots}
+                        monthCounts={privateOverview.monthCounts}
+                        currentYm={privateOverview.currentYm}
+                        filter={privateOverview.filter}
+                        onFilterChange={privateOverview.setFilter}
+                        onPickSlot={privateOverview.pickSlot}
+                        onPickMonth={privateOverview.showMonth}
+                        selectedKeys={new Set(selectedTimeSlots.map(t => `${t.date}-${t.slot.label}`))}
+                        loading={privateOverview.loading}
+                        error={privateOverview.error}
+                      />
+                    }
                   />
                   
                   {/* 選択された時間枠の表示 */}

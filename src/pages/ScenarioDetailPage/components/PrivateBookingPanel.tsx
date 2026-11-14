@@ -1,11 +1,7 @@
 import { memo } from 'react'
-import { loginUrlWithIntent } from '@/lib/authReturn'
-import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Users, CalendarPlus } from 'lucide-react'
 import { BookingNotice } from './BookingNotice'
-import { privateGroupCreatePath } from '@/pages/PrivateBookingStart/paths'
 
 interface PrivateBookingPanelProps {
   participationFee: number
@@ -21,7 +17,7 @@ interface PrivateBookingPanelProps {
   hasPreReading?: boolean
   scenarioId?: string
   organizationSlug?: string
-  /** 貸切タブでいま選んでいる希望店舗。グループ作成ページへ同じ店舗で引き継ぐ */
+  /** 互換のため受け取る（グループ作成の入口は貸切タブ上部の PrivateBookingEntryChoice に移した） */
   preferredStoreIds?: string[]
 }
 
@@ -38,43 +34,10 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
   hasPreReading,
   scenarioId,
   organizationSlug,
-  preferredStoreIds = [],
 }: PrivateBookingPanelProps) {
-  const navigate = useNavigate()
-
-  const handleCreateGroupWithoutDates = () => {
-    // グループ作成ページのURLを構築（希望店舗は作品ページの他のボタンと同じく引き継ぐ）
-    const groupCreateUrl = privateGroupCreatePath({ scenarioMasterId: scenarioId, organizationSlug, storeIds: preferredStoreIds, noDates: true })
-
-    if (!isLoggedIn) {
-      // 戻り先（グループ作成ページ）を付けてログインへ
-      navigate(loginUrlWithIntent('login', groupCreateUrl, '貸切グループの作成'))
-      return
-    }
-    navigate(groupCreateUrl)
-  }
-
   return (
     <div className="space-y-4">
-      {/* 日程を決めないで作成するボタン（上部） */}
-      {scenarioId && (
-        <Card className="border-purple-200 bg-purple-50/50">
-          <CardContent className="p-4">
-            <p className="text-xs text-purple-800 mb-3">
-              日程やメンバーが決まっていない場合
-            </p>
-            <Button 
-              variant="outline"
-              className="w-full gap-2 border-purple-300 text-purple-700 hover:bg-purple-100"
-              onClick={handleCreateGroupWithoutDates}
-            >
-              <Users className="w-4 h-4" />
-              まずはメンバーを招待して貸切グループを作成
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
+      {/* 「まだ決まっていない（グループ作成）」の入口は貸切タブの一番上だけに出す（2026-11-14 段階1。以前はここにも同じボタンがあった） */}
       {/* 貸切料金情報 */}
       <div>
         <h3 className="ts-label">料金</h3>

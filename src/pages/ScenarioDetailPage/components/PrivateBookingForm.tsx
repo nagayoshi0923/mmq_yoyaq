@@ -1,11 +1,11 @@
 // 貸切の候補日時の選択（空き判定は DB の private_booking_candidate_slot_availability 系）。
 // 仕様の正本: docs/product-spec/貸切受付ルール.md。変更時は同じ PR で更新。
-import { memo, useEffect, useMemo, useCallback } from 'react'
+import { memo, useEffect, useMemo, useCallback, useState, type ReactNode } from 'react'
 import type { TimeSlot } from '../utils/types'
 import { StoreSelector } from './StoreSelector'
 import { PrivateBookingSlotGrid } from '@/components/private-booking/PrivateBookingSlotGrid'
 import type { PrivateBookingSlot } from '@/lib/computePrivateBookingSlots'
-import type { CandidateSlotAvailability } from '@/lib/candidateSlotAvailability'
+import { availableSlotsForDate, type CandidateSlotAvailability } from '@/lib/candidateSlotAvailability'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
@@ -56,6 +56,14 @@ interface PrivateBookingFormProps {
   onRetryAvailability?: () => void
   /** 受付範囲。days が null（読み込み中・読めなかった）の間は日付・枠を出さず、確認中・再試行を出す（Codex 点検 不具合 5） */
   horizon?: PrivateBookingHorizonState
+  /** 枠表の上に出す「近い空き・月ごとの空き数・絞り込み」（段階1、2026-11-14） */
+  overview?: ReactNode
+  /** 絞り込み（土日祝だけ など）に合う日か。合わない日は枠表に出さない */
+  dateFilter?: (date: string) => boolean
+  /** 選べない枠を押したときの代わりの候補（PrivateBookingSlotGrid の describeAlternatives） */
+  describeAlternatives?: (date: string, label: PrivateBookingSlot['label']) => string | null
+  /** この月に空きが無いとき「次に空きがある月（例 12月）へ」を出す */
+  nextOpenMonth?: { label: string; onClick: () => void } | null
 }
 
 export const PrivateBookingForm = memo(function PrivateBookingForm({
@@ -76,7 +84,13 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   availabilityError = null,
   onRetryAvailability,
   horizon,
+  overview,
+  dateFilter,
+  describeAlternatives,
+  nextOpenMonth = null,
 }: PrivateBookingFormProps) {
+  // 空きのある日だけを並べる（2026-11-14 段階1。締切済みの日は 1 行にたたむ）。押すと空きのない日も出す
+  const [showOnlyOpen, setShowOnlyOpen] = useState(true)
   const gridSelectedSlots = useMemo(() =>
     selectedSlots.map(s => ({
       date: s.date,
@@ -101,6 +115,20 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
     return dateObj < deadline
   }, [deadlineDays])
 
+  // 締切済みの日は枠表に並べず「M/D までは受付を終了しています」の 1 行にたたむ
+  const tooSoonDates = useMemo(() => availableDates.filter(isTooSoon), [availableDates, isTooSoon])
+  const lastTooSoon = tooSoonDates.length > 0 ? tooSoonDates[tooSoonDates.length - 1] : null
+  const visibleDates = useMemo(() => availableDates.filter(date => {
+    if (isTooSoon(date)) return false
+    if (dateFilter && !dateFilter(date)) return false
+    if (showOnlyOpen && availableSlotsForDate(slotAvailability, date).length === 0) return false
+    return true
+  }), [availableDates, isTooSoon, dateFilter, showOnlyOpen, slotAvailability])
+  // 空きが無いので省いた日（絞り込みで外した日は数えない）
+  const hiddenCount = useMemo(() => availableDates.filter(date =>
+    !isTooSoon(date) && (!dateFilter || dateFilter(date)) && availableSlotsForDate(slotAvailability, date).length === 0,
+  ).length, [availableDates, isTooSoon, dateFilter, slotAvailability])
+
   // Auto-select when only one store
   useEffect(() => {
     if (stores.length === 1 && selectedStoreIds.length === 0) {
@@ -120,11 +148,10 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
       />
 
       <h3 className="ts-label mt-4">希望日程を選択</h3>
-      {deadlineDays > 0 && (
-        <p className="text-xs text-muted-foreground mb-1">
-          貸切リクエストは公演日の{deadlineDays}日前まで受け付けています（薄く表示された日・灰色の枠・満席の枠は選べません。満席以外の灰色の枠を押すと理由を表示します）
-        </p>
-      )}
+      <p className="ts-caption mb-2">
+        空いている枠を押すと候補に入ります（最大{maxSelections}件）。{deadlineDays > 0 ? `貸切は公演日の${deadlineDays}日前まで申し込めます。` : ''}
+      </p>
+      {overview && !(horizon && horizon.days === null) && !availabilityError && <div className="mb-3">{overview}</div>}
 
       {horizon && horizon.days === null ? (
         <PrivateBookingHorizonNotice horizon={horizon} className="mt-2" />
@@ -157,7 +184,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         onMonthChange={onMonthChange}
         isPrevMonthDisabled={isPrevMonthDisabled}
         isNextMonthDisabled={isNextMonthDisabled}
-        availableDates={availableDates}
+        availableDates={visibleDates}
         slotsByDate={slotAvailability.slotsByDate}
         selectedSlots={gridSelectedSlots}
         onSlotToggle={handleSlotToggle}
@@ -168,6 +195,30 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         conflictAsFull
         isTooSoon={isTooSoon}
         loading={loading}
+        describeAlternatives={describeAlternatives}
+        bodyNotice={(lastTooSoon || hiddenCount > 0 || !showOnlyOpen) && (
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 ts-caption" data-testid="private-booking-collapsed">
+            <span>
+              {lastTooSoon && `${Number(lastTooSoon.slice(5, 7))}/${Number(lastTooSoon.slice(8, 10))} までは受付を終了しています。`}
+              {showOnlyOpen && hiddenCount > 0 && `空きのない日（${hiddenCount}日）は省いています。`}
+            </span>
+            {(hiddenCount > 0 || !showOnlyOpen) && (
+              <button type="button" className="text-purple-700 underline" onClick={() => setShowOnlyOpen(v => !v)} data-testid="private-booking-toggle-open-only">
+                {showOnlyOpen ? '空きのない日も表示' : '空きのある日だけ表示'}
+              </button>
+            )}
+          </div>
+        )}
+        emptyMonth={
+          <div className="space-y-2 px-2 py-6 text-center ts-caption" data-testid="private-booking-empty-month">
+            <p>この月は申し込める空きがありません。</p>
+            {nextOpenMonth && (
+              <Button type="button" variant="outline" className="border-purple-300 text-purple-700" onClick={nextOpenMonth.onClick}>
+                次に空きがある {nextOpenMonth.label} を見る
+              </Button>
+            )}
+          </div>
+        }
       />
       )}
     </div>
