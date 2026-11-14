@@ -119,12 +119,13 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
   const triggerLabel = useMemo(() => {
     const validCount = selectedStores.length
     if (validCount === 0) return placeholder
-    if (selectedDisplay === 'badges') return `${validCount}店舗を選択中`
+    // 全体の店舗数も出し、選んでいない店舗が残っていることが分かるようにする（2026-11-14 社長指示。例「6/7店舗を選択中」）
+    if (selectedDisplay === 'badges') return `${validCount}/${stores.length}店舗を選択中`
     if (validCount <= 5) {
       return selectedStores.map(s => s.short_name || s.name).join(', ')
     }
     return `${validCount}店舗選択中`
-  }, [selectedStores, placeholder, selectedDisplay])
+  }, [selectedStores, placeholder, selectedDisplay, stores.length])
 
   return (
     <div className={className}>

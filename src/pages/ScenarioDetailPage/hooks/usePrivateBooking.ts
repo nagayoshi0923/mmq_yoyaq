@@ -6,6 +6,7 @@ import { usePrivateBookingStorePreference, useStoreFilterPreference } from '@/ho
 import { useCandidateSlotAvailability } from '@/hooks/useCandidateSlotAvailability'
 import { availableSlotsForDate } from '@/lib/candidateSlotAvailability'
 import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
+import { defaultPrivateBookingStoreIds } from '../utils/defaultPrivateBookingStoreIds'
 import type { TimeSlot } from '../utils/types'
 import { useEffect } from 'react'
 import { privateBookingHorizonMaxYmd, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
@@ -56,9 +57,9 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     if (stores.length > 0 && !hasInitialized) {
       setHasInitialized(true)
 
-      const allValidIds = playableStores(stores, scenario, organizationId).map(s => s.id)
-      setSelectedStoreIdsInternal(allValidIds)
-      setSavedStoreIds(allValidIds)
+      const defaultIds = defaultPrivateBookingStoreIds(playableStores(stores, scenario, organizationId))
+      setSelectedStoreIdsInternal(defaultIds)
+      setSavedStoreIds(defaultIds)
     }
   }, [stores, savedStoreIds, storeFilterIds, hasInitialized, setSavedStoreIds, scenario, organizationId])
 
