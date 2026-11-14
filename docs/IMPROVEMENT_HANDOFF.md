@@ -1,3 +1,9 @@
+## 2026-11-14 / 貸切タブの希望店舗の初期値から大宮を外し、「6/7店舗を選択中」表記にする（feat/qw-20261114-001-private-store-default、staging 向け PR）
+
+- 社長指示（2026-11-14）。作品ページの貸切タブの初期チェックをフランチャイズ店以外にする（`defaultPrivateBookingStoreIds`、フランチャイズ店だけの組織は全店）。希望店舗プルダウン（badges 表示）を「選択数/店舗数 店舗を選択中」に。判定・DB は変更なし。`貸切受付ルール.md` 変更履歴に追記。
+- テスト: `src/pages/ScenarioDetailPage/utils/defaultPrivateBookingStoreIds.test.ts`、`src/components/ui/store-multi-select.test.tsx`。
+- 残り: 貸切を始めるページ（`PrivateBookingStart`「どれでも可」）・日時から選ぶ作品選択・グループ作成の初期値は未変更（改善案の段階1〜2で扱う）。
+
 ## 2026-10-22 / 公演編集の初期化中の入力消失を防ぐ（GPT hotfix）
 
 - 対象: `PerformanceModal` のスタッフ参加情報・枠メモ読み込み中に入力すると、遅着した初期値が入力を上書きする問題。

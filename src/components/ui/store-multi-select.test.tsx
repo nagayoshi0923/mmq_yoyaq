@@ -37,7 +37,7 @@ const trigger = () => host.querySelector('button')!
 
 it('badges: 選択済み店舗はボタンにまとめず、直下に 1 店舗ずつバッジで出し、× で解除できる', async () => {
   await act(async () => root.render(<Harness initial={['s1', 's3']} display="badges" />))
-  expect(trigger().textContent).toBe('2店舗を選択中')
+  expect(trigger().textContent).toBe('2/3店舗を選択中')
   expect(trigger().textContent).not.toContain('大塚')
   expect(badgeNames()).toEqual(['大塚店', longName])
   const list = host.querySelector('[data-testid="selected-store-badges"]')!
@@ -45,7 +45,7 @@ it('badges: 選択済み店舗はボタンにまとめず、直下に 1 店舗�
   expect(host.querySelector(`[aria-label="${longName}を解除"]`)).not.toBeNull()
   await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="大塚店を解除"]')!.click())
   expect(badgeNames()).toEqual([longName])
-  expect(trigger().textContent).toBe('1店舗を選択中')
+  expect(trigger().textContent).toBe('1/3店舗を選択中')
   await act(async () => host.querySelector<HTMLButtonElement>(`[aria-label="${longName}を解除"]`)!.click())
   expect(host.querySelector('[data-testid="selected-store-badges"]')).toBeNull()
   expect(trigger().textContent).toBe('店舗を選択してください')
