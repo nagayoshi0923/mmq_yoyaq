@@ -41,6 +41,14 @@ export interface PrivateBookingSlotGridProps {
    * 選べない判定は変えない（表示と操作だけ）。他の理由は従来どおり灰色・押すと理由を出す
    */
   conflictAsFull?: boolean
+  /**
+   * 選べない枠（満席を含む）を押したときに、案内の文に続けて出す代わりの候補（例「近い空き: 11/29(日) 午後」）。
+   * 渡したときは「満席」の枠も押せるようにし、理由と代わりの候補を出す（作品ページの貸切タブ。2026-11-14 段階1）。
+   * 選べない判定は変えない
+   */
+  describeAlternatives?: (date: string, label: PrivateBookingSlot['label']) => string | null
+  /** 枠表の上（月の切り替えの下）に出す 1 行（締切済みの日をたたんだ案内など） */
+  bodyNotice?: ReactNode
 }
 
 /** 満席と出す理由か（DB の conflict の文面。「（空き X・必要 Y）」の補足付きも含む） */
@@ -70,6 +78,8 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
   insetClassName = '',
   compact = false,
   conflictAsFull = false,
+  describeAlternatives,
+  bodyNotice,
 }: PrivateBookingSlotGridProps) {
   const [notice, setNotice] = useState<string | null>(null)
   const selectedCount = selectedSlots.length
@@ -164,6 +174,7 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
       </div>
 
       {/* 縦は内側でスクロールさせない。狭い画面で横にはみ出すときだけ横スクロールし、日付の列は固定 */}
+      {bodyNotice}
       <div className={`overflow-x-auto ${compact ? `py-1.5 ${insetClassName}` : 'border p-2'}`} data-testid="slot-grid-body">
         {availableDates.length === 0 ? (
           emptyMonth ?? (
@@ -253,8 +264,9 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
       </>
     )
     const handleClick = () => {
-      if (explain) {
-        setNotice(`${date.slice(5).replace('-', '/')} ${slot.label}: ${explain}`)
+      if (explain || (isFull && describeAlternatives)) {
+        const alternatives = describeAlternatives?.(date, slot.label)
+        setNotice(`${date.slice(5).replace('-', '/')} ${slot.label}: ${explain ?? '満席です'}${alternatives ? `。${alternatives}` : ''}`)
         return
       }
       if (canSelect) {
@@ -265,7 +277,7 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
     const stateClass = isExisting
       ? 'cursor-not-allowed border-purple-200 bg-purple-50 text-purple-800'
       : isFull
-      ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-muted-foreground'
+      ? `${describeAlternatives ? 'cursor-help' : 'cursor-not-allowed'} border-gray-200 bg-gray-50 text-muted-foreground`
       : !isAvailable
       ? 'cursor-help border-gray-200 bg-gray-50 text-muted-foreground'
       : isSelected
@@ -283,7 +295,7 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
         className={`flex min-w-16 flex-1 flex-col items-center justify-center border px-1 text-center leading-tight transition-colors ${compact ? 'min-h-14 rounded-lg' : 'min-h-12 rounded-sm'} ${stateClass}`}
         aria-label={ariaLabel}
         aria-disabled={!canSelect}
-        disabled={isExisting || isFull || (!explain && !canSelect)}
+        disabled={isExisting || (isFull && !describeAlternatives) || (!isFull && !explain && !canSelect)}
         onClick={handleClick}
       >
         <span className="text-xs">{slot.label}</span>

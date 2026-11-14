@@ -1,12 +1,24 @@
 // 貸切の候補日時の選択（空き判定は DB の private_booking_candidate_slot_availability 系）。
 // 仕様の正本: docs/product-spec/貸切受付ルール.md。変更時は同じ PR で更新。
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import { showToast } from '@/utils/toast'
 import { usePrivateBookingStorePreference, useStoreFilterPreference } from '@/hooks/useUserPreference'
 import { useCandidateSlotAvailability } from '@/hooks/useCandidateSlotAvailability'
 import { availableSlotsForDate } from '@/lib/candidateSlotAvailability'
 import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
+import { defaultPrivateBookingStoreIds } from '../utils/defaultPrivateBookingStoreIds'
 import type { TimeSlot } from '../utils/types'
+import { usePrivateBookingOverview } from '@/hooks/usePrivateBookingOverview'
+import {
+  DEFAULT_OVERVIEW_FILTER,
+  countOpenSlotsByMonth,
+  dateMatchesFilter,
+  formatMonthDayWeekday,
+  listOpenSlots,
+  nearbyAlternatives,
+  type PrivateBookingOverviewFilter,
+} from '@/lib/privateBookingOverview'
+import type { PrivateBookingSlot } from '@/lib/computePrivateBookingSlots'
 import { useEffect } from 'react'
 import { privateBookingHorizonMaxYmd, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
 import { toJstYmd } from '@/utils/jstDate'
@@ -34,7 +46,7 @@ interface UsePrivateBookingProps {
   isActive?: boolean
 }
 
-export function usePrivateBooking({ stores, scenarioId, scenario, organizationId, isActive = true }: UsePrivateBookingProps) {
+export function usePrivateBooking({ stores, scenarioId, scenario, organizationId, isCustomHoliday, isActive = true }: UsePrivateBookingProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [savedStoreIds, setSavedStoreIds] = usePrivateBookingStorePreference()
   const [storeFilterIds] = useStoreFilterPreference([])
@@ -56,9 +68,9 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     if (stores.length > 0 && !hasInitialized) {
       setHasInitialized(true)
 
-      const allValidIds = playableStores(stores, scenario, organizationId).map(s => s.id)
-      setSelectedStoreIdsInternal(allValidIds)
-      setSavedStoreIds(allValidIds)
+      const defaultIds = defaultPrivateBookingStoreIds(playableStores(stores, scenario, organizationId))
+      setSelectedStoreIdsInternal(defaultIds)
+      setSavedStoreIds(defaultIds)
     }
   }, [stores, savedStoreIds, storeFilterIds, hasInitialized, setSavedStoreIds, scenario, organizationId])
 
@@ -127,13 +139,18 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     })
   }, [isLoadingEvents, canRevalidate, slotAvailability])
 
+  // 表示月をお客様・URL・預かりの復元が決めたか（決めていなければ、空きのある最初の月へ自動で進める）
+  const monthTouchedRef = useRef(false)
+
   /** 指定日の月を表示する（URL からの事前選択用） */
   const showMonthOf = useCallback((date: string) => {
+    monthTouchedRef.current = true
     const [y, m] = date.split('-').map(Number)
     setCurrentMonth(prev => (prev.getFullYear() === y && prev.getMonth() === m - 1 ? prev : new Date(y, m - 1, 1)))
   }, [])
 
   const changeMonth = useCallback((offset: number) => {
+    monthTouchedRef.current = true
     const newMonth = new Date(currentMonth)
     newMonth.setMonth(currentMonth.getMonth() + offset)
     setCurrentMonth(newMonth)
@@ -158,6 +175,70 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
   }, [selectedTimeSlots])
 
   const availableStores = useMemo(() => playableStores(stores, scenario, organizationId), [scenario, stores, organizationId])
+
+  // 段階1（2026-11-14）: 申し込める範囲全体の空きから「近い空き」「月ごとの空き数」「代わりの候補」を出す（判定は DB）
+  const [overviewFilter, setOverviewFilter] = useState<PrivateBookingOverviewFilter>(DEFAULT_OVERVIEW_FILTER)
+  const overviewFrom = horizonDays !== null ? toJstYmd(new Date()) : null
+  const overviewTo = horizonDays !== null ? horizonMaxYmd : null
+  const overview = usePrivateBookingOverview(availabilityTarget, overviewFrom, overviewTo)
+  const allOpenSlots = useMemo(() => listOpenSlots(overview.availability), [overview.availability])
+  const filteredOpenSlots = useMemo(
+    () => listOpenSlots(overview.availability, overviewFilter, isCustomHoliday),
+    [overview.availability, overviewFilter, isCustomHoliday],
+  )
+  const monthCounts = useMemo(
+    () => (overviewFrom && overviewTo ? countOpenSlotsByMonth(filteredOpenSlots, overviewFrom, overviewTo) : []),
+    [filteredOpenSlots, overviewFrom, overviewTo],
+  )
+  const currentYm = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`
+
+  const showMonth = useCallback((year: number, month: number) => {
+    monthTouchedRef.current = true
+    setCurrentMonth(new Date(year, month - 1, 1))
+  }, [])
+
+  // 表示月を誰も決めていなければ、空きのある最初の月を開く（今月が締切済みの日ばかりのとき）
+  useEffect(() => {
+    if (!overview.ready || monthTouchedRef.current) return
+    if (allOpenSlots.some(s => s.date.startsWith(currentYm))) return
+    const first = allOpenSlots[0]
+    if (!first) return
+    const [y, m] = first.date.split('-').map(Number)
+    setCurrentMonth(new Date(y, m - 1, 1))
+  }, [overview.ready, allOpenSlots, currentYm])
+
+  const nextOpenMonth = useMemo(() => {
+    const next = monthCounts.find(m => m.ym > currentYm && m.count > 0)
+    return next ? { label: `${next.month}月`, year: next.year, month: next.month } : null
+  }, [monthCounts, currentYm])
+
+  /** 近い空きのチップを押した: その月を開いて候補に入れる（選択済みなら外す） */
+  // 一覧は読み込んだ時点の空き。表示中の月の最新の判定（slotAvailability）で埋まっていれば足さない。
+  // 別の月なら、その月を読み込んだあとの再検証（上の useEffect）で選べなくなった候補を外す
+  const pickOverviewSlot = useCallback((date: string, slot: PrivateBookingSlot) => {
+    const alreadySelected = selectedTimeSlots.some(s => s.date === date && s.slot.label === slot.label)
+    if (!alreadySelected && slotAvailability.slotsByDate[date]) {
+      const latest = availableSlotsForDate(slotAvailability, date).find(s => s.label === slot.label)
+      if (!latest) {
+        showToast.warning('この枠は埋まりました。ほかの空きを選んでください')
+        return
+      }
+      slot = latest
+    }
+    showMonthOf(date)
+    toggleTimeSlot(date, { label: slot.label, startTime: slot.startTime, endTime: slot.endTime })
+  }, [showMonthOf, toggleTimeSlot, selectedTimeSlots, slotAvailability])
+
+  const describeAlternatives = useCallback((date: string, label: PrivateBookingSlot['label']) => {
+    const alts = nearbyAlternatives(allOpenSlots, date, label)
+    if (alts.length === 0) return null
+    return `近い空き: ${alts.map(a => `${formatMonthDayWeekday(a.date)} ${a.slot.label} ${a.slot.startTime}〜`).join('、')}`
+  }, [allOpenSlots])
+
+  const overviewDateFilter = useCallback(
+    (date: string) => dateMatchesFilter(date, overviewFilter, isCustomHoliday),
+    [overviewFilter, isCustomHoliday],
+  )
 
   const isNextMonthDisabled = useMemo(() => {
     const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
@@ -187,6 +268,21 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     setSelectedTimeSlots,
     changeMonth,
     toggleTimeSlot,
-    getTimeSlotsForDate
+    getTimeSlotsForDate,
+    overview: {
+      loading: overview.loading,
+      error: overview.error,
+      filter: overviewFilter,
+      setFilter: setOverviewFilter,
+      openSlots: filteredOpenSlots,
+      monthCounts,
+      currentYm,
+      showMonth,
+      pickSlot: pickOverviewSlot,
+      describeAlternatives,
+      dateFilter: overviewDateFilter,
+      slotFilter: overviewFilter.slot,
+      nextOpenMonth,
+    },
   }
 }
