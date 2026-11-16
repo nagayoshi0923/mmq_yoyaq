@@ -11,6 +11,7 @@ import { articleHeadings, articleReferences, featuredWorkIds, parseArticleBlocks
 import { KeyVisualThumb } from '@/components/public-top/KeyVisualThumb'
 import { privateScenarioTabPath } from '@/pages/PrivateBookingStart/paths'
 import { formatJstMonthDay } from '@/utils/jstDate'
+import { storeDisplayName } from '@/lib/publicStoreName'
 import type { FeatureCharacter, FeatureScenario } from '@/types'
 
 const PRIVATE_COLOR = '#6B21D6'
@@ -31,7 +32,17 @@ function nextEventLine(s: FeatureScenario): string {
   const e = s.next_events[0]
   if (!e) return '今は予約できる公演がありません（貸切で遊べることがあります）'
   const seats = e.available_seats > 0 ? `残り${e.available_seats}席` : '満席'
-  return `次の公演 ${formatJstMonthDay(e.date, true)} ${e.start_time.slice(0, 5)} ${e.store_name ?? ''} ・ ${seats}`
+  const store = storeDisplayName(
+    {
+      name: e.store_name,
+      short_name: e.store_short_name,
+      public_name: e.store_public_name,
+      is_temporary: e.store_is_temporary,
+      temporary_venue_names: e.store_venue_name ? { [e.date]: e.store_venue_name } : null,
+    },
+    { organizationName: s.organization_name, date: e.date, fallback: e.venue },
+  )
+  return `次の公演 ${formatJstMonthDay(e.date, true)} ${e.start_time.slice(0, 5)} ${store} ・ ${seats}`
 }
 
 function WorkCard({ scenario }: { scenario: FeatureScenario }) {

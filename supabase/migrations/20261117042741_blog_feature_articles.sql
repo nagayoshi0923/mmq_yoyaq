@@ -76,7 +76,7 @@ CREATE OR REPLACE FUNCTION public.get_public_feature_scenarios(
 RETURNS TABLE (
   scenario_master_id uuid, slug text, title text, author text, key_visual_url text,
   player_count_min integer, player_count_max integer, duration integer, genre text[],
-  release_date date, organization_slug text, characters jsonb, next_events jsonb,
+  release_date date, organization_slug text, organization_name text, characters jsonb, next_events jsonb,
   accepts_private_booking boolean
 )
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
@@ -92,6 +92,7 @@ AS $$
          coalesce(os.override_genre, sm.genre),
          sm.release_date,
          o.slug,
+         o.name,
          coalesce((
            SELECT jsonb_agg(jsonb_build_object(
                     'id', c->>'id', 'name', c->>'name', 'age', c->>'age', 'gender', c->>'gender',
@@ -105,12 +106,19 @@ AS $$
            FROM (
              SELECT jsonb_build_object(
                       'id', se.id, 'date', se.date, 'start_time', se.start_time,
-                      'store_name', coalesce(st.short_name, st.name),
+                      -- 店舗名はお客様向けの決め方（src/lib/publicStoreName.ts の storeDisplayName）で画面側が整える
+                      'store_name', st.name, 'store_short_name', st.short_name, 'store_public_name', st.public_name,
+                      'store_is_temporary', coalesce(st.is_temporary, false),
+                      'store_venue_name', CASE WHEN jsonb_typeof(st.temporary_venue_names) = 'object' THEN st.temporary_venue_names ->> se.date::text END,
+                      'venue', se.venue,
                       'available_seats', greatest(coalesce(se.max_participants, se.capacity, os.override_player_count_max, sm.player_count_max, 8) - coalesce(se.current_participants, 0), 0)) ev
              FROM public.schedule_events se
              LEFT JOIN public.stores st ON st.id = se.store_id
              WHERE se.organization_id = os.organization_id
-               AND se.scenario_master_id = os.scenario_master_id
+               -- 作品詳細（useScenarioDetail の fetchScheduleEventsMergedForScenario）と同じ 3 経路で紐づける
+               AND (se.scenario_master_id = os.scenario_master_id
+                    OR se.organization_scenario_id = os.id
+                    OR se.scenario = coalesce(os.override_title, sm.title))
                AND se.category IN ('open', 'offsite')
                AND coalesce(se.is_cancelled, false) = false
                AND se.published = true
@@ -118,6 +126,8 @@ AS $$
                AND coalesce(se.is_tentative, false) = false
                AND coalesce(se.is_reservation_enabled, false) = true
                AND se.date >= (now() AT TIME ZONE 'Asia/Tokyo')::date
+               -- 始まった公演は出さない（日本時間）
+               AND (se.date + coalesce(se.start_time, '23:59'::time)) > (now() AT TIME ZONE 'Asia/Tokyo')
              ORDER BY se.date, se.start_time
              LIMIT 2
            ) x

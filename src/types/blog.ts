@@ -64,6 +64,7 @@ export interface FeatureScenario {
   genre: string[] | null
   release_date: string | null
   organization_slug: string
+  organization_name: string
   characters: FeatureCharacter[]
   next_events: FeatureNextEvent[]
   /** 貸切を受け付ける作品か（OFF・出張限定は false） */
@@ -87,6 +88,13 @@ export interface FeatureNextEvent {
   id: string
   date: string
   start_time: string
+  /** 店舗の生の名前。お客様に見せる名前は storeDisplayName で作る */
   store_name: string | null
+  store_short_name: string | null
+  store_public_name: string | null
+  store_is_temporary: boolean
+  /** 臨時会場のその日の名前 */
+  store_venue_name: string | null
+  venue: string | null
   available_seats: number
 }
