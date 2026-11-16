@@ -96,7 +96,10 @@ UPDATE license_report_history SET author_email = pg_temp.mask_email(author_email
 -- 実在のスタッフの Discord（業務連絡・個人チャンネル）へ届いていた（本番では開催の公演に「中止」と届いた）。
 -- ステージングの通知は社長（えいきち）にだけ届く決まりなので、えいきち以外の送信先を外す。
 -- 環境変数の Bot は残るが、送信先のチャンネルが無ければ送られない。
+-- Resend の鍵も本番のものを写さない（2026-11-13、#1281）。検証環境は Edge Function の秘密 RESEND_API_KEY
+-- （検証環境専用の Resend アカウントの鍵）だけで送り、本番の送り元の評価・アカウントに響かないようにする
 UPDATE organization_settings SET
+  resend_api_key = NULL,
   discord_webhook_url = NULL,
   discord_channel_id = NULL,
   discord_private_booking_channel_id = NULL,

@@ -9,7 +9,7 @@ export function approvalDeliveryStore(db: any): ApprovalDeliveryStore {
    if(error) throw error
   },
   async due(now) {
-   const {data,error}=await db.from(TABLE).select(COLUMNS).eq('status','pending').lte('next_attempt_at',now).order('next_attempt_at').limit(12)
+   const {data,error}=await db.from(TABLE).select(COLUMNS).eq('status','pending').lte('next_attempt_at',now).order('next_attempt_at').limit(6) // 1回 6 通まで（溜まった分を一気に流さない）
    if(error) throw error; return data||[]
   },
   async claim(row,token,now,until) {

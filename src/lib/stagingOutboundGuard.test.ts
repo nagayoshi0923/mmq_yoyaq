@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blockedResponseBody, decideOutbound, isStagingEnvironment, stagingIdempotencyKey } from '../../supabase/functions/_shared/outbound-guard-core'
+import { blockedResponseBody, decideOutbound, isResendSendUrl, isStagingEmailEvent, isStagingEnvironment, stagingIdempotencyKey, tagStagingEmailBody } from '../../supabase/functions/_shared/outbound-guard-core'
 
 const staging = { supabaseUrl: 'https://lavutzztfqbdndjiwluc.supabase.co' }
 const production = { supabaseUrl: 'https://cznpcewciwywcqcxktba.supabase.co' }
@@ -18,11 +18,11 @@ describe('検証環境から外部へ送らない守り（#1281）', () => {
     expect(decideOutbound({ url: 'https://discord.com/api/v10/channels/123456789012345678/messages', method: 'POST' }, production)).toEqual({ action: 'allow' })
   })
 
-  it('検証環境では実在の宛先へのメールを止め、伏せた宛先だけ送る', () => {
+  it('検証環境では実在の宛先へも伏せた宛先へもメールを送らない（宛先不明の戻りで送り元の評判を下げない）', () => {
     expect(decideOutbound(resend({ to: 'real@gmail.com' }), staging).action).toBe('block')
     expect(decideOutbound(resend({ to: ['masked+abc@example.invalid', 'real@gmail.com'] }), staging).action).toBe('block')
     expect(decideOutbound(resend({ to: 'masked+abc@example.invalid', bcc: 'Real <real@gmail.com>' }), staging).action).toBe('block')
-    expect(decideOutbound(resend({ to: 'テスト <masked+abc@example.invalid>' }), staging)).toEqual({ action: 'allow' })
+    expect(decideOutbound(resend({ to: 'テスト <masked+abc@example.invalid>' }), staging).action).toBe('block')
   })
 
   it('許可リストのアドレスだけは検証環境でも送る', () => {
@@ -86,5 +86,33 @@ describe('検証環境から外部へ送らない守り（#1281）', () => {
   it('検証環境の Resend 重複防止キーは本番と重ならないよう前置きを付ける（二重に付けない）', () => {
     expect(stagingIdempotencyKey('private-rejection/abc')).toBe('mmq-staging/private-rejection/abc')
     expect(stagingIdempotencyKey('mmq-staging/private-rejection/abc')).toBe('mmq-staging/private-rejection/abc')
+  })
+
+  it('検証環境の送信に目印タグを付ける（まとめ送信も、二重に付けない）', () => {
+    const one = JSON.parse(tagStagingEmailBody(JSON.stringify({ to: ['a@example.invalid'], tags: [{ name: 'mmq_delivery', value: 'x' }] }))!)
+    expect(one.tags).toEqual([{ name: 'mmq_delivery', value: 'x' }, { name: 'mmq_env', value: 'staging' }])
+    const again = JSON.parse(tagStagingEmailBody(JSON.stringify(one))!)
+    expect(again.tags).toHaveLength(2)
+    const batch = JSON.parse(tagStagingEmailBody(JSON.stringify([{ to: ['a@example.invalid'] }, { to: ['b@example.invalid'] }]))!)
+    expect(batch.every((m: { tags: unknown[] }) => m.tags.length === 1)).toBe(true)
+    expect(tagStagingEmailBody('not json')).toBe('not json')
+  })
+
+  it('本番の Webhook は検証環境の送信のイベントを見分ける', () => {
+    expect(isStagingEmailEvent({ to: ['x@gmail.com'], tags: [{ name: 'mmq_env', value: 'staging' }] })).toBe(true)
+    expect(isStagingEmailEvent({ to: ['x@gmail.com'], tags: { mmq_env: 'staging' } })).toBe(true)
+    expect(isStagingEmailEvent({ to: ['masked+abc@example.invalid'] })).toBe(true)
+    expect(isStagingEmailEvent({ to: 'Name <masked+abc@example.invalid>' })).toBe(true)
+    expect(isStagingEmailEvent({ to: ['x@gmail.com'], tags: [{ name: 'mmq_delivery', value: 'y' }] })).toBe(false)
+    expect(isStagingEmailEvent({ to: ['masked+abc@example.invalid', 'x@gmail.com'] })).toBe(false)
+    expect(isStagingEmailEvent({})).toBe(false)
+  })
+
+  it('間隔をあける対象はメール送信だけ（読み取りや他の API は待たせない）', () => {
+    expect(isResendSendUrl('https://api.resend.com/emails')).toBe(true)
+    expect(isResendSendUrl('https://api.resend.com/emails/batch')).toBe(true)
+    expect(isResendSendUrl('https://api.resend.com/emails/abc-123')).toBe(false)
+    expect(isResendSendUrl('https://api.resend.com/domains')).toBe(false)
+    expect(isResendSendUrl('https://example.com/emails')).toBe(false)
   })
 })
