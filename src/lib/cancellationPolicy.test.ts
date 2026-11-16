@@ -3,6 +3,9 @@ import type { CancellationFeeRule, Reservation } from '@/types'
 import {
   calculateCancellation,
   canCustomerSelfCancel,
+  customerSelfCancelUntilHours,
+  DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
+  DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
   evaluateCustomerSelfCancel,
   resolveCancellationPolicy,
   resolveCustomerCancelDeadlineHours,
@@ -232,5 +235,21 @@ describe('resolveCancellationPolicy', () => {
       expect(incomplete.reason).toBe('snapshot_incomplete')
       expect(incomplete.fees).toBeNull()
     }
+  })
+})
+
+describe('customerSelfCancelUntilHours（規定の表示: マイページからキャンセルできる期間）', () => {
+  it('期限がキャンセル料の発生より前なら期限のまま', () => {
+    expect(customerSelfCancelUntilHours(720, [{ hours_before: 168, fee_percentage: 50, description: '' }], 'private')).toBe(720)
+  })
+  it('キャンセル料の発生が期限より前なら、その時刻で区切る', () => {
+    expect(customerSelfCancelUntilHours(24, [{ hours_before: 72, fee_percentage: 50, description: '' }, { hours_before: -1, fee_percentage: 100, description: '' }], 'open')).toBe(72)
+  })
+  it('期限 0 は種別の既定に読み替える（マイページの判定と同じ）', () => {
+    expect(customerSelfCancelUntilHours(0, [], 'open')).toBe(DEFAULT_OPEN_CANCEL_DEADLINE_HOURS)
+    expect(customerSelfCancelUntilHours(0, [], 'private')).toBe(DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS)
+  })
+  it('料率 0% の段はキャンセル料の発生に数えない', () => {
+    expect(customerSelfCancelUntilHours(48, [{ hours_before: 240, fee_percentage: 0, description: '' }], 'open')).toBe(48)
   })
 })

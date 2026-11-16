@@ -1,4 +1,5 @@
 // @ts-nocheck
+import '../_shared/outbound-guard.ts'
 /**
  * クーポン付与時の通知メール送信
  *

@@ -1,0 +1,71 @@
+name: Stuck Deliveries
+
+# 本番の「送れていない通知」を 4 時間ごとに数える（#1273 の再発防止）。
+# Edge Function 呼び出しの応答（net._http_response）は 6 時間で消えるため、それより短い間隔で見る。
+# 2026-11 に定期送信が 401 で 10 日止まっても誰も気づかなかった。
+# 送信待ちの滞留・失敗、定期実行の失敗、Edge Function 呼び出しの失敗が 1 件でもあれば、
+# Issue「【自動点検】送れていない通知があります」を作る（あれば更新する）。問題がなくなれば閉じる。
+# Discord への通知は方針で使わない。Issue は毎朝の未完了の突き合わせ（mmq:backlog）で拾われる。
+
+on:
+  schedule:
+    - cron: '45 */4 * * *'  # 4 時間ごと（JST 0:45, 4:45, 8:45, 12:45, 16:45, 20:45）
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/check-stuck-deliveries.mjs'
+      - '.github/workflows/stuck-deliveries.yml'
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: stuck-deliveries
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Stuck deliveries (prod)
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
+      ISSUE_TITLE: '【自動点検】送れていない通知があります'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Count stuck deliveries in production
+        id: check
+        run: |
+          set +e
+          node scripts/check-stuck-deliveries.mjs prod --out report.md
+          code=$?
+          set -e
+          if [ ! -s report.md ]; then echo "点検を実行できませんでした（終了コード $code）"; exit 1; fi
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+          echo "found=$([ $code -eq 0 ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
+      # PR の試験では Issue を触らない
+      - name: Open or update the issue
+        if: github.event_name != 'pull_request' && steps.check.outputs.found == 'true'
+        run: |
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$ISSUE_TITLE\" in:title" --json number,title --jq ".[] | select(.title == env.ISSUE_TITLE) | .number" | head -1)
+          if [ -n "$number" ]; then
+            # 中身が変わったときだけ更新して知らせる（4 時間ごとの同じ報告で埋めない）
+            gh issue view "$number" --repo "$GITHUB_REPOSITORY" --json body --jq .body > current.md
+            if ! diff -q <(sed 's/[[:space:]]*$//' current.md) <(sed 's/[[:space:]]*$//' report.md) > /dev/null; then
+              gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --body-file report.md
+              gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$(date -u -d '+9 hours' '+%Y-%m-%d %H:%M JST') の点検で内容が変わりました。本文を最新にしました。"
+            fi
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$ISSUE_TITLE" --body-file report.md
+          fi
+      - name: Close the issue when nothing is stuck
+        if: github.event_name != 'pull_request' && steps.check.outputs.found == 'false'
+        run: |
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$ISSUE_TITLE\" in:title" --json number,title --jq ".[] | select(.title == env.ISSUE_TITLE) | .number" | head -1)
+          if [ -n "$number" ]; then
+            gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "$(date -u -d '+9 hours' '+%Y-%m-%d %H:%M JST') の点検で、送れていない通知はなくなりました。"
+          fi

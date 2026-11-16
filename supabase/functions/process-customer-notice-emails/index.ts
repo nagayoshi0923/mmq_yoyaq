@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 // お客様への知らせのメール（マイページ改修 段階 4）を送る。5 分ごとに定期実行から呼ばれる（2026-10-09）。
 // 送信待ちは DB のトリガー・関数が customer_notice_emails に積む。app_config の customer_notice_email が 'on' の環境だけ取り出される。
 // 形は事前配役アンケートのリマインド（process-survey-reminders）と同じ。
@@ -26,7 +27,7 @@ serve(async req => {
   const result = { sent: 0, failed: 0 }
   try {
     if (only.onlyIds) console.log('customer_notice_only_ids', { count: only.onlyIds.length })
-    const { data, error } = await db.rpc('claim_customer_notice_emails', only.onlyIds ? { p_limit: 20, p_only_ids: only.onlyIds } : { p_limit: 20 })
+    const { data, error } = await db.rpc('claim_customer_notice_emails', only.onlyIds ? { p_limit: 6, p_only_ids: only.onlyIds } : { p_limit: 6 }) // 1回 6 通まで（溜まった分を一気に流さない）
     if (error) throw error
     const keys = new Map<string, string>()
     for (const row of (data ?? []) as Row[]) {

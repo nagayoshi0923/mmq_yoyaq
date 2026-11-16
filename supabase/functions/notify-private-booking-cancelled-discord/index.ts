@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 // 旧クライアント互換。送信はDBトリガー→永続キューに統一する。
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'

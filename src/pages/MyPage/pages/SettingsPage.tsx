@@ -630,7 +630,7 @@ export function SettingsPage() {
                 placeholder="山田 太郎"
                 className="mt-1"
               />
-              <p className="text-xs text-gray-500 mt-1">予約確認や店舗での呼び出しに使用します</p>
+              <p className="text-xs text-gray-500 mt-1">予約確認や緊急時の連絡にのみ使用します</p>
             </div>
             <div>
               <Label htmlFor="nickname">ニックネーム</Label>
@@ -641,7 +641,7 @@ export function SettingsPage() {
                 placeholder="タロウ"
                 className="mt-1"
               />
-              <p className="text-xs text-gray-500 mt-1">マイページでの表示名として使用します</p>
+              <p className="text-xs text-gray-500 mt-1">マイページ・貸切グループでの表示名や、店舗でのお呼び出しに使用します</p>
             </div>
             <div>
               <Label htmlFor="phone" className="flex items-center gap-2">

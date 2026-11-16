@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 /**
  * キット移動計画 Discord 通知 Edge Function
  *

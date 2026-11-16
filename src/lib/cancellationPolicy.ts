@@ -294,6 +294,24 @@ export function evaluateCustomerSelfCancel(
   }
 }
 
+/**
+ * 規定の表示用: お客様がマイページから自分でキャンセルできるのは「公演開始の何時間前まで」か。
+ * evaluateCustomerSelfCancel と同じ判定（受付期限 0 は種別の既定に読み替え、キャンセル料がかかる時刻は不可）。
+ * キャンセル料がかかり始める時刻が期限より早ければ、そちらで区切る。
+ */
+export function customerSelfCancelUntilHours(
+  deadlineHours: number,
+  fees: readonly CancellationFeeRule[],
+  performanceType: CancellationPerformanceType,
+): number {
+  const deadline = deadlineHours > 0
+    ? deadlineHours
+    : performanceType === 'private' ? DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS : DEFAULT_OPEN_CANCEL_DEADLINE_HOURS
+  const feeStart = fees.filter(isFeeRule).filter(rule => rule.fee_percentage > 0)
+    .reduce((max, rule) => Math.max(max, rule.hours_before), -Infinity)
+  return Math.max(deadline, feeStart)
+}
+
 export function canCustomerSelfCancel(input: CalculateCancellationInput): boolean {
   return evaluateCustomerSelfCancel(input).canCustomerSelfCancel
 }

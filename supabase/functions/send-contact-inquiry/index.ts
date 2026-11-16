@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 /**
  * お問い合わせメール送信用Edge Function
  * 認証なしで呼び出し可能（公開ページ用）

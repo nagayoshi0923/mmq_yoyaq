@@ -147,7 +147,7 @@ export function SurveyResponseForm(props: SurveyResponseFormProps) {
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </header>
-        <p className="shrink-0 bg-emerald-50 px-3.5 py-1.5 text-xs text-emerald-800">回答は店舗と GM にだけ届きます。配役は当日お伝えします。</p>
+        <p className="shrink-0 bg-emerald-50 px-3.5 py-1.5 text-xs text-emerald-800">回答は店舗と GM にだけ届きます。アンケートを参考に配役を決めますので、お知らせをお待ちください。</p>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3.5 py-3">{body}</div>
         {ready && (
           <footer className="shrink-0 border-t border-border px-3.5 pb-3.5 pt-2.5" data-testid="survey-footer">

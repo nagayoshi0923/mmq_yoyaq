@@ -263,6 +263,7 @@ export function HandoverScreen({ requestId, user, onBack, onFinished }: Handover
               deadlineHours={fixed.deadline_hours}
               fees={fixed.fees}
               feeBasis={fixed.fee_basis}
+              performanceType={fixed.performance_type === 'private' ? 'private' : 'open'}
             />
           </div>
         ) : undefined}

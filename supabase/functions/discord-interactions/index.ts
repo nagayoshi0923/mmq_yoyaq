@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 import { gmCandidateVersion, gmCandidateButtons } from '../_shared/gmCandidateVersion.ts'
 import { readPrivateBookingReadiness, nextGmResponseStatus } from '../_shared/privateBookingReadiness.ts'
 // Discord インタラクション処理（署名検証付き + Deferred Response対応）

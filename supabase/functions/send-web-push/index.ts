@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 // 貸切グループのプッシュ通知（ウェブプッシュ、段階 3、2026-10-10）を送る。
 // 送信待ち web_push_outbox は DB のトリガーが積み、積んだときに pg_net でこの関数を呼ぶ（毎分の定期実行は取りこぼし用）。
 // 外部サービスは使わない（ブラウザの配信元へ VAPID で直接送る）。鍵は Supabase の secrets: VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT。

@@ -90,7 +90,7 @@ export function CastingSection(props: CastingSectionProps) {
         <OverviewSection label="配役" testId="overview-casting" title={<>配役<Tag tone="green">事前配役アンケート</Tag></>} aside={changeMethod}>
           <div data-testid="casting-survey">
             <p className="text-sm leading-snug">
-              全員がアンケートに答えると、店舗と GM が配役を決めて当日お伝えします。
+              全員がアンケートに答えると、店舗と GM が配役を決めてお知らせします。
               {deadline && <>回答期限 <strong>{deadline}</strong>{closed ? '（締め切りました）' : ''}。</>}
             </p>
             {status?.survey_enabled && !status.external && (
