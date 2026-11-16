@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 // ゲストが PIN を忘れたとき、参加時のメールアドレスへ新しい PIN を送る（2026-10-06）。
 // 参加の有無を漏らさないため、登録が無い・回数制限に当たった場合も同じ応答を返す。
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'

@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 /**
  * キャンセル待ち登録完了メール送信 Edge Function
  * 

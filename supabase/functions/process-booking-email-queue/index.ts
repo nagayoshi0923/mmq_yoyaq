@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 /**
  * 予約確認メールのリトライキュー処理 Edge Function
  * 

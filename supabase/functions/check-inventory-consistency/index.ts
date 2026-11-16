@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 /**
  * 在庫整合性チェック Edge Function
  * 

@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 // シフト未提出者へのリマインダー通知
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"

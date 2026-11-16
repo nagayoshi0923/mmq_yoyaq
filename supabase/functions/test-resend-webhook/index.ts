@@ -1,3 +1,4 @@
+import '../_shared/outbound-guard.ts'
 /**
  * Resend webhook 動作確認用のテスト送信 Edge Function
  *

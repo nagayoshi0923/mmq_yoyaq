@@ -1,4 +1,5 @@
 // @ts-nocheck
+import '../_shared/outbound-guard.ts'
 import { authorizePrivateApprovalNotification } from '../_shared/private-approval-authorization.ts'
 import { loadPrivateDiscordProvisionContext } from '../_shared/private-discord-provision-context.ts'
 import { LegacyApprovalError } from '../_shared/private-approval-legacy.ts'

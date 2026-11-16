@@ -1,8 +1,10 @@
+import '../_shared/outbound-guard.ts'
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Webhook } from 'npm:svix@1.61.0'
 import { getServiceRoleKey } from '../_shared/security.ts'
 import { emailLogIdFromTags, upsertEmailLogByProviderId, type EmailLogStatus, type EmailLogUpdate } from '../_shared/email-logs.ts'
+import { isStagingEmailEvent } from '../_shared/outbound-guard-core.ts'
 
 type ResendEventPayload = {
   type?: string
@@ -105,6 +107,13 @@ serve(async (req: Request) => {
         ? event?.data?.to.length
         : event?.data?.to ? 1 : 0,
     })
+
+    // 検証環境から送ったメールのイベントは、本番の送信ログへ書かない（Resend のアカウントと Webhook が共通のため届く）。
+    // 検証環境の写しは本番と同じ email_logs の id をタグに持つので、書くと本番の行を取り違える。
+    if (isStagingEmailEvent(event?.data)) {
+      console.log('ℹ️ Resend webhook: staging email event ignored', { type: eventType, email_id: emailId })
+      return jsonResponse({ received: true, ignored: 'staging' }, 200)
+    }
 
     // email_logs を upsert（既存なら update、無ければ fallback insert）
     if (emailId) {
