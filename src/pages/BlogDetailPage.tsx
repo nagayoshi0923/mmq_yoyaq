@@ -20,6 +20,7 @@ import { BLOG_POST_TYPE_LABELS, type BlogPost } from '@/types'
 import { ArticleBody } from '@/components/blog/ArticleBody'
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { blogPageTitle } from '@/lib/seo'
+import { blogListPath } from '@/pages/BlogList/paths'
 
 interface BlogDetailPageProps {
   slug: string
@@ -155,7 +156,7 @@ export function BlogDetailPage({ slug, organizationSlug }: BlogDetailPageProps) 
 
         {/* ほかの特集・お知らせ */}
         <div className="mt-10 border-t pt-6">
-          <Button variant="outline" onClick={() => navigate('/blog')}>
+          <Button variant="outline" onClick={() => navigate(blogListPath(organizationSlug))}>
             ほかの特集・お知らせを見る
           </Button>
         </div>
