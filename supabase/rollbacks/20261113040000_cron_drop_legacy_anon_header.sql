@@ -1,5 +1,6 @@
 -- 20261113040000_cron_drop_legacy_anon_header.sql の戻し（旧形式の鍵を Authorization に付け直す）。
 -- 旧形式の鍵が有効なときだけ意味がある。
+-- finalize-senshin-discord-rooms は元から Authorization を付けていない（旧 anon 鍵は「値があるか」の確認だけ）ため戻さない。
 
 DO $$
 DECLARE
@@ -10,7 +11,7 @@ BEGIN
      WHERE command ~ $re$/functions/v1/$re$
        AND command ~ $re$'x-cron-secret'$re$
        AND command !~ $re$'Authorization'$re$
-       AND jobname NOT IN ('notify-missing-staff-checkins', 'retry-discord-notifications')
+       AND jobname NOT IN ('notify-missing-staff-checkins', 'retry-discord-notifications', 'finalize-senshin-discord-rooms')
   LOOP
     PERFORM cron.alter_job(
       job_id := j.jobid,
