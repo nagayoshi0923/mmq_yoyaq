@@ -76,7 +76,8 @@ CREATE OR REPLACE FUNCTION public.get_public_feature_scenarios(
 RETURNS TABLE (
   scenario_master_id uuid, slug text, title text, author text, key_visual_url text,
   player_count_min integer, player_count_max integer, duration integer, genre text[],
-  release_date date, organization_slug text, characters jsonb, next_events jsonb
+  release_date date, organization_slug text, characters jsonb, next_events jsonb,
+  accepts_private_booking boolean
 )
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
@@ -113,12 +114,16 @@ AS $$
                AND se.category IN ('open', 'offsite')
                AND coalesce(se.is_cancelled, false) = false
                AND se.published = true
+               AND coalesce(se.is_private_booking, false) = false
+               AND coalesce(se.is_tentative, false) = false
                AND coalesce(se.is_reservation_enabled, false) = true
                AND se.date >= (now() AT TIME ZONE 'Asia/Tokyo')::date
              ORDER BY se.date, se.start_time
              LIMIT 2
            ) x
-         ), '[]'::jsonb)
+         ), '[]'::jsonb),
+         -- 貸切の受付（OFF・出張限定は不可。src/lib/privateBookingAcceptance.ts と同じ判定）
+         coalesce(os.accepts_private_booking, true) AND coalesce(os.scenario_kind, 'regular') <> 'offsite_only'
   FROM public.organization_scenarios os
   JOIN public.scenario_masters sm ON sm.id = os.scenario_master_id
   JOIN public.organizations o ON o.id = os.organization_id

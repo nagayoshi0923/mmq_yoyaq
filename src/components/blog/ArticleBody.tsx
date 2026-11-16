@@ -47,13 +47,15 @@ function WorkCard({ scenario }: { scenario: FeatureScenario }) {
         <p className="text-xs font-bold text-primary">{nextEventLine(scenario)}</p>
         <div className="flex flex-wrap gap-2 pt-1">
           <Link to={scenarioPath(scenario)} className="rounded-full bg-primary px-3 py-1 text-xs font-bold text-white">公演を見る</Link>
-          <Link
-            to={privateScenarioTabPath(scenario.organization_slug, { id: scenario.scenario_master_id, slug: scenario.slug })}
-            className="rounded-full px-3 py-1 text-xs font-bold text-white"
-            style={{ backgroundColor: PRIVATE_COLOR }}
-          >
-            貸切で遊ぶ
-          </Link>
+          {scenario.accepts_private_booking && (
+            <Link
+              to={privateScenarioTabPath(scenario.organization_slug, { id: scenario.scenario_master_id, slug: scenario.slug })}
+              className="rounded-full px-3 py-1 text-xs font-bold text-white"
+              style={{ backgroundColor: PRIVATE_COLOR }}
+            >
+              貸切で遊ぶ
+            </Link>
+          )}
         </div>
       </div>
     </div>
@@ -121,6 +123,8 @@ export function ArticleBody({ content, organizationId }: { content: string; orga
     queryFn: () => fetchFeatureScenarios({ organizationId, scenarioIds: refs.scenarioIds, tags: refs.tags }),
     enabled: needsScenarios,
     staleTime: 60_000,
+    // 記事を開くたびに次の公演・空席を最新にする（アプリ全体は refetchOnMount: false）
+    refetchOnMount: 'always',
   })
   const byId = useMemo(() => new Map((scenarios ?? []).map((s) => [s.scenario_master_id, s])), [scenarios])
 

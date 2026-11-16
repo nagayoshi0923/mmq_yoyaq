@@ -66,6 +66,8 @@ export interface FeatureScenario {
   organization_slug: string
   characters: FeatureCharacter[]
   next_events: FeatureNextEvent[]
+  /** 貸切を受け付ける作品か（OFF・出張限定は false） */
+  accepts_private_booking: boolean
 }
 
 export interface FeatureCharacter {
