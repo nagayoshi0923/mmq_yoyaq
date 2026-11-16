@@ -17,6 +17,7 @@ const BROWSE_ONLY_PAGES = new Set([
   'scenario-detail-global',
   'scenario',
   'blog-detail',
+  'feature-list',
   'org-faq',
   'cancel-policy',
   'guide',

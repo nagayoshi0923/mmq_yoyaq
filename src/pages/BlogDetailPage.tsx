@@ -16,7 +16,8 @@ import { logger } from '@/utils/logger'
 import { formatJstDateJa } from '@/utils/jstDate'
 import { ArrowLeft, Calendar, Loader2 } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
-import type { BlogPost } from '@/types'
+import { BLOG_POST_TYPE_LABELS, type BlogPost } from '@/types'
+import { ArticleBody } from '@/components/blog/ArticleBody'
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { blogPageTitle } from '@/lib/seo'
 
@@ -75,34 +76,6 @@ export function BlogDetailPage({ slug, organizationSlug }: BlogDetailPageProps) 
     return formatJstDateJa(dateStr)
   }
 
-  // Markdownをシンプルに変換（改行とリンク）
-  const renderContent = (content: string) => {
-    return content
-      .split('\n')
-      .map((line, i) => {
-        // 見出し
-        if (line.startsWith('### ')) {
-          return <h3 key={i} className="text-lg font-bold mt-6 mb-3">{line.slice(4)}</h3>
-        }
-        if (line.startsWith('## ')) {
-          return <h2 key={i} className="text-xl font-bold mt-8 mb-4">{line.slice(3)}</h2>
-        }
-        if (line.startsWith('# ')) {
-          return <h1 key={i} className="text-2xl font-bold mt-8 mb-4">{line.slice(2)}</h1>
-        }
-        // リスト
-        if (line.startsWith('- ')) {
-          return <li key={i} className="ml-4">{line.slice(2)}</li>
-        }
-        // 空行
-        if (line.trim() === '') {
-          return <br key={i} />
-        }
-        // 通常の段落
-        return <p key={i} className="mb-2">{line}</p>
-      })
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen" style={{ backgroundColor: THEME.background }}>
@@ -159,6 +132,13 @@ export function BlogDetailPage({ slug, organizationSlug }: BlogDetailPageProps) 
           戻る
         </Button>
 
+        {/* 種類（特集・キャンペーンのとき） */}
+        {post.post_type && post.post_type !== 'news' && (
+          <span className="mb-3 inline-block bg-primary px-2 py-0.5 text-xs font-bold text-white">
+            {BLOG_POST_TYPE_LABELS[post.post_type]}
+          </span>
+        )}
+
         {/* タイトル */}
         <h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-4">
           {post.title}
@@ -171,8 +151,13 @@ export function BlogDetailPage({ slug, organizationSlug }: BlogDetailPageProps) 
         </div>
 
         {/* 本文 */}
-        <div className="prose prose-lg max-w-none text-gray-800 leading-relaxed">
-          {renderContent(post.content)}
+        <ArticleBody content={post.content} organizationId={post.organization_id} />
+
+        {/* ほかの特集・お知らせ */}
+        <div className="mt-10 border-t pt-6">
+          <Button variant="outline" onClick={() => navigate('/blog')}>
+            ほかの特集・お知らせを見る
+          </Button>
         </div>
 
         {/* CTA */}

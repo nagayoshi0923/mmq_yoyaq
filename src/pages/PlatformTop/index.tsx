@@ -24,6 +24,7 @@ import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top/InfoSections'
 import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
+import { FeatureBannerSection } from '@/components/public-top/FeatureBannerSection'
 import { NewArrivalsSection, type NewArrivalItem } from '@/components/public-top/NewArrivalsSection'
 import { buildPlatformBrowseScenarios, platformNewArrivalPicks } from '@/components/public-top/newArrivalsSource'
 import { newArrivalsPath } from '@/pages/NewArrivals/paths'
@@ -206,6 +207,7 @@ export function PlatformTop() {
       />
 
       <main className="mx-auto max-w-4xl space-y-3 px-3.5 py-3 sm:px-4 md:py-5">
+        <FeatureBannerSection />
         <NearlyFullStrip performances={nearlyFull} source={cardSource} marks={marks} aside="全店舗・日付順" onOpen={openCard} />
 
         <NewArrivalsSection items={newArrivals} lead="全国の公開作品から、新しい物語を見つけよう" allPath={newArrivalsPath()} marks={marks} onOpen={openCard} />

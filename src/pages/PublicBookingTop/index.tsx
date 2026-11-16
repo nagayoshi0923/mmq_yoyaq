@@ -28,6 +28,7 @@ import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top
 import { privateGuidePath } from '@/pages/static/guide/privateGuidePath'
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
 import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
+import { FeatureBannerSection } from '@/components/public-top/FeatureBannerSection'
 import { NewArrivalsSection, type NewArrivalItem } from '@/components/public-top/NewArrivalsSection'
 import { buildOrgBrowseScenarios, orgNewArrivalPicks } from '@/components/public-top/newArrivalsSource'
 import { newArrivalsPath } from '@/pages/NewArrivals/paths'
@@ -269,6 +270,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
       />
 
       <main className="mx-auto max-w-4xl space-y-3 px-3.5 py-3 sm:px-4 md:py-5">
+        <FeatureBannerSection organizationSlug={slug || null} />
         <NearlyFullStrip performances={nearlyFull} source={cardSource} marks={marks} onOpen={openCard} />
         <NewArrivalsSection
           items={newArrivals}
