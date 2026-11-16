@@ -134,9 +134,9 @@ $$;
 REVOKE ALL ON FUNCTION public.get_public_feature_banners(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.get_public_blog_posts(text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.get_public_feature_scenarios(uuid, uuid[], text[]) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.get_public_feature_banners(text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_public_blog_posts(text, text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_public_feature_scenarios(uuid, uuid[], text[]) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_public_feature_banners(text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_public_blog_posts(text, text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_public_feature_scenarios(uuid, uuid[], text[]) TO anon, authenticated, service_role;
 
 COMMENT ON FUNCTION public.get_public_feature_banners(text) IS 'トップの「キャンペーン・特集」バナー（公開中・期間内・バナーに出す記事のみ、最小列）';
 COMMENT ON FUNCTION public.get_public_blog_posts(text, text) IS '特集・お知らせ一覧（公開中・期間内の記事のみ、最小列）';
