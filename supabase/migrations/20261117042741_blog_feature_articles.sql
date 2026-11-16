@@ -105,13 +105,14 @@ AS $$
              SELECT jsonb_build_object(
                       'id', se.id, 'date', se.date, 'start_time', se.start_time,
                       'store_name', coalesce(st.short_name, st.name),
-                      'available_seats', greatest(coalesce(se.max_participants, 0) - coalesce(se.current_participants, 0), 0)) ev
+                      'available_seats', greatest(coalesce(se.max_participants, se.capacity, os.override_player_count_max, sm.player_count_max, 8) - coalesce(se.current_participants, 0), 0)) ev
              FROM public.schedule_events se
              LEFT JOIN public.stores st ON st.id = se.store_id
              WHERE se.organization_id = os.organization_id
                AND se.scenario_master_id = os.scenario_master_id
                AND se.category IN ('open', 'offsite')
                AND coalesce(se.is_cancelled, false) = false
+               AND se.published = true
                AND coalesce(se.is_reservation_enabled, false) = true
                AND se.date >= (now() AT TIME ZONE 'Asia/Tokyo')::date
              ORDER BY se.date, se.start_time

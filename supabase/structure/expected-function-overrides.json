@@ -1451,7 +1451,7 @@
       "postgres=X/postgres"
     ],
     "returns": "TABLE(scenario_master_id uuid, slug text, title text, author text, key_visual_url text, player_count_min integer, player_count_max integer, duration integer, genre text[], release_date date, organization_slug text, characters jsonb, next_events jsonb)",
-    "body_md5": "300852554f6a52ad8f38dbbc3438507b",
+    "body_md5": "e57f88d49819edd1cfa6254baf811d87",
     "language": "sql",
     "security_definer": true
   }
