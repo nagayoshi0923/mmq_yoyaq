@@ -124,7 +124,7 @@ AS $$
                AND se.published = true
                AND coalesce(se.is_private_booking, false) = false
                AND coalesce(se.is_tentative, false) = false
-               AND coalesce(se.is_reservation_enabled, false) = true
+               AND coalesce(se.is_reservation_enabled, true) = true
                AND se.date >= (now() AT TIME ZONE 'Asia/Tokyo')::date
                -- 始まった公演は出さない（日本時間）
                AND (se.date + coalesce(se.start_time, '23:59'::time)) > (now() AT TIME ZONE 'Asia/Tokyo')
