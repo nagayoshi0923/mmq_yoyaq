@@ -72,8 +72,9 @@ describe('貸切を始める（見本: 作品を選ぶ → 会社を選ぶ）', 
     expect(host.textContent).toContain('1. 遊びたい作品を選ぶ')
     await vi.waitFor(() => expect(titles()).toEqual(['ファクター', '馬場だけ']))
     expect(workRows()[0].textContent).toContain('6〜8人・3時間30分')
-    expect(host.textContent).toContain('上で作品を選ぶと、貸切できる会社が出ます。')
+    expect(host.textContent).toContain('上で作品を選ぶと、貸切できる店舗が出ます。')
     expect(host.textContent).not.toContain('先にグループを作る')
+    expect(host.textContent).not.toContain('会社')
   })
 
   it('作品を選ぶと URL に残り、その作品を遊べる会社と店舗が出て、「空きを見る」は作品ページの貸切タブへ', async () => {

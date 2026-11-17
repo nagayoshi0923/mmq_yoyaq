@@ -1,8 +1,9 @@
 /**
- * 貸切を始める（遊びたい作品を選ぶ → その作品を貸切できる会社を選ぶ → 作品ページの貸切タブで店舗と候補日）
+ * 貸切を始める（遊びたい作品を選ぶ → その作品を貸切できる店舗を選ぶ → 作品ページの貸切タブで店舗と候補日）
  * @path /private-booking/select-organization（?work=作品&area=都道府県）
  * @path /{org}/private-booking-select（その組織の作品だけ）
  *
+ * 画面の文言は「会社」ではなく「店舗」（2026-11-18 えいきち指示）。
  * 2026-11-18 お客様画面の刷新（QW-20261114-001）: Figma「貸切／貸切を始める」(71:172) の形に作り直す。
  * 以前は「店舗を選ぶ → 作品を選ぶ」だったが、見本は作品が先。店舗と日にちは次の作品ページ（貸切タブ）で選ぶ。
  * 「日程が未定なら、先にグループを作る」は置かない（2026-11-18 えいきち指示で作品ページからもなくした）。
@@ -241,10 +242,10 @@ export function PrivateBookingStart({ organizationSlug }: PrivateBookingStartPro
         </section>
 
         <section className="border border-gray-200 bg-white p-4" data-testid="private-start-orgs">
-          <h2 className="text-lg font-bold">2. この作品を貸切できる会社</h2>
+          <h2 className="text-lg font-bold">2. この作品を貸切できる店舗</h2>
           {selected ? (
             <>
-              <p className="mt-1 text-sm text-muted-foreground">{selected.title}を貸切で遊べる会社です。店舗と日にちは次の画面で選べます。</p>
+              <p className="mt-1 text-sm text-muted-foreground">{selected.title}を貸切で遊べる店舗です。日にちは次の画面で選べます。</p>
               {areas.length > 1 && (
                 <div className="mt-3 flex gap-2 overflow-x-auto">
                   <RenewalChip selected={!area} onClick={() => setParam('area', null)}>すべての地域</RenewalChip>
@@ -277,7 +278,7 @@ export function PrivateBookingStart({ organizationSlug }: PrivateBookingStartPro
               </div>
             </>
           ) : (
-            <p className="mt-2 py-4 text-center text-sm text-muted-foreground">上で作品を選ぶと、貸切できる会社が出ます。</p>
+            <p className="mt-2 py-4 text-center text-sm text-muted-foreground">上で作品を選ぶと、貸切できる店舗が出ます。</p>
           )}
         </section>
 
@@ -285,7 +286,7 @@ export function PrivateBookingStart({ organizationSlug }: PrivateBookingStartPro
           <h2 className="text-lg font-bold">貸切の流れ</h2>
           <ol className="mt-2 list-decimal space-y-2 pl-6 text-sm">
             <li>遊びたい作品を選ぶ</li>
-            <li>会社を選び、次の画面で店舗と候補日を選ぶ</li>
+            <li>店舗を選び、次の画面で候補日を選ぶ</li>
             <li>一緒に行く人をグループに招待</li>
             <li>店舗が日時と会場を決めてお知らせ</li>
           </ol>
