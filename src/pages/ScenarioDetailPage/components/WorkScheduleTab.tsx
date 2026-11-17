@@ -117,7 +117,7 @@ export function WorkScheduleTab({
               )
             })}
           </div>
-          <p className="mt-1.5 text-[11px] text-muted-foreground">押すと外せます。外した店舗の回は下に出ません</p>
+          <p className="mt-1.5 text-2xs text-muted-foreground">押すと外せます。外した店舗の回は下に出ません</p>
         </div>
       )}
 

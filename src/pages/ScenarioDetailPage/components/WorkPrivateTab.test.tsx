@@ -35,6 +35,17 @@ it('空いている枠だけを近い日から並べ、満席の枠は「満席�
   expect(rowTexts()).toEqual(['13:00午後空きあり', '19:00夜満席', '19:00夜空きあり'])
 })
 
+it('他の公演と重なる枠は「満席」で押せない（理由も出さない）', async () => {
+  const onToggle = vi.fn()
+  await act(async () => root.render(<WorkPrivateTab {...base} onToggle={onToggle} />))
+  await act(async () => host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click())
+  const full = [...host.querySelectorAll<HTMLButtonElement>('[data-testid="work-private-tab"] li button')].find((b) => b.textContent?.includes('満席'))!
+  expect(full.disabled).toBe(true)
+  await act(async () => full.click())
+  expect(onToggle).not.toHaveBeenCalled()
+  expect(host.querySelector('[role="status"]')).toBeNull()
+})
+
 it('選んだ候補は「第N希望」で出し、押すと候補に入れる', async () => {
   const onToggle = vi.fn()
   await act(async () => root.render(<WorkPrivateTab {...base} onToggle={onToggle} selectedSlots={[{ date: '2030-01-21', slot: { label: '夜', startTime: '19:00', endTime: '23:00' } }]} />))

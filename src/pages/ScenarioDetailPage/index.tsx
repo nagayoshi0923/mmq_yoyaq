@@ -491,7 +491,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         onClick={() => { saveScrollPositionForCurrentUrl(); navigate(`/scenario/${globalSlug}`) }}
         className="block w-full border-y border-red-100 bg-red-50/60 px-4 py-2.5 text-left"
       >
-        <span className="block text-[11px] text-muted-foreground">ほかの組織・店舗でも遊べます</span>
+        <span className="block text-2xs text-muted-foreground">ほかの組織・店舗でも遊べます</span>
         <span className="text-sm font-bold" style={{ color: MMQ_RED }}>MMQで、この作品を遊べる全国の店舗を見る ›</span>
       </button>
 
@@ -605,7 +605,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               <VenueAccess selectedStoreIds={selectedStoreIds} stores={availableStores} mode="private" />
             </div>
           )}
-          <p className="mt-3 text-[11px] text-muted-foreground" data-testid="scenario-price-note">{PRICE_NOTE}</p>
+          <p className="mt-3 text-2xs text-muted-foreground" data-testid="scenario-price-note">{PRICE_NOTE}</p>
         </section>
 
         <ScenarioAbout scenario={scenario} stores={stores} />

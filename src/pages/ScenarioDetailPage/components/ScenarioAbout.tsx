@@ -34,10 +34,10 @@ function CharacterCard({ character, withDescription }: { character: ScenarioChar
         ) : (
           <div className="flex h-full w-full items-center justify-center"><User className="h-8 w-8 text-gray-400" /></div>
         )}
-        {character.is_npc && <span className="absolute left-1 top-1 bg-amber-400 px-1 text-[10px] font-bold text-amber-900">NPC</span>}
+        {character.is_npc && <span className="absolute left-1 top-1 bg-amber-400 px-1 text-2xs font-bold text-amber-900">NPC</span>}
       </div>
       <p className="mt-1.5 truncate text-sm font-bold">{character.name}</p>
-      <p className="truncate text-[11px] text-muted-foreground">
+      <p className="truncate text-2xs text-muted-foreground">
         {[genderLabel[character.gender], character.age, character.occupation].filter(Boolean).join('・')}
       </p>
       {withDescription && character.description && (

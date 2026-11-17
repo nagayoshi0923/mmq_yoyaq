@@ -519,7 +519,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                       {c.image_url && <img src={c.image_url} alt="" className="h-full w-full object-cover" style={{ objectPosition: c.image_position ?? 'center' }} />}
                     </div>
                     <p className="mt-1.5 truncate text-sm font-bold">{c.name}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">{[genderLabel(c.gender), c.age].filter(Boolean).join('・')}</p>
+                    <p className="truncate text-2xs text-muted-foreground">{[genderLabel(c.gender), c.age].filter(Boolean).join('・')}</p>
                   </div>
                 ))}
               </div>

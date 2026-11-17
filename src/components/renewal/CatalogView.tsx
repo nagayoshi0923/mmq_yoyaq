@@ -170,7 +170,7 @@ export function CatalogView({
                       <Heart className={cn('h-4 w-4', isFavorite(it.id) ? 'fill-red-500 text-red-500' : 'text-white')} />
                     </button>
                   </div>
-                  {isNew(it.id) && <span className="mt-2 inline-block border border-[#003437] px-1.5 text-[11px] font-bold text-[#003437]">新作</span>}
+                  {isNew(it.id) && <span className="mt-2 inline-block border border-[#003437] px-1.5 text-2xs font-bold text-[#003437]">新作</span>}
                   <h3 className="mt-1.5 line-clamp-2 text-sm font-bold leading-snug">{it.title}</h3>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {[playersLabel(it.player_count_min, it.player_count_max), durationLabel(it.duration), isPlayed(it.id) ? '遊んだ' : null].filter(Boolean).join('・')}

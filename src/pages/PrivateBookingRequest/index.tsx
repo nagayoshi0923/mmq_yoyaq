@@ -726,7 +726,7 @@ export function PrivateBookingRequest({
                 </label>
                 <label className="block text-sm">ニックネーム（任意）
                   <input value={customerNickname} onChange={(e) => setCustomerNickname(e.target.value)} placeholder="タロウ" className={inputCls} />
-                  <span className="mt-0.5 block text-[11px] text-muted-foreground">店舗で呼ばれるときのお名前</span>
+                  <span className="mt-0.5 block text-2xs text-muted-foreground">店舗で呼ばれるときのお名前</span>
                 </label>
                 <label className="block text-sm">メールアドレス<span className="text-red-600">*</span>
                   <input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="example@example.com" required className={inputCls} />

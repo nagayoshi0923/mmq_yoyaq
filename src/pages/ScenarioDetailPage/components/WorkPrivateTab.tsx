@@ -21,6 +21,8 @@ interface StoreOption {
 
 type TimeFilter = 'all' | 'day' | 'night'
 
+const CONFLICT_REASON = '他の公演と重なります'
+
 interface WorkPrivateTabProps {
   /** 上の案内（「6人で貸切…」） */
   summary: string
@@ -155,14 +157,14 @@ export function WorkPrivateTab({
               )
             })}
           </div>
-          <p className="mt-1.5 text-[11px] text-muted-foreground">押すと外せます。外した店舗の空きは下に出ません</p>
+          <p className="mt-1.5 text-2xs text-muted-foreground">押すと外せます。外した店舗の空きは下に出ません</p>
         </div>
       )}
 
       <div className="mt-5">
         <div className="flex items-baseline justify-between gap-2">
           <p className="text-sm font-bold">空いている日（近い順）</p>
-          <p className="text-[11px] text-muted-foreground">押すと候補に入ります・最大{maxSelections}つ</p>
+          <p className="text-2xs text-muted-foreground">押すと候補に入ります・最大{maxSelections}つ</p>
         </div>
         <div className="mt-2 flex flex-wrap gap-2">
           <RenewalChip selected={weekendOnly} onClick={() => setWeekendOnly((v) => !v)}>土日祝だけ</RenewalChip>
@@ -175,7 +177,7 @@ export function WorkPrivateTab({
           満席の枠も表示する
         </label>
         {deadlineDays > 0 && (
-          <p className="mt-1 text-[11px] text-muted-foreground">貸切は公演日の{deadlineDays}日前まで申し込めます</p>
+          <p className="mt-1 text-2xs text-muted-foreground">貸切は公演日の{deadlineDays}日前まで申し込めます</p>
         )}
       </div>
 
@@ -213,12 +215,15 @@ export function WorkPrivateTab({
                 {slots.map(({ slot, reason }) => {
                   const n = order.get(`${date}-${slot.label}`)
                   const selected = n != null
+                  // 他の公演と重なる枠は「満席」と出し、押せない（理由も開かない。貸切受付ルール 2026-10-22）
+                  const conflict = reason === CONFLICT_REASON && !selected
                   return (
                     <li key={slot.label}>
                       <button
                         type="button"
                         aria-pressed={selected}
                         aria-label={`${date} ${slot.label}${reason ? ` 選択不可（${reason}）` : ''}`}
+                        disabled={conflict}
                         onClick={() => handleRow(date, slot, reason)}
                         className={cn('flex min-h-12 w-full items-center gap-3 border-b border-gray-200 px-2 text-left', selected && 'bg-violet-50', reason && !selected && 'text-gray-400')}
                       >
@@ -230,7 +235,7 @@ export function WorkPrivateTab({
                         <span className="w-14 text-base font-bold">{slot.startTime || '—'}</span>
                         <span className="min-w-0 flex-1 truncate text-sm">{slot.label}{slot.adjusted ? '（前後の公演に合わせた時刻）' : ''}</span>
                         <span className={cn('text-xs', selected ? 'font-bold' : 'text-muted-foreground')} style={selected ? { color: PRIVATE_PURPLE } : undefined}>
-                          {selected ? `第${n}希望` : reason ? (reason === '他の公演と重なります' ? '満席' : '選べません') : '空きあり'}
+                          {selected ? `第${n}希望` : reason ? (reason === CONFLICT_REASON ? '満席' : '選べません') : '空きあり'}
                         </span>
                       </button>
                     </li>

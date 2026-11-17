@@ -70,7 +70,7 @@ export function ScheduleBookingBar({ scenarioTitle, selectedEvent, participantCo
           {label}
         </button>
         {!isLoggedIn && selectedEvent && (
-          <p className="mt-1 text-center text-[11px] text-muted-foreground">
+          <p className="mt-1 text-center text-2xs text-muted-foreground">
             予約にはログインが必要です。
             <button type="button" className="underline" onClick={() => navigate(loginUrlWithIntent('signup', returnTo(), intent))}>はじめての方は新規登録</button>
           </p>
@@ -98,8 +98,8 @@ export function PrivateRequestBar({ count, selectedStores, totalStores, isLogged
       <div className={`${INNER} flex items-center gap-3`}>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold">候補 {count}件</p>
-          <p className="text-[11px] text-muted-foreground">店舗 {selectedStores}/{totalStores} を選択中</p>
-          {!ready && count > 0 && <p role="status" className="text-[11px] text-amber-700">空き状況を確認できるまでお待ちください</p>}
+          <p className="text-2xs text-muted-foreground">店舗 {selectedStores}/{totalStores} を選択中</p>
+          {!ready && count > 0 && <p role="status" className="text-2xs text-amber-700">空き状況を確認できるまでお待ちください</p>}
         </div>
         <button
           type="button"

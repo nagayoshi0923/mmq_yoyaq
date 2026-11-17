@@ -61,7 +61,7 @@ function HeroSelect({ label, value, options, onChange }: { label: string } & Ren
   const current = options.find((o) => o.value === value) ?? options[0]
   return (
     <label className="relative block bg-white px-3.5 pb-2.5 pt-2 text-foreground">
-      <span className="block text-[11px] text-muted-foreground">{label}</span>
+      <span className="block text-2xs text-muted-foreground">{label}</span>
       <span className="mt-0.5 flex items-center justify-between text-base font-bold">
         {current?.label}
         <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden />

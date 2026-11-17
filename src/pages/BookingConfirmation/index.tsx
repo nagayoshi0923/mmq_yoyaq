@@ -367,7 +367,7 @@ export function BookingConfirmation({
                 : confirmationEmailOutcome.status === 'accepted' ? <>確認メールを送りました（{customerEmail}）</>
                 : <>予約は確定しましたが、確認メールの送信を確認できませんでした。もう一度予約せず、マイページで予約内容をご確認ください。</>}
             </p>
-            {confirmationEmailOutcome?.status === 'accepted' && <p className="mt-0.5 text-[11px] text-muted-foreground">届かないときは迷惑メールフォルダもご確認ください</p>}
+            {confirmationEmailOutcome?.status === 'accepted' && <p className="mt-0.5 text-2xs text-muted-foreground">届かないときは迷惑メールフォルダもご確認ください</p>}
             {completedReservation && (
               <p className="mx-auto mt-4 inline-block bg-gray-100 px-4 py-2 text-sm">予約番号 <span className="font-bold">{completedReservation.reservationNumber}</span></p>
             )}
@@ -378,7 +378,7 @@ export function BookingConfirmation({
             <p className="mt-1 text-xl font-bold">{startLabel}</p>
             {completedReservation && (
               <p className="mt-1 text-sm">
-                {storeName}・{completedReservation.participantCount}人・{formatPrice(completedReservation.totalPrice - (completedReservation.discountAmount ?? 0))}円（{paymentMethodLabel}）
+                {storeName}・{completedReservation.participantCount}人・{formatPrice(completedReservation.totalPrice)}円（{paymentMethodLabel}）
               </p>
             )}
             {completedReservation && (completedReservation.discountAmount ?? 0) > 0 && (
@@ -515,7 +515,7 @@ export function BookingConfirmation({
             )}
             <div className={row}>
               <span className="text-muted-foreground">お支払い</span>
-              <span className="text-right">{paymentMethodLabel}<span className="block text-[11px] text-muted-foreground">{paymentMethodDescription}</span></span>
+              <span className="text-right">{paymentMethodLabel}<span className="block text-2xs text-muted-foreground">{paymentMethodDescription}</span></span>
             </div>
             <div className="flex items-center justify-between py-3">
               <span className="text-sm text-muted-foreground">合計</span>
@@ -524,7 +524,7 @@ export function BookingConfirmation({
               </span>
             </div>
             {selectedCoupon && couponDiscount > 0 && <p className="-mt-2 text-right text-xs text-muted-foreground line-through">{formatPrice(totalPrice)}円</p>}
-            <p className="text-[11px] text-muted-foreground" data-testid="booking-price-note">{PRICE_NOTE}</p>
+            <p className="text-2xs text-muted-foreground" data-testid="booking-price-note">{PRICE_NOTE}</p>
           </div>
           {user && (
             <div className="mt-3 border-t border-gray-200 pt-3 text-sm">
@@ -543,7 +543,7 @@ export function BookingConfirmation({
             </label>
             <label className="block text-sm">ニックネーム（任意）
               <input value={customerNickname} onChange={(e) => setCustomerNickname(e.target.value)} placeholder="タロウ" className={inputCls} />
-              <span className="mt-0.5 block text-[11px] text-muted-foreground">店舗で呼ばれるときのお名前</span>
+              <span className="mt-0.5 block text-2xs text-muted-foreground">店舗で呼ばれるときのお名前</span>
             </label>
             <label className="block text-sm">メールアドレス<span className="text-red-600">*</span>
               <input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="example@example.com" required className={inputCls} />
@@ -623,7 +623,7 @@ export function BookingConfirmation({
                 style={{ backgroundColor: accent }}
                 data-testid="booking-submit"
               >
-                {isSubmitting ? (progress ? BOOKING_PROGRESS_LABELS[progress] : '予約処理中…') : duplicateBlocks ? '重複のため予約できません' : '予約を確定する'}
+                {isSubmitting ? (progress ? BOOKING_PROGRESS_LABELS[progress] : '予約処理中…') : duplicateBlocks ? '重複のため予約不可' : '予約を確定する'}
               </button>
               {isSubmitting ? (
                 <p className="text-center text-xs text-muted-foreground" role="status">数秒かかることがあります。画面を閉じずにお待ちください。</p>

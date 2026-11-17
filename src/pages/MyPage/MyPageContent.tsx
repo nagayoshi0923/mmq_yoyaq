@@ -560,7 +560,7 @@ export function MyPageContent({
                   {count !== null && count > 0 && (
                     <span 
                       aria-hidden="true"
-                      className={`absolute top-1 right-0.5 sm:static text-[10px] leading-none px-1.5 py-0.5 rounded-full ${
+                      className={`absolute top-1 right-0.5 sm:static text-2xs leading-none px-1.5 py-0.5 rounded-full ${
                         isActive ? 'text-white bg-gray-900' : 'bg-gray-200 text-gray-600'
                       }`}
                     >
