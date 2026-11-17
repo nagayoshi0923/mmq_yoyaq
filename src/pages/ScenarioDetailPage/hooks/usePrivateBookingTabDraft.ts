@@ -78,7 +78,10 @@ export function usePrivateBookingTabDraft(input: {
       setSelectedStoreIds([])
       setSelectedTimeSlots([])
     }
-    showMonthOf(`${draft.month}-01`)
+    // 日付は今日から続けて並べるので、読む範囲は戻した候補の一番先の日まででよい（見ていた月まで一度に広げない。
+    // 半年分を一度に読むと DB が 500 を返す。2026-11-18）
+    const lastCandidate = storeIds.length > 0 ? draft.timeSlots.map((t) => t.date).sort().at(-1) : undefined
+    if (lastCandidate) showMonthOf(lastCandidate)
     if (draft.tab === 'private') setActiveTab('private')
   }, [ready, scope, restoreKey, owner, acceptsPrivateBooking, availableStoreIds, setSelectedStoreIds, setSelectedTimeSlots, showMonthOf, setActiveTab])
 

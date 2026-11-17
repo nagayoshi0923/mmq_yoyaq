@@ -44,6 +44,28 @@ function monthChunks(from: string, to: string): Array<[string, string]> {
   return out
 }
 
+/**
+ * 同時に読むのは3つまで。月×店舗の分を一度に何十本も投げると DB が 500 を返す（2026-11-18 確認用URLで確認）。
+ * 失敗したら1回だけ読み直す。
+ */
+const MAX_PARALLEL = 3
+let running = 0
+const waiting: Array<() => void> = []
+async function limited<T>(task: () => Promise<T>): Promise<T> {
+  if (running >= MAX_PARALLEL) await new Promise<void>((resolve) => waiting.push(resolve))
+  running += 1
+  try {
+    return await task()
+  } finally {
+    running -= 1
+    waiting.shift()?.()
+  }
+}
+function fetchChunk(target: CandidateSlotAvailabilityTarget, from: string, to: string): Promise<CandidateSlotAvailability> {
+  const once = () => fetchCandidateSlotAvailability(target, from, to)
+  return limited(() => once().catch(() => once())).then(buildCandidateSlotAvailability)
+}
+
 function mergeAvailability(parts: CandidateSlotAvailability[]): CandidateSlotAvailability {
   const merged: CandidateSlotAvailability = { slotsByDate: {}, unavailableReasons: {} }
   for (const part of parts) {
@@ -55,7 +77,7 @@ function mergeAvailability(parts: CandidateSlotAvailability[]): CandidateSlotAva
 
 /** 月ごとに分けて読む（覚えない。申込の確認・候補日の保存の画面用） */
 function fetchByMonth(target: CandidateSlotAvailabilityTarget, from: string, to: string): Promise<CandidateSlotAvailability> {
-  return Promise.all(monthChunks(from, to).map(([a, b]) => fetchCandidateSlotAvailability(target, a, b).then(buildCandidateSlotAvailability)))
+  return Promise.all(monthChunks(from, to).map(([a, b]) => fetchChunk(target, a, b)))
     .then(mergeAvailability)
 }
 
@@ -63,7 +85,7 @@ function loadChunk(target: CandidateSlotAvailabilityTarget, from: string, to: st
   const key = `${targetKeyOf(target)}|${from}|${to}`
   const hit = cache.get(key)
   if (!fresh && hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value
-  const value = fetchCandidateSlotAvailability(target, from, to).then(buildCandidateSlotAvailability)
+  const value = fetchChunk(target, from, to)
   cache.set(key, { at: Date.now(), value })
   value.then((v) => settled.set(value, v)).catch(() => { if (cache.get(key)?.value === value) cache.delete(key) })
   return value
