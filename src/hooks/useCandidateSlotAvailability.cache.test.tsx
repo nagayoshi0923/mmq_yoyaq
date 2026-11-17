@@ -57,3 +57,13 @@ it('「再読み込み」は覚えた結果を使わず読み直す', async () =
   await act(async () => state.reload())
   expect(fetchMock).toHaveBeenCalledTimes(2)
 })
+
+// 2026-11-18: 一度に約2か月までしか読めない（長いと DB が 400）。月ごとに分けて読み、足した月だけ読む
+it('長い範囲は月ごとに分けて読み、範囲を1か月広げたときは足した月だけ読む', async () => {
+  await act(async () => root.render(<Probe dates={['2030-01-18', '2030-02-28']} cache />))
+  expect(fetchMock.mock.calls.map((c) => [c[1], c[2]])).toEqual([['2030-01-18', '2030-01-31'], ['2030-02-01', '2030-02-28']])
+  await act(async () => root.render(<Probe dates={['2030-01-18', '2030-03-31']} cache />))
+  expect(fetchMock.mock.calls.slice(2).map((c) => [c[1], c[2]])).toEqual([['2030-03-01', '2030-03-31']])
+  expect(state.error).toBeNull()
+  expect(state.availability.slotsByDate['2030-01-05']).toHaveLength(1)
+})

@@ -25,22 +25,66 @@ function targetKeyOf(target: CandidateSlotAvailabilityTarget): string {
     : `scenario:${target.organizationId}:${target.scenarioId}:${[...target.storeIds].sort().join(',')}`
 }
 
-function loadCached(target: CandidateSlotAvailabilityTarget, from: string, to: string, fresh = false): Promise<CandidateSlotAvailability> {
+/**
+ * DB の空き状況は一度に約2か月までしか読めない（それより長いと 400）。月ごとに分けて読み、月ごとに覚える。
+ * 作品ページの貸切タブは日付を続けて並べ、下まで見ると1か月ずつ足すので、足した月だけを読む。
+ */
+function monthChunks(from: string, to: string): Array<[string, string]> {
+  const out: Array<[string, string]> = []
+  let start = from
+  while (start <= to) {
+    const [y, m] = start.split('-').map(Number)
+    const last = new Date(Date.UTC(y, m, 0)).getUTCDate()
+    const monthEnd = `${y}-${String(m).padStart(2, '0')}-${String(last).padStart(2, '0')}`
+    const end = monthEnd < to ? monthEnd : to
+    out.push([start, end])
+    const next = new Date(Date.UTC(y, m, 1))
+    start = `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-01`
+  }
+  return out
+}
+
+function mergeAvailability(parts: CandidateSlotAvailability[]): CandidateSlotAvailability {
+  const merged: CandidateSlotAvailability = { slotsByDate: {}, unavailableReasons: {} }
+  for (const part of parts) {
+    Object.assign(merged.slotsByDate, part.slotsByDate)
+    Object.assign(merged.unavailableReasons, part.unavailableReasons)
+  }
+  return merged
+}
+
+/** 月ごとに分けて読む（覚えない。申込の確認・候補日の保存の画面用） */
+function fetchByMonth(target: CandidateSlotAvailabilityTarget, from: string, to: string): Promise<CandidateSlotAvailability> {
+  return Promise.all(monthChunks(from, to).map(([a, b]) => fetchCandidateSlotAvailability(target, a, b).then(buildCandidateSlotAvailability)))
+    .then(mergeAvailability)
+}
+
+function loadChunk(target: CandidateSlotAvailabilityTarget, from: string, to: string, fresh: boolean): Promise<CandidateSlotAvailability> {
   const key = `${targetKeyOf(target)}|${from}|${to}`
   const hit = cache.get(key)
   if (!fresh && hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value
   const value = fetchCandidateSlotAvailability(target, from, to).then(buildCandidateSlotAvailability)
   cache.set(key, { at: Date.now(), value })
-  value.catch(() => { if (cache.get(key)?.value === value) cache.delete(key) })
+  value.then((v) => settled.set(value, v)).catch(() => { if (cache.get(key)?.value === value) cache.delete(key) })
   return value
+}
+
+function loadCached(target: CandidateSlotAvailabilityTarget, from: string, to: string, fresh = false): Promise<CandidateSlotAvailability> {
+  return Promise.all(monthChunks(from, to).map(([a, b]) => loadChunk(target, a, b, fresh))).then(mergeAvailability)
 }
 
 /** すでに覚えていて新しいなら、その結果（同期で返す。初回の「読み込み中」を出さないため） */
 const settled = new WeakMap<Promise<CandidateSlotAvailability>, CandidateSlotAvailability>()
 function peekCached(target: CandidateSlotAvailabilityTarget, from: string, to: string): CandidateSlotAvailability | null {
-  const hit = cache.get(`${targetKeyOf(target)}|${from}|${to}`)
-  if (!hit || Date.now() - hit.at >= CACHE_TTL_MS) return null
-  return settled.get(hit.value) ?? null
+  const parts: CandidateSlotAvailability[] = []
+  for (const [a, b] of monthChunks(from, to)) {
+    const hit = cache.get(`${targetKeyOf(target)}|${a}|${b}`)
+    if (!hit || Date.now() - hit.at >= CACHE_TTL_MS) return null
+    const v = settled.get(hit.value)
+    if (!v) return null
+    parts.push(v)
+  }
+  return mergeAvailability(parts)
 }
 
 /** 次に見そうな範囲（次の月など）を先に読んでおく。失敗しても何もしない */
@@ -48,8 +92,7 @@ export function prefetchCandidateSlotAvailability(target: CandidateSlotAvailabil
   if (!target || dates.length === 0) return
   const from = dates.reduce((a, b) => (a < b ? a : b))
   const to = dates.reduce((a, b) => (a > b ? a : b))
-  const p = loadCached(target, from, to)
-  p.then((v) => settled.set(p, v)).catch(() => {})
+  loadCached(target, from, to).catch(() => {})
 }
 
 /** テスト用: 覚えた空き状況を消す */
@@ -96,8 +139,7 @@ export function useCandidateSlotAvailability(
     }
     const p = useCache
       ? loadCached(target, from, to, reloadToken > 0)
-      : fetchCandidateSlotAvailability(target, from, to).then(buildCandidateSlotAvailability)
-    if (useCache) p.then((v) => settled.set(p, v)).catch(() => {})
+      : fetchByMonth(target, from, to)
     p
       .then(value => {
         if (cancelled) return
@@ -151,9 +193,7 @@ export function useCandidateSlotStores(
       const one: CandidateSlotAvailabilityTarget = { ...scenario, storeIds: [storeId] }
       const peek = peekCached(one, from, to)
       if (peek) return Promise.resolve({ storeId, value: peek })
-      const p = loadCached(one, from, to)
-      p.then((v) => settled.set(p, v)).catch(() => {})
-      return p.then((value) => ({ storeId, value }))
+      return loadCached(one, from, to).then((value) => ({ storeId, value }))
     })
     Promise.allSettled(perStore).then((results) => {
       if (cancelled) return
