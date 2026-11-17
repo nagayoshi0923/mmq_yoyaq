@@ -109,7 +109,7 @@ describe('新作一覧とカタログ（QW-20261023-001）', () => {
     await render()
     const titles = [...(section('new-arrivals')?.querySelectorAll('h3') ?? [])].map((h) => h.textContent)
     expect(titles).toEqual(['タグなし', '最新', 'リリース日あり', '古い新作'])
-    expect(section('new-arrivals')?.textContent).toContain('10/20 掲載')
+    expect(section('new-arrivals')?.textContent).not.toContain('掲載') // 公演開始日が未発表の作品は日付を出さない
     expect(section('new-arrivals')?.textContent).toContain('10/1 公演開始')
     expect(section('new-arrivals')?.textContent).toContain('全国の店舗で、新しく遊べるようになった作品')
     // 「すべて見る」は新作だけの一覧へ（全作品のカタログではない）。一般の「カタログ」は全作品のまま
