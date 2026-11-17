@@ -105,8 +105,10 @@ export function PrivateBookingRequest({
 
   // 親コンポーネントが非同期で selectedTimeSlots を更新した場合に同期
   // （PrivateBookingRequestPage 経由のフローで初回マウント時に空→非同期で充填されるケース）
+  // ログイン前に預けた候補を戻したら、利用者が全部消した（0 件）状態でも URL の候補で埋め直さない（#985）
+  const slotsFromLoginDraft = useRef(false)
   useEffect(() => {
-    if (initialTimeSlots.length === 0) return
+    if (initialTimeSlots.length === 0 || slotsFromLoginDraft.current) return
     setEditableTimeSlots((prev) => (prev.length > 0 ? prev : initialTimeSlots))
   }, [initialTimeSlots])
   const [showAddForm, setShowAddForm] = useState(false)
@@ -351,7 +353,9 @@ export function PrivateBookingRequest({
     const draft = takePrivateRequestLoginDraft(scenarioId, currentPathWithSearch())
     if (!draft) return
     if (draft.notes) setNotes(draft.notes)
-    if (draft.timeSlots.length > 0) setEditableTimeSlots(draft.timeSlots)
+    // 0 件も利用者の編集結果として戻す（全部消した候補を URL から復活させて送らない）
+    slotsFromLoginDraft.current = true
+    setEditableTimeSlots(draft.timeSlots)
     if (draft.storeIds && draft.storeIds.length > 0) {
       setChangedStoreIds(draft.storeIds)
       onStoreIdsChange?.(draft.storeIds)

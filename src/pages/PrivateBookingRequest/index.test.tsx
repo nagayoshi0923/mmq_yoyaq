@@ -362,4 +362,10 @@ describe('#985: ログインをはさんでも入力途中の内容が残る', (
     await render()
     expect(textarea().value).toBe('')
   })
+  it('候補を全部消してからログインしても、戻ったときに URL の候補を復活させない', async () => {
+    const { savePrivateRequestLoginDraft } = await import('./utils/loginDraft')
+    savePrivateRequestLoginDraft('scenario', '/test/private-booking-request?scenario=scenario', { notes: '', timeSlots: [], storeIds: null })
+    await render()
+    expect(host.textContent).toContain('候補日時（0/')
+  })
 })
