@@ -11,8 +11,9 @@ vi.mock('@/lib/privateBookingHorizon', async (importOriginal) => ({
 }))
 
 const mocks = vi.hoisted(() => ({ days: 90, rpc: vi.fn(), from: vi.fn(), submit: vi.fn(), create: vi.fn(), blocked: vi.fn(), holiday: () => false, submitArgs: null as null | { selectedStoreIds: string[] } }))
-vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }))
-vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'user', email: 'fixture@example.invalid' } }) }))
+const nav = vi.hoisted(() => ({ navigate: vi.fn(), user: { id: 'user', email: 'fixture@example.invalid' } as null | { id: string; email: string } }))
+vi.mock('react-router-dom', () => ({ useNavigate: () => nav.navigate }))
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: nav.user }) }))
 vi.mock('@/components/layout/Header', () => ({ Header: () => null }))
 vi.mock('@/components/layout/NavigationBar', () => ({ NavigationBar: () => null }))
 vi.mock('../ScenarioDetailPage/components/BookingNotice', () => ({ BookingNotice: () => null }))
@@ -58,6 +59,7 @@ async function render() { await act(async () => root.render(<QueryClientProvider
 async function flush() { await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)) }) }
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); vi.clearAllMocks(); mocks.days = 90
+  nav.user = { id: 'user', email: 'fixture@example.invalid' }; sessionStorage.clear(); window.history.replaceState({}, '', '/test/private-booking-request?scenario=scenario')
   mocks.blocked.mockImplementation(async (params: any) => ({ data: params.p_start_date <= date ? [{ date, store_id: 'store', time_slot: 'evening' }] : [], error: null }))
   // 候補日時の空き判定は DB（夜は 19:00 開始）、受付停止の表示は従来の RPC
   mocks.rpc.mockImplementation(async (name: string, params: any) => name === 'private_booking_candidate_slot_availability'
@@ -321,5 +323,49 @@ describe('料金: 組織の独自休日が分からないとき（2026-10-25 社
     holidayLoad.isLoading = false
     await renderWeekday()
     expect(host.textContent).toContain('¥24,000')
+  })
+})
+
+describe('#985: ログインをはさんでも入力途中の内容が残る', () => {
+  const textarea = () => host.querySelector('textarea') as HTMLTextAreaElement
+  async function type(el: HTMLTextAreaElement, value: string) {
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!
+    await act(async () => { setter.call(el, value); el.dispatchEvent(new Event('input', { bubbles: true })) })
+  }
+  it('未ログインで備考を書いて「ログインして貸切リクエスト」→ ログイン後に同じ画面へ戻ると備考が残る', async () => {
+    nav.user = null
+    await render()
+    await type(textarea(), 'アレルギーがあります')
+    const login = [...host.querySelectorAll('button')].find((b) => b.textContent?.includes('ログインして貸切リクエスト'))!
+    await act(async () => { login.click() })
+    expect(nav.navigate).toHaveBeenCalledTimes(1)
+    expect(String(nav.navigate.mock.calls[0][0])).toContain('/login')
+    // ログインへ移ると画面は消える。ログイン済みで同じ URL に戻る
+    await act(async () => root.unmount()); root = createRoot(host)
+    nav.user = { id: 'user', email: 'fixture@example.invalid' }
+    await render()
+    expect(textarea().value).toBe('アレルギーがあります')
+    // 戻したら預かりは消す（次に開いたときに古い備考を出さない）
+    await act(async () => root.unmount()); root = createRoot(host)
+    await render()
+    expect(textarea().value).toBe('')
+  })
+  it('別の作品・別の URL へ戻ったときは戻さない', async () => {
+    nav.user = null
+    await render()
+    await type(textarea(), '別作品へは持ち込まない')
+    const login = [...host.querySelectorAll('button')].find((b) => b.textContent?.includes('ログインして貸切リクエスト'))!
+    await act(async () => { login.click() })
+    await act(async () => root.unmount()); root = createRoot(host)
+    nav.user = { id: 'user', email: 'fixture@example.invalid' }
+    window.history.replaceState({}, '', '/test/private-booking-request?scenario=other')
+    await render()
+    expect(textarea().value).toBe('')
+  })
+  it('候補を全部消してからログインしても、戻ったときに URL の候補を復活させない', async () => {
+    const { savePrivateRequestLoginDraft } = await import('./utils/loginDraft')
+    savePrivateRequestLoginDraft('scenario', '/test/private-booking-request?scenario=scenario', { notes: '', timeSlots: [], storeIds: null })
+    await render()
+    expect(host.textContent).toContain('候補日時（0/')
   })
 })
