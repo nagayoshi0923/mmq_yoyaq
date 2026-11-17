@@ -1,4 +1,4 @@
-import { IntroBar } from './IntroBar'
+import { PageBar } from '@/components/renewal/PageBar'
 import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
 import { storeDisplayName } from '@/lib/publicStoreName'
 import { registerPlayedScenario } from '@/lib/registerPlayedScenario'
@@ -420,7 +420,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     return (
       <div className="min-h-screen flex flex-col" style={{ backgroundColor: THEME.background }}>
         <Header />
-        <IntroBar onBack={() => (onClose ? onClose() : navigate(-1))} />
+        <PageBar title="作品紹介" onBack={() => (onClose ? onClose() : navigate(-1))} />
         <div className="flex-1 flex items-center justify-center py-20">
           <div className="animate-spin h-8 w-8 border-4 border-t-transparent rounded-full" style={{ borderColor: `${THEME.primary} transparent ${THEME.primary} ${THEME.primary}` }} />
         </div>
@@ -433,7 +433,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     return (
       <div className="min-h-screen flex flex-col" style={{ backgroundColor: THEME.background }}>
         <Header />
-        <IntroBar onBack={() => navigate('/')} />
+        <PageBar title="作品紹介" onBack={() => navigate('/')} />
         <div className="flex-1 max-w-4xl mx-auto px-4 py-16 text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">{data === null ? 'シナリオが見つかりません' : 'データの読み込みに失敗しました'}</h2>
           <Button onClick={() => navigate('/')}>トップへ戻る</Button>
@@ -463,7 +463,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         })),
       })} />
       <Header />
-      <IntroBar onBack={() => (onClose ? onClose() : navigate(-1))} />
+      <PageBar title="作品紹介" onBack={() => (onClose ? onClose() : navigate(-1))} />
 
       <div className="flex-1 bg-white">
         <div className="mx-auto max-w-4xl">
