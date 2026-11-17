@@ -87,6 +87,14 @@ export function useBookingActions({ events, onReload }: UseBookingActionsProps) 
   )
   const showBookingConfirmation = searchParams.get('step') === BOOKING_CONFIRM_STEP && selectedEvent !== null
 
+  // 空きの少ない公演へ切り替えたら、人数をその公演の残席までに収める。
+  // 収めないと人数欄は選択肢に無い値になって「1名」と表示されるのに、料金・URL・予約は前の人数のままになる
+  useEffect(() => {
+    if (!selectedEvent) return
+    const seats = selectedEvent.available_seats
+    if (seats > 0 && participantCount > seats) setParticipantCount(seats)
+  }, [selectedEvent, participantCount])
+
   const openConfirmStep = useCallback(async (event: EventSchedule) => {
     const next = new URLSearchParams(searchParams)
     next.set('event', event.event_id)
