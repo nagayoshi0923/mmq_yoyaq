@@ -2124,3 +2124,15 @@ mainの既反映履歴/本人切替/予約全体日時順を保持し、staging�
 - 追加回帰：正常な未ログイン確認（sessionなし/SessionMissing）では古い警告を解除し、通信・バックアップ復元・role失敗では警告を維持。ログイン画面リンクは検証済OAuth戻り先をredirectへ載せる。
 
 本人からの「通常Chromeでは失敗、シークレットなら成功」は伝聞・同一アカウント未確認。当該PCの実原因や通常窓復旧をmock結果で断定しない。今回DB/認証設定/RLS/資格情報の変更なし。運用記録は既存QW-20261023-001の共有台帳とEngineerのログイン記録に保持。
+
+## 2026-11-17 事前配役の確定をメール（とベル）でも届ける（社長依頼）
+
+- 依頼: 事前配役はグループのチャットだけでなくメールでも送る。確認したところ未実装（配役確定はチャットのお知らせだけで、ベル・メールなし）。
+- 変更: `customer_notice_on_group_message` に `character_assignment` の分岐を追加（migration `20261117120000_private_casting_confirmed_email`、同名 rollback）。配役が付いた参加中メンバー全員（主催者含む）へ、本人の配役・予約内容・全員の配役一覧のメールを `customer_notice_emails` に積む。会員にはベルも。
+- 送り直し: 直前の配役確定と同じ配役なら送らない（A → B → A と戻したときは送る）。グループに保存された配役と一致しないお知らせでは送らない。閉じたグループでは送らない。
+- 送信は既存の `process-customer-notice-emails`（`app_config.customer_notice_email` が on の環境だけ・1 通ずつ間隔あけ）。検証環境はこの値が off（2026-11-17 確認）なので、適用しても実際の送信は起きない。
+- 確認: `npm run test:private-casting-email-db`（PGlite、本物の部品で 8 項目）。
+- 追加（社長方針「事前配役まわりはメール必須。配役された HO の URL もメールで配布」）: スタッフの「個別にお知らせ」（`private_group_send_individual_notice`。キャラクターの資料 URL＝HO の URL を添付できる）を、宛先の本人へメール（会員はベルも）で届ける（migration `20261117130000_private_individual_notice_email`、同名 rollback）。スタッフ権限を確かめるこの関数の中で積むので、チャットに system の形を書けるだけの主催者からは送れない。確認 `scripts/test-private-individual-notice-email-db.mjs`（5 項目）。
+- 残り: ゲストがメールアドレスを入れずに参加できる経路では、HO のメールが届かない（チャットだけ）。事前配役ありの作品でメールを必須にするのは別作業
+- [x] staging DB へ適用（2026-11-18 04:14 JST、社長 OK 後。取り消し前提の試しで両方のメールが積まれることを確認）
+- [x] 本番 DB へ適用（2026-11-18、社長指示。md5・権限が期待値と一致）。コードは PR #1317 → staging → main の通常の流れで取り込む
