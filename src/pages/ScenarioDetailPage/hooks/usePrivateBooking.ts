@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { showToast } from '@/utils/toast'
 import { usePrivateBookingStorePreference, useStoreFilterPreference } from '@/hooks/useUserPreference'
-import { useCandidateSlotAvailability } from '@/hooks/useCandidateSlotAvailability'
+import { prefetchCandidateSlotAvailability, useCandidateSlotAvailability } from '@/hooks/useCandidateSlotAvailability'
 import { availableSlotsForDate } from '@/lib/candidateSlotAvailability'
 import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
 import type { TimeSlot } from '../utils/types'
@@ -100,7 +100,21 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     ready: canRevalidate,
     error: availabilityError,
     reload: reloadAvailability,
-  } = useCandidateSlotAvailability(availabilityTarget, monthDates)
+  } = useCandidateSlotAvailability(availabilityTarget, monthDates, { cache: true })
+
+  // 表示中の月を読み終えたら、次の月も先に読んでおく（「次の月 ›」で待たせない）
+  useEffect(() => {
+    if (!canRevalidate || !availabilityTarget) return
+    const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+    const todayYmd = toJstYmd(new Date())
+    const dates: string[] = []
+    const last = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()
+    for (let day = 1; day <= last; day++) {
+      const d = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      if (d >= todayYmd && d <= horizonMaxYmd) dates.push(d)
+    }
+    prefetchCandidateSlotAvailability(availabilityTarget, dates)
+  }, [canRevalidate, availabilityTarget, currentMonth, horizonMaxYmd])
 
   const getTimeSlotsForDate = useCallback((date: string): TimeSlot[] => (
     availableSlotsForDate(slotAvailability, date).map(s => ({ label: s.label, startTime: s.startTime, endTime: s.endTime }))
