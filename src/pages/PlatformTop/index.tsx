@@ -51,7 +51,7 @@ import { OrganizationDirectory } from './components/OrganizationDirectory'
 import { PRIVATE_BOOKING_START_PATH } from '@/pages/PrivateBookingStart/paths'
 import { RenewalHero } from '@/components/renewal/RenewalHero'
 import { shortPrefecture } from '@/lib/publicStoreName'
-import { BottomLinks, NearlyFullRow, NewArrivalsRow, PrivateBookingBlock, ThemeChips, type RenewalNewArrival } from './components/TopRenewalSections'
+import { BottomLinks, NearlyFullRow, NewArrivalsRow, PrivateBookingBlock, ThemeChips, type RenewalNewArrival } from '@/components/renewal/TopSections'
 
 export function PlatformTop() {
   const navigate = useNavigate()
@@ -151,7 +151,7 @@ export function PlatformTop() {
       return {
         card: newArrivalCards.get(item.id) ?? item.card,
         date,
-        organizations: names.length === 0 ? '' : names.length === 1 ? names[0] : `${names[0]} ほか${names.length - 1}組織`,
+        sub: names.length === 0 ? '' : names.length === 1 ? names[0] : `${names[0]} ほか${names.length - 1}組織`,
       }
     })
   }, [newArrivalPicks, newArrivalCards, organizations])
@@ -198,9 +198,14 @@ export function PlatformTop() {
       />
 
       <main>
-        <ThemeChips genres={themes} />
-        <NewArrivalsRow items={newArrivals} allPath={newArrivalsPath()} onOpen={openPath} />
-        <NearlyFullRow performances={nearlyFull} onOpen={openPath} />
+        <ThemeChips genres={themes} catalogPath="/scenario" />
+        <NewArrivalsRow items={newArrivals} allPath={newArrivalsPath()} lead="全国の店舗で、新しく遊べるようになった作品" onOpen={openPath} />
+        <NearlyFullRow
+          performances={nearlyFull}
+          lead="あと少しで人数がそろう回・残りわずかの回です（日付の早い順）"
+          placeOf={(p) => `${p.organization_name}・${p.store_short_name ?? p.store_name}`}
+          onOpen={openPath}
+        />
         <OrganizationDirectory
           organizations={organizations}
           prefectures={prefectures}
