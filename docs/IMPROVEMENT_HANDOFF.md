@@ -2129,8 +2129,8 @@ mainの既反映履歴/本人切替/予約全体日時順を保持し、staging�
 
 - 依頼: 事前配役はグループのチャットだけでなくメールでも送る。確認したところ未実装（配役確定はチャットのお知らせだけで、ベル・メールなし）。
 - 変更: `customer_notice_on_group_message` に `character_assignment` の分岐を追加（migration `20261117120000_private_casting_confirmed_email`、同名 rollback）。配役が付いた参加中メンバー全員（主催者含む）へ、本人の配役・予約内容・全員の配役一覧のメールを `customer_notice_emails` に積む。会員にはベルも。
-- 送り直し: 重複防止キーに配役の md5 を含め、同じ配役での確定し直しでは送らない。グループに保存された配役と一致しないお知らせでは送らない。閉じたグループでは送らない。
+- 送り直し: 直前の配役確定と同じ配役なら送らない（A → B → A と戻したときは送る）。グループに保存された配役と一致しないお知らせでは送らない。閉じたグループでは送らない。
 - 送信は既存の `process-customer-notice-emails`（`app_config.customer_notice_email` が on の環境だけ・1 通ずつ間隔あけ）。検証環境はこの値が off（2026-11-17 確認）なので、適用しても実際の送信は起きない。
-- 確認: `npm run test:private-casting-email-db`（PGlite、本物の部品で 6 項目）。
+- 確認: `npm run test:private-casting-email-db`（PGlite、本物の部品で 8 項目）。
 - [ ] staging DB への migration 適用（この作業環境からは staging DB への書き込みが許可されず未適用）
 - [ ] 本番適用（社長の指示待ち）

@@ -1,7 +1,7 @@
 // 事前配役の確定をメール（とベル）でも届けること（20261117120000_private_casting_confirmed_email）。
 // 実際の migration の関数本体と、送信待ちに積む部品（20261009140000）を PGlite に流して確かめる。
 //   ・配役が付いた参加中メンバー全員（会員・ゲスト）に、本人の配役入りのメールが積まれる。会員にはベルも
-//   ・同じ配役での確定し直しでは積み直さない／配役が変わったら積み直す
+//   ・同じ配役での確定し直しでは積み直さない／配役が変わったら積み直す（A → B → A と戻したときも）
 //   ・グループに保存された配役と違うお知らせ（形だけ真似た書き込み）では積まない
 //   ・抜けたメンバー・宛先の無いメンバーには積まない／閉じたグループでは積まない
 import assert from 'node:assert/strict'
@@ -34,7 +34,7 @@ CREATE TABLE private_group_members(id uuid primary key, group_id uuid, user_id u
  guest_name text, guest_email text, created_at timestamptz default now());
 CREATE TABLE private_group_members_pii(member_id uuid primary key, guest_name text, guest_email text);
 CREATE TABLE private_group_candidate_dates(group_id uuid, status text, withdrawn_at timestamptz);
-CREATE TABLE private_group_messages(id uuid primary key default gen_random_uuid(), group_id uuid, member_id uuid, message text);
+CREATE TABLE private_group_messages(id uuid primary key default gen_random_uuid(), group_id uuid, member_id uuid, message text, created_at timestamptz not null default now());
 CREATE FUNCTION public.customer_notice_when_long(p_date date, p_time time DEFAULT NULL) RETURNS text LANGUAGE sql AS $$ SELECT p_date::text||coalesce(' '||p_time::text,'') $$;
 CREATE FUNCTION public.customer_notice_when(p_date date, p_time time DEFAULT NULL) RETURNS text LANGUAGE sql AS $$ SELECT p_date::text $$;
 CREATE FUNCTION public.customer_store_name(p_store_id uuid, p_date date DEFAULT NULL, p_fallback text DEFAULT NULL) RETURNS text LANGUAGE sql AS $$ SELECT p_fallback $$;
@@ -123,18 +123,26 @@ m = await mails()
 assert.equal(m.length, 6, '配役が変わったら全員へ送り直す')
 assert.ok(m.slice(3).some(r => r.to_email === 'member@example.com' && /■ あなたの配役\n探偵\n/.test(r.body_text)))
 
+// 最初の配役に戻す（A → B → A）→ 直前と違うので送り直す
+await confirm(first)
+m = await mails()
+assert.equal(m.length, 9, '前の配役に戻したときも送り直す')
+assert.ok(m.slice(6).some(r => r.to_email === 'member@example.com' && /■ あなたの配役\n執事\n/.test(r.body_text)))
+await confirm(first)
+assert.equal((await mails()).length, 9, '直後に同じ配役で確定し直しても送らない')
+
 // グループに保存された配役と違うお知らせ → 積まない
 await confirm(second, { messageAssignments: { [M_ORG]: 'c5' } })
-assert.equal((await mails()).length, 6, '形だけ真似たお知らせでは送らない')
+assert.equal((await mails()).length, 9, '形だけ真似たお知らせでは送らない')
 
 // 閉じたグループ → 積まない
 await db.exec(`UPDATE private_groups SET status='cancelled' WHERE id='${GROUP}'`)
 await confirm({ ...first, [M_ORG]: 'c3', [M_GUEST]: 'c1' })
-assert.equal((await mails()).length, 6, '閉じたグループでは送らない')
+assert.equal((await mails()).length, 9, '閉じたグループでは送らない')
 
 // ほかのお知らせ（日程確定など）の分岐は変えていない: 対象外の action では何も積まない
 await db.exec(`UPDATE private_groups SET status='confirmed' WHERE id='${GROUP}'`)
 await db.exec(`INSERT INTO private_group_messages(group_id,member_id,message) VALUES('${GROUP}',NULL,'{"type":"system","action":"something_else"}')`)
-assert.equal((await mails()).length, 6)
+assert.equal((await mails()).length, 9)
 
-console.log('OK private casting email: 6 checks')
+console.log('OK private casting email: 8 checks')

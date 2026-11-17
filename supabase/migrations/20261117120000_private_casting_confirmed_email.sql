@@ -3,7 +3,7 @@
 -- グループを開かない人には配役が伝わらなかった。
 -- 届け先: 配役が付いた参加中メンバー全員（主催者も含む。確定した本人にも記録として届く）。会員はベル＋メール、ゲストはメール。
 -- 文面: 本人の配役と全員の配役一覧（チャットのお知らせと同じ一覧）。
--- 送り直し: 重複防止キーに配役の中身（md5）を含める。同じ配役での確定し直しでは送らず、配役が変わったときだけ送り直す。
+-- 送り直し: 直前の配役確定と同じ配役なら送らない（同じ配役での確定し直し）。直前から変わったら送り直す（A → B → A と戻した場合も送る）。
 -- お知らせの形だけを真似た書き込みでは送らない（グループに保存された配役と一致するときだけ）。
 -- メールは customer_notice_emails に積むだけ。取り出し・送信は既存の process-customer-notice-emails（app_config の customer_notice_email が on の環境だけ。1 通ずつ間隔をあける）。
 -- 元は staging の実物 pg_get_functiondef（20261012100000 の版、md5(prosrc)=1a089ce43f17103ea16351f32c0f5748）。ほかの分岐は変えない。
@@ -148,7 +148,13 @@ BEGIN
       LEFT JOIN public.stores st ON st.id=e.store_id AND st.organization_id=g.organization_id
      WHERE rr.id=g.reservation_id AND rr.status IS DISTINCT FROM 'cancelled';
    END IF;
-   v_key := 'private_casting:'||g.id::text||':'||md5((v->'assignments')::text);
+   -- 直前の配役確定と同じ配役なら送らない（同じ配役での確定し直し）。A → B → A のように戻した場合は直前と違うので送る
+   IF EXISTS(SELECT 1 FROM (SELECT pm.message FROM public.private_group_messages pm
+      WHERE pm.group_id=g.id AND pm.id<>NEW.id AND pm.member_id IS NULL AND pm.created_at<=NEW.created_at
+        AND pm.message ~ '"action"\s*:\s*"character_assignment"'
+      ORDER BY pm.created_at DESC, pm.id DESC LIMIT 1) prev
+     WHERE (prev.message::jsonb)->'assignments' = v->'assignments') THEN RETURN NULL; END IF;
+   v_key := 'private_casting:'||NEW.id::text;
    v_subject := '【配役のお知らせ】'||v_work||coalesce(' - '||nullif(v_when_long,''),'');
    FOR mm IN SELECT gm.id, gm.user_id,
       coalesce(nullif(btrim(pii.guest_email),''),nullif(btrim(gm.guest_email),'')) AS guest_email,
