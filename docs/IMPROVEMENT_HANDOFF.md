@@ -2134,5 +2134,5 @@ mainの既反映履歴/本人切替/予約全体日時順を保持し、staging�
 - 確認: `npm run test:private-casting-email-db`（PGlite、本物の部品で 8 項目）。
 - 追加（社長方針「事前配役まわりはメール必須。配役された HO の URL もメールで配布」）: スタッフの「個別にお知らせ」（`private_group_send_individual_notice`。キャラクターの資料 URL＝HO の URL を添付できる）を、宛先の本人へメール（会員はベルも）で届ける（migration `20261117130000_private_individual_notice_email`、同名 rollback）。スタッフ権限を確かめるこの関数の中で積むので、チャットに system の形を書けるだけの主催者からは送れない。確認 `scripts/test-private-individual-notice-email-db.mjs`（5 項目）。
 - 残り: ゲストがメールアドレスを入れずに参加できる経路では、HO のメールが届かない（チャットだけ）。事前配役ありの作品でメールを必須にするのは別作業
-- [ ] staging DB への migration 適用（この作業環境からは staging DB への書き込みが許可されず未適用）
-- [ ] 本番適用（社長の指示待ち）
+- [x] staging DB へ適用（2026-11-18 04:14 JST、社長 OK 後。取り消し前提の試しで両方のメールが積まれることを確認）
+- [x] 本番 DB へ適用（2026-11-18、社長指示。md5・権限が期待値と一致）。コードは PR #1317 → staging → main の通常の流れで取り込む
