@@ -1,52 +1,122 @@
 /**
- * 貸切を始める（店舗を選ぶ → 作品を選ぶ）
- * @path /private-booking/select-organization（?org=組織&stores=店舗ID,…）
- * @path /{org}/private-booking-select（日付なし。組織を選んだ状態で開く）
+ * 貸切を始める（遊びたい作品を選ぶ → その作品を貸切できる会社を選ぶ → 作品ページの貸切タブで店舗と候補日）
+ * @path /private-booking/select-organization（?work=作品&area=都道府県）
+ * @path /{org}/private-booking-select（その組織の作品だけ）
  *
- * 2026-10-15 社長指摘: MMQ 全体トップの「参加店舗から選ぶ」は、トップの中に枠を開かずこのページへ遷移する。
- * 上で組織を選ぶ（複数店舗なら希望店舗のチップ）と、下にその組織の貸切できる作品の一覧が出る。
- * 作品を押すと作品ページの貸切リクエストのタブへ（希望店舗は ?stores= で渡し、グループ作成の初期値にする）。
- * 日付・時間帯付き（カレンダーの貸切申込チップから）の流れは PrivateBookingScenarioSelect のまま。
+ * 2026-11-18 お客様画面の刷新（QW-20261114-001）: Figma「貸切／貸切を始める」(71:172) の形に作り直す。
+ * 以前は「店舗を選ぶ → 作品を選ぶ」だったが、見本は作品が先。店舗と日にちは次の作品ページ（貸切タブ）で選ぶ。
+ * 「日程が未定なら、先にグループを作る」は置かない（2026-11-18 えいきち指示で作品ページからもなくした）。
  */
-import { useEffect, useMemo, useRef } from 'react'
-import { ArrowLeft, ChevronRight } from 'lucide-react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { PublicLayout } from '@/components/layout/PublicLayout'
-import { TopSection } from '@/components/public-top/TopSection'
-import { PrivateScenarioGrid, type PrivateScenario } from '@/components/private-booking/PrivateScenarioGrid'
-import { participationFeeRange, type ParticipationCost } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
+import { Header } from '@/components/layout/Header'
+import { Footer } from '@/components/layout/Footer'
+import { PageBar } from '@/components/renewal/PageBar'
+import { RenewalChip } from '@/components/renewal/RenewalChip'
+import { PRIVATE_PURPLE } from '@/components/renewal/fonts'
+import { durationLabel, playersLabel } from '@/components/renewal/labels'
+import { ScenarioCardImage } from '@/components/public-top/ScenarioCardImage'
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { scenarioApi } from '@/lib/api'
 import { isPrivateBookingPeriodOpen, isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
 import { STATIC_PUBLIC_META } from '@/lib/seo'
-import { MYPAGE_THEME as THEME } from '@/lib/theme'
-import { fetchPlatformOrganizations } from '@/pages/PlatformTop/hooks/platformTopData'
-import { privateGuidePath } from '@/pages/static/guide/privateGuidePath'
-import { OrganizationList, SelectedOrganization } from './components/OrganizationPicker'
-import { PRIVATE_BOOKING_START_PATH, parseStoreIdsParam, privateScenarioTabPath } from './paths'
-import { scenariosForStores } from './scenariosForStores'
+import { cn } from '@/lib/utils'
+import { fetchPlatformOrganizations, type PlatformOrganization } from '@/pages/PlatformTop/hooks/platformTopData'
+import { privateScenarioTabPath } from './paths'
 
-interface PrivateScenarioRow extends PrivateScenario {
+interface PrivateScenarioRow {
+  id: string
+  slug?: string | null
+  title: string
+  author?: string | null
+  duration?: number | null
+  player_count_min: number
+  player_count_max: number
+  key_visual_url?: string | null
+  is_recommended?: boolean | null
   available_stores?: string[] | null
   booking_start_date?: string | null
   booking_end_date?: string | null
-  participation_costs?: ParticipationCost[] | null
 }
+
+/** 作品（作品マスタ単位）と、それを貸切で遊べる組織 */
+export interface PrivateWork {
+  id: string
+  title: string
+  duration: number | null
+  player_count_min: number
+  player_count_max: number
+  key_visual_url: string | null
+  is_recommended: boolean
+  offers: Array<{ org: PlatformOrganization; scenario: { id: string; slug?: string | null }; storeNames: string[] }>
+}
+
+/** 何も検索していないときに出す作品の数（見本は人気の作品を数件） */
+export const FEATURED_WORK_COUNT = 8
 
 function todayJst(): string {
   return new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 }
 
-/** 貸切募集期間の中か（判定はトップ・作品ページの「貸切受付中」と同じ isPrivateBookingPeriodOpen） */
-function isBookingOpen(s: PrivateScenarioRow, today: string): boolean {
-  return isPrivateBookingPeriodOpen(s, today)
+/** 店舗名の「店」を外した短い名前（見本「東京・2店舗（馬場・大久保）」の括弧の中） */
+function shortStoreName(name: string): string {
+  return name.replace(/店$/, '')
+}
+
+/** 都道府県の「都・府・県」を外す（チップ用。北海道はそのまま） */
+function areaLabel(prefecture: string): string {
+  return prefecture === '北海道' ? prefecture : prefecture.replace(/[都府県]$/, '')
+}
+
+/** 組織ごとの作品を、作品マスタ単位にまとめる（貸切を受け付けていて、募集期間の中のものだけ） */
+export function buildPrivateWorks(
+  rowsByOrg: ReadonlyArray<{ org: PlatformOrganization; rows: readonly PrivateScenarioRow[] }>,
+  today: string,
+): PrivateWork[] {
+  const works = new Map<string, PrivateWork>()
+  for (const { org, rows } of rowsByOrg) {
+    for (const s of rows) {
+      if (!isScenarioAcceptingPrivateBooking(s as Parameters<typeof isScenarioAcceptingPrivateBooking>[0])) continue
+      if (!isPrivateBookingPeriodOpen(s, today)) continue
+      const limited = Array.isArray(s.available_stores) && s.available_stores.length > 0
+      const stores = limited ? org.stores.filter((st) => s.available_stores!.includes(st.id)) : org.stores
+      if (stores.length === 0) continue
+      const work = works.get(s.id) ?? {
+        id: s.id,
+        title: s.title,
+        duration: s.duration ?? null,
+        player_count_min: s.player_count_min,
+        player_count_max: s.player_count_max,
+        key_visual_url: s.key_visual_url ?? null,
+        is_recommended: false,
+        offers: [],
+      }
+      work.is_recommended = work.is_recommended || !!s.is_recommended
+      if (!work.key_visual_url && s.key_visual_url) work.key_visual_url = s.key_visual_url
+      work.offers.push({ org, scenario: { id: s.id, slug: s.slug }, storeNames: stores.map((st) => st.name) })
+      works.set(s.id, work)
+    }
+  }
+  // 人気の目安: おすすめ → 遊べる会社が多い → 名前順
+  return [...works.values()].sort((a, b) =>
+    Number(b.is_recommended) - Number(a.is_recommended)
+    || b.offers.length - a.offers.length
+    || a.title.localeCompare(b.title, 'ja'))
+}
+
+/** 作品名で探す（空白・大文字小文字・ひらがなカタカナの違いは気にしない） */
+export function matchesWorkQuery(title: string, query: string): boolean {
+  const norm = (v: string) => v.normalize('NFKC').toLowerCase().replace(/\s+/g, '')
+    .replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60))
+  const q = norm(query)
+  return q.length === 0 || norm(title).includes(q)
 }
 
 interface PrivateBookingStartProps {
-  /** /{org}/private-booking-select から開いたときの組織（選んだ状態で開く） */
+  /** /{org}/private-booking-select から開いたときの組織（その組織の作品だけ出す） */
   organizationSlug?: string
 }
 
@@ -55,141 +125,173 @@ export function PrivateBookingStart({ organizationSlug }: PrivateBookingStartPro
   usePageMeta({ title: meta.title, description: meta.description, canonicalPath: organizationSlug ? `/${organizationSlug}/private-booking-select` : meta.path })
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const fixedOrg = Boolean(organizationSlug)
-  const orgSlug = organizationSlug || params.get('org') || ''
-  const storeParam = params.get('stores')
+  const [query, setQuery] = useState('')
+  const workId = params.get('work')
+  const area = params.get('area')
 
-  const { data, isLoading, isError } = useQuery({
+  const orgQuery = useQuery({
     queryKey: ['private-booking-start', 'organizations'],
     queryFn: fetchPlatformOrganizations,
     staleTime: 5 * 60_000,
   })
-  const organizations = useMemo(() => data?.organizations ?? [], [data])
-  const prefectures = data?.prefectures ?? []
-  const onlyOne = organizations.length === 1 ? organizations[0] : null
-  const org = organizations.find((o) => o.slug === orgSlug) ?? (!orgSlug && onlyOne ? onlyOne : null)
-  const storeIds = useMemo(
-    () => parseStoreIdsParam(storeParam).filter((id) => org?.stores.some((s) => s.id === id)),
-    [storeParam, org],
-  )
+  const organizations = useMemo(() => {
+    const all = orgQuery.data?.organizations ?? []
+    return organizationSlug ? all.filter((o) => o.slug === organizationSlug) : all
+  }, [orgQuery.data, organizationSlug])
 
-  const updateParams = (next: { org?: string | null; stores?: string[] }) => {
+  const worksQuery = useQuery({
+    queryKey: ['private-booking-start', 'works', organizations.map((o) => o.id).join(',')],
+    enabled: organizations.length > 0,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const rowsByOrg = await Promise.all(organizations.map(async (org) => ({
+        org,
+        rows: ((await scenarioApi.getPublic(org.id).catch(() => [])) ?? []) as unknown as PrivateScenarioRow[],
+      })))
+      return buildPrivateWorks(rowsByOrg, todayJst())
+    },
+  })
+  const works = useMemo(() => worksQuery.data ?? [], [worksQuery.data])
+  const loading = orgQuery.isLoading || (organizations.length > 0 && worksQuery.isLoading)
+  useReportRouteScrollRestoration('private-booking-start', { isLoading: loading })
+
+  const selected = works.find((w) => w.id === workId) ?? null
+  const shown = useMemo(() => {
+    const hits = query.trim() ? works.filter((w) => matchesWorkQuery(w.title, query)) : works.slice(0, FEATURED_WORK_COUNT)
+    // 選んだ作品は一覧から外れても上に残す（選択中が見えなくならないように）
+    return selected && !hits.some((w) => w.id === selected.id) ? [selected, ...hits] : hits
+  }, [works, query, selected])
+
+  const areas = useMemo(() => {
+    if (!selected) return []
+    const list: string[] = []
+    selected.offers.forEach((o) => o.org.prefectures.forEach((p) => { if (!list.includes(p)) list.push(p) }))
+    return list
+  }, [selected])
+  const offers = selected ? selected.offers.filter((o) => !area || o.org.prefectures.includes(area)) : []
+
+  const setParam = (key: string, value: string | null) => {
     setParams((prev) => {
       const p = new URLSearchParams(prev)
-      if (next.org !== undefined) {
-        if (next.org && !fixedOrg) p.set('org', next.org); else p.delete('org')
-      }
-      if (next.stores !== undefined) {
-        if (next.stores.length > 0) p.set('stores', next.stores.join(',')); else p.delete('stores')
-      }
+      if (value) p.set(key, value); else p.delete(key)
+      if (key === 'work') p.delete('area')
       return p
     }, { replace: true })
   }
-  const chooseAnother = () => {
-    if (fixedOrg) navigate(PRIVATE_BOOKING_START_PATH)
-    else updateParams({ org: null, stores: [] })
-  }
-
-  const scenarioQuery = useQuery({
-    queryKey: ['private-booking-start', 'scenarios', org?.id],
-    enabled: Boolean(org?.id),
-    queryFn: async () => {
-      const rows = (await scenarioApi.getPublic(org!.id)) as unknown as PrivateScenarioRow[]
-      const today = todayJst()
-      return rows
-        .filter((s) => isScenarioAcceptingPrivateBooking(s as Parameters<typeof isScenarioAcceptingPrivateBooking>[0]))
-        // 日付はまだ決まっていないので、曜日・祝日で料金が変わる作品は幅で出す（平日の料金だけを出さない）
-        .map((s) => {
-          const range = s.participation_fee != null ? participationFeeRange(s.participation_fee, s.participation_costs ?? undefined) : null
-          return { ...s, participation_fee: range?.min ?? s.participation_fee, participation_fee_max: range?.max ?? null, closed: !isBookingOpen(s, today) }
-        })
-    },
-  })
-  const scenarios = useMemo(() => scenariosForStores(scenarioQuery.data ?? [], storeIds), [scenarioQuery.data, storeIds])
-
-  useReportRouteScrollRestoration('private-booking-start', { isLoading: isLoading || (Boolean(org) && scenarioQuery.isLoading) })
-
-  // 組織を選ぶと一覧が選んだカードと希望店舗に縮むので、店舗の欄の頭に合わせる（スマホで下の方のカードを押したとき用）。
-  // 一覧から押したときだけ。URL で組織が決まった状態で開いた・戻った（読込完了）ときは送らない。
-  // 送ると戻るの位置の復元とぶつかり、選んだ店舗や作品一覧の位置が奪われる（QW-20261022-013）
-  const scrollToOrganizationRef = useRef(false)
-  useEffect(() => {
-    if (!org || fixedOrg || !scrollToOrganizationRef.current) return
-    scrollToOrganizationRef.current = false
-    const el = document.getElementById('private-start-organizations')
-    if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
-  }, [org?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
   const goBack = () => {
     if (window.history.length > 1) navigate(-1)
-    else navigate('/')
+    else navigate(organizationSlug ? `/${organizationSlug}` : '/')
   }
-  const missingOrg = Boolean(orgSlug) && !isLoading && !org
 
   return (
-    <PublicLayout organizationSlug={organizationSlug}>
-      <section className="relative overflow-hidden py-8 md:py-10" style={{ backgroundColor: THEME.primary }}>
-        <div className="absolute top-0 right-0 h-48 w-48 opacity-20" style={{ background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`, transform: 'translate(30%, -30%)' }} />
-        <div className="relative mx-auto max-w-4xl px-4">
-          <nav aria-label="パンくず" className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-white/80">
-            <Link to={organizationSlug ? `/${organizationSlug}` : '/'} className="hover:text-white">ホーム</Link>
-            <ChevronRight className="h-4 w-4" aria-hidden />
-            <span>貸切を始める</span>
-          </nav>
-          <h1 className="text-2xl font-bold text-white md:text-3xl">貸切を始める</h1>
-          <p className="mt-2 text-sm text-white/80">貸切は店舗ごとです。店舗を選び、その店舗で貸切できる作品を選んでください。</p>
-        </div>
-      </section>
-
-      <main className="mx-auto w-full max-w-4xl space-y-3 px-4 py-4 md:py-6">
-        <button type="button" onClick={goBack} className="flex items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" />
-          戻る
-        </button>
-
-        <TopSection id="private-start-organizations" title="1. 貸切する店舗を選ぶ" tone="accent" aside={<Link to={privateGuidePath(organizationSlug)} className="underline hover:text-foreground">貸切の流れ</Link>}>
-          {isLoading ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">読み込み中...</p>
-          ) : isError ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">店舗の一覧を読み込めませんでした。時間をおいて開き直してください。</p>
-          ) : org ? (
-            <SelectedOrganization
-              org={org}
-              storeIds={storeIds}
-              onStoreIdsChange={(ids) => updateParams({ stores: ids })}
-              onChangeOrganization={chooseAnother}
-            />
-          ) : (
-            <>
-              {missingOrg && <p className="mb-2 text-xs text-muted-foreground">指定の店舗が見つかりませんでした。一覧から選んでください。</p>}
-              <p className="mb-2 text-xs text-muted-foreground">店舗を選ぶと、その店舗で貸切できる作品の一覧が開きます。</p>
-              <OrganizationList organizations={organizations} prefectures={prefectures} onSelect={(o) => { scrollToOrganizationRef.current = true; updateParams({ org: o.slug, stores: [] }) }} />
-            </>
-          )}
-        </TopSection>
-
-        <TopSection id="private-start-scenarios" title="2. 貸切できる作品を選ぶ">
-          {org ? (
-            <>
-              <p className="mb-2 text-xs text-muted-foreground">
-                作品を押すと、作品ページの「貸切リクエスト」が開きます。そこで「まずはメンバーを招待して貸切グループを作成」からグループを作り、メンバーと候補日を決めて店舗に申し込みます。
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <PageBar title="貸切を始める" onBack={goBack} />
+      <main className="mx-auto w-full max-w-2xl space-y-3 px-3 py-3">
+        <section className="border border-gray-200 bg-white p-4" data-testid="private-start-works">
+          <h2 className="text-lg font-bold">1. 遊びたい作品を選ぶ</h2>
+          <p className="mt-1 text-sm text-muted-foreground">人気の作品です。ほかの作品は名前で探せます。</p>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="作品名で探す"
+            aria-label="作品名で探す"
+            className="mt-3 h-12 w-full border border-gray-300 px-3 text-base outline-none focus:border-gray-500"
+          />
+          <div className="mt-3 space-y-3">
+            {loading ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">読み込み中...</p>
+            ) : orgQuery.isError || worksQuery.isError ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">作品を読み込めませんでした。時間をおいて開き直してください。</p>
+            ) : shown.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                {query.trim() ? '貸切できる作品が見つかりませんでした。名前を変えて探してください。' : 'いま貸切できる作品はありません。'}
               </p>
-              <PrivateScenarioGrid
-                key={org.id}
-                scenarios={scenarios}
-                loading={scenarioQuery.isLoading}
-                pathFor={(s) => privateScenarioTabPath(org.slug, s, storeIds)}
-                onOpen={(s) => {
-                  saveScrollPositionForCurrentUrl()
-                  navigate(privateScenarioTabPath(org.slug, s, storeIds))
-                }}
-              />
+            ) : (
+              shown.map((w) => {
+                const isSelected = w.id === selected?.id
+                return (
+                  <button
+                    key={w.id}
+                    type="button"
+                    onClick={() => setParam('work', isSelected ? null : w.id)}
+                    aria-pressed={isSelected}
+                    data-testid="private-start-work"
+                    className={cn('flex w-full items-center gap-3 border bg-white p-3 text-left transition-colors', isSelected ? 'border-2' : 'border-gray-200 hover:bg-gray-50')}
+                    style={isSelected ? { borderColor: PRIVATE_PURPLE, backgroundColor: '#F5F3FF' } : undefined}
+                  >
+                    <div className="aspect-[3/4] w-12 shrink-0 overflow-hidden bg-gray-200">
+                      <ScenarioCardImage src={w.key_visual_url} alt={w.title} className="h-full w-full" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-base font-bold">{w.title}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {[playersLabel(w.player_count_min, w.player_count_max), durationLabel(w.duration)].filter(Boolean).join('・')}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-bold" style={{ color: PRIVATE_PURPLE }}>
+                      {isSelected ? '✓ 選択中' : '選ぶ ›'}
+                    </span>
+                  </button>
+                )
+              })
+            )}
+          </div>
+        </section>
+
+        <section className="border border-gray-200 bg-white p-4" data-testid="private-start-orgs">
+          <h2 className="text-lg font-bold">2. この作品を貸切できる会社</h2>
+          {selected ? (
+            <>
+              <p className="mt-1 text-sm text-muted-foreground">{selected.title}を貸切で遊べる会社です。店舗と日にちは次の画面で選べます。</p>
+              {areas.length > 1 && (
+                <div className="mt-3 flex gap-2 overflow-x-auto">
+                  <RenewalChip selected={!area} onClick={() => setParam('area', null)}>すべての地域</RenewalChip>
+                  {areas.map((p) => (
+                    <RenewalChip key={p} selected={area === p} onClick={() => setParam('area', p)}>{areaLabel(p)}</RenewalChip>
+                  ))}
+                </div>
+              )}
+              <div className="mt-3 space-y-3">
+                {offers.map((o) => {
+                  const path = privateScenarioTabPath(o.org.slug, o.scenario)
+                  return (
+                    <a
+                      key={o.org.id}
+                      href={path}
+                      onClick={(e) => { e.preventDefault(); saveScrollPositionForCurrentUrl(); navigate(path) }}
+                      data-org={o.org.slug}
+                      className="flex items-center gap-3 border border-gray-200 bg-white p-3 hover:bg-gray-50"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-base font-bold">{o.org.name}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {[...o.org.prefectures.map(areaLabel), `${o.storeNames.length}店舗（${o.storeNames.map(shortStoreName).join('・')}）`].join('・')}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-sm font-bold" style={{ color: PRIVATE_PURPLE }}>空きを見る ›</span>
+                    </a>
+                  )
+                })}
+              </div>
             </>
           ) : (
-            <p className="py-4 text-center text-sm text-muted-foreground">上で店舗を選ぶと、ここに作品が出ます。</p>
+            <p className="mt-2 py-4 text-center text-sm text-muted-foreground">上で作品を選ぶと、貸切できる会社が出ます。</p>
           )}
-        </TopSection>
+        </section>
+
+        <section className="p-4" style={{ backgroundColor: '#F5F3FF' }} data-testid="private-start-flow">
+          <h2 className="text-lg font-bold">貸切の流れ</h2>
+          <ol className="mt-2 list-decimal space-y-2 pl-6 text-sm">
+            <li>遊びたい作品を選ぶ</li>
+            <li>会社を選び、次の画面で店舗と候補日を選ぶ</li>
+            <li>一緒に行く人をグループに招待</li>
+            <li>店舗が日時と会場を決めてお知らせ</li>
+          </ol>
+        </section>
       </main>
-    </PublicLayout>
+      <Footer organizationSlug={organizationSlug} minimal />
+    </div>
   )
 }
