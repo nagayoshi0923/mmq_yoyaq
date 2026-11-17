@@ -420,7 +420,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         <Header />
         {navBar}
         <PageBar title="作品ページ" onBack={goBack} />
-        <div className="aspect-[16/10] w-full animate-pulse bg-gray-200 md:aspect-[16/7]" />
+        <div className="aspect-[13/10] w-full animate-pulse bg-gray-200 md:aspect-[16/7]" />
         <div className="mx-auto max-w-4xl space-y-3 px-4 py-5">
           <div className="h-3 w-24 animate-pulse bg-gray-200" />
           <div className="h-7 w-3/4 animate-pulse bg-gray-200" />

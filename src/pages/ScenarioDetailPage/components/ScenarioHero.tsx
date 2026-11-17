@@ -155,7 +155,7 @@ export const ScenarioHero = memo(function ScenarioHero({
   return (
     <div className="bg-white">
       {/* キービジュアル（横長。余白はぼかした同じ画像で埋める） */}
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-gray-900 md:aspect-[16/7]">
+      <div className="relative aspect-[13/10] w-full overflow-hidden bg-gray-900 md:aspect-[16/7]">
         {scenario.key_visual_url && (
           <div
             className="absolute inset-0 scale-110"
