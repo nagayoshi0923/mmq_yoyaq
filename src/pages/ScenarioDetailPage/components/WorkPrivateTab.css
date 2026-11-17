@@ -1,0 +1,45 @@
+/* 作品ページ「貸切で遊ぶ」: Figma「貸切／作品ページ（貸切）」(74:869) の実寸。2026-11-18 えいきち「完全に見本通りに」 */
+.wpt { background: #f6f6f4; color: #111; padding: 0 16px; }
+.wpt__summary-wrap { padding: 20px 0 16px; }
+.wpt__summary { background: #f5f3ff; padding: 15px 14px 15px; }
+.wpt__summary-main { font-size: 14px; line-height: 1.7; }
+.wpt__summary-main b { font-weight: 700; }
+.wpt__summary-sub { margin-top: 4px; font-size: 13px; color: #6b6b6b; }
+
+.wpt__title { font-size: 15px; font-weight: 700; line-height: normal; }
+.wpt__hint { font-size: 12px; color: #6b6b6b; line-height: normal; }
+.wpt__stores { padding-top: 18px; }
+.wpt__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.wpt__stores .wpt__chips { margin-top: 8px; }
+.wpt__stores .wpt__hint { margin-top: 10px; }
+.wpt__chip { height: 36px; border-radius: 18px; border: 1px solid #cfcfcf; background: #fff; padding: 0 13px; font-size: 14px; color: #111; white-space: nowrap; }
+.wpt__chip.is-on { border-color: #6d28d9; background: #6d28d9; color: #fff; font-weight: 700; }
+
+.wpt__dates-head { margin-top: 23px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.wpt__filters { margin-top: 8px; }
+.wpt__full { margin-top: 15px; display: flex; align-items: center; gap: 13px; font-size: 13px; color: #111; }
+.wpt__full input { width: 20px; height: 20px; margin: 0; accent-color: #6d28d9; }
+
+.wpt__list { margin-top: 20px; padding-bottom: 24px; }
+.wpt__day { height: 34px; border-bottom: 2px solid #111; padding-top: 8px; font-size: 14px; font-weight: 700; }
+.wpt__row { position: relative; display: flex; align-items: center; width: 100%; height: 48px; border-bottom: 1px solid #e8e8e8; background: #fff; text-align: left; }
+.wpt__row.is-on { background: #f5f3ff; }
+.wpt__row:disabled, .wpt__row.is-off { color: #9a9a9a; }
+.wpt__box { position: absolute; left: 6px; top: 14px; width: 20px; height: 20px; border: 2px solid #9a9a9a; background: #fff; color: #fff; font-size: 13px; line-height: 16px; text-align: center; }
+.wpt__row.is-on .wpt__box { border-color: #6d28d9; background: #6d28d9; }
+.wpt__time { position: absolute; left: 36px; font-size: 16px; font-weight: 700; }
+.wpt__store { position: absolute; left: 98px; right: 76px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.wpt__state { position: absolute; right: 6px; font-size: 13px; color: #6b6b6b; }
+.wpt__row.is-on .wpt__state { color: #6d28d9; font-weight: 700; }
+.wpt__message { padding: 32px 0; text-align: center; font-size: 14px; color: #6b6b6b; }
+
+
+/* 貸切タブのときの「この作品ページは〇〇の予約ページです」（Figma 87:15） */
+.org-rules { padding-top: 15px; padding-bottom: 12px; }
+.org-rules > p:first-child { font-size: 13px; font-weight: 700; line-height: normal; }
+.org-rules > p:nth-child(2) { margin-top: 5px; font-size: 12px; line-height: 1.6; }
+.org-rules > a { margin-top: 5px; font-size: 13px; text-decoration: none; }
+
+/* 下の固定帯（Figma 109:70: 高さ81・ボタン 89×48・確認へ 15px） */
+.wpt-bar { padding-top: 12px; padding-bottom: calc(21px + env(safe-area-inset-bottom)); }
+.wpt-bar__btn { padding: 0 22px; font-size: 15px; }

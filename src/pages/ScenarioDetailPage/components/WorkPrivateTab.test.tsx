@@ -25,7 +25,7 @@ const base = {
   },
   selectedSlots: [], onToggle: () => {}, maxSelections: 6, deadlineDays: 0,
 }
-const rowTexts = () => [...host.querySelectorAll('[data-testid="work-private-tab"] li button')].map((b) => b.textContent)
+const rowTexts = () => [...host.querySelectorAll('[data-testid="work-private-tab"] .wpt__row')].map((b) => b.textContent)
 
 it('空いている枠だけを近い日から並べ、満席の枠は「満席の枠も表示する」で出す', async () => {
   await act(async () => root.render(<WorkPrivateTab {...base} />))
@@ -39,7 +39,7 @@ it('他の公演と重なる枠は「満席」で押せない（理由も出さ�
   const onToggle = vi.fn()
   await act(async () => root.render(<WorkPrivateTab {...base} onToggle={onToggle} />))
   await act(async () => host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click())
-  const full = [...host.querySelectorAll<HTMLButtonElement>('[data-testid="work-private-tab"] li button')].find((b) => b.textContent?.includes('満席'))!
+  const full = [...host.querySelectorAll<HTMLButtonElement>('[data-testid="work-private-tab"] .wpt__row')].find((b) => b.textContent?.includes('満席'))!
   expect(full.disabled).toBe(true)
   await act(async () => full.click())
   expect(onToggle).not.toHaveBeenCalled()
@@ -50,7 +50,7 @@ it('選んだ候補は「第N希望」で出し、押すと候補に入れる', 
   const onToggle = vi.fn()
   await act(async () => root.render(<WorkPrivateTab {...base} onToggle={onToggle} selectedSlots={[{ date: '2030-01-21', slot: { label: '夜', startTime: '19:00', endTime: '23:00' } }]} />))
   expect(rowTexts()).toContain('✓19:00夜第1希望')
-  const first = host.querySelector<HTMLButtonElement>('[data-testid="work-private-tab"] li button')!
+  const first = host.querySelector<HTMLButtonElement>('[data-testid="work-private-tab"] .wpt__row')!
   await act(async () => first.click())
   expect(onToggle).toHaveBeenCalledWith('2030-01-20', { label: '午後', startTime: '13:00', endTime: '23:00' })
 })
@@ -85,18 +85,15 @@ const allFull = {
   unavailableReasons: { '2030-01-20-午後': '受付締切を過ぎています', '2030-01-21-夜': '受付締切を過ぎています' },
 }
 
-it('開いた月に空きが1つも無ければ、次の月へ自動で送る（自分で月を動かしたあとは送らない）', async () => {
+it('読み込んだ範囲に空きが1つも無ければ、次の月の分を自動で足す（同じ範囲では2回足さない）', async () => {
   const change = vi.fn()
   await act(async () => root.render(<WorkPrivateTab {...base} slotAvailability={allFull} onMonthChange={change} />))
   expect(change).toHaveBeenCalledTimes(1)
   expect(change).toHaveBeenCalledWith(1)
-  // 同じ月のまま描き直しても 2 回は送らない
   await act(async () => root.render(<WorkPrivateTab {...base} slotAvailability={allFull} onMonthChange={change} />))
   expect(change).toHaveBeenCalledTimes(1)
-  expect(host.querySelector('[data-testid="private-month-empty"]')?.textContent).toContain('この月は空いている日がありません')
-  const next = [...host.querySelectorAll('button')].find((b) => b.textContent === '次の月を見る ›')!
-  await act(async () => next.click())
-  expect(change).toHaveBeenCalledTimes(2)
+  // 月の切り替えボタンは置かない（見本どおり）
+  expect([...host.querySelectorAll('button')].some((b) => /前の月|次の月/.test(b.textContent ?? ''))).toBe(false)
 })
 
 it('空きがあれば月を送らない。読み込み中・絞り込み中も送らない', async () => {
@@ -106,14 +103,24 @@ it('空きがあれば月を送らない。読み込み中・絞り込み中も�
   expect(change).not.toHaveBeenCalled()
 })
 
-it('「日にち」と「時間」は別の並びで、それぞれ1つだけ選ばれている', async () => {
+it('絞り込みは見本どおり1列（土日祝だけ・すべての時間・昼・夜）。土日祝だけは押すと付け外し', async () => {
   await act(async () => root.render(<WorkPrivateTab {...base} />))
-  const pressed = (id: string) => [...host.querySelectorAll(`[data-testid="${id}"] button[aria-pressed="true"]`)].map((b) => b.textContent)
-  expect(pressed('private-day-filter')).toEqual(['すべての日'])
-  expect(pressed('private-time-filter')).toEqual(['すべて'])
-  await act(async () => [...host.querySelectorAll<HTMLButtonElement>('[data-testid="private-day-filter"] button')].find((b) => b.textContent === '土日祝だけ')!.click())
-  expect(pressed('private-day-filter')).toEqual(['土日祝だけ'])
-  expect(pressed('private-time-filter')).toEqual(['すべて'])
+  const chips = () => [...host.querySelectorAll<HTMLButtonElement>('[data-testid="private-filter"] button')]
+  expect(chips().map((b) => b.textContent)).toEqual(['土日祝だけ', 'すべての時間', '昼', '夜'])
+  const pressed = () => chips().filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.textContent)
+  expect(pressed()).toEqual(['すべての時間'])
+  await act(async () => chips()[0].click())
+  expect(pressed()).toEqual(['土日祝だけ', 'すべての時間'])
+  await act(async () => chips()[0].click())
+  expect(pressed()).toEqual(['すべての時間'])
+})
+
+it('見本にない表示（受付締切の注記・日にち/時間の見出し）は出さない。日付は「11/28（土）」の形', async () => {
+  await act(async () => root.render(<WorkPrivateTab {...base} deadlineDays={0} />))
+  const text = host.textContent ?? ''
+  expect(text).not.toContain('日前まで申し込めます')
+  expect(text).not.toContain('すべての日')
+  expect(host.querySelector('.wpt__day')?.textContent).toBe('1/20（日）')
 })
 
 // 2026-11-18 えいきち「表示内容がこれじゃない」: 行は「時刻・空いている店舗・空きあり」（見本どおり）

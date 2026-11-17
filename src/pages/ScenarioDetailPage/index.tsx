@@ -452,7 +452,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   const bookingEnd = scenario.booking_end_date
   const privateOutOfPeriod = !!((bookingStart && todayStr < bookingStart) || (bookingEnd && todayStr > bookingEnd))
   const privateFeeText = knownPrivateFees
-    ? `${(privateCandidateFees.length ? Math.min(...privateCandidateFees) : referenceMinFee(scenario.participation_fee, scenario.participation_costs)).toLocaleString()}円${privateCandidateFees.length > 1 && Math.max(...privateCandidateFees) !== Math.min(...privateCandidateFees) ? `〜${Math.max(...privateCandidateFees).toLocaleString()}円` : selectedTimeSlots.length === 0 ? '〜' : ''}`
+    ? `${(privateCandidateFees.length ? Math.min(...privateCandidateFees) : referenceMinFee(scenario.participation_fee, scenario.participation_costs)).toLocaleString()}円${privateCandidateFees.length > 1 && Math.max(...privateCandidateFees) !== Math.min(...privateCandidateFees) ? `〜${Math.max(...privateCandidateFees).toLocaleString()}円` : ''}`
     : feePendingText
   const privateSummary = [
     `${scenario.player_count_max}人で貸切（この作品の定員）`,
@@ -462,6 +462,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   const globalSlug = scenario.slug || scenarioId
   const showPrivateBar = acceptsPrivateBooking && activeTab === 'private' && !privateOutOfPeriod
   const showScheduleBar = activeTab === 'schedule'
+  // 貸切タブは見本（Figma 貸切／作品ページ（貸切））にあるものだけを出す（2026-11-18 えいきち「完全に見本通りに」）
+  const privateView = acceptsPrivateBooking && activeTab === 'private'
 
 
   return (
@@ -483,7 +485,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       </button>
 
       <div className="mx-auto max-w-4xl">
-        <div className="px-4 pt-4">
+        {!privateView && <div className="px-4 pt-4">
           <PrivateBookingStatusNote
             status={privateStatus}
             hasEvents={events.length > 0}
@@ -492,17 +494,18 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               tabsRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
             }}
           />
-        </div>
+        </div>}
 
         {/* 公演に参加する / 貸切で遊ぶ */}
-        <div ref={tabsRef} className="scroll-mt-14 px-4 pt-3">
-          <div role="tablist" className="flex rounded-full bg-gray-100 p-1">
+        <div ref={tabsRef} className={`scroll-mt-14 px-4 ${privateView ? 'pb-1' : 'pt-3'}`}>
+          <div role="tablist" className="flex rounded-full p-1" style={{ backgroundColor: '#e9e9e6' }}>
             <button
               type="button"
               role="tab"
               aria-selected={activeTab === 'schedule'}
               onClick={() => setActiveTab('schedule')}
-              className={`h-10 flex-1 rounded-full text-sm font-bold ${activeTab === 'schedule' ? 'bg-[#111] text-white' : 'text-gray-600'}`}
+              className={`h-10 flex-1 rounded-full text-sm ${activeTab === 'schedule' ? 'bg-[#111] font-bold text-white' : 'font-normal'}`}
+              style={activeTab === 'schedule' ? undefined : { color: '#3a3a3a' }}
             >公演に参加する</button>
             {acceptsPrivateBooking && (
               <button
@@ -510,14 +513,14 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 role="tab"
                 aria-selected={activeTab === 'private'}
                 onClick={() => setActiveTab('private')}
-                className={`h-10 flex-1 rounded-full text-sm font-bold ${activeTab === 'private' ? 'text-white' : 'text-gray-600'}`}
-                style={activeTab === 'private' ? { backgroundColor: PRIVATE_PURPLE } : undefined}
+                className={`h-10 flex-1 rounded-full text-sm ${activeTab === 'private' ? 'font-bold text-white' : 'font-normal'}`}
+                style={activeTab === 'private' ? { backgroundColor: PRIVATE_PURPLE } : { color: '#3a3a3a' }}
               >貸切で遊ぶ</button>
             )}
           </div>
         </div>
 
-        <div className="px-4 py-5">
+        <div className={privateView ? '' : 'px-4 py-5'}>
           {activeTab === 'schedule' || !acceptsPrivateBooking ? (
             <WorkScheduleTab
               events={events}
@@ -533,7 +536,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               accent={heroBgColor}
             />
           ) : privateOutOfPeriod ? (
-            <div className="space-y-1 border border-gray-200 bg-gray-50 p-6 text-center">
+            <div className="m-4 space-y-1 border border-gray-200 bg-gray-50 p-6 text-center">
               <p className="text-sm text-muted-foreground">現在は貸切を募集していません</p>
               <p className="text-xs text-muted-foreground">
                 {bookingStart && bookingEnd ? `募集期間: ${bookingStart} 〜 ${bookingEnd}` : bookingEnd ? `募集終了日: ${bookingEnd}` : `募集開始日: ${bookingStart}`}
@@ -564,8 +567,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
           )}
         </div>
 
-        {/* 参加の前に（注意事項・キャンセル規定。組織の設定をそのまま出す） */}
-        <section className="border-t border-gray-200 px-4 py-6">
+        {/* 参加の前に（注意事項・キャンセル規定。組織の設定をそのまま出す）。貸切タブは見本に無いので出さない（規定は下の「規定を見る」から） */}
+        {!privateView && <section className="border-t border-gray-200 px-4 py-6">
           <h2 className="text-lg font-bold">{activeTab === 'private' ? '貸切の前に' : '参加の前に'}</h2>
           <div className={`relative mt-3 ${noticeOpen ? '' : 'max-h-56 overflow-hidden'}`} data-testid="notice-box">
             <BookingNotice
@@ -593,11 +596,11 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
             </div>
           )}
           <p className="mt-3 text-2xs text-muted-foreground" data-testid="scenario-price-note">{PRICE_NOTE}</p>
-        </section>
+        </section>}
 
-        <ScenarioAbout scenario={scenario} stores={stores} />
+        {!privateView && <ScenarioAbout scenario={scenario} stores={stores} />}
 
-        <section className="border-t border-gray-200 px-4 py-5">
+        <section className={privateView ? 'org-rules border-y border-gray-200 bg-white px-4' : 'border-t border-gray-200 px-4 py-5'}>
           <p className="text-sm font-bold">この作品ページは {organizationName || 'この組織'} の予約ページです</p>
           <p className="mt-1 text-xs text-muted-foreground">料金・キャンセル・支払い・問い合わせ先は組織ごとに違います</p>
           <a href={buildPublicCancellationPolicyPath(organizationSlug, null, { scenarioMasterId: scenario.scenario_master_id })} className="mt-2 inline-block text-sm font-bold underline underline-offset-4" style={{ color: heroBgColor }}>
@@ -605,7 +608,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
           </a>
         </section>
 
-        {relatedScenarios.length > 0 && (
+        {!privateView && relatedScenarios.length > 0 && (
           <div className="border-t border-gray-200 px-4 py-6">
             <RelatedScenarios
               scenarios={relatedScenarios}
@@ -619,9 +622,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         )}
       </div>
 
-      <Footer organizationSlug={organizationSlug} minimal />
+      {!privateView && <Footer organizationSlug={organizationSlug} minimal />}
       {/* 下に固定した確認ボタンでフッターが隠れないよう空ける（点検 18） */}
-      {(showScheduleBar || showPrivateBar) && <div className="h-32" aria-hidden="true" />}
+      {(showScheduleBar || showPrivateBar) && <div className={privateView ? 'h-20' : 'h-32'} aria-hidden="true" />}
 
       {showScheduleBar && (
         <ScheduleBookingBar

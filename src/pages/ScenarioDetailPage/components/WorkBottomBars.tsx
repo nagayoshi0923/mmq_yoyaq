@@ -95,9 +95,9 @@ export function PrivateRequestBar({ count, selectedStores, totalStores, isLogged
   const disabled = isLoggedIn && (count === 0 || !ready)
   return (
     <div className={BAR} data-testid="private-cta-bar">
-      <div className={`${INNER} flex items-center gap-3`}>
+      <div className="wpt-bar mx-auto flex max-w-4xl items-center gap-3 px-4">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold">候補 {count}件</p>
+          <p className="text-sm font-bold">候補 {count} 件</p>
           <p className="text-2xs text-muted-foreground">店舗 {selectedStores}/{totalStores} を選択中</p>
           {!ready && count > 0 && <p role="status" className="text-2xs text-amber-700">空き状況を確認できるまでお待ちください</p>}
         </div>
@@ -105,7 +105,7 @@ export function PrivateRequestBar({ count, selectedStores, totalStores, isLogged
           type="button"
           onClick={onRequest}
           disabled={disabled}
-          className="h-12 shrink-0 px-8 text-base font-bold text-white disabled:opacity-40"
+          className="wpt-bar__btn h-12 shrink-0 font-bold text-white disabled:opacity-40"
           style={{ backgroundColor: PRIVATE_PURPLE }}
         >
           {isLoggedIn ? '確認へ' : 'ログインして確認へ'}
