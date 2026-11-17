@@ -35,7 +35,7 @@ interface UsePrivateBookingProps {
 }
 
 export function usePrivateBooking({ stores, scenarioId, scenario, organizationId, isActive = true }: UsePrivateBookingProps) {
-  const [currentMonth, setCurrentMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 1) })
+  const [currentMonth, setCurrentMonth] = useState(new Date())
   const [savedStoreIds, setSavedStoreIds] = usePrivateBookingStorePreference()
   const [storeFilterIds] = useStoreFilterPreference([])
   const [selectedStoreIds, setSelectedStoreIdsInternal] = useState<string[]>(savedStoreIds)
@@ -69,19 +69,19 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
   const horizonDays = horizon.days
   const horizonMaxYmd = privateBookingHorizonMaxYmd(horizonDays)
 
-  // 今日から currentMonth の月末までを続けて読む（作品ページの貸切タブは月で区切らず近い順に並べる。見本どおり 2026-11-18）。
-  // 最初は来月末まで。下まで見たら changeMonth(1) で1か月ずつ足す
+  // 表示中の月（今日より前・申し込める範囲より先は除く）。月送りで1か月ずつ見る（2026-11-18 えいきち「月送り消えてるけど」で戻した）
   const generatePrivateDates = useCallback(() => {
     const dates: string[] = []
+    const year = currentMonth.getFullYear()
+    const month = currentMonth.getMonth()
+    const lastDay = new Date(year, month + 1, 0)
     const todayYmd = toJstYmd(new Date())
-    const last = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0)
-    const lastYmd = toJstYmd(last)
-    const [ty, tm, td] = todayYmd.split('-').map(Number)
-    for (let d = new Date(ty, tm - 1, td); ; d.setDate(d.getDate() + 1)) {
-      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-      if (dateStr > lastYmd || dateStr > horizonMaxYmd) break
-      dates.push(dateStr)
+
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      if (dateStr >= todayYmd && dateStr <= horizonMaxYmd) dates.push(dateStr)
     }
+
     return dates
   }, [currentMonth, horizonMaxYmd])
 
@@ -106,17 +106,16 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
   const multiStoreTarget = availabilityTarget && availabilityTarget.storeIds.length > 1 ? availabilityTarget : null
   const slotStoreIds = useCandidateSlotStores(multiStoreTarget, monthDates)
 
-  // 読み終えたら、1か月先まで足した範囲も先に読んでおく（下まで見たときに待たせない）
+  // 表示中の月を読み終えたら、次の月も先に読んでおく（「次の月 ›」で待たせない）
   useEffect(() => {
     if (!canRevalidate || !availabilityTarget) return
+    const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
     const todayYmd = toJstYmd(new Date())
-    const end = toJstYmd(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 2, 0))
     const dates: string[] = []
-    const [ty, tm, td] = todayYmd.split('-').map(Number)
-    for (let d = new Date(ty, tm - 1, td); ; d.setDate(d.getDate() + 1)) {
-      const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-      if (ymd > end || ymd > horizonMaxYmd) break
-      dates.push(ymd)
+    const last = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()
+    for (let day = 1; day <= last; day++) {
+      const d = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      if (d >= todayYmd && d <= horizonMaxYmd) dates.push(d)
     }
     prefetchCandidateSlotAvailability(availabilityTarget, dates)
     prefetchCandidateSlotStores(availabilityTarget, dates)
@@ -150,8 +149,7 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
   /** 指定日の月を表示する（URL からの事前選択用） */
   const showMonthOf = useCallback((date: string) => {
     const [y, m] = date.split('-').map(Number)
-    // 読む範囲は今日から currentMonth の月末まで。その日が範囲の外なら広げる（狭めない）
-    setCurrentMonth(prev => (prev.getFullYear() * 12 + prev.getMonth() >= y * 12 + m - 1 ? prev : new Date(y, m - 1, 1)))
+    setCurrentMonth(prev => (prev.getFullYear() === y && prev.getMonth() === m - 1 ? prev : new Date(y, m - 1, 1)))
   }, [])
 
   const changeMonth = useCallback((offset: number) => {

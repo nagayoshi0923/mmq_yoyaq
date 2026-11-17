@@ -43,3 +43,11 @@
 /* 下の固定帯（Figma 109:70: 高さ81・ボタン 89×48・確認へ 15px） */
 .wpt-bar { padding-top: 12px; padding-bottom: calc(21px + env(safe-area-inset-bottom)); }
 .wpt-bar__btn { padding: 0 22px; font-size: 15px; }
+
+/* 月送り（見本には無いが、えいきち指示で戻した 2026-11-18）。見本の字・色にそろえる */
+.wpt__month { margin-top: 16px; display: flex; align-items: center; justify-content: space-between; }
+.wpt__month p { font-size: 15px; font-weight: 700; }
+.wpt__month button { padding: 8px 0; font-size: 14px; color: #111; }
+.wpt__month button:disabled { opacity: 0.3; }
+.wpt__month + .wpt__list { margin-top: 4px; }
+.wpt__next { margin-top: 12px; width: 100%; height: 44px; border: 1px solid #cfcfcf; background: #fff; font-size: 14px; font-weight: 700; color: #111; }

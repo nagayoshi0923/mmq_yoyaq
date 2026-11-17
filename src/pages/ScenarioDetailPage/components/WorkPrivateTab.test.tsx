@@ -85,15 +85,27 @@ const allFull = {
   unavailableReasons: { '2030-01-20-午後': '受付締切を過ぎています', '2030-01-21-夜': '受付締切を過ぎています' },
 }
 
-it('読み込んだ範囲に空きが1つも無ければ、次の月の分を自動で足す（同じ範囲では2回足さない）', async () => {
+it('開いた月に空きが1つも無ければ、次の月へ自動で送る（自分で月を動かしたあとは送らない）', async () => {
   const change = vi.fn()
   await act(async () => root.render(<WorkPrivateTab {...base} slotAvailability={allFull} onMonthChange={change} />))
   expect(change).toHaveBeenCalledTimes(1)
   expect(change).toHaveBeenCalledWith(1)
   await act(async () => root.render(<WorkPrivateTab {...base} slotAvailability={allFull} onMonthChange={change} />))
   expect(change).toHaveBeenCalledTimes(1)
-  // 月の切り替えボタンは置かない（見本どおり）
-  expect([...host.querySelectorAll('button')].some((b) => /前の月|次の月/.test(b.textContent ?? ''))).toBe(false)
+  expect(host.querySelector('[data-testid="private-month-empty"]')?.textContent).toContain('この月は空いている日がありません')
+  const next = [...host.querySelectorAll('button')].find((b) => b.textContent === '次の月を見る ›')!
+  await act(async () => next.click())
+  expect(change).toHaveBeenCalledTimes(2)
+})
+
+// 2026-11-18 えいきち「月送り消えてるけど」: 月送りは残す
+it('月送り（前の月・次の月）がある', async () => {
+  const change = vi.fn()
+  await act(async () => root.render(<WorkPrivateTab {...base} onMonthChange={change} />))
+  const nav = host.querySelector('[data-testid="private-month-nav"]')!
+  expect(nav.textContent).toContain('2030年1月')
+  await act(async () => [...nav.querySelectorAll('button')].find((b) => b.textContent === '次の月 ›')!.click())
+  expect(change).toHaveBeenCalledWith(1)
 })
 
 it('空きがあれば月を送らない。読み込み中・絞り込み中も送らない', async () => {

@@ -113,36 +113,27 @@ export function WorkPrivateTab({
     return out
   }, [availableDates, deadlineDays, weekendOnly, isCustomHoliday, slotAvailability, time, showFull, order])
 
-  // 日付は今日から近い順に続けて並べる（月で区切らない。見本どおり）。下まで見たら次の月の分を足す。
-  // 何も出ない（締切が14日前の店舗を月末に開いた、など）ときも、空きのある月まで足す（最大3か月・絞り込みなし）。
-  // 2026-11-18 えいきち報告（札幌店で空きが1つも出ない）・「完全に見本通りに」
+  // 開いた月に空きが1つも無い（締切が14日前の店舗を月末に開いた、など）ときは、空きのある月まで自動で送る。
+  // 絞り込みをしていないときだけ・最初に開いたときだけ（自分で月を動かしたら送らない）。最大3か月。
+  // 「空いている日が1個も出ない」と見えないようにする（2026-11-18 えいきち報告、札幌店）
   const monthKey = `${currentMonth.getFullYear()}-${currentMonth.getMonth()}`
-  const autoSkipRef = useRef({ count: 0, lastKey: '' })
+  const autoSkipRef = useRef({ count: 0, manual: false, lastKey: '' })
   const loadedForMonth = availableDates.some((d) => (slotAvailability.slotsByDate[d]?.length ?? 0) > 0)
   const filtered = weekendOnly || time !== 'all' || showFull
   useEffect(() => {
     const st = autoSkipRef.current
-    if (st.count >= 3 || filtered || loading || availabilityError || isNextMonthDisabled) return
+    if (st.manual || st.count >= 3 || filtered || loading || availabilityError || isNextMonthDisabled) return
     if (!loadedForMonth || rows.length > 0 || st.lastKey === monthKey) return
     st.count += 1
     st.lastKey = monthKey
     onMonthChange(1)
   }, [loading, loadedForMonth, rows.length, monthKey, filtered, availabilityError, isNextMonthDisabled, onMonthChange])
-
-  // 一覧の下端が見えたら次の月の分を読む（ボタンは置かない）
-  const endRef = useRef<HTMLDivElement | null>(null)
-  const loadMoreRef = useRef<() => void>(() => {})
-  loadMoreRef.current = () => {
-    if (loading || availabilityError || isNextMonthDisabled || rows.length === 0) return
-    onMonthChange(1)
+  const changeMonthByHand = (delta: number) => {
+    autoSkipRef.current.manual = true
+    onMonthChange(delta)
   }
-  useEffect(() => {
-    const el = endRef.current
-    if (!el || typeof IntersectionObserver === 'undefined') return
-    const io = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) loadMoreRef.current() }, { rootMargin: '200px' })
-    io.observe(el)
-    return () => io.disconnect()
-  }, [rows.length])
+  const now = new Date()
+  const isThisMonth = currentMonth.getFullYear() === now.getFullYear() && currentMonth.getMonth() === now.getMonth()
 
   const handleRow = useCallback((date: string, slot: PrivateBookingSlot, reason: string | null) => {
     const key = `${date}-${slot.label}`
@@ -214,6 +205,12 @@ export function WorkPrivateTab({
         満席の枠も表示する
       </label>
 
+      <div className="wpt__month" data-testid="private-month-nav">
+        <button type="button" onClick={() => changeMonthByHand(-1)} disabled={isThisMonth}>‹ 前の月</button>
+        <p>{currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月</p>
+        <button type="button" onClick={() => changeMonthByHand(1)} disabled={isNextMonthDisabled}>次の月 ›</button>
+      </div>
+
       <div className="wpt__list">
         {notice && <p role="status" className="mb-2 bg-amber-50 px-3 py-2 text-xs text-amber-900">{notice}</p>}
         {horizon && horizon.days === null ? (
@@ -227,10 +224,15 @@ export function WorkPrivateTab({
               </button>
             )}
           </div>
+        ) : loading && rows.length === 0 ? (
+          <p className="wpt__message">空き状況を読み込み中…</p>
         ) : rows.length === 0 ? (
-          <p className="wpt__message" data-testid="private-month-empty">
-            {loading || (loadedForMonth && !isNextMonthDisabled && !filtered && autoSkipRef.current.count < 3) ? '空き状況を読み込み中…' : filtered ? '条件に合う空きがありません' : '空いている日がありません'}
-          </p>
+          <div className="wpt__message" data-testid="private-month-empty">
+            <p>{filtered ? 'この月は条件に合う空きがありません' : 'この月は空いている日がありません'}</p>
+            {!isNextMonthDisabled && (
+              <button type="button" onClick={() => changeMonthByHand(1)} className="wpt__next">次の月を見る ›</button>
+            )}
+          </div>
         ) : (
           <>
             {rows.map(({ date, slots }) => (
@@ -260,7 +262,6 @@ export function WorkPrivateTab({
                 })}
               </section>
             ))}
-            <div ref={endRef} aria-hidden="true" />
           </>
         )}
       </div>
