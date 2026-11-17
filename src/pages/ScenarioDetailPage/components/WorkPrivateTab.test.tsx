@@ -143,3 +143,8 @@ it('行には、その枠が空いている店舗の名前を出す（店舗が1
   await act(async () => root.render(<WorkPrivateTab {...base} selectedStoreIds={['s2']} />))
   expect(rowTexts()).toEqual(['13:00大久保空きあり', '19:00大久保空きあり'])
 })
+
+it('店舗の下に「選択した店舗のいずれかになります。」と書く', async () => {
+  await act(async () => root.render(<WorkPrivateTab {...base} />))
+  expect(host.textContent).toContain('選択した店舗のいずれかになります。')
+})
