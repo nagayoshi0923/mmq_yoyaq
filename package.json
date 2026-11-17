@@ -33,6 +33,7 @@
     "test:coupon-rules-db": "node scripts/test-coupon-rules-db.mjs",
     "test:coupon-redeem-db": "node scripts/test-coupon-redeem-db.mjs",
     "test:participant-change-coupon-db": "node scripts/test-participant-change-coupon-db.mjs",
+    "test:private-casting-email-db": "node scripts/test-private-casting-email-db.mjs",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "test:e2e": "playwright test",
