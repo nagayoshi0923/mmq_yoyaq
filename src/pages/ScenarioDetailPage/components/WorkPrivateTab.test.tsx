@@ -78,3 +78,40 @@ it('店舗は全部は外せない（最後の1つを押しても外さない）
   await act(async () => baba.click())
   expect(change).not.toHaveBeenCalled()
 })
+
+// 2026-11-18 えいきち報告: 札幌店（締切14日前）で月末に開くと、その月に空きが1つも出ない
+const allFull = {
+  slotsByDate: { '2030-01-20': [slot('午後', '13:00')], '2030-01-21': [slot('夜', '19:00')] },
+  unavailableReasons: { '2030-01-20-午後': '受付締切を過ぎています', '2030-01-21-夜': '受付締切を過ぎています' },
+}
+
+it('開いた月に空きが1つも無ければ、次の月へ自動で送る（自分で月を動かしたあとは送らない）', async () => {
+  const change = vi.fn()
+  await act(async () => root.render(<WorkPrivateTab {...base} slotAvailability={allFull} onMonthChange={change} />))
+  expect(change).toHaveBeenCalledTimes(1)
+  expect(change).toHaveBeenCalledWith(1)
+  // 同じ月のまま描き直しても 2 回は送らない
+  await act(async () => root.render(<WorkPrivateTab {...base} slotAvailability={allFull} onMonthChange={change} />))
+  expect(change).toHaveBeenCalledTimes(1)
+  expect(host.querySelector('[data-testid="private-month-empty"]')?.textContent).toContain('この月は空いている日がありません')
+  const next = [...host.querySelectorAll('button')].find((b) => b.textContent === '次の月を見る ›')!
+  await act(async () => next.click())
+  expect(change).toHaveBeenCalledTimes(2)
+})
+
+it('空きがあれば月を送らない。読み込み中・絞り込み中も送らない', async () => {
+  const change = vi.fn()
+  await act(async () => root.render(<WorkPrivateTab {...base} onMonthChange={change} />))
+  await act(async () => root.render(<WorkPrivateTab {...base} slotAvailability={allFull} loading onMonthChange={change} />))
+  expect(change).not.toHaveBeenCalled()
+})
+
+it('「日にち」と「時間」は別の並びで、それぞれ1つだけ選ばれている', async () => {
+  await act(async () => root.render(<WorkPrivateTab {...base} />))
+  const pressed = (id: string) => [...host.querySelectorAll(`[data-testid="${id}"] button[aria-pressed="true"]`)].map((b) => b.textContent)
+  expect(pressed('private-day-filter')).toEqual(['すべての日'])
+  expect(pressed('private-time-filter')).toEqual(['すべて'])
+  await act(async () => [...host.querySelectorAll<HTMLButtonElement>('[data-testid="private-day-filter"] button')].find((b) => b.textContent === '土日祝だけ')!.click())
+  expect(pressed('private-day-filter')).toEqual(['土日祝だけ'])
+  expect(pressed('private-time-filter')).toEqual(['すべて'])
+})

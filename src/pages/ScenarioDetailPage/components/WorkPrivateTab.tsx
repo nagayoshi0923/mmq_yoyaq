@@ -1,7 +1,7 @@
 // 作品ページ「貸切で遊ぶ」: 店舗チップ → 空いている日（近い順）から候補を選ぶ。
 // 空き判定は DB（private_booking_candidate_slot_availability）の結果をそのまま使う。画面では判定しない。
 // 仕様の正本: docs/product-spec/貸切受付ルール.md
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TimeSlot } from '../utils/types'
 import type { CandidateSlotAvailability } from '@/lib/candidateSlotAvailability'
 import type { PrivateBookingSlot } from '@/lib/computePrivateBookingSlots'
@@ -111,6 +111,26 @@ export function WorkPrivateTab({
     return out
   }, [availableDates, deadlineDays, weekendOnly, isCustomHoliday, slotAvailability, time, showFull, order])
 
+  // 開いた月に空きが1つも無い（締切が14日前の店舗で月末に開いた、など）ときは、空きのある月まで自動で送る。
+  // 絞り込みをしていないときだけ・最初に開いたときだけ（自分で月を動かしたら送らない）。最大3か月。
+  // 「空いている日が1個も出ない」と見えないようにする（2026-11-18 えいきち報告、札幌店）
+  const monthKey = `${currentMonth.getFullYear()}-${currentMonth.getMonth()}`
+  const autoSkipRef = useRef({ count: 0, manual: false, lastKey: '' })
+  const loadedForMonth = availableDates.some((d) => (slotAvailability.slotsByDate[d]?.length ?? 0) > 0)
+  const filtered = weekendOnly || time !== 'all' || showFull
+  useEffect(() => {
+    const st = autoSkipRef.current
+    if (st.manual || st.count >= 3 || filtered || loading || availabilityError || isNextMonthDisabled) return
+    if (!loadedForMonth || rows.length > 0 || st.lastKey === monthKey) return
+    st.count += 1
+    st.lastKey = monthKey
+    onMonthChange(1)
+  }, [loading, loadedForMonth, rows.length, monthKey, filtered, availabilityError, isNextMonthDisabled, onMonthChange])
+  const changeMonthByHand = (delta: number) => {
+    autoSkipRef.current.manual = true
+    onMonthChange(delta)
+  }
+
   const handleRow = useCallback((date: string, slot: PrivateBookingSlot, reason: string | null) => {
     const key = `${date}-${slot.label}`
     if (reason && !order.has(key)) {
@@ -164,9 +184,15 @@ export function WorkPrivateTab({
           <p className="text-sm font-bold">空いている日（近い順）</p>
           <p className="text-2xs text-muted-foreground">押すと候補に入ります・最大{maxSelections}つ</p>
         </div>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <RenewalChip selected={weekendOnly} onClick={() => setWeekendOnly((v) => !v)}>土日祝だけ</RenewalChip>
-          <RenewalChip selected={time === 'all'} onClick={() => setTime('all')}>すべての時間</RenewalChip>
+        {/* 日にちと時間は別の並び（「土日祝だけ」と「すべての時間」が同じ並びで両方選ばれて見えないように。2026-11-18 えいきち報告） */}
+        <div className="mt-2 flex items-center gap-2" data-testid="private-day-filter">
+          <span className="w-12 shrink-0 text-xs text-muted-foreground">日にち</span>
+          <RenewalChip selected={!weekendOnly} onClick={() => setWeekendOnly(false)}>すべての日</RenewalChip>
+          <RenewalChip selected={weekendOnly} onClick={() => setWeekendOnly(true)}>土日祝だけ</RenewalChip>
+        </div>
+        <div className="mt-2 flex items-center gap-2" data-testid="private-time-filter">
+          <span className="w-12 shrink-0 text-xs text-muted-foreground">時間</span>
+          <RenewalChip selected={time === 'all'} onClick={() => setTime('all')}>すべて</RenewalChip>
           <RenewalChip selected={time === 'day'} onClick={() => setTime('day')}>昼</RenewalChip>
           <RenewalChip selected={time === 'night'} onClick={() => setTime('night')}>夜</RenewalChip>
         </div>
@@ -180,9 +206,9 @@ export function WorkPrivateTab({
       </div>
 
       <div className="mt-3 flex items-center justify-between">
-        <button type="button" onClick={() => onMonthChange(-1)} disabled={isThisMonth} className="px-1 py-2 text-sm disabled:opacity-30">‹ 前の月</button>
+        <button type="button" onClick={() => changeMonthByHand(-1)} disabled={isThisMonth} className="px-1 py-2 text-sm disabled:opacity-30">‹ 前の月</button>
         <p className="text-sm font-bold">{currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月</p>
-        <button type="button" onClick={() => onMonthChange(1)} disabled={isNextMonthDisabled} className="px-1 py-2 text-sm disabled:opacity-30">次の月 ›</button>
+        <button type="button" onClick={() => changeMonthByHand(1)} disabled={isNextMonthDisabled} className="px-1 py-2 text-sm disabled:opacity-30">次の月 ›</button>
       </div>
 
       {notice && <p role="status" className="mb-2 bg-amber-50 px-3 py-2 text-xs text-amber-900">{notice}</p>}
@@ -201,9 +227,14 @@ export function WorkPrivateTab({
       ) : loading ? (
         <p className="py-8 text-center text-sm text-muted-foreground">空き状況を読み込み中…</p>
       ) : rows.length === 0 ? (
-        <p className="border border-gray-200 bg-gray-50 p-4 text-center text-sm text-muted-foreground">
-          この月は条件に合う空きがありません。次の月を見るか、絞り込みを外してください
-        </p>
+        <div className="border border-gray-200 bg-gray-50 p-4 text-center text-sm text-muted-foreground" data-testid="private-month-empty">
+          <p>{filtered ? 'この月は条件に合う空きがありません。次の月を見るか、絞り込みを外してください' : 'この月は空いている日がありません'}</p>
+          {!isNextMonthDisabled && (
+            <button type="button" onClick={() => changeMonthByHand(1)} className="mt-3 w-full border border-gray-300 bg-white py-2.5 text-sm font-bold text-foreground">
+              次の月を見る ›
+            </button>
+          )}
+        </div>
       ) : (
         <div className="space-y-4">
           {rows.map(({ date, slots }) => (
