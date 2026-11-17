@@ -1,14 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, ExternalLink, AlertTriangle, Bell, Ticket, X, Share2 } from 'lucide-react'
+import { AlertCircle, AlertTriangle } from 'lucide-react'
 import { InviteShareButton } from '@/components/InviteShareButton'
 import { supabase } from '@/lib/supabase'
 import { bookingConfirmationReadApi } from '@/lib/api/bookingConfirmationReadApi'
@@ -34,7 +29,10 @@ import { CancellationPolicyLink } from '@/components/patterns/cancellation/Cance
 import { upsertOwnCustomer } from '@/lib/api/customerApi'
 import { waitlistApi } from '@/lib/api/globalSettingsApi'
 import { getErrorMessage } from '@/lib/errorFields'
-import { AddToCalendarButton, absolutePageUrl } from '@/components/patterns/schedule'
+import { AddToCalendarButton, OpenMapButton, absolutePageUrl } from '@/components/patterns/schedule'
+import { PageBar } from '@/components/renewal/PageBar'
+import { StepBar } from '@/components/renewal/StepBar'
+import { useOrgThemePreset } from '@/hooks/useOrgThemePreset'
 import { isFewSeats, seatCountText } from '@/lib/seatLabel'
 
 export function BookingConfirmation({
@@ -61,6 +59,7 @@ export function BookingConfirmation({
   // 予約サイトのベースパス
   const bookingBasePath = organizationSlug ? `/${organizationSlug}` : ''
   const { user } = useAuth()
+  const accent = useOrgThemePreset(organizationSlug).primary
   const availableSeats = getAvailableSeats({ max_participants: maxParticipants, current_participants: currentParticipants })
 
   // 重複予約警告用のstate
@@ -327,35 +326,25 @@ export function BookingConfirmation({
     }
   }
 
+  const steps = ['日程を選ぶ', '内容の確認', '完了']
+  const startLabel = `${formatDate(eventDate)} ${formatTime(startTime)} 公演開始`
+
   // キャンセル待ち成功画面
   if (waitlistSuccess) {
     return (
-      <div className="booking-shell min-h-screen bg-background overflow-x-clip">
+      <div className="booking-shell min-h-screen overflow-x-clip bg-white">
         <Header />
         <NavigationBar currentPage={bookingBasePath} />
-        <div className="container mx-auto max-w-7xl px-4 py-12">
-          <Card className="max-w-md mx-auto">
-            <CardContent className="p-8 text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-100 flex items-center justify-center">
-                <Bell className="h-8 w-8 text-blue-600" />
-              </div>
-              <h2 className="text-xl font-bold mb-2">キャンセル待ち登録完了</h2>
-              <p className="ts-muted mb-4">
-                空きが出た場合、メールでお知らせします
-              </p>
-              <div className="ts-body text-left bg-gray-50 p-4 rounded-lg mb-6">
-                <div className="font-medium">{scenarioTitle}</div>
-                <div className="text-muted-foreground mt-1">
-                  {formatDate(eventDate)} {formatTime(startTime)}〜
-                </div>
-                <div className="text-muted-foreground">{storeName}</div>
-                <div className="mt-2">登録人数: {waitlistParticipantCount}名</div>
-              </div>
-              <Button onClick={onBack} variant="outline" className="w-full">
-                戻る
-              </Button>
-            </CardContent>
-          </Card>
+        <div className="mx-auto max-w-md px-4 py-10 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full text-2xl text-white" style={{ backgroundColor: accent }} aria-hidden="true">✓</div>
+          <h1 className="mt-4 text-xl font-bold">キャンセル待ちに登録しました</h1>
+          <p className="mt-1 text-sm text-muted-foreground">空きが出たらメールでお知らせします</p>
+          <div className="mt-6 bg-gray-50 p-4 text-left text-sm">
+            <p className="font-bold">{scenarioTitle}</p>
+            <p className="mt-1">{startLabel}</p>
+            <p className="text-muted-foreground">{storeName}・{waitlistParticipantCount}人</p>
+          </div>
+          <button type="button" onClick={onBack} className="mt-6 h-12 w-full border border-gray-900 text-sm font-bold">作品ページに戻る</button>
         </div>
       </div>
     )
@@ -364,521 +353,290 @@ export function BookingConfirmation({
   // 成功画面
   if (success) {
     return (
-      <div className="booking-shell min-h-screen bg-background overflow-x-clip">
+      <div className="booking-shell min-h-screen overflow-x-clip bg-white">
         <Header />
         <NavigationBar currentPage={bookingBasePath} />
-        
-        <div className="container mx-auto max-w-7xl px-4 py-12">
-          <Card className="border-2 border-green-200 bg-green-50">
-            <CardContent className="p-8 text-center space-y-4">
-              <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
-              <h2 className="text-lg text-green-800">予約が完了しました！</h2>
-              
-              {/* 予約詳細サマリー */}
-              {completedReservation && (
-                <div className="bg-white rounded-lg p-4 text-left border border-green-200">
-                  <div className="ts-body space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">予約番号</span>
-                      <span className="font-bold text-green-800">{completedReservation.reservationNumber}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">公演</span>
-                      <span className="font-medium">{scenarioTitle}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">日時</span>
-                      <span>{formatDate(eventDate)} {formatTime(startTime)}〜</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">会場</span>
-                      <span>{storeName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">参加人数</span>
-                      <span>{completedReservation.participantCount}名</span>
-                    </div>
-                    {(completedReservation.discountAmount ?? 0) > 0 && (
-                      <div className="flex justify-between text-green-700">
-                        <span>クーポン割引</span>
-                        <span>-¥{formatPrice(completedReservation.discountAmount ?? 0)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between border-t pt-2 mt-2">
-                      <span className="text-muted-foreground">合計金額</span>
-                      <span className="font-bold">¥{formatPrice(completedReservation.totalPrice)}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              <p className="ts-body text-green-700 leading-relaxed">
-                ご予約ありがとうございます。<br />
-                {confirmationEmailOutcome === null ? <span data-testid="booking-email-sending">
-                  {BOOKING_PROGRESS_LABELS.sending_email}送信先：<span className="font-medium">{customerEmail}</span>
-                </span> : confirmationEmailOutcome.status === 'accepted' ? <>
-                  確認メールの送信を受け付けました。送信先：<span className="font-medium">{customerEmail}</span>
-                </> : <>予約は確定しましたが、確認メールの送信を確認できませんでした。再予約せず、マイページで予約内容をご確認ください。</>}
-              </p>
-              {confirmationEmailOutcome?.status === 'accepted' && <p className="text-xs text-green-600">
-                メールが届かない場合は、迷惑メールフォルダもご確認ください。
-              </p>}
-              {completedReservation && (
-                <div className="flex justify-center">
-                  <AddToCalendarButton
-                    event={{
-                      scenarioTitle,
-                      kind: 'open',
-                      date: eventDate,
-                      startTime,
-                      endTime,
-                      storeName,
-                      address: storeAddress ?? null,
-                      reservationNumber: completedReservation.reservationNumber,
-                      pageUrl: absolutePageUrl(`/mypage/reservation/${completedReservation.reservationId}`),
-                    }}
-                    testId="booking-complete-calendar"
-                  />
-                </div>
-              )}
-              <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
-                <Button
-                  onClick={() => navigate('/mypage')}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  マイページで予約を確認
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate(bookingBasePath)}
-                  className="border-green-600 text-green-700 hover:bg-green-50"
-                >
-                  他のシナリオを見る
-                </Button>
-              </div>
+        <StepBar steps={steps} current={2} color={accent} />
 
-              {/* 友達を誘うボタン */}
-              <div className="pt-4 border-t border-green-200 mt-4">
-                <p className="text-xs text-green-600 mb-3">一緒に参加する友達を誘いましょう</p>
-                <InviteShareButton
-                  scenarioTitle={scenarioTitle}
-                  scenarioId={scenarioId}
-                  eventDate={formatDate(eventDate)}
-                  eventTime={formatTime(startTime)}
-                  storeName={storeName}
-                  organizationSlug={organizationSlug}
-                  className="border-green-600 text-green-700 hover:bg-green-50"
+        <div className="mx-auto max-w-4xl">
+          <div className="px-4 py-8 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full text-2xl text-white" style={{ backgroundColor: accent }} aria-hidden="true">✓</div>
+            <h1 className="mt-4 text-2xl font-bold">予約が確定しました</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {confirmationEmailOutcome === null ? <span data-testid="booking-email-sending">{BOOKING_PROGRESS_LABELS.sending_email}</span>
+                : confirmationEmailOutcome.status === 'accepted' ? <>確認メールを送りました（{customerEmail}）</>
+                : <>予約は確定しましたが、確認メールの送信を確認できませんでした。もう一度予約せず、マイページで予約内容をご確認ください。</>}
+            </p>
+            {confirmationEmailOutcome?.status === 'accepted' && <p className="mt-0.5 text-[11px] text-muted-foreground">届かないときは迷惑メールフォルダもご確認ください</p>}
+            {completedReservation && (
+              <p className="mx-auto mt-4 inline-block bg-gray-100 px-4 py-2 text-sm">予約番号 <span className="font-bold">{completedReservation.reservationNumber}</span></p>
+            )}
+          </div>
+
+          <section className="bg-gray-50 px-4 py-5">
+            <p className="text-sm font-bold">{scenarioTitle}</p>
+            <p className="mt-1 text-xl font-bold">{startLabel}</p>
+            {completedReservation && (
+              <p className="mt-1 text-sm">
+                {storeName}・{completedReservation.participantCount}人・{formatPrice(completedReservation.totalPrice - (completedReservation.discountAmount ?? 0))}円（{paymentMethodLabel}）
+              </p>
+            )}
+            {completedReservation && (completedReservation.discountAmount ?? 0) > 0 && (
+              <p className="text-xs text-muted-foreground">クーポンで {formatPrice(completedReservation.discountAmount ?? 0)}円引き</p>
+            )}
+            <div className="mt-4 grid grid-cols-2 gap-2 [&>*]:w-full [&>*]:bg-white">
+              {completedReservation && (
+                <AddToCalendarButton
+                  event={{
+                    scenarioTitle,
+                    kind: 'open',
+                    date: eventDate,
+                    startTime,
+                    endTime,
+                    storeName,
+                    address: storeAddress ?? null,
+                    reservationNumber: completedReservation.reservationNumber,
+                    pageUrl: absolutePageUrl(`/mypage/reservation/${completedReservation.reservationId}`),
+                  }}
+                  testId="booking-complete-calendar"
                 />
-              </div>
-            </CardContent>
-          </Card>
+              )}
+              <OpenMapButton address={storeAddress} testId="booking-complete-map" />
+            </div>
+          </section>
+
+          <section className="px-4 py-6">
+            <h2 className="text-lg font-bold">次にやること</h2>
+            <p className="mt-2 text-sm leading-relaxed">一緒に行く人を誘いましょう。友だちに送ると、同じ回をそのまま予約できます。</p>
+            <div className="mt-3">
+              <InviteShareButton
+                scenarioTitle={scenarioTitle}
+                scenarioId={scenarioId}
+                eventDate={formatDate(eventDate)}
+                eventTime={formatTime(startTime)}
+                storeName={storeName}
+                organizationSlug={organizationSlug}
+                className="w-full"
+              />
+            </div>
+          </section>
+
+          <div className="space-y-2 border-t border-gray-200 px-4 py-5">
+            <button
+              type="button"
+              onClick={() => navigate(completedReservation ? `/mypage/reservation/${completedReservation.reservationId}` : '/mypage')}
+              className="h-12 w-full border border-gray-900 text-base font-bold"
+            >予約詳細を見る</button>
+            <button type="button" onClick={() => navigate(bookingBasePath || '/')} className="h-11 w-full text-sm underline underline-offset-4">ほかの作品を見る</button>
+          </div>
         </div>
       </div>
     )
   }
 
   const totalPrice = selectedCouponId && couponReady ? couponPreview.data!.total_price : participationFee * participantCount
+  const duplicateBlocks = !!(duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict)
+  const errorBox = error && (
+    <p role="alert" className="flex items-start gap-2 border-2 border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+      <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+      <span>{error}</span>
+    </p>
+  )
+  const row = 'flex items-center justify-between gap-3 border-b border-gray-200 py-3 text-sm'
+  const inputCls = 'mt-1 h-11 w-full border border-gray-300 bg-white px-3 text-sm'
 
   return (
-    <div className="booking-shell min-h-screen bg-background overflow-x-clip">
+    <div className="booking-shell min-h-screen overflow-x-clip bg-white">
       <Header />
       <NavigationBar currentPage={bookingBasePath} />
+      <PageBar title={isSoldOut ? 'キャンセル待ちの登録' : '予約内容の確認'} onBack={onBack} />
+      <StepBar steps={steps} current={1} color={accent} />
 
-      {/* 戻るボタン */}
-      <div className="bg-background border-b">
-        <div className="container mx-auto max-w-7xl px-4 py-1">
-          <Button variant="ghost" onClick={onBack} className="flex items-center gap-1 hover:bg-accent h-7 px-2 text-xs">
-            <ArrowLeft className="w-3.5 h-3.5" />
-            シナリオ詳細に戻る
-          </Button>
-        </div>
-      </div>
+      <div className="mx-auto max-w-4xl">
+        {/* 選んだ回 */}
+        <section className="px-4 pb-5 pt-3">
+          <p className="text-sm font-bold">{scenarioTitle}</p>
+          <p className="mt-1 text-xl font-bold">{startLabel}</p>
+          <p className="mt-0.5 text-sm" style={storeColor ? { color: storeColor } : undefined}>{storeName}</p>
+          <p className="text-xs text-muted-foreground">
+            終了予定 {formatTime(endTime)}・{seatCountText(currentParticipants, maxParticipants)}{isFewSeats(availableSeats) && <span className="ml-1 font-bold text-orange-600">残りわずか</span>}
+          </p>
+          {storeAddress && (
+            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeAddress)}`} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs text-muted-foreground underline">
+              {storeAddress}
+            </a>
+          )}
+        </section>
 
-      <div className="container mx-auto max-w-7xl px-4 py-2">
-        <h1 className="text-lg font-bold mb-2">予約確認</h1>
-
-        {error && (
-          <Card className="mb-2 border-2 border-red-200 bg-red-50">
-            <CardContent className="p-2 flex items-center gap-2 text-red-800 text-sm">
-              <AlertCircle className="w-4 h-4" />
-              <span>{error}</span>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 重複予約警告 */}
-        {duplicateWarning.show && duplicateWarning.existingReservation && (
-          <Card ref={duplicateWarningRef} className="mb-2 border-2 border-amber-200 bg-amber-50">
-            <CardContent className="p-3 flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-              <div className="text-amber-800">
+        <div className="space-y-2 px-4 empty:hidden">
+          {errorBox}
+          {/* 重複予約の注意 */}
+          {duplicateWarning.show && duplicateWarning.existingReservation && (
+            <div ref={duplicateWarningRef} className="flex items-start gap-3 border-2 border-amber-200 bg-amber-50 p-3 text-amber-800">
+              <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+              <div className="text-xs">
                 {duplicateWarning.existingReservation.isTimeConflict ? (
                   <>
-                    <p className="font-medium text-sm">同じ時間帯に別の予約があります</p>
-                    <p className="text-xs mt-1">
-                      予約番号: {duplicateWarning.existingReservation.reservation_number}<br />
-                      公演: {duplicateWarning.existingReservation.title}<br />
-                      参加人数: {duplicateWarning.existingReservation.participant_count}名
-                    </p>
-                    <p className="text-xs mt-2 text-amber-700">
-                      同時刻に複数の公演を予約することはできません。<br />
-                      既存の予約をキャンセルする場合は、<Link to="/mypage" className="underline font-medium">マイページ</Link>から操作してください。
-                    </p>
+                    <p className="text-sm font-medium">同じ時間帯に別の予約があります</p>
+                    <p className="mt-1">予約番号: {duplicateWarning.existingReservation.reservation_number}<br />公演: {duplicateWarning.existingReservation.title}<br />参加人数: {duplicateWarning.existingReservation.participant_count}名</p>
+                    <p className="mt-2 text-amber-700">同時刻に複数の公演を予約することはできません。<br />既存の予約を取り消す場合は、<Link to="/mypage" className="font-medium underline">マイページ</Link>から操作してください。</p>
                   </>
                 ) : (
                   <>
-                    <p className="font-medium text-sm">この公演に既に予約があります</p>
-                    <p className="text-xs mt-1">
-                      予約番号: {duplicateWarning.existingReservation.reservation_number}<br />
-                      予約者: {duplicateWarning.existingReservation.customer_name}<br />
-                      参加人数: {duplicateWarning.existingReservation.participant_count}名
-                    </p>
-                    <p className="text-xs mt-2 font-medium">
-                      参加人数を増やしたい場合は、<Link to="/mypage" className="underline text-primary">マイページ</Link>から既存の予約を編集してください。
-                    </p>
-                    <p className="text-xs mt-1 text-amber-700">
-                      ※同じ公演への重複予約はできません
-                    </p>
+                    <p className="text-sm font-medium">この公演に既に予約があります</p>
+                    <p className="mt-1">予約番号: {duplicateWarning.existingReservation.reservation_number}<br />予約者: {duplicateWarning.existingReservation.customer_name}<br />参加人数: {duplicateWarning.existingReservation.participant_count}名</p>
+                    <p className="mt-2 font-medium">参加人数を増やしたい場合は、<Link to="/mypage" className="underline">マイページ</Link>から既存の予約を編集してください。</p>
+                    <p className="mt-1 text-amber-700">※同じ公演への重複予約はできません</p>
                   </>
                 )}
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-          {/* 左側：予約内容 */}
-          <div className="md:col-span-8 space-y-2">
-            <BookingDeadlineNotice eventId={eventId} />
-            {/* 公演情報 */}
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">公演情報</h3>
-              <Card>
-                <CardContent className="p-2 space-y-1">
-                  <h3 className="text-base font-bold">{scenarioTitle}</h3>
-
-                  <div className="space-y-1 ts-body">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <span>{formatDate(eventDate)}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-muted-foreground" />
-                      <span>{formatTime(startTime)} - {formatTime(endTime)}</span>
-                    </div>
-                    
-                    <div className="flex items-start gap-2">
-                      <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
-                      <div>
-                        <p style={{ color: storeColor }}>{storeName}</p>
-                        {storeAddress && (
-                          <a 
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeAddress)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-muted-foreground text-xs hover:text-primary flex items-center gap-1 underline"
-                          >
-                            {storeAddress}
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-muted-foreground" />
-                      <span>{seatCountText(currentParticipants, maxParticipants)}{isFewSeats(availableSeats) && <span className="ml-1.5 font-bold text-orange-600">残少</span>}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
-
-            {/* 参加人数（表示のみ） */}
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">参加人数</h3>
-              <Card>
-                <CardContent className="p-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-muted-foreground" />
-                      <span className="ts-body">{participantCount}名</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* お客様情報 */}
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">お客様情報</h3>
-              <Card>
-                <CardContent className="p-2 space-y-2">
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-1 block">お名前 *</Label>
-                    <Input
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="山田 太郎"
-                      required
-                      className="text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-1 block">ニックネーム</Label>
-                    <Input
-                      value={customerNickname}
-                      onChange={(e) => setCustomerNickname(e.target.value)}
-                      placeholder="タロウ"
-                      className="text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">店舗で呼ばれる際のお名前（任意）</p>
-                  </div>
-
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-1 block">メールアドレス *</Label>
-                    <Input
-                      type="email"
-                      value={customerEmail}
-                      onChange={(e) => setCustomerEmail(e.target.value)}
-                      placeholder="example@example.com"
-                      required
-                      className="text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-1 block">電話番号 *</Label>
-                    <Input
-                      type="tel"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder="090-1234-5678"
-                      required
-                      className="text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-1 block">備考（任意）</Label>
-                    <Textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="ご要望などがあればご記入ください"
-                      rows={2}
-                      className="text-sm"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* 右側：料金サマリー */}
-          <div className="md:col-span-4 space-y-2">
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">料金</h3>
-              <Card>
-                <CardContent className="p-2 space-y-1">
-                  <div className="flex justify-between ts-body">
-                    <span className="text-muted-foreground">参加費（1名）</span>
-                    <span>{feeUnknownText ?? `¥${formatPrice(participationFee)}`}</span>
-                  </div>
-                  <div className="flex justify-between ts-body">
-                    <span className="text-muted-foreground">参加人数</span>
-                    <span>{participantCount}名</span>
-                  </div>
-                  {selectedCoupon && couponDiscount > 0 && (
-                    <div className="flex justify-between ts-body text-green-700">
-                      <span>クーポン割引</span>
-                      <span>-¥{formatPrice(couponDiscount)}</span>
-                    </div>
-                  )}
-                  <div className="border-t pt-1.5 mt-1.5">
-                    <div className="flex justify-between items-center">
-                      <span className="ts-muted">合計</span>
-                      <span className="text-base font-bold text-primary">
-                        {selectedCouponId && couponReady ? `¥${formatPrice(couponPreview.data!.final_price)}` : feeUnknownText ?? `¥${formatPrice(totalPrice)}`}
-                      </span>
-                    </div>
-                    {selectedCoupon && couponDiscount > 0 && (
-                      <div className="text-xs text-muted-foreground line-through text-right">
-                        ¥{formatPrice(totalPrice)}
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-1" data-testid="booking-price-note">{PRICE_NOTE}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {user && <BookingCouponSelector state={couponState} disabled={isSubmitting} />}
-
-            {/* お支払い方法 */}
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">お支払い方法</h3>
-              <Card>
-                <CardContent className="p-2">
-                  <div className="flex items-center gap-2 ts-body">
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                    <span className="font-medium">{paymentMethodLabel}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {paymentMethodDescription}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* キャンセル規定の要点・取消期限を過ぎた公演の注意（点検 20・34） */}
-            <BookingCancellationTerms
-              state={cancellationTerms}
-              agreed={lateCancelAgreed}
-              onAgreedChange={setLateCancelAgreed}
-              eventId={eventId}
-              storeId={storeId}
-              organizationSlug={organizationSlug}
-            />
-
-            {/* 注意事項（DBから取得） */}
-            <BookingNotice
-              eventId={eventId}
-              mode="schedule"
-              storeId={storeId}
-              organizationSlug={organizationSlug}
-            />
-
-            {/* 人数未達中止に関する注意喚起 */}
-            <Card className="border-amber-200 bg-amber-50">
-              <CardContent className="p-3">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div className="text-xs text-amber-800">
-                    <p className="font-medium mb-1">公演中止の可能性について</p>
-                    <p>
-                      中止判定の条件・タイミング・連絡方法は、選択店舗の最新ポリシーをご確認ください。
-                    </p>
-                    <CancellationPolicyLink
-                      eventId={eventId}
-                      organizationSlug={organizationSlug}
-                      storeId={storeId}
-                      className="inline-flex items-center gap-1 text-amber-900 underline mt-1"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* エラーメッセージ（ボタン付近に表示） */}
-            {error && (
-              <Card className="border-2 border-red-200 bg-red-50">
-                <CardContent className="p-2 flex items-center gap-2 text-red-800 text-sm">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span>{error}</span>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* 満席の場合はキャンセル待ちボタン、そうでなければ予約ボタン */}
-            {isSoldOut ? (
-              <div className="space-y-2">
-                <Card className="border-amber-200 bg-amber-50">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2 text-amber-800 mb-2">
-                      <AlertTriangle className="w-4 h-4" />
-                      <span className="font-medium text-sm">この公演は満席です</span>
-                    </div>
-                    <p className="text-xs text-amber-700">
-                      キャンセル待ちに登録すると、空きが出た際にメールでお知らせします。
-                    </p>
-                  </CardContent>
-                </Card>
-                
-                {!waitlistMode ? (
-                  <Button
-                    onClick={() => setWaitlistMode(true)}
-                    variant="outline"
-                    className="w-full h-11 text-sm"
-                  >
-                    <Bell className="w-4 h-4 mr-2" />
-                    キャンセル待ちに登録
-                  </Button>
-                ) : (
-                  <div className="space-y-2">
-                    <div>
-                      <Label className="text-xs">希望人数</Label>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setWaitlistParticipantCount(Math.max(1, waitlistParticipantCount - 1))}
-                          disabled={waitlistParticipantCount <= 1}
-                        >
-                          -
-                        </Button>
-                        <span className="w-8 text-center">{waitlistParticipantCount}</span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setWaitlistParticipantCount(Math.min(10, waitlistParticipantCount + 1))}
-                          disabled={waitlistParticipantCount >= 10}
-                        >
-                          +
-                        </Button>
-                        <span className="text-sm text-muted-foreground">名</span>
-                      </div>
-                    </div>
-                    <Button
-                      onClick={handleWaitlistSubmit}
-                      disabled={
-                        waitlistSubmitting ||
-                        !customerName ||
-                        !customerEmail ||
-                        !hasNonEmptyCustomerPhone(customerPhone) ||
-                        !/^\d{10,11}$/.test(customerPhone.replace(/[-\s]/g, ''))
-                      }
-                      className="w-full h-11 text-sm"
-                    >
-                      <Bell className="w-4 h-4 mr-2" />
-                      {waitlistSubmitting ? '登録中...' : 'キャンセル待ちに登録'}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setWaitlistMode(false)}
-                      className="w-full h-11 text-sm"
-                    >
-                      閉じる
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <Button
-                  onClick={onSubmit}
-                  disabled={isSubmitting || !couponReady || !termsGate.canSubmit || (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict)}
-                  className="w-full h-11 text-sm"
-                  data-testid="booking-submit"
-                >
-                  {isSubmitting ? (progress ? BOOKING_PROGRESS_LABELS[progress] : '予約処理中...') : (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict) ? '重複のため予約不可' : '予約を確定する'}
-                </Button>
-                {isSubmitting && (
-                  <p className="text-xs text-center text-muted-foreground" role="status">数秒かかることがあります。画面を閉じずにお待ちください。</p>
-                )}
-                {needsLateCancelAgreement && !isSubmitting && (
-                  <p className="text-xs text-center text-red-700">上の「キャンセル料がかかることを確認しました」にチェックを入れると予約できます。</p>
-                )}
-                {!termsGate.canSubmit && !needsLateCancelAgreement && !isSubmitting && (
-                  <p className={`text-xs text-center ${cancellationTerms.status === 'loading' ? 'text-muted-foreground' : 'text-red-700'}`} data-testid="booking-terms-gate-message">{termsGate.message}</p>
-                )}
-              </div>
-            )}
-          </div>
+          )}
+          <BookingDeadlineNotice eventId={eventId} />
         </div>
+
+        {/* 人数と料金 */}
+        <section className="mt-3 bg-gray-50 px-4 py-5">
+          <h2 className="text-lg font-bold">人数と料金</h2>
+          <div className="mt-2">
+            <div className={row}>
+              <span className="text-muted-foreground">人数</span>
+              <span>{participantCount}人 <button type="button" onClick={onBack} className="ml-2 text-xs underline">変更</button></span>
+            </div>
+            <div className={row}>
+              <span className="text-muted-foreground">参加費</span>
+              <span>{feeUnknownText ?? `${formatPrice(participationFee)}円 × ${participantCount}人`}</span>
+            </div>
+            {selectedCoupon && couponDiscount > 0 && (
+              <div className={row}>
+                <span className="text-muted-foreground">クーポン</span>
+                <span style={{ color: accent }}>−{formatPrice(couponDiscount)}円</span>
+              </div>
+            )}
+            <div className={row}>
+              <span className="text-muted-foreground">お支払い</span>
+              <span className="text-right">{paymentMethodLabel}<span className="block text-[11px] text-muted-foreground">{paymentMethodDescription}</span></span>
+            </div>
+            <div className="flex items-center justify-between py-3">
+              <span className="text-sm text-muted-foreground">合計</span>
+              <span className="text-xl font-bold">
+                {selectedCouponId && couponReady ? `${formatPrice(couponPreview.data!.final_price)}円` : feeUnknownText ?? `${formatPrice(totalPrice)}円`}
+              </span>
+            </div>
+            {selectedCoupon && couponDiscount > 0 && <p className="-mt-2 text-right text-xs text-muted-foreground line-through">{formatPrice(totalPrice)}円</p>}
+            <p className="text-[11px] text-muted-foreground" data-testid="booking-price-note">{PRICE_NOTE}</p>
+          </div>
+          {user && (
+            <div className="mt-3 border-t border-gray-200 pt-3 text-sm">
+              <BookingCouponSelector state={couponState} disabled={isSubmitting} />
+            </div>
+          )}
+        </section>
+
+        {/* お客様情報 */}
+        <section className="px-4 py-5">
+          <h2 className="text-lg font-bold">お客様情報</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">登録済みの情報を使います。違うときは書き換えてください</p>
+          <div className="mt-3 space-y-3">
+            <label className="block text-sm">お名前<span className="text-red-600">*</span>
+              <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="山田 太郎" required className={inputCls} />
+            </label>
+            <label className="block text-sm">ニックネーム（任意）
+              <input value={customerNickname} onChange={(e) => setCustomerNickname(e.target.value)} placeholder="タロウ" className={inputCls} />
+              <span className="mt-0.5 block text-[11px] text-muted-foreground">店舗で呼ばれるときのお名前</span>
+            </label>
+            <label className="block text-sm">メールアドレス<span className="text-red-600">*</span>
+              <input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="example@example.com" required className={inputCls} />
+            </label>
+            <label className="block text-sm">電話番号<span className="text-red-600">*</span>
+              <input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="090-1234-5678" required className={inputCls} />
+            </label>
+            <label className="block text-sm">店舗への連絡（任意）
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="例：初めてなので早めに着きます" rows={3} className="mt-1 w-full border border-gray-300 bg-white px-3 py-2 text-sm" />
+            </label>
+          </div>
+        </section>
+
+        {/* キャンセルについて */}
+        <section className="bg-gray-50 px-4 py-5">
+          <h2 className="mb-3 text-lg font-bold">キャンセルについて</h2>
+          <BookingCancellationTerms
+            state={cancellationTerms}
+            agreed={lateCancelAgreed}
+            onAgreedChange={setLateCancelAgreed}
+            eventId={eventId}
+            storeId={storeId}
+            organizationSlug={organizationSlug}
+          />
+          <p className="mt-3 text-xs text-muted-foreground">
+            人数が集まらないときの公演中止の条件・連絡方法は店舗の規定をご確認ください。
+            <CancellationPolicyLink eventId={eventId} organizationSlug={organizationSlug} storeId={storeId} className="ml-1 underline" />
+          </p>
+        </section>
+
+        <section className="px-4 py-5">
+          <h2 className="text-lg font-bold">参加の前に</h2>
+          <div className="mt-3">
+            <BookingNotice eventId={eventId} mode="schedule" storeId={storeId} organizationSlug={organizationSlug} />
+          </div>
+        </section>
+
+        {/* 確定ボタン（満席ならキャンセル待ち） */}
+        <section className="space-y-2 border-t border-gray-200 px-4 py-5">
+          {errorBox}
+          {isSoldOut ? (
+            <>
+              <p className="border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                <span className="block text-sm font-bold">この回は満席です</span>
+                キャンセル待ちに登録すると、空きが出たときにメールでお知らせします。
+              </p>
+              {!waitlistMode ? (
+                <button type="button" onClick={() => setWaitlistMode(true)} className="h-12 w-full border border-gray-900 text-base font-bold">キャンセル待ちに登録</button>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between border border-gray-200 px-4 py-3">
+                    <span className="text-sm font-bold">希望人数</span>
+                    <div className="flex items-center gap-4">
+                      <button type="button" aria-label="1人減らす" onClick={() => setWaitlistParticipantCount(Math.max(1, waitlistParticipantCount - 1))} disabled={waitlistParticipantCount <= 1} className="h-9 w-9 rounded-full border border-gray-300 disabled:opacity-40">−</button>
+                      <span className="min-w-8 text-center font-bold">{waitlistParticipantCount}人</span>
+                      <button type="button" aria-label="1人増やす" onClick={() => setWaitlistParticipantCount(Math.min(10, waitlistParticipantCount + 1))} disabled={waitlistParticipantCount >= 10} className="h-9 w-9 rounded-full border border-gray-300 disabled:opacity-40">＋</button>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleWaitlistSubmit}
+                    disabled={waitlistSubmitting || !customerName || !customerEmail || !hasNonEmptyCustomerPhone(customerPhone) || !/^\d{10,11}$/.test(customerPhone.replace(/[-\s]/g, ''))}
+                    className="h-12 w-full text-base font-bold text-white disabled:opacity-40"
+                    style={{ backgroundColor: accent }}
+                  >{waitlistSubmitting ? '登録中…' : 'キャンセル待ちに登録する'}</button>
+                  <button type="button" onClick={() => setWaitlistMode(false)} className="h-11 w-full text-sm">閉じる</button>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onSubmit}
+                disabled={isSubmitting || !couponReady || !termsGate.canSubmit || duplicateBlocks}
+                className="h-14 w-full text-base font-bold text-white disabled:opacity-40"
+                style={{ backgroundColor: accent }}
+                data-testid="booking-submit"
+              >
+                {isSubmitting ? (progress ? BOOKING_PROGRESS_LABELS[progress] : '予約処理中…') : duplicateBlocks ? '重複のため予約できません' : '予約を確定する'}
+              </button>
+              {isSubmitting ? (
+                <p className="text-center text-xs text-muted-foreground" role="status">数秒かかることがあります。画面を閉じずにお待ちください。</p>
+              ) : needsLateCancelAgreement ? (
+                <p className="text-center text-xs text-red-700">上の「キャンセル料がかかることを確認しました」にチェックを入れると予約できます。</p>
+              ) : !termsGate.canSubmit ? (
+                <p className={`text-center text-xs ${cancellationTerms.status === 'loading' ? 'text-muted-foreground' : 'text-red-700'}`} data-testid="booking-terms-gate-message">{termsGate.message}</p>
+              ) : (
+                <p className="text-center text-xs text-muted-foreground">確定すると、確認メールをお送りします</p>
+              )}
+            </>
+          )}
+        </section>
       </div>
 
       {/* 時間帯が重なる別の公演の予約の確認（警告のあと続けられる） */}
