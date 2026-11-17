@@ -2132,5 +2132,7 @@ mainの既反映履歴/本人切替/予約全体日時順を保持し、staging�
 - 送り直し: 直前の配役確定と同じ配役なら送らない（A → B → A と戻したときは送る）。グループに保存された配役と一致しないお知らせでは送らない。閉じたグループでは送らない。
 - 送信は既存の `process-customer-notice-emails`（`app_config.customer_notice_email` が on の環境だけ・1 通ずつ間隔あけ）。検証環境はこの値が off（2026-11-17 確認）なので、適用しても実際の送信は起きない。
 - 確認: `npm run test:private-casting-email-db`（PGlite、本物の部品で 8 項目）。
+- 追加（社長方針「事前配役まわりはメール必須。配役された HO の URL もメールで配布」）: スタッフの「個別にお知らせ」（`private_group_send_individual_notice`。キャラクターの資料 URL＝HO の URL を添付できる）を、宛先の本人へメール（会員はベルも）で届ける（migration `20261117130000_private_individual_notice_email`、同名 rollback）。スタッフ権限を確かめるこの関数の中で積むので、チャットに system の形を書けるだけの主催者からは送れない。確認 `scripts/test-private-individual-notice-email-db.mjs`（5 項目）。
+- 残り: ゲストがメールアドレスを入れずに参加できる経路では、HO のメールが届かない（チャットだけ）。事前配役ありの作品でメールを必須にするのは別作業
 - [ ] staging DB への migration 適用（この作業環境からは staging DB への書き込みが許可されず未適用）
 - [ ] 本番適用（社長の指示待ち）
