@@ -149,7 +149,8 @@ export function PlatformTop() {
     return newArrivalPicks.map(({ item, date }) => {
       const names = item.scenario.organizations.map((o) => nameById.get(o.organization_id)).filter((n): n is string => !!n)
       return {
-        card: newArrivalCards.get(item.id) ?? item.card,
+        // 新作は MMQ 全体の作品紹介（/scenario/{slug}）へ（遊べる組織・エリアを選ぶ画面）
+        card: { ...(newArrivalCards.get(item.id) ?? item.card), path: item.card.path },
         date,
         sub: names.length === 0 ? '' : names.length === 1 ? names[0] : `${names[0]} ほか${names.length - 1}組織`,
       }
