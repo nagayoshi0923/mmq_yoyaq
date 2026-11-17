@@ -23,7 +23,7 @@ const base = {
     slotsByDate: { '2030-01-20': [slot('午後', '13:00'), slot('夜', '19:00')], '2030-01-21': [slot('夜', '19:00')] },
     unavailableReasons: { '2030-01-20-夜': '他の公演と重なります' },
   },
-  selectedSlots: [], onToggle: () => {}, maxSelections: 6, onCreateGroup: () => {}, deadlineDays: 0,
+  selectedSlots: [], onToggle: () => {}, maxSelections: 6, deadlineDays: 0,
 }
 const rowTexts = () => [...host.querySelectorAll('[data-testid="work-private-tab"] li button')].map((b) => b.textContent)
 

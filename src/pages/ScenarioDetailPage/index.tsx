@@ -43,7 +43,7 @@ import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptanc
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { scenarioPageDescription, scenarioPageTitle } from '@/lib/seo'
 import { loginUrlWithIntent } from '@/lib/authReturn'
-import { parseStoreIdsParam, privateGroupCreatePath } from '@/pages/PrivateBookingStart/paths'
+import { parseStoreIdsParam } from '@/pages/PrivateBookingStart/paths'
 
 interface ScenarioDetailPageProps {
   scenarioId: string
@@ -462,20 +462,6 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   const showPrivateBar = acceptsPrivateBooking && activeTab === 'private' && !privateOutOfPeriod
   const showScheduleBar = activeTab === 'schedule'
 
-  const openGroupCreate = () => {
-    // いま選んでいる希望店舗をグループ作成の初期値にする
-    const groupCreateUrl = privateGroupCreatePath({
-      scenarioMasterId: scenario.scenario_master_id,
-      organizationSlug,
-      storeIds: privateStoreIdsForLinks,
-      noDates: true,
-    })
-    if (!user) {
-      navigate(loginUrlWithIntent('login', groupCreateUrl, `「${scenario.scenario_title}」の貸切グループ作成`))
-      return
-    }
-    navigate(groupCreateUrl)
-  }
 
   return (
     <div className="booking-shell min-h-screen overflow-x-clip bg-white">
@@ -572,7 +558,6 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               horizon={privateBookingHorizon}
               deadlineDays={privateBookingDeadlineDays}
               isCustomHoliday={isCustomHoliday}
-              onCreateGroup={openGroupCreate}
             />
           )}
         </div>

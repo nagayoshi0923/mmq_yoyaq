@@ -44,7 +44,6 @@ interface WorkPrivateTabProps {
   /** 公演日の何日前まで申し込めるか */
   deadlineDays?: number
   isCustomHoliday?: (date: string) => boolean
-  onCreateGroup: () => void
 }
 
 function isTooSoon(date: string, deadlineDays: number): boolean {
@@ -74,7 +73,6 @@ export function WorkPrivateTab({
   horizon,
   deadlineDays = 14,
   isCustomHoliday,
-  onCreateGroup,
 }: WorkPrivateTabProps) {
   const [weekendOnly, setWeekendOnly] = useState(false)
   const [time, setTime] = useState<TimeFilter>('all')
@@ -247,10 +245,6 @@ export function WorkPrivateTab({
         </div>
       )}
 
-      <button type="button" onClick={onCreateGroup} className="mt-6 block w-full border border-violet-300 px-4 py-3 text-left">
-        <span className="text-sm font-bold" style={{ color: PRIVATE_PURPLE }}>日程が未定なら、先にグループを作る ›</span>
-        <span className="mt-0.5 block text-xs text-muted-foreground">友だちと行ける日を集めてから、店舗に申し込めます</span>
-      </button>
     </div>
   )
 }
