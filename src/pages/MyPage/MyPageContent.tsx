@@ -5,6 +5,7 @@ import React, { Suspense, useMemo } from 'react'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import { Button } from '@/components/ui/button'
 import { Calendar, Trophy, Sparkles, Heart, Camera, Settings, Pencil, Ticket, EyeOff, Eye, MoreVertical, Star, Drama, UserRound } from 'lucide-react'
+import { PageBar } from '@/components/renewal/PageBar'
 import { AddPlayHistoryDialog } from './components/AddPlayHistoryDialog'
 import { EditPlayHistoryDialog } from './components/EditPlayHistoryDialog'
 import { ConfirmDialog } from '@/components/patterns/modal'
@@ -476,9 +477,10 @@ export function MyPageContent({
   return (
     <div className="min-h-screen mypage-shell bg-mypage-background">
       {/* プロフィールヘッダー */}
+      <PageBar title="マイページ" onBack={() => (window.history.length > 1 ? window.history.back() : navigate('/'))} />
       <div className="bg-white border-b">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex items-center gap-3">
             {/* アバター（クリックで画像変更） */}
             <div className="relative group">
               <input
@@ -492,7 +494,7 @@ export function MyPageContent({
                 type="button"
                 onClick={handleAvatarClick}
                 aria-label="プロフィール画像を変更"
-                className={`w-20 h-20 rounded-full flex items-center justify-center shadow-lg overflow-hidden transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${avatarUrl ? '' : 'mypage-avatar-gradient'}`}
+                className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg overflow-hidden transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${avatarUrl ? '' : 'mypage-avatar-gradient'}`}
               >
                 {avatarUrl ? (
                   <img 
@@ -507,7 +509,7 @@ export function MyPageContent({
               {/* 編集アイコン */}
               <div 
                 aria-hidden="true"
-                className="absolute bottom-0 right-0 w-7 h-7 rounded-full flex items-center justify-center shadow-md cursor-pointer bg-mypage-primary"
+                className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full flex items-center justify-center shadow-md cursor-pointer bg-mypage-primary"
                 onClick={handleAvatarClick}
               >
                 <Pencil className="w-3.5 h-3.5 text-white" />
@@ -516,10 +518,10 @@ export function MyPageContent({
             
             {/* ユーザー情報 */}
             <div className="flex-1">
-              <h1 className="text-xl font-bold text-gray-900">
+              <p className="text-lg font-bold text-gray-900">
                 {displayName} さん
-              </h1>
-              <div className="flex items-center gap-3 mt-2">
+              </p>
+              <div className="flex items-center gap-3 mt-0.5">
                 <div className="flex items-center gap-1 ts-muted text-gray-600">
                   <Trophy className="w-4 h-4 text-mypage-primary" />
                   <span>体験済み {experiencedCount}作品</span>
@@ -537,7 +539,6 @@ export function MyPageContent({
         <div className="max-w-4xl mx-auto">
           <div className="flex" role="tablist" aria-label="マイページのメニュー">
             {menuItems.map((item) => {
-              const Icon = item.icon
               const isActive = activeTab === item.id
               const count = counts[item.id as keyof typeof counts]
               return (
@@ -548,20 +549,19 @@ export function MyPageContent({
                   aria-selected={isActive}
                   aria-label={count !== null && count > 0 && COUNT_MEANINGS[item.id] ? `${item.label}（${COUNT_MEANINGS[item.id](count)}）` : item.label}
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 min-h-14 py-2 sm:py-4 text-xs sm:text-sm font-medium transition-all relative ${
+                  className={`flex-1 flex items-center justify-center gap-1 min-h-12 py-3 text-sm transition-all relative ${
                     isActive 
-                      ? 'text-mypage-primary' 
+                      ? 'font-bold text-gray-900' 
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  <Icon className="w-5 h-5" aria-hidden="true" />
                   {/* スマホでもアイコンの下に文字を出す（点検 40） */}
                   <span>{item.label}</span>
                   {count !== null && count > 0 && (
                     <span 
                       aria-hidden="true"
-                      className={`absolute top-1 right-1 sm:static text-xs px-1.5 py-0.5 rounded-full ${
-                        isActive ? 'text-white bg-mypage-primary' : 'bg-gray-200 text-gray-600'
+                      className={`absolute top-1 right-0.5 sm:static text-[10px] leading-none px-1.5 py-0.5 rounded-full ${
+                        isActive ? 'text-white bg-gray-900' : 'bg-gray-200 text-gray-600'
                       }`}
                     >
                       {count}
@@ -569,7 +569,7 @@ export function MyPageContent({
                   )}
                   {isActive && (
                     <div 
-                      className="absolute bottom-0 left-0 right-0 h-[3px] rounded-t-full bg-mypage-primary" 
+                      className="absolute bottom-0 left-0 right-0 h-[3px] bg-gray-900" 
                     />
                   )}
                 </button>
@@ -580,7 +580,7 @@ export function MyPageContent({
       </div>
 
       {/* メインコンテンツ */}
-      <div className="max-w-4xl mx-auto px-4 py-6 pb-24">
+      <div className="max-w-4xl mx-auto px-3 py-4 pb-24">
         {loading && (activeTab === 'reservations' || activeTab === 'album') ? (
           <div className="text-center py-12 text-gray-500">読み込み中...</div>
         ) : (
