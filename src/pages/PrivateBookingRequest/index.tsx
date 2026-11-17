@@ -46,6 +46,7 @@ import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcType
 import { toJstYmd } from '@/utils/jstDate'
 import { privateBookingErrorText } from '@/lib/privateBookingErrors'
 import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
+import { savePrivateRequestLoginDraft, takePrivateRequestLoginDraft } from './utils/loginDraft'
 import { PRIVATE_BOOKING_HORIZON_CHECKING_TEXT, privateBookingHorizonMaxYmd, privateBookingTooFarText, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
 import { PrivateBookingHorizonNotice } from '@/components/private-booking/PrivateBookingHorizonNotice'
 
@@ -104,8 +105,10 @@ export function PrivateBookingRequest({
 
   // 親コンポーネントが非同期で selectedTimeSlots を更新した場合に同期
   // （PrivateBookingRequestPage 経由のフローで初回マウント時に空→非同期で充填されるケース）
+  // ログイン前に預けた候補を戻したら、利用者が全部消した（0 件）状態でも URL の候補で埋め直さない（#985）
+  const slotsFromLoginDraft = useRef(false)
   useEffect(() => {
-    if (initialTimeSlots.length === 0) return
+    if (initialTimeSlots.length === 0 || slotsFromLoginDraft.current) return
     setEditableTimeSlots((prev) => (prev.length > 0 ? prev : initialTimeSlots))
   }, [initialTimeSlots])
   const [showAddForm, setShowAddForm] = useState(false)
@@ -341,6 +344,23 @@ export function PrivateBookingRequest({
     setError,
     validateForm
   } = usePrivateBookingForm()
+
+  // ログインから戻ったら、ログイン前に預けた入力途中の内容（備考・候補・店舗）を 1 回だけ戻す（#985）
+  const restoredLoginDraft = useRef(false)
+  useEffect(() => {
+    if (restoredLoginDraft.current) return
+    restoredLoginDraft.current = true
+    const draft = takePrivateRequestLoginDraft(scenarioId, currentPathWithSearch())
+    if (!draft) return
+    if (draft.notes) setNotes(draft.notes)
+    // 0 件も利用者の編集結果として戻す（全部消した候補を URL から復活させて送らない）
+    slotsFromLoginDraft.current = true
+    setEditableTimeSlots(draft.timeSlots)
+    if (draft.storeIds && draft.storeIds.length > 0) {
+      setChangedStoreIds(draft.storeIds)
+      onStoreIdsChange?.(draft.storeIds)
+    }
+  }, [scenarioId, setNotes, onStoreIdsChange])
 
   const { isSubmitting, success, confirmationEmailAccepted, handleSubmit } = usePrivateBookingSubmit({
     scenarioTitle,
@@ -871,7 +891,10 @@ export function PrivateBookingRequest({
                 <Button
                   onClick={() => {
                     // 未ログイン時は戻り先付きでログインへ（入力途中で「ログインが必要です」にならないようにする）
-                    navigate(buildAuthUrl('login', currentPathWithSearch()))
+                    // 画面はログインへ移ると消えるので、URL に無い入力途中の内容をタブ内に預ける（#985）
+                    const returnTo = currentPathWithSearch()
+                    savePrivateRequestLoginDraft(scenarioId, returnTo, { notes, timeSlots: editableTimeSlots, storeIds: changedStoreIds })
+                    navigate(buildAuthUrl('login', returnTo))
                   }}
                   className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
                 >
