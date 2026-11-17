@@ -1,6 +1,7 @@
 /**
  * 概要タブ（刷新 2026-10-11、見本 GroupOverview.dc.html）。上から
- * 作品について → 登場人物 → 日程と場所 → 参加メンバー → 料金 → 店舗とのやりとり → 注意事項とキャンセル規定。
+ * 参加メンバー → 日程と場所 → 料金 → 配役 → 店舗とのやりとり → 作品について → 登場人物 → 注意事項とキャンセル規定
+ * （2026-11-18 お客様画面の刷新の見本の並び。いまの状態はこの上に出る）。
  * 作品の情報は作品ページと同じ公開用の読み取り（useGroupScenarioInfo）。希望店舗は「日程と場所」の 1 か所だけに出す。
  */
 import type { ReactNode } from 'react'
@@ -77,8 +78,7 @@ export function GroupOverviewTab(props: GroupOverviewTabProps) {
 
   return (
     <div className="flex flex-col gap-3" data-testid="group-overview-tab">
-      <ScenarioAboutSection title={title} imageUrl={imageUrl} playerRange={playerRange} info={info} scenarioUrl={scenarioUrl} />
-      <CharactersSection characters={publicCharacters(info ? info.characters : group.scenario_masters?.characters)} />
+      <MembersSummarySection table={table} inviteCap={inviteCap} copied={copied} onCopyInvite={onCopyInvite} onGoMembers={onGoMembers} />
       <ScheduleVenueSection
         phase={phase}
         table={table}
@@ -90,9 +90,8 @@ export function GroupOverviewTab(props: GroupOverviewTabProps) {
         onEditStore={phase === 'pre_request' ? onEditStore : null}
         onGoDates={onGoDates}
       />
-      {casting}
-      <MembersSummarySection table={table} inviteCap={inviteCap} copied={copied} onCopyInvite={onCopyInvite} onGoMembers={onGoMembers} />
       <PriceSection price={price} phase={phase} minPlayers={minPlayers} basis={requestedPeople ? 'requested' : 'current'} currentPeople={table.memberCount} />
+      {casting}
       <OverviewSection label="店舗とのやりとり" testId="overview-booking" title="店舗とのやりとり">
         {phase === 'pre_request' ? (
           <p className="text-sm text-muted-foreground leading-snug">
@@ -100,6 +99,8 @@ export function GroupOverviewTab(props: GroupOverviewTabProps) {
           </p>
         ) : bookingSummary}
       </OverviewSection>
+      <ScenarioAboutSection title={title} imageUrl={imageUrl} playerRange={playerRange} info={info} scenarioUrl={scenarioUrl} />
+      <CharactersSection characters={publicCharacters(info ? info.characters : group.scenario_masters?.characters)} />
       <NoticeSection
         orgSlug={scenarioData?.orgSlug ?? null}
         scenarioMasterId={group.scenario_master_id}
