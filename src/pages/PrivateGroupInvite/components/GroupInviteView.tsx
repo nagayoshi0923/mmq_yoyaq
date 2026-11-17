@@ -228,7 +228,7 @@ export function GroupInviteView({
         {group.confirmed_performance_access !== 'preview' && <ConfirmedGroupSchedule group={group} />}
         {/* 戻るボタン（未ログインのゲストにはマイページが無いので出さない） */}
         {user && (
-          <button type="button" onClick={() => navigate('/mypage')} className="flex items-center gap-1 text-sm text-gray-600">
+          <button type="button" onClick={() => navigate('/mypage')} className="flex items-center gap-1 text-sm text-muted-foreground">
             <ArrowLeft className="w-4 h-4" aria-hidden="true" />マイページに戻る
           </button>
         )}
@@ -377,10 +377,10 @@ function InviteSteps({ current }: { current: number }) {
         return (
           <li key={label} className="flex flex-col items-center gap-1 text-center" aria-current={on ? 'step' : undefined}>
             <span
-              className={cn('flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-bold', on ? 'text-white' : 'border-gray-300 text-gray-400')}
+              className={cn('flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-bold', on ? 'text-white' : 'border-gray-300 text-muted-foreground')}
               style={on ? { backgroundColor: PRIVATE_PURPLE, borderColor: PRIVATE_PURPLE } : undefined}
             >{i + 1}</span>
-            <span className={cn('text-2xs', on ? 'font-bold text-gray-900' : 'text-muted-foreground')}>{label}</span>
+            <span className={cn('text-2xs', on ? 'font-bold text-foreground' : 'text-muted-foreground')}>{label}</span>
           </li>
         )
       })}
@@ -421,7 +421,7 @@ function InviteDateAnswers({ title, candidates, responses, setResponses }: {
                       aria-pressed={on}
                       aria-label={a.label}
                       onClick={() => setResponses((prev) => ({ ...prev, [c.id]: on ? null : a.value }))}
-                      className={cn('-ml-px h-10 w-11 border text-lg first:ml-0', on ? 'relative z-10 text-white' : 'border-gray-300 bg-white text-gray-500')}
+                      className={cn('-ml-px h-10 w-11 border text-lg first:ml-0', on ? 'relative z-10 text-white' : 'border-gray-300 bg-white text-muted-foreground')}
                       style={on ? { backgroundColor: PRIVATE_PURPLE, borderColor: PRIVATE_PURPLE } : undefined}
                     >{a.mark}</button>
                   )
