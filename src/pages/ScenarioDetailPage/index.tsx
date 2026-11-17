@@ -158,6 +158,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     reloadAvailability,
     horizon: privateBookingHorizon,
     slotAvailability,
+    slotStoreIds,
     monthDates: privateDates,
     showMonthOf,
     setSelectedStoreIds,
@@ -549,6 +550,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               isNextMonthDisabled={isNextMonthDisabled}
               availableDates={privateDates}
               slotAvailability={slotAvailability}
+              slotStoreIds={slotStoreIds}
               selectedSlots={selectedTimeSlots}
               onToggle={toggleTimeSlot}
               maxSelections={MAX_SELECTIONS}

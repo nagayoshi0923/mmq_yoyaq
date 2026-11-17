@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { showToast } from '@/utils/toast'
 import { usePrivateBookingStorePreference, useStoreFilterPreference } from '@/hooks/useUserPreference'
-import { prefetchCandidateSlotAvailability, useCandidateSlotAvailability } from '@/hooks/useCandidateSlotAvailability'
+import { prefetchCandidateSlotAvailability, prefetchCandidateSlotStores, useCandidateSlotAvailability, useCandidateSlotStores } from '@/hooks/useCandidateSlotAvailability'
 import { availableSlotsForDate } from '@/lib/candidateSlotAvailability'
 import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
 import type { TimeSlot } from '../utils/types'
@@ -101,6 +101,9 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     error: availabilityError,
     reload: reloadAvailability,
   } = useCandidateSlotAvailability(availabilityTarget, monthDates, { cache: true })
+  // 枠ごとに空いている店舗（「19:00 馬場・大久保」と出すため。店舗が1つなら読まない）
+  const multiStoreTarget = availabilityTarget && availabilityTarget.storeIds.length > 1 ? availabilityTarget : null
+  const slotStoreIds = useCandidateSlotStores(multiStoreTarget, monthDates)
 
   // 表示中の月を読み終えたら、次の月も先に読んでおく（「次の月 ›」で待たせない）
   useEffect(() => {
@@ -114,6 +117,7 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
       if (d >= todayYmd && d <= horizonMaxYmd) dates.push(d)
     }
     prefetchCandidateSlotAvailability(availabilityTarget, dates)
+    prefetchCandidateSlotStores(availabilityTarget, dates)
   }, [canRevalidate, availabilityTarget, currentMonth, horizonMaxYmd])
 
   const getTimeSlotsForDate = useCallback((date: string): TimeSlot[] => (
@@ -195,6 +199,8 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     /** 受付範囲（今日から何日先まで）。days が null の間は日付を出さず、確認中・再試行を出す */
     horizon,
     slotAvailability,
+    /** `${date}-${label}` → その枠が空いている店舗 id（店舗が2つ以上のときだけ。1つならその店舗） */
+    slotStoreIds,
     monthDates,
     showMonthOf,
     setSelectedStoreIds,

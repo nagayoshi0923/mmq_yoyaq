@@ -115,3 +115,12 @@ it('「日にち」と「時間」は別の並びで、それぞれ1つだけ選
   expect(pressed('private-day-filter')).toEqual(['土日祝だけ'])
   expect(pressed('private-time-filter')).toEqual(['すべて'])
 })
+
+// 2026-11-18 えいきち「表示内容がこれじゃない」: 行は「時刻・空いている店舗・空きあり」（見本どおり）
+it('行には、その枠が空いている店舗の名前を出す（店舗が1つならその店舗）', async () => {
+  const slotStoreIds = { '2030-01-20-午後': ['s1'], '2030-01-21-夜': ['s2', 's1'] }
+  await act(async () => root.render(<WorkPrivateTab {...base} slotStoreIds={slotStoreIds} />))
+  expect(rowTexts()).toEqual(['13:00馬場空きあり', '19:00馬場・大久保空きあり'])
+  await act(async () => root.render(<WorkPrivateTab {...base} selectedStoreIds={['s2']} />))
+  expect(rowTexts()).toEqual(['13:00大久保空きあり', '19:00大久保空きあり'])
+})

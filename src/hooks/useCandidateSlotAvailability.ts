@@ -124,3 +124,64 @@ export function useCandidateSlotAvailability(
 
   return useMemo(() => ({ availability, loading, ready, error, reload }), [availability, loading, ready, error, reload])
 }
+
+/**
+ * 作品ページの貸切タブ: 枠ごとに「どの店舗で空いているか」（例: 19:00 馬場・大久保）。
+ * 店舗ごとに同じ DB 判定（private_booking_candidate_slot_availability を店舗1つで）を読んで合わせるだけ。
+ * 返り値は `${date}-${label}` → 空いている店舗 id（選んだ店舗の並び順）。読み終わるまでは空。
+ * 2026-11-18 えいきち「表示内容がこれじゃない」（見本は「13:00 馬場 空きあり」の形）
+ */
+export function useCandidateSlotStores(
+  target: CandidateSlotAvailabilityTarget | null,
+  dates: string[],
+): Record<string, string[]> {
+  const [byKey, setByKey] = useState<Record<string, string[]>>({})
+  const from = dates.length > 0 ? dates.reduce((a, b) => (a < b ? a : b)) : null
+  const to = dates.length > 0 ? dates.reduce((a, b) => (a > b ? a : b)) : null
+  const scenario = target?.kind === 'scenario' ? target : null
+  const requestKey = scenario && from && to ? `${scenario.organizationId}:${scenario.scenarioId}:${scenario.storeIds.join(',')}|${from}|${to}` : null
+
+  useEffect(() => {
+    if (!scenario || !from || !to) {
+      setByKey({})
+      return
+    }
+    let cancelled = false
+    const perStore = scenario.storeIds.map((storeId) => {
+      const one: CandidateSlotAvailabilityTarget = { ...scenario, storeIds: [storeId] }
+      const peek = peekCached(one, from, to)
+      if (peek) return Promise.resolve({ storeId, value: peek })
+      const p = loadCached(one, from, to)
+      p.then((v) => settled.set(p, v)).catch(() => {})
+      return p.then((value) => ({ storeId, value }))
+    })
+    Promise.allSettled(perStore).then((results) => {
+      if (cancelled) return
+      const next: Record<string, string[]> = {}
+      for (const r of results) {
+        if (r.status !== 'fulfilled') continue
+        const { storeId, value } = r.value
+        for (const [date, slots] of Object.entries(value.slotsByDate)) {
+          for (const slot of slots) {
+            const key = `${date}-${slot.label}`
+            if (value.unavailableReasons[key] || !slot.startTime) continue
+            ;(next[key] ??= []).push(storeId)
+          }
+        }
+      }
+      setByKey(next)
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestKey])
+
+  return byKey
+}
+
+/** 次の月の店舗ごとの空きも先に読んでおく */
+export function prefetchCandidateSlotStores(target: CandidateSlotAvailabilityTarget | null, dates: readonly string[]): void {
+  if (!target || target.kind !== 'scenario' || target.storeIds.length < 2) return
+  for (const storeId of target.storeIds) prefetchCandidateSlotAvailability({ ...target, storeIds: [storeId] }, dates)
+}

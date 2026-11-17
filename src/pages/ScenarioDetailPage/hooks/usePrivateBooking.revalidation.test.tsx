@@ -10,7 +10,7 @@ vi.mock('@/lib/privateBookingHorizon', async (importOriginal) => ({
 
 const m=vi.hoisted(()=>({state:{availability:{slotsByDate:{},unavailableReasons:{}} as {slotsByDate:Record<string,unknown[]>;unavailableReasons:Record<string,string>},loading:false,ready:true,error:null,reload:()=>{}},target:vi.fn(),warning:vi.fn(),save:vi.fn()}))
 vi.mock('@/hooks/useUserPreference',()=>({usePrivateBookingStorePreference:()=>[['store'],m.save],useStoreFilterPreference:()=>[[]]}))
-vi.mock('@/hooks/useCandidateSlotAvailability',()=>({useCandidateSlotAvailability:(target:unknown)=>{m.target(target);return m.state},prefetchCandidateSlotAvailability:()=>{}}))
+vi.mock('@/hooks/useCandidateSlotAvailability',()=>({useCandidateSlotAvailability:(target:unknown)=>{m.target(target);return m.state},prefetchCandidateSlotAvailability:()=>{},prefetchCandidateSlotStores:()=>{},useCandidateSlotStores:()=>({})}))
 vi.mock('@/utils/toast',()=>({showToast:{warning:m.warning}}))
 vi.mock('@/lib/supabase',()=>({supabase:{}}))
 import{usePrivateBooking}from'./usePrivateBooking'

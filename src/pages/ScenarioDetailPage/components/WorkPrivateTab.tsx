@@ -34,6 +34,8 @@ interface WorkPrivateTabProps {
   isNextMonthDisabled?: boolean
   availableDates: string[]
   slotAvailability: CandidateSlotAvailability
+  /** `${date}-${label}` → その枠が空いている店舗 id。行に「馬場・大久保」と出す（無ければ選んだ店舗が1つのときその店舗） */
+  slotStoreIds?: Record<string, string[]>
   selectedSlots: Array<{ date: string; slot: TimeSlot }>
   onToggle: (date: string, slot: TimeSlot) => void
   maxSelections: number
@@ -64,6 +66,7 @@ export function WorkPrivateTab({
   isNextMonthDisabled = false,
   availableDates,
   slotAvailability,
+  slotStoreIds = {},
   selectedSlots,
   onToggle,
   maxSelections,
@@ -144,6 +147,18 @@ export function WorkPrivateTab({
     setNotice(null)
     onToggle(date, { label: slot.label, startTime: slot.startTime, endTime: slot.endTime })
   }, [order, maxSelections, onToggle])
+
+  // 行に出す店舗名（見本: 「13:00 馬場 空きあり」「19:00 馬場・大久保 第1希望」）
+  const storeLabel = (date: string, slot: PrivateBookingSlot, reason: string | null): string => {
+    const nameOf = (id: string) => { const s = stores.find((x) => x.id === id); return s ? (s.short_name || s.name) : '' }
+    if (!reason || order.has(`${date}-${slot.label}`)) {
+      const ids = slotStoreIds[`${date}-${slot.label}`]
+        ?? (selectedStoreIds.length === 1 ? selectedStoreIds : [])
+      const names = selectedStoreIds.filter((id) => ids.includes(id)).map(nameOf).filter(Boolean)
+      if (names.length > 0) return names.join('・')
+    }
+    return slot.label
+  }
 
   const now = new Date()
   const isThisMonth = currentMonth.getFullYear() === now.getFullYear() && currentMonth.getMonth() === now.getMonth()
@@ -262,7 +277,7 @@ export function WorkPrivateTab({
                           aria-hidden="true"
                         >{selected && '✓'}</span>
                         <span className="w-14 text-base font-bold">{slot.startTime || '—'}</span>
-                        <span className="min-w-0 flex-1 truncate text-sm">{slot.label}{slot.adjusted ? '（前後の公演に合わせた時刻）' : ''}</span>
+                        <span className="min-w-0 flex-1 truncate text-sm">{storeLabel(date, slot, reason)}{slot.adjusted ? '（前後の公演に合わせた時刻）' : ''}</span>
                         <span className={cn('text-xs', selected ? 'font-bold' : 'text-muted-foreground')} style={selected ? { color: PRIVATE_PURPLE } : undefined}>
                           {selected ? `第${n}希望` : reason ? (reason === CONFLICT_REASON ? '満席' : '選べません') : '空きあり'}
                         </span>
