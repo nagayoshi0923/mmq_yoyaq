@@ -277,7 +277,7 @@ export function WorkPrivateTab({
                           aria-hidden="true"
                         >{selected && '✓'}</span>
                         <span className="w-14 text-base font-bold">{slot.startTime || '—'}</span>
-                        <span className="min-w-0 flex-1 truncate text-sm">{storeLabel(date, slot, reason)}{slot.adjusted ? '（前後の公演に合わせた時刻）' : ''}</span>
+                        <span className="min-w-0 flex-1 truncate text-sm">{storeLabel(date, slot, reason)}</span>
                         <span className={cn('text-xs', selected ? 'font-bold' : 'text-muted-foreground')} style={selected ? { color: PRIVATE_PURPLE } : undefined}>
                           {selected ? `第${n}希望` : reason ? (reason === CONFLICT_REASON ? '満席' : '選べません') : '空きあり'}
                         </span>
