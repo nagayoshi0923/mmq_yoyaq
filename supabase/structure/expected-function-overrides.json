@@ -570,7 +570,7 @@
       "service_role=X/postgres"
     ],
     "returns": "trigger",
-    "body_md5": "1a089ce43f17103ea16351f32c0f5748",
+    "body_md5": "ed05d4a167f2ca3d9b4eba9a14f70276",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -1419,6 +1419,17 @@
     ],
     "returns": "uuid",
     "body_md5": "03ee56ad1f7081915394e663b17ef6a3",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_send_individual_notice(p_group_id uuid, p_member_id uuid, p_message text, p_character_id text, p_attach_template boolean)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "5657892075a8f2a5d770ca2f74f08179",
     "language": "plpgsql",
     "security_definer": true
   }
