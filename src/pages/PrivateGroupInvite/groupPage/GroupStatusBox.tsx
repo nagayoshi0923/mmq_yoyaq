@@ -35,7 +35,7 @@ export function GroupStatusBox({ view, onAction, compact = false, onOpenDetail, 
     )
   }
   return (
-    <section className={`bg-card border ${tone.card} rounded-lg overflow-hidden`} aria-label="いまの状態" data-testid="group-status-box">
+    <section className={`bg-card border ${tone.card} overflow-hidden`} aria-label="いまの状態" data-testid="group-status-box">
       <div className={`px-3 py-2 flex flex-wrap items-center gap-x-2 gap-y-1 ${tone.header}`}>
         <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${tone.chip}`} data-testid="group-status-chip">{view.chip}</span>
         {view.sub && <span className="text-xs text-muted-foreground">{view.sub}</span>}
@@ -47,7 +47,7 @@ export function GroupStatusBox({ view, onAction, compact = false, onOpenDetail, 
             {view.primary && (
               <Button
                 type="button"
-                className={`h-auto py-2.5 px-3.5 text-sm font-bold rounded-md whitespace-normal ${PRIVATE_BOOKING_TONE[view.primaryTone].primary}`}
+                className={`h-12 py-2.5 px-3.5 text-base font-bold rounded-none whitespace-normal ${PRIVATE_BOOKING_TONE[view.primaryTone].primary}`}
                 onClick={() => onAction(view.primary!)}
                 data-testid="group-status-primary"
               >
@@ -61,7 +61,7 @@ export function GroupStatusBox({ view, onAction, compact = false, onOpenDetail, 
                     key={action.kind}
                     type="button"
                     variant="outline"
-                    className="flex-1 h-auto py-2 px-3 text-sm rounded-md bg-background border-zinc-300 text-foreground hover:bg-muted whitespace-nowrap"
+                    className="flex-1 h-11 py-2 px-3 text-sm rounded-none bg-background border-zinc-300 text-foreground hover:bg-muted whitespace-nowrap"
                     onClick={() => onAction(action)}
                   >
                     {action.label}

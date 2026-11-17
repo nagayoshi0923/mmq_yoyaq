@@ -61,25 +61,28 @@ describe('MMQ 全体トップ「空いている公演を探す」（見本 TopMM
     expect(text(html)).not.toContain('に入れる公演')
   })
 
-  it('1 行目は 今週／来週／日付 の横スクロール（折り返さない）で、初期はどれも選ばない（今日から 30 日。「今月」は 2026-10-25 に外した）', () => {
+  it('1 行目は 今週／来週／日付を選ぶ の横スクロール（折り返さない）で、初期はどれも選ばない（今日から 30 日。「今月」は 2026-10-25 に外した）', () => {
     const html = render()
     const row = html.match(/<div class="([^"]*)" role="group" aria-label="日付">(.*?)<\/div>/)
     expect(row?.[1]).toContain('overflow-x-auto')
     expect(row?.[1]).not.toContain('flex-wrap')
-    expect([...(row?.[2] ?? '').matchAll(/<button[^>]*>(.*?)<\/button>/g)].map((m) => text(m[1]))).toEqual(['今週', '来週', '日付'])
+    expect([...(row?.[2] ?? '').matchAll(/<button[^>]*>(.*?)<\/button>/g)].map((m) => text(m[1]))).toEqual(['今週', '来週', '日付を選ぶ'])
     expect(row?.[2] ?? '').not.toMatch(/aria-pressed="true"/)
   })
 
-  it('2 行目は エリア／店舗／空席あり／初心者向け（折り返し可）', () => {
-    const t = text(render())
-    for (const label of ['エリア', '店舗 すべて', '空席あり', '初心者向け']) expect(t).toContain(label)
-    expect(text(render({ ...base, area: '東京都' }))).toContain('エリア 東京都')
+  it('2 行目はエリアのチップ（全国と上位 3 つ、残りは「ほか」）。探している範囲にエリアが出る（刷新 QW-20261114-001）', () => {
+    const html = render()
+    const row = html.match(/role="group" aria-label="エリア">(.*?)<\/div>/)
+    expect([...(row?.[1] ?? '').matchAll(/<button[^>]*>(.*?)<\/button>/g)].map((m) => text(m[1]))).toEqual(['全国', '東京', '北海道'])
+    expect(text(html)).toContain('全国の公演')
+    expect(text(render({ ...base, area: '東京都' }))).toContain('東京の公演')
+    expect(text(html)).toContain('条件を足す')
   })
 
-  it('「期間 に空きのある公演 N 件」と作品カードを 2 列（PC 4 列）で全部', () => {
+  it('「空席のある公演 N件」と、作品ごとの横長のカードを 1 列（PC 2 列）で全部', () => {
     const html = render()
-    expect(text(html)).toContain('10/14(水)〜10/31(土) に空きのある公演 2 件')
-    expect(html).toContain('grid grid-cols-2 gap-2 md:grid-cols-4')
+    expect(text(html)).toContain('空席のある公演 2件')
+    expect(html).toContain('md:grid-cols-2')
     expect(text(html)).toContain('作品A')
     expect(text(html)).toContain('作品B')
   })

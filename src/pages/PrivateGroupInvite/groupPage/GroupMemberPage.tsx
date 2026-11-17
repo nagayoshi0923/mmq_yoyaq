@@ -37,7 +37,7 @@ interface GroupMemberPageProps {
  */
 const boxHeightMemory = new Map<string, number>()
 
-const LG_GRID = "lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:grid-rows-[auto_auto_minmax(0,1fr)] lg:gap-x-4 lg:px-4 lg:[grid-template-areas:'status_chat''tabs_chat''body_chat']"
+const LG_GRID = "lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-x-4 lg:px-4 lg:[grid-template-areas:'status_chat''body_chat']"
 
 export function GroupMemberPage({ header, status, statusExtra, onStatusAction, activeTab, desktopTab, onTabChange, unread, tabs, panels, chat }: GroupMemberPageProps) {
   const chatActive = activeTab === 'chat'
@@ -81,13 +81,17 @@ export function GroupMemberPage({ header, status, statusExtra, onStatusAction, a
     : () => scrollRef.current?.scrollTo?.({ top: 0, behavior: 'smooth' })
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-muted/40 overflow-hidden" data-testid="group-member-page" data-tab={activeTab}>
+    <div className="h-[100dvh] flex flex-col bg-gray-50 overflow-hidden" data-testid="group-member-page" data-tab={activeTab}>
       <Header />
       <div className="hidden lg:block">
         <NavigationBar currentPage="/" />
       </div>
       <div className="flex-1 min-h-0 flex flex-col lg:max-w-6xl lg:mx-auto lg:w-full">
-        {header}
+        {/* 見本: 作品名とタブを黒地の帯にまとめる（いまの状態はタブの下、概要などの一番上） */}
+        <div className="shrink-0 bg-[#221a33] text-white" data-testid="group-band">
+          {header}
+          <GroupTabBar active={activeTab} desktopActive={leftTab} onChange={onTabChange} unread={unread} tabs={tabs} />
+        </div>
         {showBar && (
           <div className="lg:hidden shrink-0">
             <GroupStatusBox view={status} onAction={onStatusAction} compact onOpenDetail={openDetail} />
@@ -96,7 +100,7 @@ export function GroupMemberPage({ header, status, statusExtra, onStatusAction, a
         <div
           ref={scrollRef}
           className={chatActive
-            ? `flex-1 min-h-0 grid grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)] [grid-template-areas:'status''tabs''body'] ${LG_GRID}`
+            ? `flex-1 min-h-0 grid grid-cols-1 grid-rows-[auto_minmax(0,1fr)] [grid-template-areas:'status''body'] ${LG_GRID}`
             : `flex-1 min-h-0 overflow-y-auto overscroll-contain lg:overflow-visible ${LG_GRID}`}
           data-testid="group-scroll"
           data-scroll={chatActive ? 'chat' : 'page'}
@@ -110,14 +114,11 @@ export function GroupMemberPage({ header, status, statusExtra, onStatusAction, a
               </div>
             </div>
           </div>
-          <div className={`[grid-area:tabs] px-3.5 lg:px-0 ${chatActive ? 'pt-2 lg:pt-3' : 'pt-3'}`}>
-            <GroupTabBar active={activeTab} desktopActive={leftTab} onChange={onTabChange} unread={unread} tabs={tabs} />
-          </div>
           <div className={`[grid-area:body] min-h-0 px-3.5 pt-3 pb-6 lg:px-0 lg:overflow-y-auto ${chatActive ? 'hidden lg:block' : ''}`} data-testid="group-tab-panel">
             {panels[leftTab as Exclude<GroupTab, 'chat'>]}
           </div>
           <div className={`min-h-0 flex-col [grid-area:body] lg:[grid-area:chat] lg:py-3 ${chatActive ? 'flex pt-2' : 'hidden lg:flex'}`} data-testid="group-chat-panel">
-            <div className="flex-1 min-h-0 flex flex-col bg-card lg:border lg:border-border lg:rounded-lg overflow-hidden">
+            <div className="flex-1 min-h-0 flex flex-col bg-card lg:border lg:border-border overflow-hidden">
               {chat}
             </div>
           </div>

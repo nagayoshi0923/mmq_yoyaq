@@ -1,7 +1,7 @@
+import { durationLabel, playersLabel } from '@/components/renewal/labels'
 import { useNavigate } from 'react-router-dom'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Heart, Users, Clock, Sparkles, ChevronRight, CalendarDays, Drama } from 'lucide-react'
+import { Heart, Sparkles, CalendarDays, Drama } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useLikedScenariosQuery, useRemoveLikeMutation, useWishlistNextEventsQuery, type WishlistNextEvent } from '../hooks/useLikedScenariosQuery'
@@ -101,7 +101,7 @@ export function WantToPlayPage() {
 
   if ((wantToPlayScenarios as WantToPlayScenario[]).length === 0) {
     return (
-      <div className="bg-white shadow-sm p-8 text-center border border-gray-200 rounded-none">
+      <div className="bg-white p-8 text-center border border-gray-200 rounded-none">
         <div
           className="w-16 h-16 flex items-center justify-center mx-auto mb-4 bg-mypage-primary-light rounded-none"
         >
@@ -123,96 +123,46 @@ export function WantToPlayPage() {
     )
   }
 
+  const list = wantToPlayScenarios as WantToPlayScenario[]
+  // 見本: 1 つの白い箱に「遊びたい作品（N作品）」と、画像・作品名・人数と時間・次の公演の行を並べる
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-4">
-        <Heart className="w-5 h-5 text-mypage-primary" />
-        <h2 className="font-bold text-gray-900">遊びたいシナリオ ({(wantToPlayScenarios as WantToPlayScenario[]).length})</h2>
-      </div>
-
-      {(wantToPlayScenarios as WantToPlayScenario[]).map((item) => (
-        <div
-          key={item.id}
-          className="bg-white shadow-sm p-4 hover:shadow-md transition-all duration-300 cursor-pointer border border-gray-200 hover:border-gray-300 rounded-none"
-          onClick={() => {
-            navigate(`${bookingBasePath}/scenario/${item.scenario.slug || item.scenario.id}`)
-          }}
-        >
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-20 h-28 bg-gray-900 overflow-hidden relative rounded-none">
-              {item.scenario.key_visual_url ? (
-                <>
-                  <div
-                    className="absolute inset-0 scale-110"
-                    style={{
-                      backgroundImage: `url(${item.scenario.key_visual_url})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      filter: 'blur(10px) brightness(0.7)',
-                    }}
-                  />
-                  <img
-                    src={item.scenario.key_visual_url}
-                    alt={item.scenario.title}
-                    className="relative w-full h-full object-contain"
-                    loading="lazy"
-                  />
-                </>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center"><Drama className="h-7 w-7 text-muted-foreground opacity-40" aria-hidden="true" /></div>
-              )}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-gray-900 line-clamp-2">{item.scenario.title}</h3>
-                  <p className="ts-muted mt-1">作者: {item.scenario.author}</p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleRemove(item.id)
-                  }}
-                  className="flex-shrink-0 hover:bg-red-50"
-                  title="お気に入りから削除"
-                  aria-label={`${item.scenario.title}を遊びたいリストから外す`}
-                >
-                  <Heart className="h-5 w-5 fill-current text-mypage-primary" aria-hidden="true" />
-                </Button>
+    <section className="border border-gray-200 bg-white p-4" data-testid="liked-scenarios">
+      <h2 className="text-lg font-bold">遊びたい作品（{list.length}作品）</h2>
+      <ul className="mt-2">
+        {list.map((item) => (
+          <li key={item.id} className="flex items-start gap-3 border-b border-gray-200 py-4 last:border-b-0">
+            <button
+              type="button"
+              className="flex min-w-0 flex-1 gap-3 text-left"
+              onClick={() => navigate(`${bookingBasePath}/scenario/${item.scenario.slug || item.scenario.id}`)}
+            >
+              <div className="h-20 w-[60px] shrink-0 overflow-hidden bg-gray-900">
+                {item.scenario.key_visual_url
+                  ? <img src={item.scenario.key_visual_url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  : <div className="flex h-full w-full items-center justify-center"><Drama className="h-6 w-6 text-muted-foreground opacity-40" aria-hidden="true" /></div>}
               </div>
-
-              <div className="flex flex-wrap items-center gap-2 mt-2">
-                <Badge variant="secondary" className="text-xs">
-                  <Users className="w-3 h-3 mr-1" />
-                  {item.scenario.player_count_min === item.scenario.player_count_max
-                    ? `${item.scenario.player_count_max}人`
-                    : `${item.scenario.player_count_min}〜${item.scenario.player_count_max}人`}
-                </Badge>
-                <Badge variant="secondary" className="text-xs">
-                  <Clock className="w-3 h-3 mr-1" />
-                  {Math.floor(item.scenario.duration / 60)}h{item.scenario.duration % 60 > 0 ? `${item.scenario.duration % 60}m` : ''}
-                </Badge>
-                {item.scenario.difficulty >= 1 && item.scenario.difficulty <= 5 && (
-                  <Badge variant="outline" className="text-xs">
-                    {getDifficultyLabel(item.scenario.difficulty)}
-                  </Badge>
-                )}
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-bold leading-snug line-clamp-2">{item.scenario.title}</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {[playersLabel(item.scenario.player_count_min, item.scenario.player_count_max), durationLabel(item.scenario.duration), item.scenario.difficulty >= 1 && item.scenario.difficulty <= 5 ? getDifficultyLabel(item.scenario.difficulty) : null].filter(Boolean).join('・')}
+                </p>
+                <NextEventLine next={nextEvents?.[item.scenario.id]} loading={nextLoading} onOpen={href => navigate(href)} />
+                <p className="mt-1 text-2xs text-muted-foreground">追加日: {formatDate(item.created_at)}</p>
               </div>
-
-              <NextEventLine next={nextEvents?.[item.scenario.id]} loading={nextLoading} onOpen={href => navigate(href)} />
-
-              <p className="ts-caption mt-2">追加日: {formatDate(item.created_at)}</p>
-            </div>
-
-            <div className="flex items-center">
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
+            </button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleRemove(item.id)}
+              className="flex-shrink-0 hover:bg-red-50"
+              title="遊びたいから外す"
+              aria-label={`${item.scenario.title}を遊びたいリストから外す`}
+            >
+              <Heart className="h-5 w-5 fill-current text-mypage-primary" aria-hidden="true" />
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

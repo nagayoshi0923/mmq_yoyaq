@@ -1,3 +1,4 @@
+import { PageBar } from '@/components/renewal/PageBar'
 import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
 import { storeDisplayName } from '@/lib/publicStoreName'
 import { registerPlayedScenario } from '@/lib/registerPlayedScenario'
@@ -14,7 +15,6 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { Label } from '@/components/ui/label'
@@ -23,11 +23,10 @@ import { logger } from '@/utils/logger'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
 import { showToast } from '@/utils/toast'
-import {
-  ArrowLeft, Users, Clock, Calendar, MapPin, Building2, ChevronRight, ChevronDown, ChevronUp,
-  Sparkles, BookOpen, Heart, Info, ExternalLink, AlertCircle, MessageSquare, CheckCheck
-} from 'lucide-react'
-import { getColorFromName } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { ScenarioCardImage } from '@/components/public-top/ScenarioCardImage'
+import { RenewalChip } from '@/components/renewal/RenewalChip'
+import { PRIVATE_PURPLE, SERIF_HEADING } from '@/components/renewal/fonts'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { formatJstMonthDay, getJstWeekdayIndex } from '@/utils/jstDate'
 import { Footer } from '@/components/layout/Footer'
@@ -37,7 +36,6 @@ import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { getAvailableSeats } from '@/lib/participantUtils'
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { JsonLd } from '@/components/seo/JsonLd'
-import { isFewSeats, seatCountText } from '@/lib/seatLabel'
 import {
   buildCreativeWorkJsonLd,
   buildEventJsonLd,
@@ -258,7 +256,8 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
   const { user } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false)
-  const [isEventsExpanded, setIsEventsExpanded] = useState(false)
+  const [showAllCharacters, setShowAllCharacters] = useState(false)
+  const [regionFilter, setRegionFilter] = useState<string | null>(null)
   const [isPlayedDialogOpen, setIsPlayedDialogOpen] = useState(false)
   const [playedDate, setPlayedDate] = useState('')
   const { customerId: playedCustomerId, customerIds, isPlayed: hasPlayed, markAsPlayed, unmarkAsPlayed } = usePlayedScenarios()
@@ -380,6 +379,40 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     setIsPlayedDialogOpen(true)
   }
 
+  // この作品を遊べる店舗: 組織×エリア（店舗の地域）の枠。公演が近い順。公演が無くても受付中の組織は枠を出す
+  const playGroups = useMemo(() => {
+    const map = new Map<string, { key: string; orgName: string; orgSlug: string; region: string | null; stores: string[]; events: EventWithOrg[]; privateOk: boolean }>()
+    for (const e of events) {
+      const key = `${e.organization_id}_${e.store_region ?? ''}`
+      let g = map.get(key)
+      if (!g) { g = { key, orgName: e.organization_name, orgSlug: e.organization_slug, region: e.store_region, stores: [], events: [], privateOk: true }; map.set(key, g) }
+      if (!g.stores.includes(e.store_short_name)) g.stores.push(e.store_short_name)
+      g.events.push(e)
+    }
+    for (const o of availableOrganizations) {
+      if (![...map.values()].some((g) => g.orgSlug === o.slug)) map.set(o.id, { key: o.id, orgName: o.name, orgSlug: o.slug, region: null, stores: [], events: [], privateOk: true })
+    }
+    const groups = [...map.values()].sort((a, b) => (a.events[0]?.date ?? '9999').localeCompare(b.events[0]?.date ?? '9999'))
+    const regions = [...new Set(groups.map((g) => g.region).filter((r): r is string => !!r))]
+    return { groups, regions, orgCount: new Set(groups.map((g) => g.orgSlug)).size }
+  }, [events, availableOrganizations])
+  const playableCharacters = useMemo(() => characters.filter((c) => !c.is_npc).sort((a, b) => a.sort_order - b.sort_order), [characters])
+  const openOrg = (orgSlug: string, privateTab = false) => {
+    saveScrollPositionForCurrentUrl()
+    navigate(`/${orgSlug}/scenario/${canonicalSlug}${privateTab ? '?tab=private' : ''}`)
+  }
+  const seatText = (e: EventWithOrg) => {
+    const left = getAvailableSeats(e)
+    return left <= 0 ? '満席' : `あと${left}席`
+  }
+  const handleShare = async () => {
+    const url = `${window.location.origin}${canonicalPath}`
+    try {
+      if (navigator.share) await navigator.share({ title: scenario?.title, url })
+      else { await navigator.clipboard.writeText(url); showToast.success('リンクをコピーしました') }
+    } catch { /* 共有を閉じたときは何もしない */ }
+  }
+
   const synopsisLength = scenario?.synopsis?.length || 0
   const shouldTruncateSynopsis = synopsisLength > 200
 
@@ -387,13 +420,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     return (
       <div className="min-h-screen flex flex-col" style={{ backgroundColor: THEME.background }}>
         <Header />
-        <section className="relative overflow-hidden" style={{ backgroundColor: THEME.primary }}>
-          <div className="max-w-6xl mx-auto px-4 py-4 relative">
-            <button onClick={() => onClose ? onClose() : navigate(-1)} className="flex items-center gap-2 text-white/90 hover:text-white transition-colors">
-              <ArrowLeft className="w-4 h-4" /><span>戻る</span>
-            </button>
-          </div>
-        </section>
+        <PageBar title="作品紹介" onBack={() => (onClose ? onClose() : navigate(-1))} />
         <div className="flex-1 flex items-center justify-center py-20">
           <div className="animate-spin h-8 w-8 border-4 border-t-transparent rounded-full" style={{ borderColor: `${THEME.primary} transparent ${THEME.primary} ${THEME.primary}` }} />
         </div>
@@ -406,15 +433,9 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     return (
       <div className="min-h-screen flex flex-col" style={{ backgroundColor: THEME.background }}>
         <Header />
-        <section className="relative overflow-hidden" style={{ backgroundColor: THEME.primary }}>
-          <div className="max-w-6xl mx-auto px-4 py-4 relative">
-            <button onClick={() => navigate('/')} className="flex items-center gap-2 text-white/90 hover:text-white transition-colors">
-              <ArrowLeft className="w-4 h-4" /><span>戻る</span>
-            </button>
-          </div>
-        </section>
+        <PageBar title="作品紹介" onBack={() => navigate('/')} />
         <div className="flex-1 max-w-4xl mx-auto px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">{data === null ? 'シナリオが見つかりません' : 'データの読み込みに失敗しました'}</h1>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">{data === null ? 'シナリオが見つかりません' : 'データの読み込みに失敗しました'}</h2>
           <Button onClick={() => navigate('/')}>トップへ戻る</Button>
         </div>
         <Footer />
@@ -442,295 +463,124 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         })),
       })} />
       <Header />
+      <PageBar title="作品紹介" onBack={() => (onClose ? onClose() : navigate(-1))} />
 
-      <section className="relative overflow-hidden" style={{ backgroundColor: THEME.primary }}>
-        <div className="absolute top-0 right-0 w-64 h-64 opacity-20" style={{ background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`, transform: 'translate(30%, -30%)' }} />
-        <div className="absolute bottom-0 left-0 w-1 h-16" style={{ backgroundColor: THEME.accent }} />
-        <div className="max-w-6xl mx-auto px-4 py-4 relative">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button onClick={() => onClose ? onClose() : navigate(-1)} className="flex items-center gap-2 text-white/90 hover:text-white transition-colors">
-                <ArrowLeft className="w-4 h-4" /><span>戻る</span>
-              </button>
-              <div className="h-4 w-px bg-white/30" />
-              <span className="text-sm text-white/80">シナリオ詳細</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="flex-1 max-w-6xl mx-auto px-4 py-6 md:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-          <div className="lg:col-span-1">
-            <div className="sticky top-4 space-y-4">
-              <div className="relative">
-                {scenario.key_visual_url ? (
-                  <img src={scenario.key_visual_url} alt={scenario.title} className="w-full shadow-lg" style={{ borderRadius: 0 }} />
-                ) : (
-                  <div className="w-full aspect-[3/4] bg-gray-200 flex items-center justify-center" style={{ borderRadius: 0 }}>
-                    <Sparkles className="w-12 h-12 text-gray-300" />
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-white border border-gray-200 p-4" style={{ borderRadius: 0 }}>
-                <h4 className="font-semibold text-gray-900 mb-3 text-sm flex items-center gap-2">
-                  <Info className="w-4 h-4" style={{ color: THEME.primary }} />シナリオ情報
-                </h4>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <Users className="w-4 h-4 text-gray-400" />
-                    <div><span className="text-xs text-gray-500">プレイ人数</span><p className="font-medium text-gray-900">{formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}</p></div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Clock className="w-4 h-4 text-gray-400" />
-                    <div><span className="text-xs text-gray-500">プレイ時間</span><p className="font-medium text-gray-900">{formatDuration(scenario.official_duration)}</p></div>
-                  </div>
-                  {scenario.participation_fee && (
-                    <div className="flex items-center gap-3">
-                      <span className="w-4 h-4 text-gray-400 text-center font-bold">¥</span>
-                      <div><span className="text-xs text-gray-500">参加費</span><p className="font-medium text-gray-900">¥{scenario.participation_fee.toLocaleString()}〜</p></div>
-                    </div>
-                  )}
-                </div>
-                {scenario.has_pre_reading && (
-                  <div className="mt-4 pt-4 border-t border-gray-100">
-                    <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 px-3 py-2">
-                      <AlertCircle className="w-4 h-4" /><span>事前読み込みあり</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+      <div className="flex-1 bg-white">
+        <div className="mx-auto max-w-4xl">
+          <div className="relative aspect-[16/10] w-full overflow-hidden bg-gray-900 sm:aspect-[16/7]">
+            <ScenarioCardImage src={scenario.key_visual_url} alt={scenario.title} />
           </div>
 
-          <div className="lg:col-span-2 space-y-6">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                {scenario.author && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium px-2 py-0.5 bg-gray-100 text-gray-700">作者</span>
-                    <span className="text-gray-700">{scenario.author}</span>
-                  </div>
-                )}
-                {user && (
-                  <div className="flex items-center gap-2">
-                    <button onClick={handlePlayedClick} className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-green-50 rounded" title={isPlayed ? '体験済み（クリックで解除）' : '体験済みに登録'}>
-                      <CheckCheck className={`h-5 w-5 ${isPlayed ? 'text-green-500' : 'text-gray-400'}`} />
-                      <span className="text-xs text-gray-500">{isPlayed ? '体験済み' : '体験した'}</span>
-                    </button>
-                    <button onClick={handleFavoriteClick} className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-red-50 rounded">
-                      <Heart className={`h-5 w-5 fill-current text-red-500 ${isFavorite(favoriteScenarioId || scenario.id) ? 'opacity-100' : 'opacity-30'}`} />
-                      <span className="text-xs text-gray-500">{isFavorite(favoriteScenarioId || scenario.id) ? '登録済み' : '遊びたい'}</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{scenario.title}</h1>
-              <div className="flex flex-wrap items-center gap-2">
-                {scenario.genre?.map((g, i) => (
-                  <Badge key={i} variant="outline" className="text-xs px-2.5 py-1" style={{ borderColor: THEME.primary, color: THEME.primary }}>{g}</Badge>
+          <div className="px-4 pb-6 pt-4">
+            {scenario.author && <p className="text-xs text-muted-foreground">{scenario.author}</p>}
+            <h2 className={cn(SERIF_HEADING, 'mt-1.5 text-2xl font-bold leading-snug')}>{scenario.title}</h2>
+            <p className="mt-2 text-sm">
+              {formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}・約{formatDuration(scenario.official_duration)}
+              {scenario.participation_fee ? `・${scenario.participation_fee.toLocaleString('ja-JP')}円前後（店舗ごとに違います）` : ''}
+            </p>
+            {(scenario.genre?.length ?? 0) > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {scenario.genre.slice(0, 6).map((g) => (
+                  <span key={g} className="border border-gray-300 px-2 py-0.5 text-xs">{g}</span>
                 ))}
-                {scenario.has_pre_reading && (
-                  <Badge className="text-xs px-2.5 py-1 flex items-center gap-1 bg-blue-100 text-blue-700">
-                    <AlertCircle className="w-3 h-3" />事前読み込みあり
-                  </Badge>
-                )}
+                {scenario.has_pre_reading && <span className="border border-gray-300 px-2 py-0.5 text-xs">事前読み込みあり</span>}
               </div>
+            )}
+            <div className="mt-3 flex gap-5 text-sm">
+              <button type="button" onClick={handleFavoriteClick} aria-pressed={isFavorite(favoriteScenarioId || scenario.id)} className={cn(isFavorite(favoriteScenarioId || scenario.id) && 'font-bold text-red-600')}>
+                {isFavorite(favoriteScenarioId || scenario.id) ? '♥' : '♡'} 遊びたい
+              </button>
+              <button type="button" onClick={handlePlayedClick} aria-pressed={isPlayed} className={cn(isPlayed && 'font-bold text-green-700')}>✓ 遊んだ</button>
+              <button type="button" onClick={handleShare}>↗ 共有</button>
             </div>
-
-            {scenario.description && (
-              <div className="bg-white border border-gray-200" style={{ borderRadius: 0 }}>
-                <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2" style={{ backgroundColor: '#374151' }}>
-                  <Info className="w-4 h-4 text-white" /><h3 className="font-semibold text-white text-sm">概要</h3>
-                </div>
-                <div className="p-4"><p className="text-gray-700 whitespace-pre-wrap leading-relaxed text-sm">{scenario.description}</p></div>
-              </div>
-            )}
-
-            {scenario.synopsis && (
-              <div className="bg-gray-50 border border-gray-200" style={{ borderRadius: 0 }}>
-                <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2" style={{ backgroundColor: THEME.primary }}>
-                  <BookOpen className="w-4 h-4 text-white" /><h3 className="font-semibold text-white text-sm">あらすじ</h3>
-                </div>
-                <div className="p-4">
-                  <div className={`relative ${!isSynopsisExpanded && shouldTruncateSynopsis ? 'max-h-40 overflow-hidden' : ''}`}>
-                    <p className="leading-relaxed whitespace-pre-wrap text-sm text-gray-700">{scenario.synopsis}</p>
-                    {!isSynopsisExpanded && shouldTruncateSynopsis && <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-gray-50 to-transparent" />}
-                  </div>
-                  {shouldTruncateSynopsis && (
-                    <button onClick={() => setIsSynopsisExpanded(!isSynopsisExpanded)} className="mt-3 flex items-center gap-1 text-sm font-medium transition-colors" style={{ color: THEME.primary }}>
-                      {isSynopsisExpanded ? '閉じる' : '続きを読む'}<ChevronDown className={`w-4 h-4 transition-transform ${isSynopsisExpanded ? 'rotate-180' : ''}`} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {scenario.gm_comment && (
-              <div className="bg-amber-50 border border-amber-200" style={{ borderRadius: 0 }}>
-                <div className="px-4 py-3 border-b border-amber-200 flex items-center gap-2" style={{ backgroundColor: '#f59e0b' }}>
-                  <MessageSquare className="w-4 h-4 text-white" /><h3 className="font-semibold text-white text-sm">GMからのコメント</h3>
-                </div>
-                <div className="p-4"><p className="text-amber-900 whitespace-pre-wrap leading-relaxed text-sm italic">"{scenario.gm_comment}"</p></div>
-              </div>
-            )}
-
-            {characters.length > 0 && (
-              <div className="bg-white border border-gray-200" style={{ borderRadius: 0 }}>
-                <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2" style={{ backgroundColor: THEME.primary }}>
-                  <Users className="w-4 h-4 text-white" /><h3 className="font-semibold text-white text-sm">登場キャラクター</h3><span className="text-white/70 text-xs">({characters.length}人)</span>
-                </div>
-                <div className="p-4">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {[...characters].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((char, index) => (
-                      <div key={char.id ?? index} className={`flex flex-col ${char.is_npc ? 'ring-2 ring-amber-300' : ''}`} style={{ borderRadius: 0 }}>
-                        <div className="relative w-full overflow-hidden" style={{ borderRadius: 0 }}>
-                          {char.image_url ? (
-                            <div className="w-full aspect-[3/4] overflow-hidden" style={{ backgroundColor: char.background_color || '#e5e7eb' }}>
-                              <img src={char.image_url} alt={char.name} className="w-full h-full object-cover" style={{ objectPosition: char.image_position ? (char.image_position.includes(' ') ? `${char.image_position.split(' ')[0]}% ${char.image_position.split(' ')[1]}%` : `center ${char.image_position}`) : '50% 50%', transform: char.image_scale ? `scale(${char.image_scale / 100})` : undefined }} />
-                            </div>
-                          ) : (
-                            <div className="w-full aspect-[3/4] bg-gray-200 flex items-center justify-center"><Users className="w-10 h-10 text-gray-400" /></div>
-                          )}
-                          {char.is_npc && <span className="absolute top-1.5 left-1.5 text-[10px] font-bold bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-sm shadow z-[1]">NPC</span>}
-                          <div className="absolute bottom-0 left-0 right-0 px-2 pt-6 pb-2" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)' }}>
-                            <p className="font-semibold text-white text-xs leading-tight drop-shadow">{char.name}{char.first_person && <span className="ml-1 font-normal text-white/70">（{char.first_person}）</span>}</p>
-                            {(char.age || char.occupation) && <p className="text-[10px] text-white/80 mt-0.5 leading-tight">{[char.age, char.occupation].filter(Boolean).join(' / ')}</p>}
-                          </div>
-                        </div>
-                        {char.description && (
-                          <div className="px-2 py-2 bg-zinc-900 border-t border-zinc-800">
-                            <p className="text-[10px] text-zinc-300 leading-relaxed whitespace-pre-wrap break-words">{char.description}</p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="bg-white border border-gray-200" style={{ borderRadius: 0 }}>
-              <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between" style={{ backgroundColor: THEME.primary }}>
-                <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-white" /><h3 className="font-semibold text-white text-sm">公演日程</h3></div>
-                <span className="text-white/70 text-xs">直近{eventsWithinMonth.length}件 / 全{events.length}件</span>
-              </div>
-              <div className="p-4">
-                {events.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">現在予定されている公演はありません</p>
-                ) : (
-                  <div className="space-y-3">
-                    {eventsWithinMonth.length > 0 ? (
-                      <div className="space-y-2">
-                        {eventsWithinMonth.map(event => {
-                          const dateInfo = formatDate(event.date)
-                          const available = getAvailableSeats({ current_participants: event.current_participants }, event.player_count_max)
-                          const isFull = available <= 0
-                          return (
-                            <div key={event.id} className={`flex items-center justify-between p-3 border cursor-pointer transition-all ${isFull ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50 hover:shadow-sm'}`} style={{ borderRadius: 0 }} onClick={() => handleEventClick(event)}>
-                              <div className="flex items-center gap-3">
-                                <span className="w-1 h-10 flex-shrink-0" style={{ backgroundColor: event.store_color ? getColorFromName(event.store_color) : THEME.primary }} />
-                                <div>
-                                  <div className={`font-medium ${dateInfo.isSunday ? 'text-red-600' : dateInfo.isSaturday ? 'text-blue-600' : 'text-gray-900'}`}>
-                                    {dateInfo.full}{event.start_time && <span className="ml-2 font-normal text-gray-600">{event.start_time.slice(0, 5)}</span>}
-                                  </div>
-                                  <div className="flex items-center gap-2 text-sm text-gray-500"><Building2 className="w-3 h-3" /><span>{event.organization_name}</span><MapPin className="w-3 h-3" /><span>{event.store_short_name}</span></div>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                {isFull ? <span className="text-sm text-gray-500">満席</span> : <span className={`text-sm font-medium ${isFewSeats(available) ? 'text-orange-600' : 'text-gray-600'}`}>{seatCountText(event.current_participants, event.player_count_max)}{isFewSeats(available) && <b className="ml-1">残少</b>}</span>}
-                                <ChevronRight className="w-4 h-4 text-gray-400" />
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 bg-gray-50 text-muted-foreground">現在予定されている公演はありません</div>
-                    )}
-
-                    {eventsAfterMonth.length > 0 && (
-                      <div className="mt-4">
-                        <Button variant="outline" onClick={() => setIsEventsExpanded(!isEventsExpanded)} className="w-full gap-2" style={{ borderRadius: 0 }}>
-                          {isEventsExpanded ? <><ChevronUp className="w-4 h-4" />閉じる</> : <><ChevronDown className="w-4 h-4" />残りの公演を見る（{eventsAfterMonth.length}件）</>}
-                        </Button>
-                        {isEventsExpanded && (
-                          <div className="mt-3 space-y-2">
-                            {eventsAfterMonth.map(event => {
-                              const dateInfo = formatDate(event.date)
-                              const available = getAvailableSeats({ current_participants: event.current_participants }, event.player_count_max)
-                              const isFull = available <= 0
-                              return (
-                                <div key={event.id} className={`flex items-center justify-between p-3 border cursor-pointer transition-all ${isFull ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50 hover:shadow-sm'}`} style={{ borderRadius: 0 }} onClick={() => handleEventClick(event)}>
-                                  <div className="flex items-center gap-3">
-                                    <span className="w-1 h-10 flex-shrink-0" style={{ backgroundColor: event.store_color ? getColorFromName(event.store_color) : THEME.primary }} />
-                                    <div>
-                                      <div className={`font-medium ${dateInfo.isSunday ? 'text-red-600' : dateInfo.isSaturday ? 'text-blue-600' : 'text-gray-900'}`}>
-                                        {dateInfo.full}{event.start_time && <span className="ml-2 font-normal text-gray-600">{event.start_time.slice(0, 5)}</span>}
-                                      </div>
-                                      <div className="flex items-center gap-2 text-sm text-gray-500"><Building2 className="w-3 h-3" /><span>{event.organization_name}</span><MapPin className="w-3 h-3" /><span>{event.store_short_name}</span></div>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-3">
-                                    {isFull ? <span className="text-sm text-gray-500">満席</span> : <span className={`text-sm font-medium ${isFewSeats(available) ? 'text-orange-600' : 'text-gray-600'}`}>{seatCountText(event.current_participants, event.player_count_max)}{isFewSeats(available) && <b className="ml-1">残少</b>}</span>}
-                                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {(eventsByOrg.length > 0 || availableOrganizations.length > 0) && (
-              <div className="bg-white border border-gray-200" style={{ borderRadius: 0 }}>
-                <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2" style={{ backgroundColor: THEME.primary }}>
-                  <Building2 className="w-4 h-4 text-white" /><h3 className="font-semibold text-white text-sm">遊べる店舗</h3>
-                </div>
-                <div className="p-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {eventsByOrg.map(({ org, events: orgEvents }) => {
-                      const orgInfo = availableOrganizations.find(o => o.slug === org.slug)
-                      return (
-                        <div key={org.slug} className="p-4 border border-gray-200" style={{ borderRadius: 0 }}>
-                          <div className="mb-3"><h4 className="font-medium text-gray-900">{org.name}</h4><p className="text-sm text-gray-500">{orgEvents.length}件の公演予定</p></div>
-                          <div className="flex gap-2">
-                            <button onClick={() => { saveScrollPositionForCurrentUrl(); navigate(`/${org.slug}`) }} className="flex-1 py-2 px-3 text-sm text-gray-700 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2" style={{ borderRadius: 0 }}>
-                              <Building2 className="w-4 h-4" />店舗トップ
-                            </button>
-                            {orgInfo && (
-                              <button onClick={() => { saveScrollPositionForCurrentUrl(); navigate(`/${org.slug}/scenario/${scenarioSlug}?tab=private`) }} className="flex-1 py-2 px-3 text-sm text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100 transition-colors flex items-center justify-center gap-2" style={{ borderRadius: 0 }}>
-                                <Calendar className="w-4 h-4" />貸切リクエスト
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                    {availableOrganizations.filter(org => !eventsByOrg.some(e => e.org.slug === org.slug)).map(org => (
-                      <div key={org.slug} className="p-4 border border-gray-200" style={{ borderRadius: 0 }}>
-                        <div className="mb-3"><h4 className="font-medium text-gray-900">{org.name}</h4><p className="text-sm text-gray-500">公演予定未定</p></div>
-                        <div className="flex gap-2">
-                          <button onClick={() => { saveScrollPositionForCurrentUrl(); navigate(`/${org.slug}`) }} className="flex-1 py-2 px-3 text-sm text-gray-700 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2" style={{ borderRadius: 0 }}>
-                            <Building2 className="w-4 h-4" />店舗トップ
-                          </button>
-                          <button onClick={() => { saveScrollPositionForCurrentUrl(); navigate(`/${org.slug}/scenario/${scenarioSlug}?tab=private`) }} className="flex-1 py-2 px-3 text-sm text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100 transition-colors flex items-center justify-center gap-2" style={{ borderRadius: 0 }}>
-                            <Calendar className="w-4 h-4" />貸切リクエスト
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
+
+          {(scenario.synopsis || scenario.description) && (
+            <section className="border-t border-gray-200 px-4 py-6">
+              <h3 className="text-lg font-bold">あらすじ</h3>
+              <p className={cn('mt-3 whitespace-pre-wrap text-sm leading-relaxed', shouldTruncateSynopsis && !isSynopsisExpanded && 'line-clamp-5')}>
+                {scenario.synopsis || scenario.description}
+              </p>
+              {shouldTruncateSynopsis && (
+                <button type="button" onClick={() => setIsSynopsisExpanded((v) => !v)} className="mt-2 text-sm underline underline-offset-4">
+                  {isSynopsisExpanded ? '閉じる' : '続きを読む'}
+                </button>
+              )}
+            </section>
+          )}
+
+          {playableCharacters.length > 0 && (
+            <section className="border-t border-gray-200 px-4 py-6">
+              <h3 className="text-lg font-bold">キャラクター</h3>
+              <div className="mt-3 grid grid-cols-3 gap-3">
+                {(showAllCharacters ? playableCharacters : playableCharacters.slice(0, 3)).map((c) => (
+                  <div key={c.id} className="min-w-0">
+                    <div className="aspect-[4/3] overflow-hidden bg-gray-100" style={c.background_color ? { backgroundColor: c.background_color } : undefined}>
+                      {c.image_url && <img src={c.image_url} alt="" className="h-full w-full object-cover" style={{ objectPosition: c.image_position ?? 'center' }} />}
+                    </div>
+                    <p className="mt-1.5 truncate text-sm font-bold">{c.name}</p>
+                    <p className="truncate text-2xs text-muted-foreground">{[genderLabel(c.gender), c.age].filter(Boolean).join('・')}</p>
+                  </div>
+                ))}
+              </div>
+              {playableCharacters.length > 3 && (
+                <button type="button" onClick={() => setShowAllCharacters((v) => !v)} className="mt-3 text-sm underline underline-offset-4">
+                  {showAllCharacters ? '閉じる' : `${playableCharacters.length}人すべて見る`}
+                </button>
+              )}
+            </section>
+          )}
+
+          <section id="where-to-play" className="border-t border-gray-200 px-4 py-6">
+            <h3 className="text-lg font-bold">この作品を遊べる店舗</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              全国{playGroups.orgCount}組織・{playGroups.groups.length}エリア。組織に関係なく、公演が近い順に並んでいます
+            </p>
+            {playGroups.regions.length > 1 && (
+              <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1 scroll-row" role="group" aria-label="地域">
+                {[null, ...playGroups.regions].map((r) => (
+                  <RenewalChip key={r ?? 'all'} selected={regionFilter === r} onClick={() => setRegionFilter(r)}>{r ?? 'すべての地域'}</RenewalChip>
+                ))}
+              </div>
+            )}
+            <div className="mt-4 space-y-3">
+              {playGroups.groups.filter((g) => !regionFilter || g.region === regionFilter).map((g) => {
+                const next = g.events[0]
+                return (
+                  <div key={g.key} className="border border-gray-200 p-4">
+                    <p className="text-base font-bold">
+                      <span className="text-[#003437]">{g.orgName}</span>
+                      {g.region && <span className="ml-3">{g.region}エリア</span>}
+                    </p>
+                    {g.stores.length > 0 && <p className="mt-1 text-xs text-muted-foreground">店舗：{g.stores.join('・')}</p>}
+                    <p className="mt-1 text-xs">
+                      {next
+                        ? <>公演　次は {formatJstMonthDay(next.date, true)} {next.start_time.slice(0, 5)} {next.store_short_name}・{seatText(next)}{g.events.length > 1 ? `　ほか${g.events.length - 1}回` : ''}</>
+                        : 'まだ公演の予定はありません'}
+                    </p>
+                    <div className="mt-3 flex gap-2">
+                      <button type="button" onClick={() => openOrg(g.orgSlug)} className="flex h-11 flex-1 items-center justify-center border border-gray-300 text-sm font-bold hover:bg-gray-50">公演を見る ›</button>
+                      {g.privateOk && (
+                        <button type="button" onClick={() => openOrg(g.orgSlug, true)} className="flex h-11 flex-1 items-center justify-center text-sm font-bold text-white hover:opacity-90" style={{ backgroundColor: PRIVATE_PURPLE }}>
+                          貸切の空きを見る ›
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+              {playGroups.groups.length === 0 && <p className="bg-muted/50 p-4 text-center text-sm text-muted-foreground">いま、この作品を受け付けている店舗はありません。</p>}
+            </div>
+            <p className="mt-4 bg-gray-100 p-3 text-xs leading-relaxed text-muted-foreground">料金・キャンセル規定・支払いは組織ごとに違います。予約・貸切の申込は各組織のページで行います。</p>
+          </section>
+
+          <section className="border-t border-gray-200 px-4 py-6">
+            <h3 className="text-lg font-bold">遊ぶ前に</h3>
+            <ul className="mt-3 space-y-2 text-sm leading-relaxed">
+              <li>・一度遊んだ作品は、別の店舗でも参加できません（物語の結末を知っているため）</li>
+              <li>・遊んだ作品はマイページのアルバムに自動で残ります</li>
+            </ul>
+          </section>
         </div>
       </div>
 
@@ -753,4 +603,12 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       </Dialog>
     </div>
   )
+}
+
+function genderLabel(g?: string | null): string | null {
+  if (!g) return null
+  if (g === 'male') return '男性'
+  if (g === 'female') return '女性'
+  if (g === 'other' || g === 'any') return null
+  return g
 }

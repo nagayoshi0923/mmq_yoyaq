@@ -39,9 +39,27 @@ function getOrgSlugFromUrl(): string | null {
 interface HeaderProps {
   onPageChange?: (pageId: string) => void
   backgroundColor?: string
+  /**
+   * customer: お客様画面の見本どおりの細いバー（MMQは白地に赤ロゴ、組織ページは組織の色に「組織名 on MMQ」）
+   * admin: 管理画面用（これまでの赤いバー）
+   */
+  variant?: 'customer' | 'admin'
 }
 
-export const Header = memo(function Header({ onPageChange, backgroundColor }: HeaderProps) {
+/** localStorage に残っている訪問組織（slug が一致するときだけ、名前を先に出してチラつきを減らす） */
+function readCachedVisitedOrg(slug: string | null): { slug: string; name: string } | null {
+  if (!slug || typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(VISITED_ORG_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { slug?: string; name?: string }
+    return parsed.slug === slug && parsed.name ? { slug: parsed.slug, name: parsed.name } : null
+  } catch {
+    return null
+  }
+}
+
+export const Header = memo(function Header({ onPageChange, backgroundColor, variant = 'customer' }: HeaderProps) {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
   const { organization: staffOrganization, organizationId } = useOrganization()
@@ -165,6 +183,85 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
 
   // 組織の公開ページのみテーマカラーを適用、管理ページはデフォルト
   const headerBgColor = backgroundColor ?? (isPublicOrgPage ? themePreset.primary : THEME.primary)
+
+  if (variant === 'customer') {
+    // 組織の公開ページでは、URL の組織（スタッフの所属組織ではない）を出す
+    const urlOrg = isPublicOrgPage && urlSlug
+      ? (visitedOrganization?.slug === urlSlug
+          ? { slug: visitedOrganization.slug, name: visitedOrganization.name }
+          : readCachedVisitedOrg(urlSlug))
+      : null
+    const onOrg = !!urlOrg
+    const textTone = onOrg ? 'text-white' : 'text-foreground'
+    const linkClass = `inline-flex h-11 items-center px-1 text-sm ${textTone} hover:opacity-70 transition-opacity`
+    return (
+      <header
+        className={`relative h-12 ${onOrg ? '' : 'bg-white border-b border-gray-200'}`}
+        style={{ zIndex: 40, ...(onOrg ? { backgroundColor: backgroundColor ?? themePreset.primary } : {}) }}
+        data-testid="customer-header"
+      >
+        <div className="mx-auto flex h-full max-w-5xl items-center justify-between gap-2 px-4">
+          {urlOrg ? (
+            <div className="flex min-w-0 items-baseline gap-3">
+              <button
+                type="button"
+                onClick={() => navigate(`/${urlOrg.slug}`)}
+                className="truncate text-base font-bold tracking-[1px] text-white hover:opacity-80"
+                title={`${urlOrg.name}の予約サイトへ`}
+                {...devDb('organizations.name')}
+              >
+                {urlOrg.name}
+              </button>
+              <button
+                type="button"
+                onClick={handlePlatformClick}
+                className="shrink-0 text-2xs text-white/90 hover:opacity-80"
+                title="MMQトップへ"
+              >
+                on MMQ
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handlePlatformClick}
+              className="text-lg font-black leading-none tracking-[1px] hover:opacity-80"
+              style={{ color: THEME.primary }}
+              title="MMQトップへ"
+            >
+              MMQ
+            </button>
+          )}
+          <div className="flex shrink-0 items-center gap-3">
+            {user ? (
+              <>
+                {isStaffOrAdmin && (
+                  <button type="button" onClick={handleDashboardClick} className={linkClass} aria-label="管理サイトへ">
+                    管理
+                  </button>
+                )}
+                <NotificationDropdown tone={onOrg ? 'dark' : 'light'} />
+                <button type="button" onClick={handleMyPageClick} className={linkClass}>
+                  マイページ
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className={linkClass}
+                onClick={() => {
+                  // 今見ている画面に戻れるよう戻り先を付ける（トップ・認証画面なら付かない）
+                  window.location.href = buildAuthUrl('login', currentPathWithSearch())
+                }}
+              >
+                ログイン
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+    )
+  }
 
   return (
     <>

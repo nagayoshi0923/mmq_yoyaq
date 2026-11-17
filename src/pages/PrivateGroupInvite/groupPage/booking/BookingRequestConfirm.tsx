@@ -32,7 +32,7 @@ export function BookingRequestConfirm(props: BookingRequestConfirmProps) {
     <div className="flex flex-col gap-4" data-testid="request-confirm">
       <section aria-label="申し込む内容">
         <h2 className="text-sm font-bold">申し込む内容</h2>
-        <dl className="mt-1.5 divide-y divide-border rounded-lg border border-border text-sm">
+        <dl className="mt-1.5 divide-y divide-border border border-gray-200 text-sm">
           <Row label="候補日">
             <ol className="space-y-0.5">
               {picked.map((c, i) => <li key={c.id}>第 {i + 1} 希望 {c.label}</li>)}

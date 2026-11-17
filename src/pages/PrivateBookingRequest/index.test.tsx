@@ -97,7 +97,7 @@ it('送信直前に最新時刻が変わっていれば画面へ反映して再�
   await render()
   expect(host.textContent).toContain('夜 19:30 - 22:30')
   start = '19:00'; end = '22:00'
-  const button = [...host.querySelectorAll('button')].find(button => button.textContent?.includes('貸切リクエストを送信'))!
+  const button = [...host.querySelectorAll('button')].find(button => button.textContent?.includes('この内容で申し込む'))!
   await act(async () => button.click()); await flush()
   expect(host.textContent).toContain('最新の空き状況に合わせて候補時刻を更新しました')
   expect(host.textContent).toContain('19:00')
@@ -121,13 +121,13 @@ it('送信の失敗（DB の英字のコード）は日本語にして、送信�
   props.selectedTimeSlots = [{ date, slot: { label: '夜', startTime: '19:00', endTime: '22:00' } }]
   mocks.create.mockRejectedValue(Object.assign(new Error('PRIVATE_BOOKING_OUTSIDE_PERFORMANCE_PERIOD'), { code: 'P0054' }))
   await render()
-  const button = [...host.querySelectorAll('button')].find(button => button.textContent?.includes('貸切リクエストを送信'))!
+  const button = [...host.querySelectorAll('button')].find(button => button.textContent?.includes('この内容で申し込む'))!
   await act(async () => button.click()); await flush()
   const alert = host.querySelector('[data-testid="private-request-error"]')!
   expect(alert.textContent).toContain('この作品の公演期間外の候補日があります')
   expect(host.textContent).not.toContain('PRIVATE_BOOKING_OUTSIDE_PERFORMANCE_PERIOD')
   // ボタンの直前（同じ囲みの中で、ボタンの 1 つ前）
-  expect(alert.nextElementSibling?.textContent).toContain('貸切リクエストを送信')
+  expect(alert.nextElementSibling?.textContent).toContain('この内容で申し込む')
 })
 
 it('点検 F09: 送信を二度押し（同じ描画のうちに 2 回）しても、グループの作成と申込は 1 回だけ', async () => {
@@ -137,7 +137,7 @@ it('点検 F09: 送信を二度押し（同じ描画のうちに 2 回）して�
   mocks.create.mockImplementation(() => new Promise((resolve) => { release = () => resolve({ id: 'group-1', invite_code: 'X' }) }))
   mocks.submit.mockResolvedValue(undefined)
   await render()
-  const button = [...host.querySelectorAll('button')].find(button => button.textContent?.includes('貸切リクエストを送信'))!
+  const button = [...host.querySelectorAll('button')].find(button => button.textContent?.includes('この内容で申し込む'))!
   await act(async () => { button.click(); button.click() })
   await flush()
   expect(button.disabled).toBe(true)
@@ -188,7 +188,7 @@ it('監査 R1: 店舗の特別営業日で DB が 14:00〜18:00 を返したら�
   expect(host.textContent).not.toContain('17:00')
 
   // 送信: 送信前の再検証も同じ応答なので書き換えず、グループ作成に 18:00 を渡す
-  await act(async () => buttonByText('貸切リクエストを送信').click()); await flush()
+  await act(async () => buttonByText('この内容で申し込む').click()); await flush()
   expect(host.textContent).not.toContain('最新の空き状況に合わせて候補時刻を更新しました')
   expect(mocks.create).toHaveBeenCalledTimes(1)
   expect(mocks.create.mock.calls[0][0].candidateDates).toEqual([
@@ -255,7 +255,7 @@ describe('確認ページで希望店舗を変更する（QW-20261022-013）', (
     expect(mocks.rpc.mock.calls.some(([n, p]: any) => n === 'private_booking_candidate_slot_availability' && p.p_store_ids.join(',') === 'store2')).toBe(true)
     // 送信データも同じ店舗
     expect(mocks.submitArgs?.selectedStoreIds).toEqual(['store2'])
-    await act(async () => buttonByText('貸切リクエストを送信').click()); await flush()
+    await act(async () => buttonByText('この内容で申し込む').click()); await flush()
     expect(mocks.create).toHaveBeenCalledTimes(1)
     expect(mocks.create.mock.calls[0][0].preferredStoreIds).toEqual(['store2'])
     expect(mocks.submit).toHaveBeenCalledTimes(1)
@@ -312,17 +312,17 @@ describe('料金: 組織の独自休日が分からないとき（2026-10-25 社
     holidayLoad.error = '休日設定を取得できません。画面を再読み込みしてください。'
     await renderWeekday()
     expect(host.textContent).toContain('確認できません')
-    expect(host.textContent).not.toContain('¥24,000')
+    expect(host.textContent).not.toContain('24,000円')
     expect(host.querySelector('[data-testid="private-request-fee-error"]')?.textContent).toContain('再読み込み')
   })
   it('読み込み中は「確認中」、読めたら平日の料金', async () => {
     holidayLoad.isLoading = true
     await renderWeekday()
     expect(host.textContent).toContain('確認中')
-    expect(host.textContent).not.toContain('¥24,000')
+    expect(host.textContent).not.toContain('24,000円')
     holidayLoad.isLoading = false
     await renderWeekday()
-    expect(host.textContent).toContain('¥24,000')
+    expect(host.textContent).toContain('24,000円')
   })
 })
 
@@ -332,11 +332,11 @@ describe('#985: ログインをはさんでも入力途中の内容が残る', (
     const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!
     await act(async () => { setter.call(el, value); el.dispatchEvent(new Event('input', { bubbles: true })) })
   }
-  it('未ログインで備考を書いて「ログインして貸切リクエスト」→ ログイン後に同じ画面へ戻ると備考が残る', async () => {
+  it('未ログインで備考を書いて「ログインして申し込む」→ ログイン後に同じ画面へ戻ると備考が残る', async () => {
     nav.user = null
     await render()
     await type(textarea(), 'アレルギーがあります')
-    const login = [...host.querySelectorAll('button')].find((b) => b.textContent?.includes('ログインして貸切リクエスト'))!
+    const login = [...host.querySelectorAll('button')].find((b) => b.textContent?.includes('ログインして申し込む'))!
     await act(async () => { login.click() })
     expect(nav.navigate).toHaveBeenCalledTimes(1)
     expect(String(nav.navigate.mock.calls[0][0])).toContain('/login')
@@ -354,7 +354,7 @@ describe('#985: ログインをはさんでも入力途中の内容が残る', (
     nav.user = null
     await render()
     await type(textarea(), '別作品へは持ち込まない')
-    const login = [...host.querySelectorAll('button')].find((b) => b.textContent?.includes('ログインして貸切リクエスト'))!
+    const login = [...host.querySelectorAll('button')].find((b) => b.textContent?.includes('ログインして申し込む'))!
     await act(async () => { login.click() })
     await act(async () => root.unmount()); root = createRoot(host)
     nav.user = { id: 'user', email: 'fixture@example.invalid' }
