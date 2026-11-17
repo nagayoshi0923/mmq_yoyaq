@@ -150,7 +150,7 @@ export function MyPageContent({
     return (
       <div
         key={playedScenarioAlbumKey(scenario)}
-        className={`overflow-hidden bg-white shadow-sm hover:shadow-lg border border-gray-200 hover:border-gray-300 group relative rounded-none ${isHidden || isDeleted || isOverridden ? 'opacity-50' : ''}`}
+        className={`overflow-hidden bg-white border border-gray-200 group relative rounded-none ${isHidden || isDeleted || isOverridden ? 'opacity-50' : ''}`}
       >
         {/* ステータスバッジ（未体験＞削除済み＞非表示 の優先） */}
         {(isOverridden || isHidden || isDeleted) && (
@@ -160,7 +160,7 @@ export function MyPageContent({
         )}
         {/* 画像部分 */}
         <div
-          className="aspect-[4/3] relative bg-gray-100 cursor-pointer"
+          className="aspect-[3/4] relative bg-gray-100 cursor-pointer"
           onClick={() => {
             if (scenario.scenario_id) {
               const scenarioSlug = scenario.scenario_slug || scenario.scenario_id
@@ -611,16 +611,13 @@ export function MyPageContent({
             )}
 
             {activeTab === 'album' && (
-              <div className="space-y-6">
+              <div className="space-y-3">
                 {/* 踏破率 - シャープデザイン */}
-                <div className="bg-white shadow-sm p-6 border border-gray-200 rounded-none">
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="font-bold text-gray-900">体験済みシナリオ</h2>
-                    <span className="text-2xl font-bold text-mypage-primary">{experiencedCount}作品</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="ts-muted">
-                      これまでに参加したマーダーミステリーの記録です
+                <div className="border border-gray-200 bg-white p-4">
+                  <h2 className="text-lg font-bold">遊んだ作品（{experiencedCount}作品）</h2>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      ほかの店舗で遊んだ作品も記録できます
                     </p>
                     <AddPlayHistoryDialog
                       isAddDialogOpen={isAddDialogOpen}
@@ -644,10 +641,7 @@ export function MyPageContent({
                 {playedScenarios.length > 0 ? (
                   <div>
                     <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-                      <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        <span className="w-1 h-6 rounded-full bg-mypage-primary"></span>
-                        体験済みシナリオ
-                      </h2>
+                      <h2 className="text-base font-bold">遊んだ作品の一覧</h2>
                       <div className="flex items-center gap-2">
                         {/* ソート */}
                         <select
@@ -669,14 +663,14 @@ export function MyPageContent({
                         return <p className="ts-muted text-gray-400 py-6 text-center">表示中の体験済みシナリオはありません</p>
                       }
                       return (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                           {shown.sort(albumComparator).map(renderAlbumCard)}
                         </div>
                       )
                     })()}
                   </div>
                 ) : (
-                  <div className="bg-white shadow-sm p-8 text-center border border-gray-200 rounded-none">
+                  <div className="bg-white p-8 text-center border border-gray-200 rounded-none">
                     <div 
                       className="w-16 h-16 flex items-center justify-center mx-auto mb-4 bg-mypage-primary-light rounded-none"
                     >
