@@ -11,11 +11,11 @@
 .wpt__stores { padding-top: 18px; }
 .wpt__chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .wpt__stores .wpt__chips { margin-top: 8px; }
-.wpt__stores .wpt__hint { margin-top: 10px; }
+.wpt__stores .wpt__hint, .wpt__dates-head .wpt__hint { margin-top: 4px; }
 .wpt__chip { height: 36px; border-radius: 18px; border: 1px solid #cfcfcf; background: #fff; padding: 0 13px; font-size: 14px; color: #111; white-space: nowrap; }
 .wpt__chip.is-on { border-color: #6d28d9; background: #6d28d9; color: #fff; font-weight: 700; }
 
-.wpt__dates-head { margin-top: 23px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.wpt__dates-head { margin-top: 23px; }
 .wpt__filters { margin-top: 8px; }
 .wpt__full { margin-top: 15px; display: flex; align-items: center; gap: 13px; font-size: 13px; color: #111; }
 .wpt__full input { width: 20px; height: 20px; margin: 0; accent-color: #6d28d9; }

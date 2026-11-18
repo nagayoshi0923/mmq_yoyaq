@@ -176,6 +176,8 @@ export function WorkPrivateTab({
       {stores.length > 0 && (
         <div className="wpt__stores">
           <p className="wpt__title">店舗（この作品を貸切できる店舗）</p>
+          {/* 補足は見出しのすぐ下にそろえる（2026-11-18 えいきち「補足説明の場所に法則性がない」）。開催店舗は選んだ店舗の中から店舗側が決める */}
+          <p className="wpt__hint">選択した店舗のいずれかになります。</p>
           <div className="wpt__chips">
             {stores.map((s) => {
               const on = selectedStoreIds.includes(s.id)
@@ -186,8 +188,6 @@ export function WorkPrivateTab({
               )
             })}
           </div>
-          {/* 開催店舗は選んだ店舗の中から店舗側が決める（2026-11-18 えいきち指示で明記） */}
-          <p className="wpt__hint">選択した店舗のいずれかになります。</p>
         </div>
       )}
 
