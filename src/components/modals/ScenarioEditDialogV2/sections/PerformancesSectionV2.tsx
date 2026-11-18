@@ -532,7 +532,8 @@ export function PerformancesSectionV2({
       </div>
 
       {/* ── これからの公演（予約数） ── */}
-      {(upcomingPerformances.length > 0 || futureReservationCount > 0) && (() => {
+      {/* 予定が無いときも欄は出す（無いことが分かるように） */}
+      {(() => {
         const upcomingTotal = upcomingPerformances.reduce((sum, p) => sum + p.reservedParticipants, 0)
         const upcomingZero = upcomingPerformances.filter(p => p.reservedParticipants === 0).length
         return (
@@ -550,6 +551,9 @@ export function PerformancesSectionV2({
               <div className="mb-2 text-xs text-muted-foreground">
                 日程未確定の貸切リクエスト: {futureReservationCount}件
               </div>
+            )}
+            {upcomingPerformances.length === 0 && (
+              <div className="text-sm text-muted-foreground">明日以降の公演はまだ入っていません</div>
             )}
             <div className="space-y-2">
               {upcomingPerformances.map((perf, index) => {
