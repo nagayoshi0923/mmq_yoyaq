@@ -557,7 +557,8 @@ export function PerformancesSectionV2({
                 const categoryInfo = CATEGORY_LABELS[perf.category] || CATEGORY_LABELS.open
                 const timeSlot = getTimeSlot(perf.startTime)
                 const timeSlotInfo = TIME_SLOT_LABELS[timeSlot] || TIME_SLOT_LABELS['昼']
-                const isFull = perf.maxParticipants != null && perf.reservedParticipants >= perf.maxParticipants
+                // 予約受付はスタッフ参加も席に数えるので、満席判定は合計で行う
+                const isFull = perf.maxParticipants != null && perf.reservedParticipants + perf.staffParticipants >= perf.maxParticipants
                 return (
                   <div
                     key={`${perf.date}-${perf.startTime}-${index}`}

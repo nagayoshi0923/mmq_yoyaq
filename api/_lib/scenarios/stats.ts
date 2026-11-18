@@ -273,6 +273,7 @@ export async function handleGetScenarioStats(req: VercelRequest, res: VercelResp
     store_id: string | null
     current_participants: number | null
     max_participants: number | null
+    capacity: number | null
   }
   const upcomingList = (upcomingRaw ?? []) as unknown as UpcomingRow[]
   const upcomingReserved: Record<string, { participants: number; staff: number; reservations: number }> = {}
@@ -311,7 +312,8 @@ export async function handleGetScenarioStats(req: VercelRequest, res: VercelResp
       reservedParticipants: reserved ? reserved.participants : (event.current_participants ?? 0),
       staffParticipants: reserved?.staff ?? 0,
       reservationCount: reserved?.reservations ?? 0,
-      maxParticipants: event.max_participants ?? scenarioData?.player_count_max ?? null,
+      // 予約受付（COALESCE(max_participants, capacity, …)）と同じ順で定員を決める
+      maxParticipants: event.max_participants ?? event.capacity ?? scenarioData?.player_count_max ?? null,
     }
   })
 

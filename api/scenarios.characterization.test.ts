@@ -99,7 +99,7 @@ beforeEach(() => {
       ev('e-cancel', { date: '2026-09-13', is_cancelled: true }),
       ev('e-recorded', { date: '2026-09-14', total_revenue: 8000, gm_cost: 4000, license_cost: 700 }),
       ev('e-future', { date: '2026-10-10', start_time: '19:00:00', max_participants: 6 }),
-      ev('e-future-empty', { date: '2026-10-11', category: 'private', current_participants: 0, max_participants: null }),
+      ev('e-future-empty', { date: '2026-10-11', category: 'private', current_participants: 0, max_participants: null, capacity: 5 }),
     ],
     reservations: [
       res_('e-normal', { participant_count: 4 }),
@@ -213,7 +213,7 @@ describe('api/scenarios.ts 統計の出力（分割前の現状を固定）', ()
           {
             "category": "private",
             "date": "2026-10-11",
-            "maxParticipants": 6,
+            "maxParticipants": 5,
             "reservationCount": 0,
             "reservedParticipants": 0,
             "staffParticipants": 0,

@@ -141,7 +141,7 @@ export const STATS_FUTURE_RESERVATION_FIELDS = 'id'
 
 // これからの公演（予約状況の表示用）
 export const STATS_UPCOMING_EVENT_FIELDS =
-  'id, date, category, start_time, store_id, current_participants, max_participants'
+  'id, date, category, start_time, store_id, current_participants, max_participants, capacity'
 
 // 席を押さえている予約の状態（src/lib/constants の ACTIVE_RESERVATION_STATUSES と同じ値）
 export const UPCOMING_RESERVATION_STATUSES = ['pending', 'confirmed', 'gm_confirmed', 'checked_in']
