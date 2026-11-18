@@ -4,7 +4,7 @@ import { loadCompensationHistory } from '../compensationHistory.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getParticipationFee, getLicenseAmount, type ScenarioPricing } from '../../../src/lib/pricing.js'
 import { SALES_RESERVATION_STATUSES } from '../sales/revenue.js'
-import { DEMO_RESERVATION_SOURCES, STAFF_RESERVATION_SOURCES, STATS_ALL_SCHEDULE_EVENT_FIELDS, STATS_FUTURE_RESERVATION_FIELDS, STATS_RESERVATION_FIELDS, STATS_SCENARIO_FIELDS, STATS_SCHEDULE_EVENT_COUNT_FIELDS, STATS_SCHEDULE_EVENT_DETAIL_FIELDS, db } from './common.js'
+import { DEMO_RESERVATION_SOURCES, STAFF_RESERVATION_SOURCES, STATS_ALL_SCHEDULE_EVENT_FIELDS, STATS_FUTURE_RESERVATION_FIELDS, STATS_RESERVATION_FIELDS, STATS_SCENARIO_FIELDS, STATS_SCHEDULE_EVENT_COUNT_FIELDS, STATS_SCHEDULE_EVENT_DETAIL_FIELDS, STATS_UPCOMING_EVENT_FIELDS, UPCOMING_RESERVATION_STATUSES, db } from './common.js'
 
 export async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, orgId: string) {
   if (!db) return res.status(500).json({ error: 'db unavailable' })
@@ -253,6 +253,70 @@ export async function handleGetScenarioStats(req: VercelRequest, res: VercelResp
     .is('schedule_event_id', null)
     .in('status', ['confirmed', 'gm_confirmed', 'pending'])
 
+  // ── これからの公演と予約数（明日以降・出張以外・中止以外） ─────────────────
+  const { data: upcomingRaw, error: upcomingError } = await db
+    .from('schedule_events')
+    .select(STATS_UPCOMING_EVENT_FIELDS)
+    .eq('scenario_master_id', scenarioId)
+    .eq('organization_id', orgId)
+    .gt('date', today)
+    .neq('category', 'offsite')
+    .neq('is_cancelled', true)
+    .order('date', { ascending: true })
+    .order('start_time', { ascending: true })
+  if (upcomingError) throw upcomingError
+  type UpcomingRow = {
+    id: string
+    date: string
+    category: string | null
+    start_time: string | null
+    store_id: string | null
+    current_participants: number | null
+    max_participants: number | null
+    capacity: number | null
+  }
+  const upcomingList = (upcomingRaw ?? []) as unknown as UpcomingRow[]
+  const upcomingReserved: Record<string, { participants: number; staff: number; reservations: number }> = {}
+  if (upcomingList.length > 0) {
+    const upcomingIds = upcomingList.map(e => e.id)
+    const BATCH_SIZE = 100
+    for (let i = 0; i < upcomingIds.length; i += BATCH_SIZE) {
+      const { data, error: upResError } = await db
+        .from('reservations')
+        .select(STATS_RESERVATION_FIELDS)
+        .eq('organization_id', orgId)
+        .in('schedule_event_id', upcomingIds.slice(i, i + BATCH_SIZE))
+        // 席を押さえている予約（定員計算と同じ。仮予約 pending を含む）
+        .in('status', UPCOMING_RESERVATION_STATUSES)
+      if (upResError) throw upResError
+      for (const r of (data ?? []) as unknown as Array<{ schedule_event_id: string | null; participant_count: number | null; reservation_source: string | null; payment_method: string | null }>) {
+        if (!r.schedule_event_id) continue
+        const entry = upcomingReserved[r.schedule_event_id] ?? (upcomingReserved[r.schedule_event_id] = { participants: 0, staff: 0, reservations: 0 })
+        const count = r.participant_count ?? 0
+        if (STAFF_RESERVATION_SOURCES.has(r.reservation_source ?? '') || r.payment_method === 'staff') {
+          entry.staff += count
+        } else {
+          entry.participants += count
+          entry.reservations += 1
+        }
+      }
+    }
+  }
+  const upcomingPerformances = upcomingList.map(event => {
+    const reserved = upcomingReserved[event.id]
+    return {
+      date: event.date,
+      category: event.category ?? 'open',
+      startTime: event.start_time ?? '',
+      storeId: event.store_id ?? null,
+      reservedParticipants: reserved ? reserved.participants : (event.current_participants ?? 0),
+      staffParticipants: reserved?.staff ?? 0,
+      reservationCount: reserved?.reservations ?? 0,
+      // 予約受付（COALESCE(max_participants, capacity, …)）と同じ順で定員を決める
+      maxParticipants: event.max_participants ?? event.capacity ?? scenarioData?.player_count_max ?? null,
+    }
+  })
+
   return res.status(200).json({
     performanceCount: perfCount,
     cancelledCount: cancelledCount ?? 0,
@@ -267,6 +331,7 @@ export async function handleGetScenarioStats(req: VercelRequest, res: VercelResp
     performanceDates,
     futurePerformanceCount: futurePerformanceCount ?? 0,
     futureReservationCount: futureReservationCount ?? 0,
+    upcomingPerformances,
   })
 }
 

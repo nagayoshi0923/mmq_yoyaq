@@ -139,6 +139,13 @@ export const STATS_RESERVATION_FIELDS =
 
 export const STATS_FUTURE_RESERVATION_FIELDS = 'id'
 
+// これからの公演（予約状況の表示用）
+export const STATS_UPCOMING_EVENT_FIELDS =
+  'id, date, category, start_time, store_id, current_participants, max_participants, capacity'
+
+// 席を押さえている予約の状態（src/lib/constants の ACTIVE_RESERVATION_STATUSES と同じ値）
+export const UPCOMING_RESERVATION_STATUSES = ['pending', 'confirmed', 'gm_confirmed', 'checked_in']
+
 // クライアント側の reservationSource 定数と一致させる必要があるが、
 // /api/* は ESM 単独で動くため、定数を直接列挙する（src/lib/constants の DEMO/STAFF と同じ値）。
 // 値がずれた場合の影響範囲は集計値のみ（権限境界には影響しない）。
