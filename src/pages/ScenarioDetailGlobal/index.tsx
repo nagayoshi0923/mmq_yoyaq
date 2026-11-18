@@ -36,6 +36,7 @@ import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { getAvailableSeats } from '@/lib/participantUtils'
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { JsonLd } from '@/components/seo/JsonLd'
+import { seatsLabel } from '@/components/renewal/labels'
 import {
   buildCreativeWorkJsonLd,
   buildEventJsonLd,
@@ -402,8 +403,8 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     navigate(`/${orgSlug}/scenario/${canonicalSlug}${privateTab ? '?tab=private' : ''}`)
   }
   const seatText = (e: EventWithOrg) => {
-    const left = getAvailableSeats(e)
-    return left <= 0 ? '満席' : `あと${left}席`
+    // 色の段階はほかの画面の「あと N 席」と同じ（renewal/labels の seatsLabel）
+    return seatsLabel(getAvailableSeats(e))
   }
   const handleShare = async () => {
     const url = `${window.location.origin}${canonicalPath}`
