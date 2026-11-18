@@ -28,6 +28,13 @@ import { ScenarioAboutSection } from '../groupPage/overview/ScenarioAboutSection
 import { useGroupScenarioInfo } from '../groupPage/useGroupScenarioInfo'
 import { scenarioPageUrl } from '../groupPage/overviewModel'
 import { loginUrlWithIntent } from '@/lib/authReturn'
+import type { DateResponse } from '@/types/privateGroup'
+import { formatJstMonthDay } from '@/utils/jstDate'
+import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
+import { PRIVATE_PURPLE } from '@/components/renewal/fonts'
+import { durationLabel, playersLabel } from '@/components/renewal/labels'
+import { cn } from '@/lib/utils'
+import { formatDateJST } from '@/utils/dateUtils'
 
 type GroupType = NonNullable<ReturnType<typeof usePrivateGroupByInviteCode>['group']>
 interface Coupon {
@@ -77,6 +84,9 @@ interface GroupInviteViewProps {
   perPersonPrice: number
   discountAmount: number
   finalAmount: number
+  /** 候補日ごとの回答（参加と同時に送る） */
+  responses: Record<string, DateResponse | null>
+  setResponses: React.Dispatch<React.SetStateAction<Record<string, DateResponse | null>>>
   setExistingMemberId: React.Dispatch<React.SetStateAction<string | null>>
   setGuestName: React.Dispatch<React.SetStateAction<string>>
   setGuestEmail: React.Dispatch<React.SetStateAction<string>>
@@ -97,7 +107,7 @@ export function GroupInviteView({
   group, scenario, organizerName, memberCount, inviteMemberCap, isGroupFull,
   user, code, existingMemberId, isScheduleConfirmedUi, actionLoading, error, guestMode, isCustomHoliday,
   guestName, guestEmail, pinEmail, pinCode, pinError, couponLoading, coupons, selectedCoupon, selectedCouponId,
-  perPersonPrice, discountAmount, finalAmount,
+  perPersonPrice, discountAmount, finalAmount, responses, setResponses,
   setExistingMemberId, setGuestName, setGuestEmail, setPinEmail, setPinCode, setSelectedCouponId,
   navigate, refetch, leaveGroup, openSheet, closeSheet, clearGuestSession,
   handlePinAuth, handleSubmit,
@@ -121,6 +131,72 @@ export function GroupInviteView({
   const goSignup = () => navigate(loginUrlWithIntent('signup', location.pathname, inviteIntentLabel))
   const isGuestJoin = !user && !existingMemberId
 
+  // 見本の並び: お誘い → 作品 → ①〜④ → 1. 行ける日に○ → 2. お名前 → 参加費と支払い方法 → 「この内容で答える」
+  const progress = privateGroupProgress(group, null)
+  const stepIndex = progress === 'confirmed' ? 2 : progress === 'requested' ? 1 : 0
+  const answerableDates = [...(group.candidate_dates ?? [])]
+    .filter(c => c.status !== 'rejected' && c.date.slice(0, 10) >= formatDateJST(new Date())) // 過ぎた候補日は答えさせない
+    .sort((a, b) => (a.date === b.date ? (a.start_time ?? '').localeCompare(b.start_time ?? '') : a.date.localeCompare(b.date)))
+  const isJoining = !existingMemberId && (isGuestJoin ? guestMode !== 'pin' : !!user)
+  const canAnswerDates = progress === 'gathering' && answerableDates.length > 0 && isJoining
+  const playerMin = scenario?.effective_player_count_min ?? scenario?.player_count_min ?? null
+  const playerMax = scenario?.effective_player_count_max ?? scenario?.player_count_max ?? null
+  const scenarioUrl = scenarioPageUrl(scenarioData?.orgSlug, scenarioData?.scenario?.slug ?? scenario?.slug, group.scenario_master_id ?? scenario?.id)
+
+  const feeSection = (perPersonPrice > 0 || preview.perPerson) ? (
+    <section className="border border-gray-200 bg-white p-4" data-testid="invite-fee">
+      <h2 className="text-lg font-bold">参加費と支払い方法</h2>
+      <dl className="mt-2 text-sm">
+        <div className="flex items-center justify-between gap-3 border-b border-gray-200 py-3">
+          <dt className="text-muted-foreground">参加費</dt>
+          <dd className="font-bold tabular-nums">{perPersonPrice > 0 ? `ひとり${perPersonPrice.toLocaleString()}円` : `ひとり${(preview.perPerson ?? '').replace(/¥/g, '')}円`}</dd>
+        </div>
+        {selectedCoupon && (
+          <div className="flex items-center justify-between gap-3 border-b border-gray-200 py-3 text-green-700">
+            <dt className="flex items-center gap-1"><Ticket className="w-4 h-4" aria-hidden="true" />クーポン割引</dt>
+            <dd className="tabular-nums">-{discountAmount.toLocaleString()}円</dd>
+          </div>
+        )}
+        {selectedCoupon && (
+          <div className="flex items-center justify-between gap-3 border-b border-gray-200 py-3">
+            <dt className="font-bold">お支払い金額</dt>
+            <dd className="text-lg font-bold tabular-nums">{finalAmount.toLocaleString()}円</dd>
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-3 border-b border-gray-200 py-3">
+          <dt className="text-muted-foreground">支払い方法</dt>
+          <dd className="text-right"><span className="font-bold">当日、店舗で</span><span className="block text-xs text-muted-foreground">現金・クレジットカード</span></dd>
+        </div>
+      </dl>
+      {selectedCouponId && discountAmount === 0 && <p className="mt-2 text-xs text-muted-foreground">選択中のクーポンは、日程確定後に利用条件を確認して割引を適用します。</p>}
+      {preview.priceNote && perPersonPrice <= 0 && <p className="mt-2 text-xs text-muted-foreground">{preview.priceNote}税込。</p>}
+      {user && perPersonPrice > 0 && (
+        <div className="mt-3">
+          <Label className="mb-2 flex items-center gap-1 text-sm font-bold"><Ticket className="w-4 h-4 text-amber-500" aria-hidden="true" />クーポンを使う</Label>
+          {couponLoading ? (
+            <p className="text-sm text-muted-foreground">読み込み中...</p>
+          ) : coupons.length > 0 ? (
+            <Select value={selectedCouponId || 'none'} onValueChange={(value) => setSelectedCouponId(value === 'none' ? null : value)}>
+              <SelectTrigger><SelectValue placeholder="クーポンを選択" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">クーポンを使用しない</SelectItem>
+                {coupons.map((coupon) => (
+                  <SelectItem key={coupon.id} value={coupon.id}>
+                    {coupon.name} - {coupon.discount_amount.toLocaleString()}円引き
+                    {coupon.expires_at && <span className="ml-1 text-xs text-muted-foreground">({formatJstDateJa(coupon.expires_at)}まで)</span>}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <p className="text-sm text-muted-foreground">利用可能なクーポンがありません</p>
+          )}
+        </div>
+      )}
+      {!user && perPersonPrice > 0 && <p className="mt-2 text-xs text-muted-foreground">ログインするとクーポンを使えます。</p>}
+    </section>
+  ) : null
+
   const handleConfirmLeaveGroup = async () => {
     try {
       if (existingMemberId) {
@@ -143,69 +219,57 @@ export function GroupInviteView({
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
       <NavigationBar currentPage="/" />
 
-      <div className="container mx-auto max-w-lg px-4 py-6">
+      <div className="mx-auto w-full max-w-lg space-y-3 bg-gray-50 px-3 py-4" data-testid="group-invite">
         {/* 参加前（preview）は下の「このグループのいま」に状態・候補日を出すので、ここでは出さない（点検 51） */}
         {group.confirmed_performance_access !== 'preview' && <ConfirmedGroupSchedule group={group} />}
         {/* 戻るボタン（未ログインのゲストにはマイページが無いので出さない） */}
         {user && (
-          <button
-            onClick={() => navigate('/mypage')}
-            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            マイページに戻る
+          <button type="button" onClick={() => navigate('/mypage')} className="flex items-center gap-1 text-sm text-muted-foreground">
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" />マイページに戻る
           </button>
         )}
 
-        <Card className="border-purple-200 bg-purple-50/50 mb-6">
-          <CardContent className="p-4 text-center">
-            <p className="text-sm text-purple-800">
-              <span className="font-medium">{organizerName}</span>さんからの貸切お誘い
+        {/* 見本: 「はなこさんから貸切のお誘いです。行ける日に○をつけて送ってください。」 */}
+        <div className="border border-violet-200 bg-violet-50 px-4 py-4 text-sm leading-relaxed" data-testid="invite-lead">
+          <span className="font-bold">{organizerName}</span>さんから貸切のお誘いです。
+          {canAnswerDates ? '行ける日に○をつけて送ってください。' : preview.statusText}
+        </div>
+
+        {/* 作品（黒地の帯） */}
+        <a
+          href={scenarioUrl ?? undefined}
+          className="flex gap-4 bg-[#221a33] p-4 text-white"
+          data-testid="invite-scenario"
+        >
+          <div className="h-24 w-[72px] shrink-0 overflow-hidden bg-white/10">
+            {scenario?.key_visual_url && <img src={scenario.key_visual_url} alt="" className="h-full w-full object-cover" loading="lazy" />}
+          </div>
+          <div className="min-w-0 py-1">
+            <p className="truncate text-xs text-white/70">{organizerName}さんの貸切{group.name ? `「${group.name}」` : ''}</p>
+            <p className="mt-1 text-lg font-bold leading-snug">{scenario?.title || 'シナリオ'}</p>
+            <p className="mt-1 text-xs text-white/70">
+              {[playerMin != null && playerMax != null ? playersLabel(playerMin, playerMax) : null, durationLabel(scenarioData?.scenario?.duration ?? null), preview.perPerson ? `ひとり${preview.perPerson.replace(/¥/g, '')}円` : null].filter(Boolean).join('・')}
             </p>
-            {isGuestJoin && guestMode === 'new' && (
-              <p className="mt-1 text-xs text-purple-700" data-testid="invite-guest-lead">アカウント登録なしで、お名前とメールアドレスで参加できます</p>
-            )}
-          </CardContent>
-        </Card>
+            <p className="mt-1 text-2xs text-white/60">参加 {memberCount}/{inviteMemberCap ?? '?'}名</p>
+          </div>
+        </a>
 
-        {/* 作品について（短い版。参加前に何に参加するのかが分かるように。点検 51 番の一部） */}
-        <div className="mb-6">
-          <ScenarioAboutSection
-            compact
-            title={scenario?.title || 'シナリオ'}
-            imageUrl={scenario?.key_visual_url ?? null}
-            playerRange={{
-              min: scenario?.effective_player_count_min ?? scenario?.player_count_min ?? null,
-              max: scenario?.effective_player_count_max ?? scenario?.player_count_max ?? null,
-            }}
-            info={scenarioData?.scenario ?? null}
-            scenarioUrl={scenarioPageUrl(scenarioData?.orgSlug, scenarioData?.scenario?.slug ?? scenario?.slug, group.scenario_master_id ?? scenario?.id)}
-            extra={(
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                {group.name && <span>{group.name}</span>}
-                <span className="inline-flex items-center gap-1"><Users className="w-3.5 h-3.5" aria-hidden="true" />参加 {memberCount}/{inviteMemberCap ?? '?'}名</span>
-                <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">貸切リクエスト</Badge>
-              </div>
-            )}
-          />
-        </div>
-
-        <div className="mb-6">
-          <InvitePreviewStatus preview={preview} />
-        </div>
+        <InviteSteps current={stepIndex} />
 
         {error && (
-          <Card className="mb-4 border-2 border-red-200 bg-red-50">
-            <CardContent className="p-4 flex items-center gap-2 text-red-800 text-sm">
-              <AlertCircle className="w-5 h-5 shrink-0" />
-              <span>{error}</span>
-            </CardContent>
-          </Card>
+          <div role="alert" className="flex items-center gap-2 border-2 border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <AlertCircle className="w-5 h-5 shrink-0" aria-hidden="true" />
+            <span>{error}</span>
+          </div>
         )}
+
+        {canAnswerDates
+          ? <InviteDateAnswers title="1. 行ける日に○をつける" candidates={answerableDates} responses={responses} setResponses={setResponses} />
+          : <InvitePreviewStatus preview={preview} />}
 
         {/* ゲストの参加欄（お名前とメールアドレスで参加・PIN で入る。点検 52〜54・56） */}
         {isGuestJoin && (
@@ -224,6 +288,9 @@ export function GroupInviteView({
             actionLoading={actionLoading}
             isGroupFull={isGroupFull}
             inviteMemberCap={inviteMemberCap}
+            heading={canAnswerDates ? '2. お名前とメールアドレス' : 'お名前とメールアドレス'}
+            submitLabel={canAnswerDates ? 'この内容で答える' : '参加する'}
+            beforeSubmit={feeSection}
             onSubmit={() => void handleSubmit()}
             onPinAuth={() => void handlePinAuth()}
             onOpenPin={() => openSheet('pin')}
@@ -233,131 +300,43 @@ export function GroupInviteView({
           />
         )}
 
-        {/* 参加費・クーポン */}
-        {perPersonPrice > 0 && (
-          <Card className="mb-6 border-blue-200">
-            <CardContent className="p-4 space-y-4">
-              <div className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-blue-600" />
-                <h3 className="text-base font-semibold">参加費</h3>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground">1人あたり参加費</span>
-                  <span className="font-medium">¥{perPersonPrice.toLocaleString()}</span>
-                </div>
-                
-                {selectedCouponId && discountAmount === 0 && <p className="text-sm text-muted-foreground">選択中のクーポンは、日程確定後に利用条件を確認して割引を適用します。</p>}
-                {selectedCoupon && (
-                  <div className="flex justify-between items-center text-sm text-green-600">
-                    <span className="flex items-center gap-1">
-                      <Ticket className="w-4 h-4" />
-                      クーポン割引
-                    </span>
-                    <span>-¥{discountAmount.toLocaleString()}</span>
-                  </div>
-                )}
-                
-                <div className="border-t pt-2 flex justify-between items-center">
-                  <span className="font-medium">お支払い金額</span>
-                  <span className="text-lg font-bold text-blue-600">¥{finalAmount.toLocaleString()}</span>
-                </div>
-              </div>
-
-              {/* クーポン選択（ログインユーザーのみ） */}
-              {user && (
-                <div className="pt-2 border-t">
-                  <Label className="text-sm font-medium mb-2 block flex items-center gap-1">
-                    <Ticket className="w-4 h-4 text-amber-500" />
-                    クーポンを使う
-                  </Label>
-                  {couponLoading ? (
-                    <div className="text-sm text-muted-foreground">読み込み中...</div>
-                  ) : coupons.length > 0 ? (
-                    <Select
-                      value={selectedCouponId || 'none'}
-                      onValueChange={(value) => setSelectedCouponId(value === 'none' ? null : value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="クーポンを選択" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">クーポンを使用しない</SelectItem>
-                        {coupons.map((coupon) => (
-                          <SelectItem key={coupon.id} value={coupon.id}>
-                            {coupon.name} - ¥{coupon.discount_amount.toLocaleString()}OFF
-                            {coupon.expires_at && (
-                              <span className="text-xs text-muted-foreground ml-1">
-                                ({formatJstDateJa(coupon.expires_at)}まで)
-                              </span>
-                            )}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      利用可能なクーポンがありません
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* 未ログインの場合のクーポン案内 */}
-              {!user && (
-                <div className="pt-2 border-t">
-                  <p className="text-sm text-muted-foreground">
-                    <Ticket className="w-4 h-4 inline-block mr-1 text-amber-500" />
-                    ログインするとクーポンを使用できます
-                  </p>
-                </div>
-              )}
-
-              <p className="text-xs text-muted-foreground bg-gray-50 p-2 rounded">
-                お支払いは当日、店舗でお願いします。現金またはクレジットカードがご利用いただけます。
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ログイン中のユーザー情報 */}
-        {user && !existingMemberId && (
-          <Card className="mb-6 border-blue-200 bg-blue-50/50">
-            <CardContent className="p-4">
-              <p className="text-sm text-blue-800">
-                <span className="font-medium">{user.email}</span> としてログイン中
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 送信ボタン（ログイン中の新規参加のみ。ゲストは参加欄の中に置く） */}
+        {/* ログイン中の新規参加（ゲストは参加欄の中に置く） */}
         {user && !existingMemberId && (
           <>
+            {feeSection}
+            <p className="border border-gray-200 bg-white px-4 py-3 text-sm"><span className="font-bold">{user.email}</span> としてログイン中</p>
             {isGroupFull && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm text-center mb-2">
+              <div className="border border-amber-200 bg-amber-50 p-3 text-center text-sm text-amber-800">
                 参加人数が上限（{inviteMemberCap}名）に達しています
               </div>
             )}
-            <Button
+            <button
+              type="button"
               onClick={() => handleSubmit()}
               disabled={actionLoading || isGroupFull}
-              className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
+              className="flex h-12 w-full items-center justify-center text-base font-bold text-white disabled:opacity-50"
+              style={{ backgroundColor: PRIVATE_PURPLE }}
             >
-              {actionLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  送信中...
-                </>
-              ) : isGroupFull ? (
-                '参加人数上限に達しています'
-              ) : (
-                '参加する'
-              )}
-            </Button>
+              {actionLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />送信中...</> : isGroupFull ? '参加人数上限に達しています' : canAnswerDates ? 'この内容で答える' : '参加する'}
+            </button>
           </>
         )}
+
+        {/* 作品について（あらすじ・キャラクターなど。お誘いの下に置く） */}
+        <ScenarioAboutSection
+          compact
+          title={scenario?.title || 'シナリオ'}
+          imageUrl={scenario?.key_visual_url ?? null}
+          playerRange={{ min: playerMin, max: playerMax }}
+          info={scenarioData?.scenario ?? null}
+          scenarioUrl={scenarioUrl}
+          extra={(
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1"><Users className="w-3.5 h-3.5" aria-hidden="true" />参加 {memberCount}/{inviteMemberCap ?? '?'}名</span>
+              <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">貸切リクエスト</Badge>
+            </div>
+          )}
+        />
 
         {/* 退出ボタン（参加済みメンバー用、主催者以外） */}
         {(existingMemberId || (user && group?.members?.some(m => m.user_id === user.id && !m.is_organizer))) && (
@@ -365,7 +344,7 @@ export function GroupInviteView({
             variant="outline"
             onClick={() => setShowLeaveGroupConfirm(true)}
             disabled={actionLoading}
-            className="w-full mt-2 text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400"
+            className="w-full rounded-none bg-white text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400"
           >
             <LogOut className="w-4 h-4 mr-2" />
             このグループから退出する
@@ -384,5 +363,74 @@ export function GroupInviteView({
         onConfirm={handleConfirmLeaveGroup}
       />
     </div>
+  )
+}
+
+const STEPS = ['日程に答える', '日程が決まる', '参加費を払う', '当日あそぶ'] as const
+
+/** 見本の ①日程に答える ②日程が決まる ③参加費を払う ④当日あそぶ */
+function InviteSteps({ current }: { current: number }) {
+  return (
+    <ol className="grid grid-cols-4 border border-gray-200 bg-white px-2 py-3" aria-label="貸切の流れ" data-testid="invite-steps">
+      {STEPS.map((label, i) => {
+        const on = i === current
+        return (
+          <li key={label} className="flex flex-col items-center gap-1 text-center" aria-current={on ? 'step' : undefined}>
+            <span
+              className={cn('flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-bold', on ? 'text-white' : 'border-gray-300 text-muted-foreground')}
+              style={on ? { backgroundColor: PRIVATE_PURPLE, borderColor: PRIVATE_PURPLE } : undefined}
+            >{i + 1}</span>
+            <span className={cn('text-2xs', on ? 'font-bold text-foreground' : 'text-muted-foreground')}>{label}</span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+const ANSWERS: Array<{ value: DateResponse; mark: string; label: string }> = [
+  { value: 'ok', mark: '○', label: '行ける' },
+  { value: 'maybe', mark: '△', label: 'たぶん' },
+  { value: 'ng', mark: '×', label: '行けない' },
+]
+
+/** 1. 行ける日に○をつける（参加と同時に送る。あとからグループページでも直せる） */
+function InviteDateAnswers({ title, candidates, responses, setResponses }: {
+  title: string
+  candidates: ReadonlyArray<{ id: string; date: string; time_slot: string; start_time: string }>
+  responses: Record<string, DateResponse | null>
+  setResponses: React.Dispatch<React.SetStateAction<Record<string, DateResponse | null>>>
+}) {
+  return (
+    <section className="border border-gray-200 bg-white p-4" data-testid="invite-date-answers">
+      <h2 className="text-lg font-bold">{title}</h2>
+      <p className="mt-1 text-xs text-muted-foreground">○行ける △たぶん ×行けない（あとから直せます）</p>
+      <ul className="mt-2">
+        {candidates.map((c) => {
+          const label = `${formatJstMonthDay(c.date, true)} ${candidateTimeSlotFromDb(c.time_slot)} ${(c.start_time ?? '').slice(0, 5)}〜`
+          return (
+            <li key={c.id} className="flex items-center justify-between gap-2 border-b border-gray-200 py-3">
+              <span className="min-w-0 text-sm font-bold tabular-nums">{label}</span>
+              <span className="flex shrink-0" role="group" aria-label={`${label}の都合`}>
+                {ANSWERS.map((a) => {
+                  const on = responses[c.id] === a.value
+                  return (
+                    <button
+                      key={a.value}
+                      type="button"
+                      aria-pressed={on}
+                      aria-label={a.label}
+                      onClick={() => setResponses((prev) => ({ ...prev, [c.id]: on ? null : a.value }))}
+                      className={cn('-ml-px h-10 w-11 border text-lg first:ml-0', on ? 'relative z-10 text-white' : 'border-gray-300 bg-white text-muted-foreground')}
+                      style={on ? { backgroundColor: PRIVATE_PURPLE, borderColor: PRIVATE_PURPLE } : undefined}
+                    >{a.mark}</button>
+                  )
+                })}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }

@@ -9,11 +9,12 @@ import type { PlatformOrganization } from '@/pages/PlatformTop/hooks/platformTop
 const mocks = vi.hoisted(() => ({ orgs: vi.fn(), scenarios: vi.fn() }))
 vi.mock('@/pages/PlatformTop/hooks/platformTopData', () => ({ fetchPlatformOrganizations: mocks.orgs }))
 vi.mock('@/lib/api', () => ({ scenarioApi: { getPublic: mocks.scenarios } }))
-vi.mock('@/components/layout/PublicLayout', () => ({ PublicLayout: ({ children }: { children: React.ReactNode }) => <>{children}</> }))
+vi.mock('@/components/layout/Header', () => ({ Header: () => null }))
+vi.mock('@/components/layout/Footer', () => ({ Footer: () => null }))
 vi.mock('@/hooks/usePageMeta', () => ({ usePageMeta: vi.fn() }))
 vi.mock('@/contexts/RouteScrollRestorationContext', () => ({ useReportRouteScrollRestoration: vi.fn() }))
 vi.mock('@/hooks/useScrollRestoration', () => ({ saveScrollPositionForCurrentUrl: vi.fn() }))
-import { PrivateBookingStart } from './index'
+import { PrivateBookingStart, buildPrivateWorks, matchesWorkQuery, FEATURED_WORK_COUNT } from './index'
 import { scenariosForStores } from './scenariosForStores'
 import { parseStoreIdsParam, privateGroupCreatePath, privateScenarioTabPath } from './paths'
 
@@ -26,10 +27,13 @@ const other: PlatformOrganization = {
   id: 'o2', slug: 'saitama-mm', name: '埼玉ミステリー', logo_url: null,
   store_names: ['大宮店'], stores: [{ id: 's3', name: '大宮店' }], store_count: 1, prefectures: ['埼玉県'], scenario_count: 3,
 }
-const scenarios = [
-  { id: 'sc1', slug: 'factor', title: 'ファクター', author: '作者A', duration: 210, player_count_min: 6, player_count_max: 8, participation_fee: 4500, accepts_private_booking: true, available_stores: [] },
-  { id: 'sc2', slug: null, title: '馬場だけ', author: '作者B', duration: 120, player_count_min: 4, player_count_max: 4, accepts_private_booking: true, available_stores: ['s2'] },
-  { id: 'sc3', slug: 'off', title: '受付停止', author: '作者C', duration: 120, player_count_min: 4, player_count_max: 4, accepts_private_booking: false },
+const qwRows = [
+  { id: 'sc1', slug: 'factor', title: 'ファクター', duration: 210, player_count_min: 6, player_count_max: 8, accepts_private_booking: true, available_stores: [] },
+  { id: 'sc2', slug: null, title: '馬場だけ', duration: 120, player_count_min: 4, player_count_max: 4, accepts_private_booking: true, available_stores: ['s2'] },
+  { id: 'sc3', slug: 'off', title: '受付停止', duration: 120, player_count_min: 4, player_count_max: 4, accepts_private_booking: false },
+]
+const otherRows = [
+  { id: 'sc1', slug: 'factor', title: 'ファクター', duration: 210, player_count_min: 6, player_count_max: 8, accepts_private_booking: true, available_stores: [] },
 ]
 
 let root: Root
@@ -50,130 +54,102 @@ async function render(path: string, organizationSlug?: string) {
   await vi.waitFor(() => expect(host.textContent).not.toContain('読み込み中'))
 }
 const where = () => host.querySelector('[data-testid="where"]')?.textContent
-const buttons = (label: string) => [...host.querySelectorAll('button')].filter((b) => b.textContent === label)
-const orgCard = (slug: string) => host.querySelector(`[data-org="${slug}"]`) as HTMLButtonElement | null
-const scenarioCards = () => [...host.querySelectorAll('[data-testid="private-scenario-grid"] > [aria-label]')] as HTMLElement[]
-const titles = () => scenarioCards().map((c) => c.getAttribute('aria-label'))
+const workRows = () => [...host.querySelectorAll('[data-testid="private-start-work"]')] as HTMLButtonElement[]
+const titles = () => workRows().map((b) => b.querySelector('p')?.textContent)
+const orgRow = (slug: string) => host.querySelector(`[data-org="${slug}"]`) as HTMLAnchorElement | null
 
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
-  Element.prototype.scrollIntoView = vi.fn()
   mocks.orgs.mockResolvedValue({ organizations: [qw, other], prefectures: ['東京都', '埼玉県'] })
-  mocks.scenarios.mockResolvedValue(scenarios)
+  mocks.scenarios.mockImplementation(async (orgId: string) => (orgId === 'o1' ? qwRows : otherRows))
   host = document.createElement('div'); document.body.append(host); root = createRoot(host)
 })
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.clearAllMocks() })
 
-describe('貸切を始める（/private-booking/select-organization）', () => {
-  it('見出し・説明・エリアのチップ・組織カード（ロゴ・名前・店舗名・作品数）と「戻る」を出す', async () => {
+describe('貸切を始める（見本: 作品を選ぶ → 会社を選ぶ）', () => {
+  it('貸切を受け付けている作品だけを出し、遊べる会社が多い作品を上にする。会社は作品を選ぶまで出さない', async () => {
     await render('/private-booking/select-organization')
-    expect(host.querySelector('h1')?.textContent).toBe('貸切を始める')
-    expect(host.textContent).toContain('1. 貸切する店舗を選ぶ')
-    expect(host.textContent).toContain('店舗を選ぶと、その店舗で貸切できる作品の一覧が開きます')
-    expect(buttons('戻る')).toHaveLength(1)
-    expect(buttons('全国')).toHaveLength(1)
-    expect(buttons('東京')).toHaveLength(1)
-    expect(orgCard('queens-waltz')?.textContent).toContain('大塚店・高田馬場店 2 店舗 ・ 12 作品')
-    expect(host.textContent).toContain('上で店舗を選ぶと、ここに作品が出ます')
-    expect(mocks.scenarios).not.toHaveBeenCalled()
-  })
-
-  it('エリアのチップで組織を絞れる', async () => {
-    await render('/private-booking/select-organization')
-    await act(async () => buttons('埼玉')[0].click())
-    expect(orgCard('queens-waltz')).toBeNull()
-    expect(orgCard('saitama-mm')).not.toBeNull()
-  })
-
-  it('組織を押すと選択状態になり、希望店舗のチップと貸切できる作品の一覧が同じページに出る', async () => {
-    await render('/private-booking/select-organization')
-    await act(async () => orgCard('queens-waltz')!.click())
+    expect(host.textContent).toContain('1. 遊びたい作品を選ぶ')
     await vi.waitFor(() => expect(titles()).toEqual(['ファクター', '馬場だけ']))
-    expect(where()).toBe('/private-booking/select-organization?org=queens-waltz')
-    expect(mocks.scenarios).toHaveBeenCalledWith('o1')
-    expect(host.querySelector('[data-testid="selected-organization"]')?.textContent).toContain('クインズワルツ')
-    expect(buttons('どれでも可')[0].getAttribute('aria-pressed')).toBe('true')
-    // 作品を押すと作品ページの貸切タブへ（希望店舗なし）
-    await act(async () => scenarioCards()[0].click())
+    expect(workRows()[0].textContent).toContain('6〜8人・3時間30分')
+    expect(host.textContent).toContain('上で作品を選ぶと、貸切できる店舗が出ます。')
+    expect(host.textContent).not.toContain('先にグループを作る')
+    expect(host.textContent).not.toContain('会社')
+  })
+
+  it('作品を選ぶと URL に残り、その作品を遊べる会社と店舗が出て、「空きを見る」は作品ページの貸切タブへ', async () => {
+    await render('/private-booking/select-organization')
+    await vi.waitFor(() => expect(workRows()).toHaveLength(2))
+    await act(async () => workRows()[0].click())
+    expect(where()).toBe('/private-booking/select-organization?work=sc1')
+    expect(workRows()[0].textContent).toContain('✓ 選択中')
+    expect(orgRow('queens-waltz')?.textContent).toContain('東京・2店舗（大塚・高田馬場）')
+    expect(orgRow('saitama-mm')?.textContent).toContain('埼玉・1店舗（大宮）')
+    await act(async () => orgRow('queens-waltz')!.click())
     expect(where()).toBe('/queens-waltz/scenario/factor?tab=private')
   })
 
-  it('希望店舗を選ぶと URL に残り、その店舗で上演できる作品に絞って、作品ページへ stores で渡す', async () => {
-    await render('/private-booking/select-organization?org=queens-waltz')
-    await vi.waitFor(() => expect(titles()).toHaveLength(2))
-    await act(async () => buttons('大塚店')[0].click())
-    expect(where()).toBe('/private-booking/select-organization?org=queens-waltz&stores=s1')
+  it('地域のチップで会社を絞れる', async () => {
+    await render('/private-booking/select-organization?work=sc1')
+    await vi.waitFor(() => expect(orgRow('saitama-mm')).not.toBeNull())
+    const chip = [...host.querySelectorAll('button')].find((b) => b.textContent === '埼玉')!
+    await act(async () => chip.click())
+    expect(where()).toBe('/private-booking/select-organization?work=sc1&area=%E5%9F%BC%E7%8E%89%E7%9C%8C')
+    expect(orgRow('queens-waltz')).toBeNull()
+    expect(orgRow('saitama-mm')).not.toBeNull()
+  })
+
+  it('上演店舗の指定がある作品は、その店舗だけを出す', async () => {
+    await render('/private-booking/select-organization?work=sc2')
+    await vi.waitFor(() => expect(orgRow('queens-waltz')).not.toBeNull())
+    expect(orgRow('queens-waltz')?.textContent).toContain('1店舗（高田馬場）')
+    expect(orgRow('saitama-mm')).toBeNull()
+  })
+
+  it('組織のページから開いたときは、その組織の作品・会社だけ', async () => {
+    await render('/queens-waltz/private-booking-select?work=sc1', 'queens-waltz')
+    await vi.waitFor(() => expect(orgRow('queens-waltz')).not.toBeNull())
+    expect(orgRow('saitama-mm')).toBeNull()
+    expect(mocks.scenarios).toHaveBeenCalledTimes(1)
+  })
+
+  it('作品名で探せる', async () => {
+    await render('/private-booking/select-organization')
+    await vi.waitFor(() => expect(workRows()).toHaveLength(2))
+    const input = host.querySelector('input[type="search"]') as HTMLInputElement
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+      setter.call(input, 'ばば')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    expect(titles()).toEqual([])
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+      setter.call(input, 'ふぁくたー')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
     expect(titles()).toEqual(['ファクター'])
-    await act(async () => buttons('高田馬場店')[0].click())
-    expect(titles()).toEqual(['ファクター', '馬場だけ'])
-    await act(async () => scenarioCards()[1].click())
-    expect(where()).toBe('/queens-waltz/scenario/sc2?tab=private&stores=s1,s2')
-  })
-
-  it('「別の店舗を選ぶ」で同じページの組織の一覧に戻る', async () => {
-    await render('/private-booking/select-organization?org=queens-waltz&stores=s1')
-    await act(async () => (host.querySelector('[data-testid="choose-another-store"]') as HTMLButtonElement).click())
-    expect(where()).toBe('/private-booking/select-organization')
-    expect(orgCard('queens-waltz')).not.toBeNull()
-    expect(host.querySelector('[data-testid="selected-organization"]')).toBeNull()
-  })
-
-  it('組織が 1 つしか無いときは選んだ状態で開く。店舗が 1 つなら希望店舗のチップは出さない', async () => {
-    mocks.orgs.mockResolvedValue({ organizations: [other], prefectures: ['埼玉県'] })
-    await render('/private-booking/select-organization')
-    expect(host.querySelector('[data-testid="selected-organization"]')?.textContent).toContain('埼玉ミステリー')
-    expect(buttons('どれでも可')).toHaveLength(0)
-    await vi.waitFor(() => expect(titles().length).toBeGreaterThan(0))
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+      setter.call(input, 'ファク')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    expect(titles()).toEqual(['ファクター'])
   })
 })
 
-describe('強制スクロールしない（QW-20261022-013）', () => {
-  const above = () => vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({ top: -800 } as DOMRect)
-
-  it('URL で組織が決まった状態で開いた・戻ったとき（読込完了）は、店舗の欄へ自動で送らない', async () => {
-    const rect = above()
-    await render('/private-booking/select-organization?org=queens-waltz&stores=s1')
-    await vi.waitFor(() => expect(titles()).toEqual(['ファクター']))
-    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
-    // 希望店舗のチップを押しても送らない（選んだ店舗が見えたまま）
-    await act(async () => buttons('高田馬場店')[0].click())
-    expect(decodeURIComponent(where() ?? '')).toBe('/private-booking/select-organization?org=queens-waltz&stores=s1,s2')
-    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
-    rect.mockRestore()
+describe('作品のまとめ方', () => {
+  it('募集期間の外の作品は出さない。何も探していないときは人気の数件だけ出す前提の並び', () => {
+    const works = buildPrivateWorks([
+      { org: qw, rows: [{ ...qwRows[0], booking_end_date: '2026-01-01' }, qwRows[1]] },
+    ], '2026-11-18')
+    expect(works.map((w) => w.id)).toEqual(['sc2'])
+    expect(FEATURED_WORK_COUNT).toBeGreaterThan(0)
   })
-
-  it('一覧から組織を押したときだけ、店舗の欄の頭に合わせる', async () => {
-    const rect = above()
-    await render('/private-booking/select-organization')
-    await act(async () => orgCard('queens-waltz')!.click())
-    await vi.waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1))
-    rect.mockRestore()
-  })
-})
-
-describe('組織トップから（/{org}/private-booking-select、日付なし）', () => {
-  it('組織を選んだ状態で開き、「別の店舗を選ぶ」は貸切を始めるページへ', async () => {
-    await render('/queens-waltz/private-booking-select', 'queens-waltz')
-    expect(host.querySelector('[data-testid="selected-organization"]')?.textContent).toContain('クインズワルツ')
-    await vi.waitFor(() => expect(titles()).toEqual(['ファクター', '馬場だけ']))
-    await act(async () => buttons('高田馬場店')[0].click())
-    expect(where()).toBe('/queens-waltz/private-booking-select?stores=s2')
-    await act(async () => (host.querySelector('[data-testid="choose-another-store"]') as HTMLButtonElement).click())
-    expect(where()).toBe('/private-booking/select-organization')
-  })
-})
-
-describe('日付が決まる前の料金（2026-10-25 社長報告）', () => {
-  it('平日と土日祝で料金が違う作品は幅で出す（平日の料金だけを出さない）', async () => {
-    mocks.scenarios.mockResolvedValue([
-      { ...scenarios[0], participation_costs: [{ time_slot: 'normal', amount: 4500, type: 'fixed' }, { time_slot: 'weekend', amount: 5000, type: 'fixed' }] },
-      { ...scenarios[1], participation_fee: 3000 },
-    ])
-    await render('/queens-waltz/private-booking-select', 'queens-waltz')
-    await vi.waitFor(() => expect(titles()).toEqual(['ファクター', '馬場だけ']))
-    expect(scenarioCards()[0].textContent).toContain('1 人あたり ¥4,500〜¥5,000')
-    expect(scenarioCards()[1].textContent).toContain('1 人あたり ¥3,000')
-    expect(scenarioCards()[1].textContent).not.toContain('〜¥')
+  it('作品名の検索は空白・全角半角・カタカナひらがなの違いを気にしない', () => {
+    expect(matchesWorkQuery('ファクター', 'ふぁく')).toBe(true)
+    expect(matchesWorkQuery('GLORIA MEMORIES', 'gloriamem')).toBe(true)
+    expect(matchesWorkQuery('ファクター', '馬場')).toBe(false)
   })
 })
 

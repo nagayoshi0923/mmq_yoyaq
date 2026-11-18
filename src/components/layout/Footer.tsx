@@ -34,14 +34,14 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
   
   if (minimal) {
     return (
-      <footer className="bg-gray-900 text-gray-400 py-6">
+      <footer className="border-t border-gray-200 bg-gray-50 text-muted-foreground py-6">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-sm">© {currentYear} MMQ. All rights reserved.</p>
             <div className="flex items-center gap-4 text-sm">
-              <Link to="/terms" className="hover:text-white transition-colors">利用規約</Link>
-              <Link to="/privacy" className="hover:text-white transition-colors">プライバシーポリシー</Link>
-              <Link to="/security" className="hover:text-white transition-colors">セキュリティ</Link>
+              <Link to="/terms" className="hover:text-foreground transition-colors">利用規約</Link>
+              <Link to="/privacy" className="hover:text-foreground transition-colors">プライバシーポリシー</Link>
+              <Link to="/security" className="hover:text-foreground transition-colors">セキュリティ</Link>
             </div>
           </div>
         </div>
@@ -55,12 +55,12 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
     const regularStores = stores.filter(s => !s.is_temporary && s.status !== 'inactive' && s.address)
     
     return (
-      <footer className="bg-gray-900 text-gray-300">
+      <footer className="border-t border-gray-200 bg-gray-50 text-muted-foreground">
         {/* 店舗アクセス情報 */}
         {regularStores.length > 0 && (
-          <div id="store-access" className="border-b border-gray-800">
+          <div id="store-access" className="border-b border-gray-200">
             <div className="max-w-7xl mx-auto px-4 py-10">
-              <h3 className="text-white font-semibold mb-6 text-sm uppercase tracking-wider flex items-center gap-2">
+              <h3 className="text-foreground font-semibold mb-6 text-sm uppercase tracking-wider flex items-center gap-2">
                 <MapPin className="w-4 h-4" style={{ color: THEME.accent }} />
                 アクセス
               </h3>
@@ -71,12 +71,12 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.address!)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group p-4 bg-gray-800/50 hover:bg-gray-800 transition-colors"
+                    className="group p-4 bg-white border border-gray-200 hover:bg-gray-100 transition-colors"
                   >
-                    <div className="text-white font-medium text-sm mb-1 group-hover:underline">
+                    <div className="text-foreground font-medium text-sm mb-1 group-hover:underline">
                       {storeDisplayName(store, { organizationName })}
                     </div>
-                    <div className="text-gray-400 text-xs leading-relaxed flex items-start gap-1.5">
+                    <div className="text-muted-foreground text-xs leading-relaxed flex items-start gap-1.5">
                       <MapPin className="w-3 h-3 mt-0.5 flex-shrink-0" />
                       <span>{store.address}</span>
                     </div>
@@ -86,13 +86,13 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
               {/* 店舗への連絡は問い合わせフォーム（電話番号は出さない。社長決定 2026-10-11、点検 2） */}
               <Link
                 to={`/org/${organizationSlug}/contact`}
-                className="mt-4 inline-flex min-h-11 items-center gap-2 border border-gray-700 px-4 text-sm text-white hover:bg-gray-800 transition-colors"
+                className="mt-4 inline-flex min-h-11 items-center gap-2 border border-gray-300 bg-white px-4 text-sm text-foreground hover:bg-gray-100 transition-colors"
                 data-testid="footer-contact-store"
               >
                 <Mail className="w-4 h-4" aria-hidden="true" />
                 店舗に問い合わせる
               </Link>
-              <p className="mt-2 text-xs text-white/50">ご予約中の公演についてはマイページの予約詳細の「店舗に問い合わせる」から送ると、予約番号が入ります。</p>
+              <p className="mt-2 text-xs text-muted-foreground">ご予約中の公演についてはマイページの予約詳細の「店舗に問い合わせる」から送ると、予約番号が入ります。</p>
             </div>
           </div>
         )}
@@ -102,16 +102,16 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
             {/* 組織情報 */}
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <span className="text-xl font-bold text-white">
+                <span className="text-xl font-bold text-foreground">
                   {organizationName || organizationSlug}
                 </span>
               </div>
-              <p className="text-sm text-gray-400 leading-relaxed mb-4">
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
                 マーダーミステリー専門店
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Powered by{' '}
-                <Link to="/" className="hover:text-white transition-colors" style={{ color: THEME.primary }}>
+                <Link to="/" className="hover:text-foreground transition-colors" style={{ color: THEME.primary }}>
                   MMQ
                 </Link>
               </p>
@@ -119,22 +119,22 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
 
             {/* ご利用案内 */}
             <div>
-              <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">
+              <h3 className="text-foreground font-semibold mb-4 text-sm uppercase tracking-wider">
                 ご利用案内
               </h3>
               <ul className="space-y-3">
                 <li>
-                  <Link to={`/${organizationSlug}`} className="text-sm hover:text-white transition-colors">
+                  <Link to={`/${organizationSlug}`} className="text-sm hover:text-foreground transition-colors">
                     シナリオを探す
                   </Link>
                 </li>
                 <li>
-                  <Link to="/guide" className="text-sm hover:text-white transition-colors">
+                  <Link to="/guide" className="text-sm hover:text-foreground transition-colors">
                     初めての方へ
                   </Link>
                 </li>
                 <li>
-                  <Link to="/start" className="text-sm hover:text-white transition-colors">
+                  <Link to="/start" className="text-sm hover:text-foreground transition-colors">
                     店舗登録
                   </Link>
                 </li>
@@ -143,27 +143,27 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
 
             {/* サポート */}
             <div>
-              <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">
+              <h3 className="text-foreground font-semibold mb-4 text-sm uppercase tracking-wider">
                 サポート
               </h3>
               <ul className="space-y-3">
                 <li>
-                  <Link to={organizationSlug ? `/${organizationSlug}/faq` : '/faq'} className="text-sm hover:text-white transition-colors">
+                  <Link to={organizationSlug ? `/${organizationSlug}/faq` : '/faq'} className="text-sm hover:text-foreground transition-colors">
                     よくある質問
                   </Link>
                 </li>
                 <li>
-                  <Link to={buildPublicCancellationPolicyPath(organizationSlug)} className="text-sm hover:text-white transition-colors">
+                  <Link to={buildPublicCancellationPolicyPath(organizationSlug)} className="text-sm hover:text-foreground transition-colors">
                     キャンセルポリシー
                   </Link>
                 </li>
                 <li>
-                  <Link to="/security" className="text-sm hover:text-white transition-colors">
+                  <Link to="/security" className="text-sm hover:text-foreground transition-colors">
                     セキュリティ・データ保護
                   </Link>
                 </li>
                 <li>
-                  <Link to={`/org/${organizationSlug}/contact`} className="text-sm hover:text-white transition-colors">
+                  <Link to={`/org/${organizationSlug}/contact`} className="text-sm hover:text-foreground transition-colors">
                     お問い合わせ
                   </Link>
                 </li>
@@ -173,17 +173,17 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
         </div>
 
         {/* コピーライト行 + 法的情報 */}
-        <div className="border-t border-gray-800">
+        <div className="border-t border-gray-200">
           <div className="max-w-7xl mx-auto px-4 py-6">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 © {currentYear} MMQ. All rights reserved.
               </p>
-              <div className="flex items-center gap-6 text-sm text-gray-500">
-                <Link to="/terms" className="hover:text-gray-300 transition-colors">利用規約</Link>
-                <Link to="/privacy" className="hover:text-gray-300 transition-colors">プライバシーポリシー</Link>
-                <Link to="/security" className="hover:text-gray-300 transition-colors">セキュリティ</Link>
-                <Link to="/contact" className="hover:text-gray-300 transition-colors">MMQへ問い合わせ</Link>
+              <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 whitespace-nowrap text-sm text-muted-foreground">
+                <Link to="/terms" className="hover:text-foreground transition-colors">利用規約</Link>
+                <Link to="/privacy" className="hover:text-foreground transition-colors">プライバシーポリシー</Link>
+                <Link to="/security" className="hover:text-foreground transition-colors">セキュリティ</Link>
+                <Link to="/contact" className="hover:text-foreground transition-colors">MMQへ問い合わせ</Link>
               </div>
             </div>
           </div>
@@ -194,7 +194,7 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
 
   // プラットフォーム用フッター（シンプル版 - コピーライト行のみ）
   return (
-    <footer className="bg-black">
+    <footer className="border-t border-gray-200 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* ロゴ + コピーライト */}
@@ -205,20 +205,20 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
             >
               MMQ
             </span>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               © {currentYear} MMQ. All rights reserved.
             </p>
           </div>
           
           {/* リンク */}
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-gray-500">
-            <Link to="/stores" className="hover:text-gray-300 transition-colors">参加店舗一覧</Link>
-            <Link to="/guide" className="hover:text-gray-300 transition-colors">初めての方へ</Link>
-            <Link to="/faq" className="hover:text-gray-300 transition-colors">よくある質問</Link>
-            <Link to="/terms" className="hover:text-gray-300 transition-colors">利用規約</Link>
-            <Link to="/privacy" className="hover:text-gray-300 transition-colors">プライバシー</Link>
-            <Link to="/security" className="hover:text-gray-300 transition-colors">セキュリティ</Link>
-            <Link to="/contact" className="hover:text-gray-300 transition-colors">お問い合わせ</Link>
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+            <Link to="/stores" className="hover:text-foreground transition-colors">参加店舗一覧</Link>
+            <Link to="/guide" className="hover:text-foreground transition-colors">初めての方へ</Link>
+            <Link to="/faq" className="hover:text-foreground transition-colors">よくある質問</Link>
+            <Link to="/terms" className="hover:text-foreground transition-colors">利用規約</Link>
+            <Link to="/privacy" className="hover:text-foreground transition-colors">プライバシー</Link>
+            <Link to="/security" className="hover:text-foreground transition-colors">セキュリティ</Link>
+            <Link to="/contact" className="hover:text-foreground transition-colors">お問い合わせ</Link>
           </div>
         </div>
       </div>
