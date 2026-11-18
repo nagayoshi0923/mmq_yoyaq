@@ -34,7 +34,8 @@ vi.mock('@supabase/supabase-js', () => ({
           entry.ops.push(`${m}(${a.map(x => JSON.stringify(x)).join(', ')})`)
           if (m === 'in' && a[0] === 'schedule_event_id') rows = rows.filter(x => (a[1] as string[]).includes((x as { schedule_event_id: string }).schedule_event_id))
           if (m === 'in' && a[0] === 'status') rows = rows.filter(x => (a[1] as string[]).includes((x as { status: string }).status))
-          if (m === 'gt' && a[0] === 'date') futureDate = true
+          if (m === 'gt' && a[0] === 'date') { futureDate = true; rows = rows.filter(x => (x as { date: string }).date > (a[1] as string)) }
+          if (m === 'lte' && a[0] === 'date') rows = rows.filter(x => (x as { date: string }).date <= (a[1] as string))
           if (m === 'eq' && a[0] === 'is_cancelled') rows = rows.filter(x => (x as { is_cancelled: boolean }).is_cancelled === a[1])
           if (m === 'neq' && a[0] === 'is_cancelled') rows = rows.filter(x => (x as { is_cancelled: boolean }).is_cancelled !== a[1])
           return q
@@ -97,6 +98,8 @@ beforeEach(() => {
       ev('e-gmtest', { date: '2026-09-12', category: 'gmtest', gms: ['太郎'], gm_roles: { 太郎: 'main' }, staff_assignments: [{ staff_id: 'st-taro', staff_name: '太郎', ordinal: 1, resolution_status: 'resolved' }] }),
       ev('e-cancel', { date: '2026-09-13', is_cancelled: true }),
       ev('e-recorded', { date: '2026-09-14', total_revenue: 8000, gm_cost: 4000, license_cost: 700 }),
+      ev('e-future', { date: '2026-10-10', start_time: '19:00:00', max_participants: 6 }),
+      ev('e-future-empty', { date: '2026-10-11', category: 'private', current_participants: 0, max_participants: null }),
     ],
     reservations: [
       res_('e-normal', { participant_count: 4 }),
@@ -106,6 +109,10 @@ beforeEach(() => {
       res_('e-normal', { participant_count: 1, reservation_source: 'walk_in' }),
       res_('e-gmtest', { participant_count: 2, reservation_source: 'manual_demo' }),
       res_('e-recorded', { participant_count: 3 }),
+      res_('e-future', { participant_count: 3 }),
+      res_('e-future', { participant_count: 1, status: 'pending' }),
+      res_('e-future', { participant_count: 1, reservation_source: 'staff', payment_method: 'staff' }),
+      res_('e-future', { participant_count: 2, status: 'cancelled' }),
     ],
     staff: [{ id: 'st-taro', name: '太郎', stores: ['s1'] }, { id: 'st-hanako', name: '花子', stores: ['s2'] }],
     users: [{ organization_id: ORG, role: 'admin' }],
@@ -192,6 +199,28 @@ describe('api/scenarios.ts 統計の出力（分割前の現状を固定）', ()
         "totalRevenue": 46000,
         "totalStaffParticipants": 1,
         "totalVenueCost": 8000,
+        "upcomingPerformances": [
+          {
+            "category": "open",
+            "date": "2026-10-10",
+            "maxParticipants": 6,
+            "reservationCount": 2,
+            "reservedParticipants": 4,
+            "staffParticipants": 1,
+            "startTime": "19:00:00",
+            "storeId": "s1",
+          },
+          {
+            "category": "private",
+            "date": "2026-10-11",
+            "maxParticipants": 6,
+            "reservationCount": 0,
+            "reservedParticipants": 0,
+            "staffParticipants": 0,
+            "startTime": "14:00:00",
+            "storeId": "s1",
+          },
+        ],
         "venueCostPerPerformance": 2000,
       }
     `)

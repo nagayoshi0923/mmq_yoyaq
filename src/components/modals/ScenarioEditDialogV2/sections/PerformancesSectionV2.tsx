@@ -24,6 +24,17 @@ interface PerformanceDate {
   isCancelled: boolean
 }
 
+interface UpcomingPerformance {
+  date: string
+  category: string
+  startTime: string
+  storeId: string | null
+  reservedParticipants: number
+  staffParticipants: number
+  reservationCount: number
+  maxParticipants: number | null
+}
+
 interface ParticipationCost {
   time_slot: string
   amount: number
@@ -44,6 +55,7 @@ interface PerformancesSectionV2Props {
   scenarioTitle?: string  // シナリオタイトル（ダウンロードファイル名用）
   futurePerformanceCount?: number  // 将来の公演予定数
   futureReservationCount?: number  // 将来の貸切予約数
+  upcomingPerformances?: UpcomingPerformance[]  // これからの公演と予約数
 }
 
 // カテゴリの日本語表示（schedule_events.category の値と一致させる）
@@ -102,7 +114,8 @@ export function PerformancesSectionV2({
   gmTestLicenseAmount = 0,
   scenarioTitle = 'シナリオ',
   futurePerformanceCount = 0,
-  futureReservationCount = 0
+  futureReservationCount = 0,
+  upcomingPerformances = []
 }: PerformancesSectionV2Props) {
   const [stores, setStores] = useState<Store[]>([])
   const [includeParticipants, setIncludeParticipants] = useState(true)
@@ -517,6 +530,78 @@ export function PerformancesSectionV2({
             </div>
           </div>
       </div>
+
+      {/* ── これからの公演（予約数） ── */}
+      {(upcomingPerformances.length > 0 || futureReservationCount > 0) && (() => {
+        const upcomingTotal = upcomingPerformances.reduce((sum, p) => sum + p.reservedParticipants, 0)
+        const upcomingZero = upcomingPerformances.filter(p => p.reservedParticipants === 0).length
+        return (
+          <div className="scenario-edit-card">
+            <p className="scenario-edit-card__title">
+              <CalendarDays className="h-3.5 w-3.5" />
+              これからの公演（{upcomingPerformances.length}回
+              <span className="font-normal">・予約合計{upcomingTotal}名</span>
+              {upcomingZero > 0 && (
+                <span className="font-normal text-orange-600">・予約0名が{upcomingZero}回</span>
+              )}
+              ）
+            </p>
+            {futureReservationCount > 0 && (
+              <div className="mb-2 text-xs text-muted-foreground">
+                日程未確定の貸切リクエスト: {futureReservationCount}件
+              </div>
+            )}
+            <div className="space-y-2">
+              {upcomingPerformances.map((perf, index) => {
+                const { year, month, day, weekday } = formatDate(perf.date)
+                const categoryInfo = CATEGORY_LABELS[perf.category] || CATEGORY_LABELS.open
+                const timeSlot = getTimeSlot(perf.startTime)
+                const timeSlotInfo = TIME_SLOT_LABELS[timeSlot] || TIME_SLOT_LABELS['昼']
+                const isFull = perf.maxParticipants != null && perf.reservedParticipants >= perf.maxParticipants
+                return (
+                  <div
+                    key={`${perf.date}-${perf.startTime}-${index}`}
+                    className="flex items-center gap-3 py-2 px-3 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors flex-wrap"
+                  >
+                    <div className="flex items-center gap-1.5 min-w-[80px]">
+                      <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="font-mono text-sm">
+                        {year !== new Date().getFullYear() && <span className="text-muted-foreground mr-0.5">{year}/</span>}
+                        {month}/{day}
+                        <span className="text-muted-foreground ml-0.5">({weekday})</span>
+                      </span>
+                    </div>
+                    <Badge variant="secondary" className={`${timeSlotInfo.color} text-xs min-w-[32px] justify-center`}>
+                      {timeSlotInfo.label}
+                    </Badge>
+                    <Badge variant="secondary" className={`${categoryInfo.color} text-xs min-w-[56px] justify-center`}>
+                      {categoryInfo.label}
+                    </Badge>
+                    <div className="flex items-center gap-1 min-w-[60px] text-sm text-muted-foreground">
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span className="truncate">{getStoreName(perf.storeId)}</span>
+                    </div>
+                    <div className="flex items-center gap-1 min-w-[90px] text-sm">
+                      <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className={perf.reservedParticipants === 0 ? 'text-orange-600' : isFull ? 'font-medium text-green-700' : ''}>
+                        予約{perf.reservedParticipants}
+                        {perf.maxParticipants != null && `/${perf.maxParticipants}`}名
+                        {isFull && '（満席）'}
+                      </span>
+                      {perf.staffParticipants > 0 && (
+                        <span className="text-blue-600 text-xs ml-0.5">（他スタッフ{perf.staffParticipants}）</span>
+                      )}
+                    </div>
+                    {perf.reservationCount > 0 && (
+                      <span className="text-xs text-muted-foreground">{perf.reservationCount}件</span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* 年ごとの公演リスト */}
       {sortedYears.map((year) => {
