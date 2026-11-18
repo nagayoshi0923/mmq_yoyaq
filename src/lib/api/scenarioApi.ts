@@ -190,6 +190,7 @@ export const scenarioApi = {
     performanceDates: Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; licenseCost: number; startTime: string; storeId: string | null; isCancelled: boolean }>
     futurePerformanceCount: number
     futureReservationCount: number
+    upcomingPerformances: Array<{ date: string; category: string; startTime: string; storeId: string | null; reservedParticipants: number; staffParticipants: number; reservationCount: number; maxParticipants: number | null }>
   }> {
     const params = new URLSearchParams({ type: 'stats', scenarioId })
     return apiClient.get(`/api/scenarios?${params}`)

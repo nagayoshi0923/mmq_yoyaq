@@ -84,6 +84,7 @@ export function ScenarioTabContent({ tabId, formData, setFormData, scenarioId, c
           scenarioTitle={formData.title || 'シナリオ'}
           futurePerformanceCount={scenarioStats.futurePerformanceCount}
           futureReservationCount={scenarioStats.futureReservationCount}
+          upcomingPerformances={scenarioStats.upcomingPerformances ?? []}
         />
       )
     case 'booking-policy':
