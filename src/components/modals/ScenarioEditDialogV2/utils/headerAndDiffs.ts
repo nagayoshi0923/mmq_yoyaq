@@ -156,6 +156,7 @@ export function emptyScenarioStats() {
   firstPerformanceDate: null as string | null,
   performanceDates: [] as Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; licenseCost: number; startTime: string; storeId: string | null; isCancelled: boolean }>,
   futurePerformanceCount: 0,
-  futureReservationCount: 0
+  futureReservationCount: 0,
+  upcomingPerformances: [] as Array<{ date: string; category: string; startTime: string; storeId: string | null; reservedParticipants: number; staffParticipants: number; reservationCount: number; maxParticipants: number | null }>
 }
 }
