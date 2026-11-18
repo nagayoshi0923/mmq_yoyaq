@@ -18,12 +18,12 @@ interface GroupPageHeaderProps {
 
 export function GroupPageHeader({ title, subtitle, onBack, backLabel, onOpenScenario, menu }: GroupPageHeaderProps) {
   return (
-    <div className="shrink-0 bg-card border-b border-border px-3 lg:px-6 py-2 flex items-center gap-2.5" data-testid="group-page-header">
+    <div className="shrink-0 px-4 pt-3 pb-1 flex items-start gap-2.5" data-testid="group-page-header">
       {onBack && (
         <button
           type="button"
           onClick={onBack}
-          className="-ml-1 flex items-center gap-0.5 rounded-md p-1 text-foreground/80 hover:bg-muted"
+          className="-ml-1 flex items-center gap-0.5 p-1 text-white/80 hover:text-white"
           aria-label={backLabel}
           title={backLabel}
         >
@@ -32,13 +32,13 @@ export function GroupPageHeader({ title, subtitle, onBack, backLabel, onOpenScen
         </button>
       )}
       <div className="flex-1 min-w-0">
+        <p className="text-xs text-white/70 truncate" data-testid="group-page-subtitle">{subtitle}</p>
         <h1
-          className={`text-base font-bold leading-tight truncate ${onOpenScenario ? 'cursor-pointer hover:text-primary' : ''}`}
+          className={`text-xl font-bold leading-snug ${onOpenScenario ? 'cursor-pointer hover:underline' : ''}`}
           onClick={onOpenScenario}
         >
           {title}
         </h1>
-        <p className="text-xs text-muted-foreground truncate" data-testid="group-page-subtitle">{subtitle}</p>
       </div>
       {menu}
     </div>

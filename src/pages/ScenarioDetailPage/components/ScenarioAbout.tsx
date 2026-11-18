@@ -1,9 +1,6 @@
 import { memo, useState } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Users, ChevronDown, BookOpen, AlertTriangle, User } from 'lucide-react'
+import { User } from 'lucide-react'
 import type { ScenarioDetail, ScenarioCharacter } from '../utils/types'
-import { MYPAGE_THEME as THEME } from '@/lib/theme'
-import { useOrgThemePreset } from '@/hooks/useOrgThemePreset'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { SensitivityCheck } from '@/components/scenario/SensitivityCheck'
 import { characterImageStyle } from '@/components/scenario/scenarioFacts'
@@ -22,71 +19,29 @@ const genderLabel: Record<ScenarioCharacter['gender'], string> = {
   unknown: '',
 }
 
-// キャラクターカード
-function CharacterCard({ character }: { character: ScenarioCharacter }) {
-  const isNpc = character.is_npc
+// キャラクターカード（画像・名前・性別と年齢。説明は「すべて見る」で開いたときだけ）
+function CharacterCard({ character, withDescription }: { character: ScenarioCharacter; withDescription: boolean }) {
   return (
-    <div
-      className={`flex flex-col ${isNpc ? 'ring-2 ring-amber-300' : ''}`}
-      style={{ borderRadius: 0 }}
-    >
-      <div className="relative w-full overflow-hidden" style={{ borderRadius: 0 }}>
-        {/* キャラクター画像（全面） */}
+    <div className="min-w-0">
+      <div className="relative aspect-[4/3] overflow-hidden" style={{ backgroundColor: character.background_color || '#e5e7eb' }}>
         {character.image_url ? (
-          <div
-            className="w-full aspect-[3/4] overflow-hidden"
-            style={{ backgroundColor: character.background_color || '#e5e7eb' }}
-          >
-            <OptimizedImage
-              src={character.image_url}
-              alt={character.name}
-              className="w-full h-full object-cover"
-              style={characterImageStyle(character.image_position, character.image_scale)}
-            />
-          </div>
+          <OptimizedImage
+            src={character.image_url}
+            alt={character.name}
+            className="h-full w-full object-cover"
+            style={characterImageStyle(character.image_position, character.image_scale)}
+          />
         ) : (
-          <div className="w-full aspect-[3/4] bg-gray-200 flex items-center justify-center">
-            <User className="w-10 h-10 text-gray-400" />
-          </div>
+          <div className="flex h-full w-full items-center justify-center"><User className="h-8 w-8 text-gray-400" /></div>
         )}
-
-        {/* NPC バッジ（左上） */}
-        {isNpc && (
-          <span className="absolute top-1.5 left-1.5 text-xs font-bold bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-sm shadow z-[1]">
-            NPC
-          </span>
-        )}
-
-        {/* 名前・属性のみオーバーレイ（説明は下段で全文表示） */}
-        <div
-          className="absolute bottom-0 left-0 right-0 px-2 pt-6 pb-2"
-          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)' }}
-        >
-          <p className="font-semibold text-white text-xs leading-tight drop-shadow">
-            {character.name}
-            {character.first_person && (
-              <span className="ml-1 font-normal text-white/70">（{character.first_person}）</span>
-            )}
-          </p>
-          <div className="text-xs text-white/80 mt-0.5 leading-tight">
-            {(character.gender !== 'unknown' || character.age) && (
-              <p>
-                {genderLabel[character.gender]}
-                {character.gender !== 'unknown' && character.age && ' / '}
-                {character.age}
-              </p>
-            )}
-            {character.occupation && <p>{character.occupation}</p>}
-          </div>
-        </div>
+        {character.is_npc && <span className="absolute left-1 top-1 bg-amber-400 px-1 text-2xs font-bold text-amber-900">NPC</span>}
       </div>
-
-      {character.description && (
-        <div className="px-2 py-2 bg-zinc-900 border-t border-zinc-800">
-          <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap break-words">
-            {character.description}
-          </p>
-        </div>
+      <p className="mt-1.5 truncate text-sm font-bold">{character.name}</p>
+      <p className="truncate text-2xs text-muted-foreground">
+        {[genderLabel[character.gender], character.age, character.occupation].filter(Boolean).join('・')}
+      </p>
+      {withDescription && character.description && (
+        <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-700">{character.description}</p>
       )}
     </div>
   )
@@ -94,87 +49,53 @@ function CharacterCard({ character }: { character: ScenarioCharacter }) {
 
 export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioAboutProps) {
   const [isExpanded, setIsExpanded] = useState(false)
-  const synopsisLength = scenario.synopsis?.length || 0
-  const shouldTruncate = synopsisLength > 200
-  const preset = useOrgThemePreset()
-  const headingTextColor = preset.onPrimary === 'black' ? '#000' : '#fff'
+  const [showAll, setShowAll] = useState(false)
+  const shouldTruncate = (scenario.synopsis?.length || 0) > 200
+  const characters = [...(scenario.characters ?? [])].sort((a, b) => a.sort_order - b.sort_order)
 
   return (
-    <div className="space-y-4">
-      {/* あらすじセクション */}
+    <div>
       {scenario.synopsis && (
-        <div className="bg-gray-50 border border-gray-200">
-          <div
-            className="px-4 py-3 border-b border-gray-200 flex items-center gap-2"
-            style={{ backgroundColor: preset.primary, color: headingTextColor }}
-          >
-            <BookOpen className="w-4 h-4" />
-            <h3 className="font-semibold text-base">あらすじ</h3>
-          </div>
-          <div className="p-4">
-            <div className={`relative ${!isExpanded && shouldTruncate ? 'max-h-32 overflow-hidden' : ''}`}>
-              <p className="ts-body leading-relaxed whitespace-pre-wrap text-gray-700">
-                {scenario.synopsis}
-              </p>
-              {/* グラデーションオーバーレイ */}
-              {!isExpanded && shouldTruncate && (
-                <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-gray-50 to-transparent" />
-              )}
-            </div>
-            {shouldTruncate && (
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="mt-2 flex items-center gap-1 text-xs font-medium transition-colors"
-                style={{ color: preset.primary }}
-              >
-                {isExpanded ? '閉じる' : '続きを読む'}
-                <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-              </button>
-            )}
-          </div>
-        </div>
+        <section className="border-t border-gray-200 px-4 py-6">
+          <h2 className="text-lg font-bold">あらすじ</h2>
+          <p className={`mt-3 whitespace-pre-wrap text-sm leading-relaxed ${!isExpanded && shouldTruncate ? 'line-clamp-5' : ''}`}>
+            {scenario.synopsis}
+          </p>
+          {shouldTruncate && (
+            <button type="button" onClick={() => setIsExpanded((v) => !v)} className="mt-2 text-sm underline underline-offset-4">
+              {isExpanded ? '閉じる' : '続きを読む'}
+            </button>
+          )}
+        </section>
       )}
 
-      {/* キャラクターセクション */}
-      {scenario.characters && scenario.characters.length > 0 && (
-        <div className="bg-white border border-gray-200">
-          <div
-            className="px-4 py-3 border-b border-gray-200 flex items-center gap-2"
-            style={{ backgroundColor: preset.primary, color: headingTextColor }}
-          >
-            <Users className="w-4 h-4" />
-            <h3 className="font-semibold text-base">キャラクター</h3>
+      {characters.length > 0 && (
+        <section className="border-t border-gray-200 px-4 py-6">
+          <h2 className="text-lg font-bold">キャラクター</h2>
+          <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">
+            {(showAll ? characters : characters.slice(0, 3)).map((c) => (
+              <CharacterCard key={c.id} character={c} withDescription={showAll} />
+            ))}
           </div>
-          <div className="p-4">
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-              {scenario.characters
-                .sort((a, b) => a.sort_order - b.sort_order)
-                .map((character) => (
-                  <CharacterCard key={character.id} character={character} />
-                ))}
-            </div>
-          </div>
-        </div>
+          {(characters.length > 3 || characters.some((c) => c.description)) && (
+            <button type="button" onClick={() => setShowAll((v) => !v)} className="mt-3 text-sm underline underline-offset-4">
+              {showAll ? '閉じる' : `${characters.length}人すべて見る`}
+            </button>
+          )}
+        </section>
       )}
 
-      {/* 注意事項セクション */}
       {scenario.caution && (
-        <div className="bg-white border border-gray-200 rounded">
-          <div className="px-4 py-2.5 flex items-center gap-2 border-b border-gray-200">
-            <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
-            <h3 className="font-semibold text-gray-900 text-base">シナリオ特記事項</h3>
-          </div>
-          <div className="px-4 py-3">
-            <p className="ts-body leading-relaxed whitespace-pre-wrap text-gray-700">
-              {scenario.caution}
-            </p>
-          </div>
-        </div>
+        <section className="border-t border-gray-200 px-4 py-6">
+          <h2 className="text-lg font-bold">この作品の特記事項</h2>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-gray-700">{scenario.caution}</p>
+        </section>
       )}
 
       {/* センシティブ内容セルフチェック（未申告作品では非表示） */}
-      <SensitivityCheck sensitiveTags={scenario.sensitive_tags || []} />
-
+      <div className="px-4 empty:hidden">
+        <SensitivityCheck sensitiveTags={scenario.sensitive_tags || []} />
+      </div>
     </div>
   )
 })

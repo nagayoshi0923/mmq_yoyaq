@@ -235,7 +235,8 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
       return { ...s, name: display, short_name: display }
     }),
     relatedScenarios: relatedScenariosResult,
-    organizationId: orgId
+    organizationId: orgId,
+    organizationName: orgName,
   }
 }
 
@@ -262,6 +263,7 @@ export function useScenarioDetail(scenarioId: string, organizationSlug?: string)
     stores: data?.stores ?? [],
     relatedScenarios: data?.relatedScenarios ?? [],
     organizationId: data?.organizationId ?? undefined,
+    organizationName: data?.organizationName ?? null,
     isLoading,
     loadScenarioDetail: refetch
   }

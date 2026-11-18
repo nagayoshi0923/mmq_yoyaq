@@ -19,7 +19,7 @@ interface GroupMembersTabProps {
 
 export function GroupMembersTab({ table, hasCandidates, inviteCap, copied, onCopyInvite, onShareLine, onManage }: GroupMembersTabProps) {
   return (
-    <section className="bg-card border border-border rounded-lg p-3" aria-label="メンバー" data-testid="group-members-tab">
+    <section className="bg-card border border-gray-200 p-3" aria-label="メンバー" data-testid="group-members-tab">
       <h2 className="mb-1 flex items-center justify-between text-sm font-bold">
         <span>メンバー {table.memberCount}{inviteCap ? `/${inviteCap}` : ''}名</span>
         {onManage && (

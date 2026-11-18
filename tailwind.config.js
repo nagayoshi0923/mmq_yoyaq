@@ -24,6 +24,7 @@ export default {
       },
       fontSize: {
         // 文字サイズ定義（レスポンシブ拡大なしで運用）
+        '2xs': ['11px', { lineHeight: '1.4' }], // 補足の小さな字（お客様画面の刷新）
         'xs': ['12px', { lineHeight: '1.4' }],
         'sm': ['14px', { lineHeight: '1.5' }],
         'base': ['16px', { lineHeight: '1.6' }],
