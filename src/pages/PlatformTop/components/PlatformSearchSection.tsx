@@ -150,18 +150,19 @@ export function PlatformSearchSection({
         </div>
       )}
 
-      <div className="mt-4 flex items-baseline gap-3 text-sm">
+      {/* 「条件を足す」は「組織・店舗で絞る」と同じ右寄せ・同じ見た目（2026-11-19 えいきち） */}
+      <div className="mt-4 flex items-end justify-between gap-3 text-sm">
         <p className="text-muted-foreground">
           {state.onlyAvailable ? '空席のある公演' : '公演'}{' '}
           <b className="text-lg text-foreground">{isLoading && results.length === 0 ? '…' : `${results.length}件`}</b>
         </p>
         <Popover open={filterOpen} onOpenChange={setFilterOpen}>
           <PopoverTrigger asChild>
-            <button type="button" className="underline underline-offset-4 hover:opacity-70">
+            <button type="button" className="pb-0.5 text-sm underline underline-offset-4 hover:opacity-70">
               条件を足す{extraCount > 0 ? `（${extraCount}）` : ''}
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-72 space-y-2 rounded-lg p-3">
+          <PopoverContent align="end" className="w-72 space-y-2 rounded-lg p-3">
             <FilterToggle checked={state.onlyAvailable} onClick={() => onChange({ onlyAvailable: !state.onlyAvailable })}>空席のある公演だけ</FilterToggle>
             {hasBeginner && (
               <FilterToggle checked={state.beginnerOnly} onClick={() => onChange({ beginnerOnly: !state.beginnerOnly })}>初心者向けだけ</FilterToggle>

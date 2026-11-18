@@ -1,3 +1,6 @@
+import type { ReactNode } from 'react'
+import { createElement } from 'react'
+import { seatToneClass } from './labels'
 import { formatJstMonthDay } from '@/utils/jstDate'
 import { seatState, type PublicPerformance } from '@/lib/publicPerformanceSearch'
 import type { NewArrivalDate } from '@/components/public-top/newArrivals'
@@ -12,8 +15,9 @@ export function newArrivalLabel(date: NewArrivalDate): string | null {
 }
 
 /** 成立間近の言い方（あと N 人で成立／残り N 席） */
-export function nearlyFullLabel(p: PublicPerformance): string {
+export function nearlyFullLabel(p: PublicPerformance): ReactNode {
   const need = p.player_count_min - p.current_participants
   if (seatState(p).kind === 'nearly_confirmed' && need > 0) return `あと${need}人で成立`
-  return `残り${p.available_seats}席`
+  // 残席は「あと N 席」と同じ色の段階（labels.tsx の seatTone）
+  return createElement('span', { className: seatToneClass(p.available_seats) }, `残り${p.available_seats}席`)
 }
