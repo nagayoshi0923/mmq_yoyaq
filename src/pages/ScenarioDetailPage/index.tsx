@@ -9,7 +9,7 @@ import { usePrivateBookingTabDraft } from './hooks/usePrivateBookingTabDraft'
 import { clearPrivateBookingTabDraft } from './privateBookingTabDraft'
 import { toJstYmd } from '@/utils/jstDate'
 import { PageBar } from '@/components/renewal/PageBar'
-import { MMQ_RED, PRIVATE_PURPLE } from '@/components/renewal/fonts'
+import { PRIVATE_PURPLE } from '@/components/renewal/fonts'
 import { durationLabel } from '@/components/renewal/labels'
 import { PRICE_NOTE } from '@/lib/priceNote'
 import { buildPublicCancellationPolicyPath } from '@/lib/publicBookingPath'
@@ -459,7 +459,6 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     `1人 ${privateFeeText}`,
     durationLabel(scenario.duration),
   ].filter(Boolean).join('・')
-  const globalSlug = scenario.slug || scenarioId
   const showPrivateBar = acceptsPrivateBooking && activeTab === 'private' && !privateOutOfPeriod
   const showScheduleBar = activeTab === 'schedule'
   // 貸切タブは見本（Figma 貸切／作品ページ（貸切））にあるものだけを出す（2026-11-18 えいきち「完全に見本通りに」）
@@ -474,15 +473,6 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
       <ScenarioHero scenario={scenario} stores={stores} />
 
-      {/* ほかの組織・店舗でも遊べる作品は MMQ 全国の作品紹介へ */}
-      <button
-        type="button"
-        onClick={() => { saveScrollPositionForCurrentUrl(); navigate(`/scenario/${globalSlug}`) }}
-        className="block w-full border-y border-red-100 bg-red-50/60 px-4 py-2.5 text-left"
-      >
-        <span className="block text-2xs text-muted-foreground">ほかの組織・店舗でも遊べます</span>
-        <span className="text-sm font-bold" style={{ color: MMQ_RED }}>MMQで、この作品を遊べる全国の店舗を見る ›</span>
-      </button>
 
       <div className="mx-auto max-w-4xl">
         {!privateView && <div className="px-4 pt-4">
