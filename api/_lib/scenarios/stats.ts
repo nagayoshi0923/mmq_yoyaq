@@ -14,15 +14,92 @@ export async function handleGetScenarioStats(req: VercelRequest, res: VercelResp
   }
   const today = new Date().toISOString().split('T')[0]
 
-  // ── シナリオの料金・GM報酬等のメタ情報を取得（自組織） ───────────────────
-  const { data: _scenarioRaw, error: scenarioError } = await db
-    .from('organization_scenarios_with_master')
-    .select(STATS_SCENARIO_FIELDS)
-    .eq('id', scenarioId)
-    .eq('organization_id', orgId)
-    .maybeSingle()
+  // 互いに依存しない読み取りは同時に始める（関数は米国東部・DB は東京で、1 往復ごとに待ちが積み重なるため）。
+  // ── シナリオの料金・GM報酬等のメタ情報（自組織）／公演回数・中止数・初公演日・公演イベント詳細・将来分・これからの公演 ──
+  const [
+    { data: _scenarioRaw, error: scenarioError },
+    { count: performanceCount, error: perfError },
+    { count: cancelledCount, error: cancelError },
+    { data: firstEvent, error: firstError },
+    { data: events, error: eventsError },
+    { count: futurePerformanceCount },
+    { count: futureReservationCount },
+    { data: upcomingRaw, error: upcomingError },
+  ] = await Promise.all([
+    db
+      .from('organization_scenarios_with_master')
+      .select(STATS_SCENARIO_FIELDS)
+      .eq('id', scenarioId)
+      .eq('organization_id', orgId)
+      .maybeSingle(),
+    db
+      .from('schedule_events')
+      .select(STATS_SCHEDULE_EVENT_COUNT_FIELDS, { count: 'exact', head: true })
+      .eq('scenario_master_id', scenarioId)
+      .eq('organization_id', orgId)
+      .lte('date', today)
+      .neq('category', 'offsite')
+      .neq('is_cancelled', true),
+    db
+      .from('schedule_events')
+      .select(STATS_SCHEDULE_EVENT_COUNT_FIELDS, { count: 'exact', head: true })
+      .eq('scenario_master_id', scenarioId)
+      .eq('organization_id', orgId)
+      .lte('date', today)
+      .neq('category', 'offsite')
+      .eq('is_cancelled', true),
+    db
+      .from('schedule_events')
+      .select('date')
+      .eq('scenario_master_id', scenarioId)
+      .eq('organization_id', orgId)
+      .lte('date', today)
+      .neq('category', 'offsite')
+      .neq('is_cancelled', true)
+      .order('date', { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+    db
+      .from('schedule_events')
+      .select(STATS_SCHEDULE_EVENT_DETAIL_FIELDS)
+      .eq('scenario_master_id', scenarioId)
+      .eq('organization_id', orgId)
+      .lte('date', today)
+      .order('date', { ascending: false }),
+    db
+      .from('schedule_events')
+      .select(STATS_SCHEDULE_EVENT_COUNT_FIELDS, { count: 'exact', head: true })
+      .eq('scenario_master_id', scenarioId)
+      .eq('organization_id', orgId)
+      .gt('date', today)
+      .neq('category', 'offsite')
+      .neq('is_cancelled', true),
+    db
+      .from('reservations')
+      .select(STATS_FUTURE_RESERVATION_FIELDS, { count: 'exact', head: true })
+      .eq('scenario_master_id', scenarioId)
+      .eq('organization_id', orgId)
+      .is('schedule_event_id', null)
+      .in('status', ['confirmed', 'gm_confirmed', 'pending']),
+    // これからの公演と予約数（明日以降・出張以外・中止以外）
+    db
+      .from('schedule_events')
+      .select(STATS_UPCOMING_EVENT_FIELDS)
+      .eq('scenario_master_id', scenarioId)
+      .eq('organization_id', orgId)
+      .gt('date', today)
+      .neq('category', 'offsite')
+      .neq('is_cancelled', true)
+      .order('date', { ascending: true })
+      .order('start_time', { ascending: true }),
+  ])
   if (scenarioError) throw scenarioError
   if (!_scenarioRaw) return res.status(404).json({ error: 'シナリオが見つかりません' })
+  if (perfError) throw perfError
+  if (cancelError) throw cancelError
+  if (eventsError) throw eventsError
+  if (upcomingError) throw upcomingError
+
   const scenarioData = _scenarioRaw as {
     player_count_max?: number
     license_amount?: number
@@ -36,57 +113,12 @@ export async function handleGetScenarioStats(req: VercelRequest, res: VercelResp
   } | null
 
   const maxParticipants = scenarioData?.player_count_max ?? 99
-  const defaultLicenseAmount = scenarioData?.license_amount ?? 0
   const pricing = scenarioData as ScenarioPricing | null
   const normalLicenseAmount = getLicenseAmount(pricing, 'normal')
   const gmTestLicenseAmount = getLicenseAmount(pricing, 'gmtest')
   const normalParticipationFee = getParticipationFee(pricing, 'normal')
   const gmTestParticipationFee = getParticipationFee(pricing, 'gmtest')
-
-  // ── 公演回数 ────────────────────────────────────────────────────────────
-  const { count: performanceCount, error: perfError } = await db
-    .from('schedule_events')
-    .select(STATS_SCHEDULE_EVENT_COUNT_FIELDS, { count: 'exact', head: true })
-    .eq('scenario_master_id', scenarioId)
-    .eq('organization_id', orgId)
-    .lte('date', today)
-    .neq('category', 'offsite')
-    .neq('is_cancelled', true)
-  if (perfError) throw perfError
-
-  const { count: cancelledCount, error: cancelError } = await db
-    .from('schedule_events')
-    .select(STATS_SCHEDULE_EVENT_COUNT_FIELDS, { count: 'exact', head: true })
-    .eq('scenario_master_id', scenarioId)
-    .eq('organization_id', orgId)
-    .lte('date', today)
-    .neq('category', 'offsite')
-    .eq('is_cancelled', true)
-  if (cancelError) throw cancelError
-
-  // ── 初公演日 ────────────────────────────────────────────────────────────
-  const { data: firstEvent, error: firstError } = await db
-    .from('schedule_events')
-    .select('date')
-    .eq('scenario_master_id', scenarioId)
-    .eq('organization_id', orgId)
-    .lte('date', today)
-    .neq('category', 'offsite')
-    .neq('is_cancelled', true)
-    .order('date', { ascending: true })
-    .limit(1)
-    .maybeSingle()
   const firstPerformanceDate = firstError ? null : (firstEvent?.date as string | null) ?? null
-
-  // ── 公演イベント詳細 ────────────────────────────────────────────────────
-  const { data: events, error: eventsError } = await db
-    .from('schedule_events')
-    .select(STATS_SCHEDULE_EVENT_DETAIL_FIELDS)
-    .eq('scenario_master_id', scenarioId)
-    .eq('organization_id', orgId)
-    .lte('date', today)
-    .order('date', { ascending: false })
-  if (eventsError) throw eventsError
 
   type EventRow = {
     id: string
@@ -104,54 +136,79 @@ export async function handleGetScenarioStats(req: VercelRequest, res: VercelResp
     staff_assignments?: EventStaffAssignmentLike[] | null
     stores?: { venue_cost_per_performance?: number | null; transport_allowance?: number | null } | null
   }
+  type UpcomingRow = {
+    id: string
+    date: string
+    category: string | null
+    start_time: string | null
+    store_id: string | null
+    current_participants: number | null
+    max_participants: number | null
+    capacity: number | null
+  }
+  type ResRow = {
+    schedule_event_id: string | null
+    participant_count: number | null
+    reservation_source: string | null
+    payment_method: string | null
+  }
   const eventList = (events ?? []) as unknown as EventRow[]
+  const upcomingList = (upcomingRaw ?? []) as unknown as UpcomingRow[]
   const unrecordedEvents = eventList.filter(event => event.gm_cost === null && !event.is_cancelled)
   const dates = unrecordedEvents.map(event => event.date).sort()
-  const settingsForDate = dates.length ? await loadCompensationHistory(db, orgId, dates[0], dates.at(-1)!) : null
-  const { data: staff, error: staffError } = dates.length ? await db.from('staff').select('id,name,stores').eq('organization_id',orgId) : {data:[],error:null}
+  const eventIds = eventList.map((e) => e.id)
+  const upcomingIds = upcomingList.map(e => e.id)
+  const BATCH_SIZE = 100
+  const batches = (ids: string[]) => {
+    const out: string[][] = []
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) out.push(ids.slice(i, i + BATCH_SIZE))
+    return out
+  }
+
+  // ── 2 段目: 報酬履歴・スタッフ・過去公演の予約・これからの公演の予約（いずれも 1 段目の結果だけに依存） ──
+  const [settingsForDate, staffResult, pastReservationBatches, upcomingReservationBatches] = await Promise.all([
+    dates.length ? loadCompensationHistory(db, orgId, dates[0], dates.at(-1)!) : Promise.resolve(null),
+    dates.length
+      ? db.from('staff').select('id,name,stores').eq('organization_id', orgId)
+      : Promise.resolve({ data: [] as Array<{ id: string; name: string; stores: unknown }>, error: null }),
+    Promise.all(batches(eventIds).map(batchIds => db!
+      .from('reservations')
+      .select(STATS_RESERVATION_FIELDS)
+      .eq('organization_id', orgId)
+      .in('schedule_event_id', batchIds)
+      // 来店済み（checked_in）も参加者に数える。売上側と同じ規則（#787）
+      .in('status', SALES_RESERVATION_STATUSES))),
+    Promise.all(batches(upcomingIds).map(batchIds => db!
+      .from('reservations')
+      .select(STATS_RESERVATION_FIELDS)
+      .eq('organization_id', orgId)
+      .in('schedule_event_id', batchIds)
+      // 席を押さえている予約（定員計算と同じ。仮予約 pending を含む）
+      .in('status', UPCOMING_RESERVATION_STATUSES))),
+  ])
+  const { data: staff, error: staffError } = staffResult
   if (staffError) throw staffError
   const homeStores = new Map<string,string[]>((staff ?? []).filter(person => Array.isArray(person.stores)).map(person => [person.name, person.stores as string[]]))
   const staffById = new Map<string,{ stores: string[] | null }>((staff ?? []).map(person => [person.id, { stores: (person.stores as string[] | null) ?? null }]))
-  const eventIds = eventList.map((e) => e.id)
   const demoParticipantsMap: Record<string, number> = {}
   const actualParticipantsMap: Record<string, number> = {}
   const staffParticipantsMap: Record<string, number> = {}
 
-  if (eventIds.length > 0) {
-    const BATCH_SIZE = 100
-    type ResRow = {
-      schedule_event_id: string | null
-      participant_count: number | null
-      reservation_source: string | null
-      payment_method: string | null
-    }
-    const allReservations: ResRow[] = []
-
-    for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
-      const batchIds = eventIds.slice(i, i + BATCH_SIZE)
-      const { data, error: resError } = await db
-        .from('reservations')
-        .select(STATS_RESERVATION_FIELDS)
-        .eq('organization_id', orgId)
-        .in('schedule_event_id', batchIds)
-        // 来店済み（checked_in）も参加者に数える。売上側と同じ規則（#787）
-        .in('status', SALES_RESERVATION_STATUSES)
-      if (!resError && data) {
-        allReservations.push(...(data as unknown as ResRow[]))
-      }
-    }
-
-    for (const r of allReservations) {
-      if (!r.schedule_event_id) continue
-      const count = r.participant_count ?? 0
-      const src = r.reservation_source ?? ''
-      if (DEMO_RESERVATION_SOURCES.has(src)) {
-        demoParticipantsMap[r.schedule_event_id] = (demoParticipantsMap[r.schedule_event_id] ?? 0) + count
-      } else if (STAFF_RESERVATION_SOURCES.has(src) || r.payment_method === 'staff') {
-        staffParticipantsMap[r.schedule_event_id] = (staffParticipantsMap[r.schedule_event_id] ?? 0) + count
-      } else {
-        actualParticipantsMap[r.schedule_event_id] = (actualParticipantsMap[r.schedule_event_id] ?? 0) + count
-      }
+  // 過去公演の予約は、取得に失敗したバッチを飛ばす（従来どおり）
+  const allReservations: ResRow[] = []
+  for (const { data, error: resError } of pastReservationBatches) {
+    if (!resError && data) allReservations.push(...(data as unknown as ResRow[]))
+  }
+  for (const r of allReservations) {
+    if (!r.schedule_event_id) continue
+    const count = r.participant_count ?? 0
+    const src = r.reservation_source ?? ''
+    if (DEMO_RESERVATION_SOURCES.has(src)) {
+      demoParticipantsMap[r.schedule_event_id] = (demoParticipantsMap[r.schedule_event_id] ?? 0) + count
+    } else if (STAFF_RESERVATION_SOURCES.has(src) || r.payment_method === 'staff') {
+      staffParticipantsMap[r.schedule_event_id] = (staffParticipantsMap[r.schedule_event_id] ?? 0) + count
+    } else {
+      actualParticipantsMap[r.schedule_event_id] = (actualParticipantsMap[r.schedule_event_id] ?? 0) + count
     }
   }
 
@@ -235,70 +292,18 @@ export async function handleGetScenarioStats(req: VercelRequest, res: VercelResp
         ? Math.round(totalVenueCost / (perfCount || 1))
         : 0
 
-  // ── 将来分カウント ──────────────────────────────────────────────────────
-  const { count: futurePerformanceCount } = await db
-    .from('schedule_events')
-    .select(STATS_SCHEDULE_EVENT_COUNT_FIELDS, { count: 'exact', head: true })
-    .eq('scenario_master_id', scenarioId)
-    .eq('organization_id', orgId)
-    .gt('date', today)
-    .neq('category', 'offsite')
-    .neq('is_cancelled', true)
-
-  const { count: futureReservationCount } = await db
-    .from('reservations')
-    .select(STATS_FUTURE_RESERVATION_FIELDS, { count: 'exact', head: true })
-    .eq('scenario_master_id', scenarioId)
-    .eq('organization_id', orgId)
-    .is('schedule_event_id', null)
-    .in('status', ['confirmed', 'gm_confirmed', 'pending'])
-
-  // ── これからの公演と予約数（明日以降・出張以外・中止以外） ─────────────────
-  const { data: upcomingRaw, error: upcomingError } = await db
-    .from('schedule_events')
-    .select(STATS_UPCOMING_EVENT_FIELDS)
-    .eq('scenario_master_id', scenarioId)
-    .eq('organization_id', orgId)
-    .gt('date', today)
-    .neq('category', 'offsite')
-    .neq('is_cancelled', true)
-    .order('date', { ascending: true })
-    .order('start_time', { ascending: true })
-  if (upcomingError) throw upcomingError
-  type UpcomingRow = {
-    id: string
-    date: string
-    category: string | null
-    start_time: string | null
-    store_id: string | null
-    current_participants: number | null
-    max_participants: number | null
-    capacity: number | null
-  }
-  const upcomingList = (upcomingRaw ?? []) as unknown as UpcomingRow[]
   const upcomingReserved: Record<string, { participants: number; staff: number; reservations: number }> = {}
-  if (upcomingList.length > 0) {
-    const upcomingIds = upcomingList.map(e => e.id)
-    const BATCH_SIZE = 100
-    for (let i = 0; i < upcomingIds.length; i += BATCH_SIZE) {
-      const { data, error: upResError } = await db
-        .from('reservations')
-        .select(STATS_RESERVATION_FIELDS)
-        .eq('organization_id', orgId)
-        .in('schedule_event_id', upcomingIds.slice(i, i + BATCH_SIZE))
-        // 席を押さえている予約（定員計算と同じ。仮予約 pending を含む）
-        .in('status', UPCOMING_RESERVATION_STATUSES)
-      if (upResError) throw upResError
-      for (const r of (data ?? []) as unknown as Array<{ schedule_event_id: string | null; participant_count: number | null; reservation_source: string | null; payment_method: string | null }>) {
-        if (!r.schedule_event_id) continue
-        const entry = upcomingReserved[r.schedule_event_id] ?? (upcomingReserved[r.schedule_event_id] = { participants: 0, staff: 0, reservations: 0 })
-        const count = r.participant_count ?? 0
-        if (STAFF_RESERVATION_SOURCES.has(r.reservation_source ?? '') || r.payment_method === 'staff') {
-          entry.staff += count
-        } else {
-          entry.participants += count
-          entry.reservations += 1
-        }
+  for (const { data, error: upResError } of upcomingReservationBatches) {
+    if (upResError) throw upResError
+    for (const r of (data ?? []) as unknown as ResRow[]) {
+      if (!r.schedule_event_id) continue
+      const entry = upcomingReserved[r.schedule_event_id] ?? (upcomingReserved[r.schedule_event_id] = { participants: 0, staff: 0, reservations: 0 })
+      const count = r.participant_count ?? 0
+      if (STAFF_RESERVATION_SOURCES.has(r.reservation_source ?? '') || r.payment_method === 'staff') {
+        entry.staff += count
+      } else {
+        entry.participants += count
+        entry.reservations += 1
       }
     }
   }

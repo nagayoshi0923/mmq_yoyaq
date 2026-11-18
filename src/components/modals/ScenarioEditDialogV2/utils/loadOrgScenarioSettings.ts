@@ -6,7 +6,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { apiClient } from '@/lib/apiClient'
-import { scenarioMasterApi } from '@/lib/api/scenarioMasterApi'
+import { scenarioMasterApi, type ScenarioMaster } from '@/lib/api/scenarioMasterApi'
 import { organizationScenarioReadApi } from '@/lib/api/scenarioReadApi'
 import { scenarioEffectiveFields, type ScenarioSourceState } from '@/lib/scenarioSettingSources'
 import { readSurveyQuestionSettings, type SurveyQuestionSnapshot } from '@/lib/surveyQuestionSettings'
@@ -16,7 +16,7 @@ import { showToast } from '@/utils/toast'
 import type { Scenario } from '@/types'
 import type { ScenarioFormData } from '../types'
 
-export async function loadOrgScenarioSettings({ scenario, masterId, loadGeneration, isCurrent, setFormData, setSurveySnapshot, setSourceState }: {
+export async function loadOrgScenarioSettings({ scenario, masterId, loadGeneration, isCurrent, setFormData, setSurveySnapshot, setSourceState, getMaster = (id) => scenarioMasterApi.getById(id) }: {
   scenario: Scenario
   masterId: string
   loadGeneration: number
@@ -24,16 +24,21 @@ export async function loadOrgScenarioSettings({ scenario, masterId, loadGenerati
   setFormData: Dispatch<SetStateAction<ScenarioFormData>>
   setSurveySnapshot: (snapshot: SurveyQuestionSnapshot & { scenarioId: string }) => void
   setSourceState: (state: ScenarioSourceState) => void
+  /** マスターの取得（ダイアログ側で同じマスターの取得を共有するために差し替える） */
+  getMaster?: (masterId: string) => Promise<ScenarioMaster | null>
 }): Promise<void> {
   try {
+    // 組織設定とマスターは互いに依存しないので同時に取りに行く
     const loadOrgId = await getCurrentOrganizationId()
     if (loadOrgId) {
-      const osData = await apiClient.get<Record<string, any> | null>(
-        `/api/org-scenarios?${new URLSearchParams({ type: 'settings-source', masterId })}`
-      )
-      // A master may be unreadable (for example an older private master).
-      // Preserve the loaded effective values and raw override state in that case.
-      const sourceMaster = await scenarioMasterApi.getById(masterId).catch(() => null)
+      const [osData, sourceMaster] = await Promise.all([
+        apiClient.get<Record<string, any> | null>(
+          `/api/org-scenarios?${new URLSearchParams({ type: 'settings-source', masterId })}`
+        ),
+        // A master may be unreadable (for example an older private master).
+        // Preserve the loaded effective values and raw override state in that case.
+        getMaster(masterId).catch(() => null),
+      ])
       const sourceBaseline = scenarioEffectiveFields(osData || {}, sourceMaster
         ? { ...sourceMaster }
         : { ...scenario, official_duration: scenario.duration })
