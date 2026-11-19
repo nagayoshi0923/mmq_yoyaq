@@ -40,6 +40,7 @@ import { newArrivalPerformances } from '@/components/public-top/newArrivalNextEv
 import { ScheduleSection } from './components/top/ScheduleSection'
 import { scheduleUntil } from './components/top/scheduleRange'
 import { StoreAccessSection } from './components/top/StoreAccessSection'
+import type { ScheduleTab } from './components/top/ScheduleSection'
 import { OrgHero } from '@/components/renewal/OrgHero'
 import { BottomLinks, NearlyFullRow, NewArrivalsRow, PrivateBookingBlock, ThemeChips, type RenewalNewArrival } from '@/components/renewal/TopSections'
 
@@ -171,6 +172,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
     navigate(`/${slug}?view=${legacySub}`, { replace: true })
   }, [legacySub, slug, navigate])
 
+  const [scheduleTab, setScheduleTab] = useState<ScheduleTab>('public')
   const scrollTo = useCallback((id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
   }, [])
@@ -262,7 +264,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
         onSearch={() => scrollTo('results')}
         links={[
           { label: 'はじめての方へ', to: '/guide' },
-          { label: '貸切で遊ぶ', onClick: () => scrollTo('private-booking') },
+          { label: '貸切で遊ぶ', onClick: () => scrollTo(scheduleTab === 'private' ? 'results' : 'private-booking') },
           { label: '店舗とアクセス', onClick: () => scrollTo('store-access') },
         ]}
       />
@@ -292,8 +294,11 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
           privatePath={`/${slug}/private-booking-select`}
           privateGuidePath={privateGuidePath(slug)}
           onOpen={openPath}
+          tab={scheduleTab}
+          onTabChange={setScheduleTab}
         />
-        <PrivateBookingBlock to={`/${slug}/private-booking-select`} label="貸切できる作品を見る" />
+        {/* 公演スケジュールで「貸切で遊ぶ」を選んでいるときは同じ案内がすぐ上にあるので出さない */}
+        {scheduleTab === 'public' && <PrivateBookingBlock to={`/${slug}/private-booking-select`} label="貸切できる作品を見る" />}
         <StoreAccessSection stores={stores} contactPath={`/org/${slug}/contact`} />
         <BottomLinks links={[
           { label: 'はじめての方へ：遊び方と予約の流れ', to: '/guide' },

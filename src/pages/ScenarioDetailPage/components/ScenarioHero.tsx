@@ -47,16 +47,21 @@ interface ScenarioHeroProps {
 export const ScenarioHero = memo(function ScenarioHero({
   scenario,
   stores = [],
+  events = [],
 }: ScenarioHeroProps) {
   const { user } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
 
   // 公演可能店舗名
+  // 作品に設定された店舗に、実際に公演がある店舗を足す（設定に無い店舗の回が日程に出ていても名前が欠けないように）
   const availableStoreNames = useMemo(() => {
-    if (!scenario.available_stores || scenario.available_stores.length === 0) return []
     const storeMap = new Map(stores.map(s => [s.id, s.short_name || s.name]))
-    return scenario.available_stores.map(id => storeMap.get(id)).filter((n): n is string => !!n)
-  }, [scenario.available_stores, stores])
+    const names: string[] = []
+    const add = (n?: string | null) => { if (n && !names.includes(n)) names.push(n) }
+    ;(scenario.available_stores ?? []).forEach(id => add(storeMap.get(id)))
+    events.forEach(e => add(storeMap.get(e.store_id) ?? (e.store_short_name || e.store_name)))
+    return names
+  }, [scenario.available_stores, stores, events])
 
   // 男女比
   const hasGenderRatio = scenario.male_count != null || scenario.female_count != null || scenario.other_count != null
