@@ -38,7 +38,7 @@ interface GroupMemoriesTabProps {
 
 function Section({ title, aside, children, label }: { title: ReactNode; aside?: ReactNode; children: ReactNode; label: string }) {
   return (
-    <section className="bg-card border border-border rounded-lg p-3" aria-label={label}>
+    <section className="bg-card border border-gray-200 p-3" aria-label={label}>
       <h2 className="mb-2 text-sm font-bold flex items-center justify-between gap-2">
         <span className="flex items-center gap-2">{title}</span>
         {aside}

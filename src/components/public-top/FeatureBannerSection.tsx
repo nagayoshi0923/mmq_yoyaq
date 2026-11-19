@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchFeatureBanners } from '@/lib/blogPublicFetch'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
 import { BLOG_POST_TYPE_LABELS, type PublicBlogPostSummary } from '@/types'
-import { TopSection } from './TopSection'
+import { RenewalRow, RenewalSection } from '@/components/renewal/RenewalSection'
 import { blogListPath } from '@/pages/BlogList/paths'
 
 /** 画像が無い記事の地の色（種類ごと） */
@@ -24,7 +24,7 @@ function BannerCard({ post, showOrganization }: { post: PublicBlogPostSummary; s
   return (
     <Link
       to={`/${post.organization_slug}/blog/${encodeURIComponent(post.slug)}`}
-      className="relative flex h-[150px] w-[300px] shrink-0 snap-start flex-col justify-between overflow-hidden p-3 text-white sm:h-[180px] sm:w-[360px]"
+      className="relative flex h-[150px] w-[300px] flex-col justify-between overflow-hidden p-3 text-white sm:h-[180px] sm:w-[360px]"
       style={{ backgroundColor: FALLBACK_BG[post.post_type] ?? FALLBACK_BG.news }}
     >
       {img && <img src={img} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />}
@@ -49,14 +49,14 @@ export function FeatureBannerSection({ organizationSlug }: { organizationSlug?: 
   })
   if (!data || data.length === 0) return null
   return (
-    <TopSection
-      id="features"
-      title="キャンペーン・特集"
-      aside={<Link to={blogListPath(organizationSlug)} className="font-bold hover:underline">特集をすべて見る ›</Link>}
-    >
-      <div className="-mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-1">
-        {data.map((post) => <BannerCard key={post.id} post={post} showOrganization={!organizationSlug} />)}
-      </div>
-    </TopSection>
+    <RenewalSection id="features" title="キャンペーン・特集" more={{ label: '特集をすべて見る', to: blogListPath(organizationSlug) }}>
+      <RenewalRow label="キャンペーン・特集">
+        {data.map((post) => (
+          <li key={post.id} className="shrink-0 snap-start">
+            <BannerCard post={post} showOrganization={!organizationSlug} />
+          </li>
+        ))}
+      </RenewalRow>
+    </RenewalSection>
   )
 }

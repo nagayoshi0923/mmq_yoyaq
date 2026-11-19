@@ -524,7 +524,7 @@ export function SettingsPage() {
     <div className="space-y-4">
       {/* 連携されているログイン方法 */}
       {linkedProviders.length > 0 && (
-        <div className="bg-white shadow-sm p-4 border border-gray-200 rounded-none">
+        <div className="bg-white p-4 border border-gray-200 rounded-none">
           <div className="flex items-center gap-2 mb-3">
             <Link2 className="w-5 h-5 text-mypage-primary" />
             <h3 className="font-medium text-gray-900">連携されているログイン方法</h3>
@@ -558,7 +558,7 @@ export function SettingsPage() {
           <div
             key={item.id}
             onClick={() => setActiveDialog(item.id)}
-            className="bg-white shadow-sm p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-all border border-gray-200 hover:border-gray-300 rounded-none"
+            className="bg-white p-4 flex items-center justify-between cursor-pointer border border-gray-200 hover:border-gray-300 rounded-none"
           >
             <div className="flex items-center gap-3">
               <div 
@@ -585,7 +585,7 @@ export function SettingsPage() {
           }
           setActiveDialog('delete')
         }}
-        className="bg-white shadow-sm p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-all border border-red-200 hover:border-red-300 rounded-none"
+        className="bg-white p-4 flex items-center justify-between cursor-pointer border border-red-200 hover:border-red-300 rounded-none"
       >
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 flex items-center justify-center bg-red-50 rounded-none">

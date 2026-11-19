@@ -25180,7 +25180,7 @@
     "service_role=X/postgres"
    ],
    "returns": "void",
-   "body_md5": "4dcf2356b720a42c8389b37146c0dd59",
+   "body_md5": "3811ab0bbf39af8135812748734925db",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26152,7 +26152,7 @@
     "postgres=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "1a089ce43f17103ea16351f32c0f5748",
+   "body_md5": "ed05d4a167f2ca3d9b4eba9a14f70276",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26806,7 +26806,7 @@
     "service_role=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "d7e05da311cceeb8c9dd4b20b7a00690",
+   "body_md5": "138638a7b4cb47c07f93cd3b51f0981b",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -29620,7 +29620,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "6f8d68b2d452357bff6242c20fe77044",
+   "body_md5": "5657892075a8f2a5d770ca2f74f08179",
    "language": "plpgsql",
    "security_definer": true
   },

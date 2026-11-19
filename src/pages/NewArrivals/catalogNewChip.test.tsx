@@ -98,9 +98,10 @@ async function mount(path: string) {
   await settle()
 }
 const where = () => host.querySelector('[data-testid="where"]')?.textContent
-const chips = () => [...host.querySelectorAll('[data-testid="category-chips"] [data-chip]')].map((c) => c.getAttribute('data-chip'))
-const selectedChips = () => [...host.querySelectorAll('[data-testid="category-chips"] [data-selected]')].map((c) => c.getAttribute('data-chip'))
-const chip = (name: string) => host.querySelector(`[data-testid="category-chips"] [data-chip="${name}"]`) as HTMLElement
+// 刷新（QW-20261114-001）: 上の列（新作・すべての作品）とテーマの列に分かれた
+const chips = () => [...host.querySelectorAll('[data-testid="category-chips"] [data-chip], [data-testid="theme-chips"] [data-chip]')].map((c) => c.getAttribute('data-chip'))
+const selectedChips = () => [...host.querySelectorAll('[data-testid="category-chips"] [data-selected], [data-testid="theme-chips"] [data-selected]')].map((c) => c.getAttribute('data-chip'))
+const chip = (name: string) => host.querySelector(`[data-testid="category-chips"] [data-chip="${name}"], [data-testid="theme-chips"] [data-chip="${name}"]`) as HTMLElement
 const catalogTitles = () => [...host.querySelectorAll('h3')].map((h) => h.textContent)
 const topTitles = () => [...host.querySelectorAll('#new-arrivals h3')].map((h) => h.textContent)
 const click = async (el: Element | null) => { await act(async () => (el as HTMLElement).click()); await settle() }
@@ -136,9 +137,9 @@ afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi
 const EXPECTED_NEW = ['新作短時間', ...FRESH.map((f) => f.id).reverse(), '経過89']
 
 describe('全体のカタログ（/scenario）の「新作」チップ', () => {
-  it('チップ列の先頭（すべての次）に「新作」が 1 つだけ。最初は選ばれていない', async () => {
+  it('チップ列の先頭に「新作」が 1 つだけ（次が「すべての作品」）。最初は選ばれていない', async () => {
     await mount('/scenario')
-    expect(chips()).toEqual(['すべて', '新作', '3時間以内', 'LARP'])
+    expect(chips()).toEqual(['新作', 'すべて', '3時間以内', 'LARP'])
     expect(selectedChips()).toEqual([])
     expect(catalogTitles()).toHaveLength(ALL.length)
   })
@@ -170,7 +171,7 @@ describe('全体のカタログ（/scenario）の「新作」チップ', () => {
     expect(topTitles()).toEqual(EXPECTED_NEW.slice(0, 12))
     const link = host.querySelector('#new-arrivals a') as HTMLAnchorElement
     expect(decodeURIComponent(link.getAttribute('href')!)).toBe('/scenario?genre=新作')
-    expect([...host.querySelectorAll('a')].find((a) => a.textContent === 'カタログ')?.getAttribute('href')).toBe('/scenario')
+    expect([...host.querySelectorAll('a')].find((a) => a.textContent === '作品一覧')?.getAttribute('href')).toBe('/scenario')
     await click(link)
     expect(where()).toBe('/scenario?genre=新作')
     expect(selectedChips()).toEqual(['新作'])
@@ -207,13 +208,12 @@ describe('全体のカタログ（/scenario）の「新作」チップ', () => {
 })
 
 describe('組織のカタログ（/{org}/catalog）の「新作」チップ', () => {
-  it('組織トップのすべて見るから開くと、その組織の新作だけが「新作」選択中で出る。カタログボタンは全作品', async () => {
+  it('組織トップのすべて見るから開くと、その組織の新作だけが「新作」選択中で出る', async () => {
     await mount('/aaa')
     const orgExpected = ['新作短時間', '新作03', '新作02', '新作01', '経過89']
     expect(topTitles()).toEqual(orgExpected)
     const link = host.querySelector('#new-arrivals a') as HTMLAnchorElement
     expect(decodeURIComponent(link.getAttribute('href')!)).toBe('/aaa/catalog?genre=新作')
-    expect([...host.querySelectorAll('a')].find((a) => a.textContent === 'カタログ')?.getAttribute('href')).toBe('/aaa/catalog')
     await click(link)
     expect(where()).toBe('/aaa/catalog?genre=新作')
     expect(m.orgScenarios).toHaveBeenCalledWith('o1')
@@ -234,8 +234,8 @@ describe('組織のカタログ（/{org}/catalog）の「新作」チップ', ()
   it('新作のチップは組織カタログでも重ならない', async () => {
     await mount('/aaa/catalog')
     expect(chips().filter((c) => c === '新作')).toHaveLength(1)
-    expect(chips()[0]).toBe('すべて')
-    expect(chips()[1]).toBe('新作')
+    expect(chips()[0]).toBe('新作')
+    expect(chips()[1]).toBe('すべて')
   })
 })
 
@@ -250,13 +250,9 @@ describe('点検 F04: カタログのアイコンだけのボタンに名前が�
   const unnamed = () => [...host.querySelectorAll('main button, header button, button')]
     .filter((b) => b.getAttribute('data-testid') !== 'back')
     .filter((b) => !(b.getAttribute('aria-label') || b.textContent?.trim() || b.getAttribute('title')))
-  it.each(['/scenario', '/aaa/catalog'])('%s: 戻る・絞り込みの開閉・解除に名前があり、名前の無いボタンが無い', async (path) => {
+  it.each(['/scenario', '/aaa/catalog'])('%s: 戻る・遊びたいのボタンに名前があり、名前の無いボタンが無い（刷新 QW-20261114-001 で絞り込みの開閉は無くした）', async (path) => {
     await mount(path)
     expect(host.querySelector('button[aria-label="戻る"]')).not.toBeNull()
-    const filter = host.querySelector('button[aria-label="絞り込みを開く"]') as HTMLButtonElement
-    expect(filter.getAttribute('aria-expanded')).toBe('false')
-    await click(filter)
-    expect(host.querySelector('button[aria-label="絞り込みを閉じる"]')?.getAttribute('aria-expanded')).toBe('true')
     expect(unnamed().map((b) => b.outerHTML.slice(0, 80))).toEqual([])
   })
 })

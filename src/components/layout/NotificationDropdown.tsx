@@ -10,9 +10,11 @@ import { ja } from 'date-fns/locale'
 
 interface NotificationDropdownProps {
   className?: string
+  /** dark: 色の付いたバーの上（白い鈴） / light: 白いバーの上（黒い鈴） */
+  tone?: 'dark' | 'light'
 }
 
-export function NotificationDropdown({ className }: NotificationDropdownProps) {
+export function NotificationDropdown({ className, tone = 'dark' }: NotificationDropdownProps) {
   const navigate = useNavigate()
   const [isOpen, setIsOpen] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -213,7 +215,7 @@ export function NotificationDropdown({ className }: NotificationDropdownProps) {
         ref={buttonRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center justify-center h-8 w-8 hover:bg-white/10 transition-colors text-white relative"
+        className={`inline-flex items-center justify-center h-8 w-8 transition-colors relative ${tone === 'light' ? 'text-foreground hover:bg-black/5' : 'text-white hover:bg-white/10'}`}
         title="通知"
         aria-label={newCount > 0 ? `通知（新着 ${newCount} 件）` : '通知'}
         aria-expanded={isOpen}

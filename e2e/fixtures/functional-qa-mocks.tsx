@@ -35,6 +35,7 @@ export const supabase = {
 }
 export const reservationApi = { async create(payload:any) {state.writes++;state.payload=payload;await new Promise(r=>setTimeout(r,80));if(state.mode==='offline')throw Error('通信に失敗しました');if(state.mode==='server-race')throw Error('残席が足りません');localStorage.setItem('qa-reservation',JSON.stringify({...payload,id:'qa-reservation'}));return {id:'qa-reservation',reservation_number:payload.reservation_number,final_price:8000,discount_amount:1000}} }
 export const resolveOrganizationFromPathSegment = async () => ({id:'qa-org',slug:'qa-org'})
+export const getOrganizationBySlug = async () => null
 export const apiClient = {get:async()=>[],post:async()=>({success:true})}
 export class ApiClientError extends Error { constructor(public status:number,public body:any){super(body.message||'error')} }
 

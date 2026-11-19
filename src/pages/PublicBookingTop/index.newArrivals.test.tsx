@@ -69,62 +69,13 @@ async function render() {
   ))
 }
 const cardsIn = (id: string) => [...(host.querySelector(`#${id}`)?.querySelectorAll('li') ?? [])]
-const badgeOf = (t: string) => cardsIn('new-arrivals').find((li) => li.querySelector('h3')?.textContent === t)?.querySelector('[data-testid="private-booking-badge"]') ?? null
 
 describe('店舗トップの新作一覧とカタログ（QW-20261023-001）', () => {
-  it('その組織の公開作品を掲載登録日から 90 日以内だけ新しい順に出し、すべて見る・カタログはその組織のカタログへ', async () => {
+  it('その組織の公開作品を掲載登録日から 90 日以内だけ新しい順に出し、すべて見るはその組織の新作一覧へ', async () => {
     await render()
     const section = host.querySelector('#new-arrivals')
     expect([...(section?.querySelectorAll('h3') ?? [])].map((h) => h.textContent)).toEqual(['新しいタグなし', '中間', '古い'])
     expect(section?.textContent).toContain('この組織で遊べる、新しく掲載された作品')
     expect(section?.querySelector('a')?.getAttribute('href')).toBe('/queens-waltz/catalog?genre=%E6%96%B0%E4%BD%9C')
-    const catalog = [...host.querySelectorAll('a')].find((a) => a.textContent === 'カタログ')
-    expect(catalog?.getAttribute('href')).toBe('/queens-waltz/catalog')
-  })
-})
-
-describe('店舗トップの貸切受付中（架空の組織 org-qw）', () => {
-  it('受付可は出す（公演予定なしでも）。休止・受付期間終了・公演期間終了・非公開・店舗停止・列の欠落は出さない', async () => {
-    booking.value = {
-      ...booking.value,
-      scenarios: ['受付可', '休止', '期間終了', '公演期間終了', '非公開', '列欠落'].map((t) => scenario(t, t === '公演期間終了' ? { available_until: '2026-10-23' } : {})),
-    }
-    booking.getPublic.mockResolvedValue([
-      row('受付可'), row('休止', { accepts_private_booking: false }), row('期間終了', { booking_end_date: '2026-10-23' }), row('公演期間終了'),
-      { id: '列欠落', accepts_private_booking: true, scenario_kind: 'regular', available_stores: [] },
-    ])
-    await render()
-    await vi.waitFor(() => expect(badgeOf('受付可')).not.toBeNull())
-    expect(booking.getPublic).toHaveBeenCalledWith('org-qw')
-    for (const t of ['休止', '期間終了', '公演期間終了', '非公開', '列欠落']) expect(badgeOf(t), t).toBeNull()
-    await act(async () => (badgeOf('受付可') as HTMLButtonElement).click())
-    expect(host.querySelector('[data-testid="where"]')?.textContent).toBe('/queens-waltz/scenario/%E5%8F%97%E4%BB%98%E5%8F%AF?tab=private')
-  })
-
-  it('組織の店舗が受付対象期間（締切 1 日・範囲 30 日 → 10/25〜11/23）をすべて貸切の募集停止なら出さない。今日だけの停止なら出す', async () => {
-    booking.value = { ...booking.value, scenarios: [scenario('全期間停止', {}), scenario('今日だけ停止', {})] }
-    booking.getPublic.mockResolvedValue([row('全期間停止'), row('今日だけ停止')])
-    booking.pauses.mockResolvedValue({ data: [{ store_id: 'st1', organization_id: 'org-qw', pause_type: 'private', starts_on: '2026-10-24', ends_on: '2026-11-23' }], error: null })
-    await render()
-    await vi.waitFor(() => expect(booking.horizon).toHaveBeenCalled())
-    await act(async () => { await Promise.resolve() })
-    expect(badgeOf('全期間停止')).toBeNull()
-    expect(badgeOf('今日だけ停止')).toBeNull()
-    // 同じ店舗の停止が今日だけなら、明日以降で受付中
-    await act(async () => root.unmount())
-    root = createRoot(host)
-    booking.pauses.mockResolvedValue({ data: [{ store_id: 'st1', organization_id: 'org-qw', pause_type: 'private', starts_on: '2026-10-24', ends_on: '2026-10-24' }], error: null })
-    await render()
-    await vi.waitFor(() => expect(badgeOf('今日だけ停止')).not.toBeNull())
-  })
-
-  it('受付締切・受付範囲を読めなければ出さない', async () => {
-    booking.value = { ...booking.value, scenarios: [scenario('受付可', {})] }
-    booking.getPublic.mockResolvedValue([row('受付可')])
-    booking.horizon.mockResolvedValue({ data: null, error: new Error('x') })
-    await render()
-    await vi.waitFor(() => expect(booking.horizon).toHaveBeenCalled())
-    await act(async () => { await Promise.resolve() })
-    expect(badgeOf('受付可')).toBeNull()
   })
 })

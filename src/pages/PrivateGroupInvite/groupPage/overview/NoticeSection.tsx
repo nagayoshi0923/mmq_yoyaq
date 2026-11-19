@@ -19,7 +19,7 @@ interface NoticeSectionProps {
 export function NoticeSection({ orgSlug, scenarioMasterId, storeId, hasPreReading, onInquiry }: NoticeSectionProps) {
   const [open, setOpen] = useState(false)
   return (
-    <section className="bg-card border border-border rounded-lg p-3" aria-label="注意事項とキャンセル規定" data-testid="overview-notice">
+    <section className="bg-card border border-gray-200 p-3" aria-label="注意事項とキャンセル規定" data-testid="overview-notice">
       <button type="button" onClick={() => setOpen(v => !v)} aria-expanded={open} className="w-full flex items-center justify-between gap-2 text-left text-sm font-bold">
         注意事項とキャンセル規定
         <ChevronDown className={`w-4 h-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />

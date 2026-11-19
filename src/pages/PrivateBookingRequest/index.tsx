@@ -3,16 +3,15 @@ import { candidateFeesIfKnown } from '../ScenarioDetailPage/utils/pricingUtils'
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, MapPin, ArrowLeft, AlertCircle, Plus, X, Loader2, Pencil } from 'lucide-react'
+import { AlertCircle, Loader2 } from 'lucide-react'
+import { StepBar } from '@/components/renewal/StepBar'
+import { PRIVATE_PURPLE, SERIF_HEADING } from '@/components/renewal/fonts'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCustomerData } from '../BookingConfirmation/hooks/useCustomerData'
 import { usePrivateBookingForm } from './hooks/usePrivateBookingForm'
@@ -46,6 +45,7 @@ import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcType
 import { toJstYmd } from '@/utils/jstDate'
 import { privateBookingErrorText } from '@/lib/privateBookingErrors'
 import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
+import { savePrivateRequestLoginDraft, takePrivateRequestLoginDraft } from './utils/loginDraft'
 import { PRIVATE_BOOKING_HORIZON_CHECKING_TEXT, privateBookingHorizonMaxYmd, privateBookingTooFarText, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
 import { PrivateBookingHorizonNotice } from '@/components/private-booking/PrivateBookingHorizonNotice'
 
@@ -104,8 +104,10 @@ export function PrivateBookingRequest({
 
   // 親コンポーネントが非同期で selectedTimeSlots を更新した場合に同期
   // （PrivateBookingRequestPage 経由のフローで初回マウント時に空→非同期で充填されるケース）
+  // ログイン前に預けた候補を戻したら、利用者が全部消した（0 件）状態でも URL の候補で埋め直さない（#985）
+  const slotsFromLoginDraft = useRef(false)
   useEffect(() => {
-    if (initialTimeSlots.length === 0) return
+    if (initialTimeSlots.length === 0 || slotsFromLoginDraft.current) return
     setEditableTimeSlots((prev) => (prev.length > 0 ? prev : initialTimeSlots))
   }, [initialTimeSlots])
   const [showAddForm, setShowAddForm] = useState(false)
@@ -342,6 +344,23 @@ export function PrivateBookingRequest({
     validateForm
   } = usePrivateBookingForm()
 
+  // ログインから戻ったら、ログイン前に預けた入力途中の内容（備考・候補・店舗）を 1 回だけ戻す（#985）
+  const restoredLoginDraft = useRef(false)
+  useEffect(() => {
+    if (restoredLoginDraft.current) return
+    restoredLoginDraft.current = true
+    const draft = takePrivateRequestLoginDraft(scenarioId, currentPathWithSearch())
+    if (!draft) return
+    if (draft.notes) setNotes(draft.notes)
+    // 0 件も利用者の編集結果として戻す（全部消した候補を URL から復活させて送らない）
+    slotsFromLoginDraft.current = true
+    setEditableTimeSlots(draft.timeSlots)
+    if (draft.storeIds && draft.storeIds.length > 0) {
+      setChangedStoreIds(draft.storeIds)
+      onStoreIdsChange?.(draft.storeIds)
+    }
+  }, [scenarioId, setNotes, onStoreIdsChange])
+
   const { isSubmitting, success, confirmationEmailAccepted, handleSubmit } = usePrivateBookingSubmit({
     scenarioTitle,
     scenarioId,
@@ -489,67 +508,45 @@ export function PrivateBookingRequest({
   )
   const hasUnavailableCandidate = editableTimeSlots.some((candidate) => candidateUnavailableReason(candidate) !== null)
 
+  const yen = (n: number) => `${n.toLocaleString()}円`
+  const box = 'border border-gray-200 bg-white p-4'
+  const row = 'flex items-center justify-between gap-3 border-b border-gray-200 py-3 text-sm'
+  const inputCls = 'mt-1 h-11 w-full border border-gray-300 bg-white px-3 text-sm'
+
   return (
-    <div className="booking-shell min-h-screen bg-background overflow-x-clip">
+    <div className="booking-shell min-h-screen overflow-x-clip bg-white">
       <Header />
       <NavigationBar currentPage={bookingBasePath} />
-
-      {/* 戻るボタン */}
-      <div className="bg-background border-b">
-        <div className="container mx-auto max-w-5xl px-2 md:px-4 py-2">
-          <Button variant="ghost" onClick={onBack} className="flex items-center gap-1.5 hover:bg-accent h-8 px-2 text-sm">
-            <ArrowLeft className="w-4 h-4" />
-            シナリオ詳細に戻る
-          </Button>
+      <div className="mx-auto flex max-w-4xl items-start justify-between gap-3 px-4 pt-3">
+        <div className="min-w-0">
+          <p className="truncate text-xs text-muted-foreground">{scenarioTitle}の貸切</p>
+          <h1 className="mt-1 text-lg font-bold">申込内容の確認</h1>
         </div>
+        <button type="button" onClick={onBack} className="shrink-0 pt-1 text-sm">‹ 選び直す</button>
       </div>
+      <StepBar steps={['候補日を選ぶ', '内容の確認', '完了']} current={1} color={PRIVATE_PURPLE} />
 
-      <div className="container mx-auto max-w-5xl px-2 md:px-4 py-6">
-        <h1 className="text-xl font-bold mb-6">貸切リクエスト確認</h1>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* 左側：リクエスト内容 */}
-          <div className="md:col-span-2 space-y-6">
-            {/* シナリオ情報 */}
-            <div>
-              <h2 className="text-base font-semibold mb-3">シナリオ情報</h2>
-              <Card>
-                <CardContent className="p-4 space-y-3">
-                  <div>
-                    <h3 className="text-base font-medium mb-2">{scenarioTitle}</h3>
-                    <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                      貸切予約
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Users className="w-4 h-4 text-muted-foreground" />
-                    <span>最大 {maxParticipants} 名まで</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+      <div className="mx-auto max-w-4xl space-y-3 bg-gray-50 px-3 py-4">
+        <section className="px-1">
+          <p className={`text-xl font-bold ${SERIF_HEADING}`}>{scenarioTitle}</p>
+          <p className="text-xs text-muted-foreground">{maxParticipants}人で貸切</p>
+        </section>
 
             {/* 候補日時 */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-semibold">候補日時（{editableTimeSlots.length}/{MAX_TIME_SLOTS}件）</h2>
+            <section className={box}>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">候補日時（{editableTimeSlots.length}/{MAX_TIME_SLOTS}件）</h2>
                 {!showAddForm && editableTimeSlots.length < MAX_TIME_SLOTS && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowAddForm(true)}
-                    className="text-purple-600 hover:text-purple-800 hover:bg-purple-50 h-8 px-2"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    追加
-                  </Button>
+                  <button type="button" onClick={() => setShowAddForm(true)} className="text-sm underline" style={{ color: PRIVATE_PURPLE }}>
+                    ＋ 追加
+                  </button>
                 )}
               </div>
-              
+              <p className="mt-1 text-xs text-muted-foreground">前の画面で選んだ候補です。候補は最大{MAX_TIME_SLOTS}つまで入れられ、多いほど決まりやすくなります。</p>
+
               {/* 追加フォーム */}
               {showAddForm && (
-                <Card className="mb-3 border-purple-200 bg-purple-50">
-                  <CardContent className="p-4 space-y-3">
+                <div className="mt-3 space-y-3 border border-violet-200 bg-violet-50 p-3">
                     <p className="text-sm font-medium text-purple-800">候補日時を追加</p>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -618,33 +615,23 @@ export function PrivateBookingRequest({
                         追加する
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
+                </div>
               )}
               
-              <div className="space-y-2">
+              <div className="mt-2">
                 {editableTimeSlots.length === 0 ? (
-                  <Card className="border-dashed">
-                    <CardContent className="p-4 text-center text-muted-foreground text-sm">
-                      候補日時を追加してください
-                    </CardContent>
-                  </Card>
+                  <p className="border border-dashed border-gray-300 p-4 text-center text-sm text-muted-foreground">候補日時を追加してください</p>
                 ) : (
                   editableTimeSlots.map((slot, index) => {
                     const blockedState = getBlockedState(slot.date, slot.slot.label)
                     return (
-                    <Card key={`${slot.date}-${slot.slot.label}`}>
-                      <CardContent className="p-4 flex items-center justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-sm">
-                            <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                              候補 {index + 1}
-                            </Badge>
-                            <Calendar className="w-4 h-4 text-muted-foreground" />
-                            <span>{formatDate(slot.date)}</span>
+                    <div key={`${slot.date}-${slot.slot.label}`} className="flex items-center justify-between gap-3 border-b border-gray-200 py-3">
+                        <div className="min-w-0 space-y-0.5">
+                          <div className="flex items-baseline gap-3 text-sm">
+                            <span className="w-14 shrink-0 text-xs text-muted-foreground">第{index + 1}希望</span>
+                            <span className="font-bold">{formatDate(slot.date)}</span>
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Clock className="w-4 h-4" />
+                          <div className="pl-[4.25rem] text-xs text-muted-foreground">
                             <span>{slot.slot.label} {slot.slot.startTime}{slot.slot.endTime ? ` - ${slot.slot.endTime}` : ''}</span>
                           </div>
                           {candidateUnavailableReason(slot) && (
@@ -664,17 +651,9 @@ export function PrivateBookingRequest({
                           )}
                         </div>
                         {editableTimeSlots.length > 1 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveTimeSlot(index)}
-                            className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1 h-auto"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
+                          <button type="button" onClick={() => handleRemoveTimeSlot(index)} aria-label="この候補を外す" className="shrink-0 px-2 py-1 text-lg text-gray-400 hover:text-red-500">×</button>
                         )}
-                      </CardContent>
-                    </Card>
+                    </div>
                     )
                   })
                 )}
@@ -684,24 +663,16 @@ export function PrivateBookingRequest({
                   </p>
                 )}
               </div>
-            </div>
+            </section>
 
             {/* 希望店舗（前ページで選んだ店舗。「変更」でこの画面のまま選び直せる） */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-semibold">希望店舗</h2>
+            <section className={box}>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">希望店舗</h2>
                 {playableStores.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setStoreSheetOpen(true)}
-                    className="text-purple-600 hover:text-purple-800 hover:bg-purple-50 h-8 px-2"
-                    data-testid="change-stores"
-                    aria-label="希望店舗を変更"
-                  >
-                    <Pencil className="w-4 h-4 mr-1" />
-                    変更
-                  </Button>
+                  <button type="button" onClick={() => setStoreSheetOpen(true)} className="text-sm underline" style={{ color: PRIVATE_PURPLE }} data-testid="change-stores" aria-label="希望店舗を変更">
+                    変える
+                  </button>
                 )}
               </div>
               <ChangeStoresSheet
@@ -712,8 +683,7 @@ export function PrivateBookingRequest({
                 checkCandidates={checkCandidatesForStores}
                 onConfirm={handleConfirmStores}
               />
-              <Card>
-                <CardContent className="p-4 space-y-3">
+              <div className="mt-2 space-y-2">
                   {selectedStoreIds.length === 0 && (
                     <p className="text-sm text-muted-foreground">希望店舗が選ばれていません。「変更」から選んでください</p>
                   )}
@@ -723,15 +693,12 @@ export function PrivateBookingRequest({
                       .map((store) => (
                         <div
                           key={store.id}
-                          className="flex items-start gap-3 p-3 rounded-lg border border-purple-300 bg-purple-50"
+                          className="flex items-start gap-3 border-b border-gray-200 py-2"
                         >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground" />
-                              <span className="text-sm font-medium">{store.name}</span>
-                            </div>
+                          <div className="min-w-0 flex-1">
+                            <span className="text-sm font-medium">{store.name}</span>
                             {store.address && (
-                              <p className="text-xs mt-0.5 ml-5.5 text-muted-foreground">{store.address}</p>
+                              <p className="mt-0.5 text-xs text-muted-foreground">{store.address}</p>
                             )}
                           </div>
                         </div>
@@ -742,169 +709,117 @@ export function PrivateBookingRequest({
                       ※ 最終的な開催店舗は、候補日時と合わせて店舗側が決定します
                     </p>
                   )}
-                </CardContent>
-              </Card>
-            </div>
+              </div>
+            </section>
 
-            {/* お客様情報 */}
-            <div>
-              <h2 className="text-base font-semibold mb-3">お客様情報</h2>
-              <Card>
-                <CardContent className="p-4 space-y-4">
-                  <div>
-                    <Label className="text-sm font-medium mb-1.5 block">お名前 *</Label>
-                    <Input
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="山田 太郎"
-                      required
-                      className="text-sm"
-                    />
-                  </div>
+            {/* 人数と料金 */}
+            <section className={box}>
+              <h2 className="text-lg font-bold">人数と料金</h2>
+              <div className={row}><span className="text-muted-foreground">人数</span><span>{maxParticipants}人（この作品の定員）</span></div>
+              <div className={row}>
+                <span className="text-muted-foreground">料金</span>
+                <span>1人 {feeUnknownText ?? `${yen(minFee)}${maxFee !== minFee ? `〜${yen(maxFee)}` : ''}`}</span>
+              </div>
+              {editableTimeSlots.length > 1 && editableTimeSlots.map((candidate, index) => (
+                <div key={`${candidate.date}-${candidate.slot.startTime}`} className="flex justify-between gap-3 py-1 text-xs text-muted-foreground">
+                  <span>{formatDate(candidate.date)} {candidate.slot.label}</span>
+                  <span>{feeUnknownText ?? yen((candidateFees[index] ?? participationFee) * maxParticipants)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between py-3">
+                <span className="text-sm text-muted-foreground">合計</span>
+                <span className="text-xl font-bold">{feeUnknownText ?? `${yen(totalPrice)}${maxTotalPrice !== totalPrice ? `〜${yen(maxTotalPrice)}` : ''}`}</span>
+              </div>
+              {holidays.error && (
+                <p className="text-xs text-destructive" data-testid="private-request-fee-error">休日の設定を読み込めず、料金を確認できません。画面を再読み込みしてください。</p>
+              )}
+              <p className="text-xs text-muted-foreground">決まった候補日の料金になります。</p>
+            </section>
 
-                  <div>
-                    <Label className="text-sm font-medium mb-1.5 block">ニックネーム</Label>
-                    <Input
-                      value={customerNickname}
-                      onChange={(e) => setCustomerNickname(e.target.value)}
-                      placeholder="タロウ"
-                      className="text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">店舗で呼ばれる際のお名前（任意）</p>
-                  </div>
+            {/* 申し込む人 */}
+            <section className={box}>
+              <h2 className="text-lg font-bold">申し込む人</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">登録済みの情報を使います。違うときは書き換えてください</p>
+              <div className="mt-3 space-y-3">
+                <label className="block text-sm">お名前<span className="text-red-600">*</span>
+                  <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="山田 太郎" required className={inputCls} />
+                </label>
+                <label className="block text-sm">ニックネーム（任意）
+                  <input value={customerNickname} onChange={(e) => setCustomerNickname(e.target.value)} placeholder="タロウ" className={inputCls} />
+                  <span className="mt-0.5 block text-2xs text-muted-foreground">店舗で呼ばれるときのお名前</span>
+                </label>
+                <label className="block text-sm">メールアドレス<span className="text-red-600">*</span>
+                  <input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="example@example.com" required className={inputCls} />
+                </label>
+                <label className="block text-sm">電話番号<span className="text-red-600">*</span>
+                  <input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="090-1234-5678" required className={inputCls} />
+                </label>
+                <label className="block text-sm">店舗への連絡（任意）
+                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="伝えておきたいことがあれば書いてください" rows={3} className="mt-1 w-full border border-gray-300 bg-white px-3 py-2 text-sm" />
+                </label>
+              </div>
+            </section>
 
-                  <div>
-                    <Label className="text-sm font-medium mb-1.5 block">メールアドレス *</Label>
-                    <Input
-                      type="email"
-                      value={customerEmail}
-                      onChange={(e) => setCustomerEmail(e.target.value)}
-                      placeholder="example@example.com"
-                      required
-                      className="text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="text-sm font-medium mb-1.5 block">電話番号 *</Label>
-                    <Input
-                      type="tel"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder="090-1234-5678"
-                      required
-                      className="text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="text-sm font-medium mb-1.5 block">備考</Label>
-                    <Textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="伝達事項があればご記入ください。"
-                      rows={4}
-                      className="text-sm"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* 右側：料金サマリー */}
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-base font-semibold mb-3">料金</h2>
-              <Card>
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">参加費（1名）</span>
-                    <span>{feeUnknownText ?? `¥${minFee.toLocaleString()}${maxFee !== minFee ? `〜¥${maxFee.toLocaleString()}` : ''}`}</span>
-                  </div>
-
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">人数</span>
-                    <span>{maxParticipants}名</span>
-                  </div>
-
-                  {editableTimeSlots.map((candidate, index) => (
-                    <div key={`${candidate.date}-${candidate.slot.startTime}`} className="flex justify-between gap-3 text-xs">
-                      <span>{formatDate(candidate.date)} {candidate.slot.label}</span>
-                      <span>{feeUnknownText ?? `¥${((candidateFees[index] ?? participationFee) * maxParticipants).toLocaleString()}`}</span>
-                    </div>
-                  ))}
-
-                  <div className="border-t pt-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-base font-bold">合計</span>
-                      <span className="text-lg text-purple-600 font-bold">{feeUnknownText ?? `¥${totalPrice.toLocaleString()}${maxTotalPrice !== totalPrice ? `〜¥${maxTotalPrice.toLocaleString()}` : ''}`}</span>
-                    </div>
-                    {holidays.error && (
-                      <p className="text-xs text-destructive mt-2" data-testid="private-request-fee-error">休日の設定を読み込めず、料金を確認できません。画面を再読み込みしてください。</p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-2">
-                      確定した候補日の料金が適用されます。
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 leading-relaxed" data-testid="private-request-cancel-notice">
+            <p className="border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900" data-testid="private-request-cancel-notice">
               <span className="font-bold">取消について: </span>{privateCancelNoticeText()}
             </p>
 
-            {/* 注意事項（DBから取得） */}
-            <BookingNotice
-              mode="private"
-              scenarioMasterId={scenarioId}
-              organizationSlug={organizationSlug}
-              storeId={selectedStoreIds.length === 1 ? selectedStoreIds[0] : null}
-            />
+            <section className={box}>
+              <h2 className="mb-3 text-lg font-bold">貸切の前に</h2>
+              <BookingNotice
+                mode="private"
+                scenarioMasterId={scenarioId}
+                organizationSlug={organizationSlug}
+                storeId={selectedStoreIds.length === 1 ? selectedStoreIds[0] : null}
+              />
+            </section>
 
-            {!user ? (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground text-center">
-                  貸切リクエストの送信にはログインが必要です。ログイン後、この画面に戻ります。
-                </p>
-                <Button
-                  onClick={() => {
-                    // 未ログイン時は戻り先付きでログインへ（入力途中で「ログインが必要です」にならないようにする）
-                    navigate(buildAuthUrl('login', currentPathWithSearch()))
-                  }}
-                  className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
-                >
-                  ログインして貸切リクエスト
-                </Button>
-              </div>
-            ) : (
-            <div className="space-y-2">
-            <PrivateBookingHorizonNotice horizon={horizon} />
-            {/* 送信の失敗・入力の不足は、押したボタンのすぐ上に出す（2026-10-20 staging 点検: 画面の一番上では見えなかった） */}
-            {error && (
-              <div role="alert" className="flex items-start gap-2 rounded-md border-2 border-red-200 bg-red-50 p-3 text-sm text-red-800" data-testid="private-request-error">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-            <Button
-              onClick={onSubmit}
-              disabled={preparingSubmit || isSubmitting || groupLoading || hasFullyBlockedCandidate || hasUnavailableCandidate || horizonDays === null}
-              className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
-            >
-              {(preparingSubmit || isSubmitting || groupLoading) ? (
+            <section className="space-y-2 border border-violet-200 bg-violet-50 p-4">
+              <p className="text-sm leading-relaxed">この時点ではまだ予約は確定しません。店舗が候補から日時と会場を決めると、お知らせが届きます。</p>
+              {!user ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {groupLoading ? 'グループ作成中...' : 'リクエスト送信中...'}
+                  <p className="text-center text-xs text-muted-foreground">申し込むにはログインが必要です。ログインのあと、この画面に戻ります。</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // 画面はログインへ移ると消えるので、URL に無い入力途中の内容をタブ内に預ける（#985）
+                      const returnTo = currentPathWithSearch()
+                      savePrivateRequestLoginDraft(scenarioId, returnTo, { notes, timeSlots: editableTimeSlots, storeIds: changedStoreIds })
+                      navigate(buildAuthUrl('login', returnTo))
+                    }}
+                    className="h-12 w-full text-base font-bold text-white"
+                    style={{ backgroundColor: PRIVATE_PURPLE }}
+                  >ログインして申し込む</button>
                 </>
-              ) : hasFullyBlockedCandidate ? '受付停止中の候補を再選択してください'
-                : hasUnavailableCandidate ? '選べない候補日時を再選択してください' : '貸切リクエストを送信'}
-            </Button>
-            </div>
-            )}
-          </div>
-        </div>
+              ) : (
+                <>
+                  <PrivateBookingHorizonNotice horizon={horizon} />
+                  {/* 送信の失敗・入力の不足は、押したボタンのすぐ上に出す（2026-10-20 staging 点検） */}
+                  {error && (
+                    <div role="alert" className="flex items-start gap-2 border-2 border-red-200 bg-red-50 p-3 text-sm text-red-800" data-testid="private-request-error">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>{error}</span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onSubmit}
+                    disabled={preparingSubmit || isSubmitting || groupLoading || hasFullyBlockedCandidate || hasUnavailableCandidate || horizonDays === null}
+                    className="flex h-12 w-full items-center justify-center text-base font-bold text-white disabled:opacity-40"
+                    style={{ backgroundColor: PRIVATE_PURPLE }}
+                  >
+                    {(preparingSubmit || isSubmitting || groupLoading) ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {groupLoading ? 'グループ作成中…' : '申し込んでいます…'}
+                      </>
+                    ) : hasFullyBlockedCandidate ? '受付停止中の候補を再選択してください'
+                      : hasUnavailableCandidate ? '選べない候補日時を再選択してください' : 'この内容で申し込む'}
+                  </button>
+                  <p className="text-center text-xs text-muted-foreground">申し込んだあとも、候補日の追加や取り下げができます。</p>
+                </>
+              )}
+            </section>
       </div>
     </div>
   )
