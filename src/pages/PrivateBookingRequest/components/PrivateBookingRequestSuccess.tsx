@@ -90,7 +90,7 @@ export function PrivateBookingRequestSuccess({ bookingBasePath, scenarioTitle, c
           <span className="font-bold">取消について: </span>{privateCancelNoticeText()}
         </p>
 
-        <button type="button" onClick={() => navigate('/mypage')} className="h-12 w-full border bg-white text-base font-bold" style={{ borderColor: PRIVATE_PURPLE, color: PRIVATE_PURPLE }}>
+        <button type="button" onClick={() => navigate(inviteCode ? `/group/invite/${inviteCode}?tab=overview` : '/mypage?sub=private')} className="h-12 w-full border bg-white text-base font-bold" style={{ borderColor: PRIVATE_PURPLE, color: PRIVATE_PURPLE }}>
           申込の内容を見る
         </button>
         <p className="text-xs text-muted-foreground">マイページの予約一覧からも見られます。</p>

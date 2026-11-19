@@ -33,6 +33,7 @@ export function WithdrawRequestDialog({ open, onOpenChange, onConfirm, hasGroup,
       confirmLabel={text.confirmLabel}
       cancelLabel="やめる"
       variant="destructive"
+      fixedSize={text.options.length > 0 ? 'form-sm' : 'confirm'}
       onConfirm={() => onConfirm(effective)}
     >
       {text.options.length > 0 && (

@@ -60,14 +60,14 @@ export const calculateParticipationFee = async (
  * 重複予約をチェックする関数
  * @param eventId - 予約しようとしている公演ID
  * @param customerEmail - 顧客メールアドレス
- * @param customerPhone - 顧客電話番号（オプション）
+ * @param customerPhone - 使わない（呼び出し側との互換のため残す。電話番号では照合しない）
  * @param eventDate - 公演日付（同時間帯チェック用）
  * @param startTime - 公演開始時間（同時間帯チェック用）
  */
 export const checkDuplicateReservation = async (
   eventId: string,
   customerEmail: string,
-  customerPhone?: string,
+  _customerPhone?: string,
   eventDate?: string,
   startTime?: string
 ): Promise<{ hasDuplicate: boolean; existingReservation?: any; isTimeConflict?: boolean }> => {
@@ -84,19 +84,9 @@ export const checkDuplicateReservation = async (
       return { hasDuplicate: true, existingReservation: data[0] }
     }
 
-    // 電話番号でも追加チェック（メールが見つからなかった場合）
-    if (customerPhone && !data?.length) {
-      const { data: phoneData, error: phoneError } = await bookingConfirmationReadApi.findDuplicateByPhone(eventId, customerPhone)
-
-      if (phoneError) {
-        logger.error('電話番号での重複予約チェックエラー:', phoneError)
-        return { hasDuplicate: false }
-      }
-
-      if (phoneData && phoneData.length > 0) {
-        return { hasDuplicate: true, existingReservation: phoneData[0] }
-      }
-    }
+    // 電話番号では照合しない（2026-11-19）。スタッフのアカウントは組織の予約をすべて読めるため、
+    // 同じ電話番号の別のお客様の予約番号・名前が「既に予約があります」に出て、予約も止められていた。
+    // 家族で電話番号を共有するお客様もいるので、本人の照合はメールアドレスだけで行う。
 
     // 2. 同じ日時の別公演への予約をチェック（schedule_eventsから正確な時間を取得）
     if (eventDate && startTime && customerEmail) {
