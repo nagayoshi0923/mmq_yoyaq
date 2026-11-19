@@ -12,8 +12,8 @@ interface OverviewSectionProps {
 
 export function OverviewSection({ title, aside, label, testId, children }: OverviewSectionProps) {
   return (
-    <section className="bg-card border border-gray-200 p-4" aria-label={label} data-testid={testId}>
-      <h2 className="mb-2 flex items-center justify-between gap-2 text-lg font-bold">
+    <section className="bg-card border border-border rounded-lg p-3" aria-label={label} data-testid={testId}>
+      <h2 className="mb-2 flex items-center justify-between gap-2 text-sm font-bold">
         <span className="min-w-0">{title}</span>
         {aside && <span className="shrink-0 text-xs font-normal">{aside}</span>}
       </h2>

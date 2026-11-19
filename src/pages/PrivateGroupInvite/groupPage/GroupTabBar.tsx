@@ -14,15 +14,14 @@ interface GroupTabBarProps {
   tabs?: ReadonlyArray<{ id: GroupTab; label: string }>
 }
 
-// 見本: 黒地の帯の下に並ぶ下線のタブ（選んでいるタブは白い太字と下線）
-const ON = 'border-white text-white font-bold'
-const OFF = 'border-transparent text-white/70 font-normal hover:text-white'
-const LG_ON = 'lg:border-white lg:text-white lg:font-bold'
-const LG_OFF = 'lg:border-transparent lg:text-white/70 lg:font-normal'
+const ON = 'bg-violet-600 text-white font-bold'
+const OFF = 'bg-card text-foreground/80 font-normal hover:bg-muted'
+const LG_ON = 'lg:bg-violet-600 lg:text-white lg:font-bold'
+const LG_OFF = 'lg:bg-card lg:text-foreground/80 lg:font-normal'
 
 export function GroupTabBar({ active, desktopActive, onChange, unread, tabs = GROUP_TABS }: GroupTabBarProps) {
   return (
-    <div role="tablist" aria-label="グループの表示" className="flex px-2" data-testid="group-tabs">
+    <div role="tablist" aria-label="グループの表示" className="flex bg-card border border-border rounded-lg overflow-hidden" data-testid="group-tabs">
       {tabs.map(tab => {
         const on = tab.id === active
         return (
@@ -33,7 +32,7 @@ export function GroupTabBar({ active, desktopActive, onChange, unread, tabs = GR
             aria-selected={on}
             data-tab={tab.id}
             onClick={() => onChange(tab.id)}
-            className={`flex-1 border-b-[3px] py-3 px-1 text-sm ${on ? ON : OFF} ${tab.id === desktopActive ? LG_ON : LG_OFF} ${tab.id === 'chat' ? 'lg:hidden' : ''}`}
+            className={`flex-1 py-2.5 px-1 text-sm border-r border-border lg:[&:nth-last-child(2)]:border-r-0 last:border-r-0 ${on ? ON : OFF} ${tab.id === desktopActive ? LG_ON : LG_OFF} ${tab.id === 'chat' ? 'lg:hidden' : ''}`}
           >
             {tab.label}
             {tab.id === 'chat' && unread > 0 && (

@@ -2,22 +2,26 @@ import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
 import { referenceMinFee } from '../utils/pricingUtils'
 import { registerPlayedScenario } from '@/lib/registerPlayedScenario'
 import { memo, useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
+import { Clock, Users, ExternalLink, Star, Share2, Heart, UserPlus, CheckCheck, Building2, UserCircle } from 'lucide-react'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useAuth } from '@/contexts/AuthContext'
 import { scenarioPageReadApi } from '@/lib/api/scenarioPageReadApi'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import type { ScenarioDetail, EventSchedule } from '../utils/types'
+import { formatDuration, formatPlayerCount } from '../utils/formatters'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
-import { SERIF_HEADING } from '@/components/renewal/fonts'
-import { durationLabel, playersLabel } from '@/components/renewal/labels'
+import { loginUrlWithIntent } from '@/lib/authReturn'
+import { privateGroupCreatePath } from '@/pages/PrivateBookingStart/paths'
 
 // 難易度ラベル
 const DIFFICULTY_LABELS: Record<number, { label: string; color: string }> = {
@@ -39,6 +43,9 @@ interface ScenarioHeroProps {
   events?: EventSchedule[]
   organizationSlug?: string
   stores?: Store[]
+  showPrivateBookingCta?: boolean
+  /** 貸切タブでいま選んでいる希望店舗。グループ作成ページへ同じ店舗で引き継ぐ */
+  privateBookingStoreIds?: string[]
 }
 
 /**
@@ -46,8 +53,13 @@ interface ScenarioHeroProps {
  */
 export const ScenarioHero = memo(function ScenarioHero({
   scenario,
+  events = [],
+  organizationSlug,
   stores = [],
+  showPrivateBookingCta = true,
+  privateBookingStoreIds = [],
 }: ScenarioHeroProps) {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
 
@@ -88,6 +100,16 @@ export const ScenarioHero = memo(function ScenarioHero({
 
   const handleFavoriteClick = () => {
     toggleFavorite(scenario.scenario_master_id)
+  }
+
+  const handleCreateGroup = () => {
+    const groupCreateUrl = privateGroupCreatePath({ scenarioMasterId: scenario.scenario_master_id, organizationSlug, storeIds: privateBookingStoreIds })
+    // 未ログインなら押した時点でログインへ（戻り先付き。行き止まりの画面に送らない。点検 3）
+    if (!user) {
+      navigate(loginUrlWithIntent('login', groupCreateUrl, `「${scenario.scenario_title}」の貸切リクエスト`))
+      return
+    }
+    navigate(groupCreateUrl)
   }
 
   const handlePlayedClick = async () => {
@@ -144,79 +166,165 @@ export const ScenarioHero = memo(function ScenarioHero({
     }
   }
 
-  const handleShare = async () => {
-    const url = window.location.href
-    try {
-      if (navigator.share) await navigator.share({ title: scenario.scenario_title, url })
-      else { await navigator.clipboard.writeText(url); showToast.success('リンクをコピーしました') }
-    } catch { /* 共有を閉じたときは何もしない */ }
-  }
-
   return (
-    <div className="bg-white">
-      {/* キービジュアル（横長。余白はぼかした同じ画像で埋める） */}
-      <div className="relative aspect-[13/10] w-full overflow-hidden bg-gray-900 md:aspect-[16/7]">
-        {scenario.key_visual_url && (
-          <div
-            className="absolute inset-0 scale-110"
-            style={{
-              backgroundImage: `url(${getOptimizedImageUrl(scenario.key_visual_url, { width: 100, format: 'webp', quality: 50 })})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              filter: 'blur(20px) brightness(0.5)',
-            }}
-          />
-        )}
-        <OptimizedImage
-          src={scenario.key_visual_url}
-          alt={scenario.scenario_title}
-          className="relative h-full w-full object-contain"
-          responsive={true}
-          srcSetSizes={[400, 800, 1200]}
-          breakpoints={{ mobile: 400, tablet: 600, desktop: 800 }}
-          useWebP={true}
-          quality={90}
-          fallback={
-            <div className={`flex h-full w-full items-center justify-center px-6 text-center text-2xl text-white ${SERIF_HEADING}`}>
-              {scenario.scenario_title}
+    <div className="relative bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white overflow-hidden">
+      <div className="p-3 md:p-4">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4">
+          {/* キービジュアル */}
+          <div className="md:col-span-4">
+            <div className="relative aspect-[3/4] bg-gray-900 overflow-hidden">
+              {/* 背景：ぼかした画像で余白を埋める - 最適化済み */}
+              {scenario.key_visual_url && (
+                <div
+                  className="absolute inset-0 scale-110"
+                  style={{
+                    backgroundImage: `url(${getOptimizedImageUrl(scenario.key_visual_url, { width: 100, format: 'webp', quality: 50 })})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    filter: 'blur(20px) brightness(0.5)',
+                  }}
+                />
+              )}
+              {/* メイン画像：全体を表示 */}
+              <OptimizedImage
+                src={scenario.key_visual_url}
+                alt={scenario.scenario_title}
+                className="relative w-full h-full object-contain"
+                responsive={true}
+                srcSetSizes={[400, 800, 1200]}
+                breakpoints={{ mobile: 400, tablet: 600, desktop: 800 }}
+                useWebP={true}
+                quality={90}
+                fallback={
+                  <div className="w-full h-full flex items-center justify-center text-gray-400">
+                    <div className="text-center p-8">
+                      <p className="text-lg">{scenario.scenario_title}</p>
+                    </div>
+                  </div>
+                }
+              />
             </div>
-          }
-        />
-      </div>
+          </div>
 
-      <div className="mx-auto max-w-4xl px-4 pb-5 pt-4">
-        <p className="text-xs text-muted-foreground">{scenario.author}</p>
-        <h1 className={`mt-1 text-2xl font-bold leading-snug ${SERIF_HEADING}`}>{scenario.scenario_title}</h1>
-        <p className="mt-2 text-sm">
-          {[
-            playersLabel(scenario.player_count_min, scenario.player_count_max),
-            durationLabel(scenario.duration),
-            scenario.participation_fee ? `${referenceMinFee(scenario.participation_fee, scenario.participation_costs).toLocaleString()}円〜` : null,
-          ].filter(Boolean).join('・')}
-        </p>
-        {availableStoreNames.length > 0 && (
-          <p className="mt-1 text-xs text-muted-foreground">遊べる店舗：{availableStoreNames.join('・')}</p>
-        )}
-        {hasGenderRatio && <p className="mt-1 text-xs text-muted-foreground">{genderRatioText}</p>}
-        {scenario.genre.length > 0 && (
-          <ul className="mt-3 flex flex-wrap gap-1.5">
-            {scenario.genre.map((g) => (
-              <li key={g} className="border border-gray-300 px-2 py-0.5 text-xs">{g}</li>
-            ))}
-            {scenario.has_pre_reading && <li className="border border-gray-300 px-2 py-0.5 text-xs">事前読み込みあり</li>}
-          </ul>
-        )}
-        <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-          <button type="button" onClick={handleFavoriteClick} aria-pressed={scenarioIsFavorite} className={scenarioIsFavorite ? 'font-bold text-red-600' : undefined}>
-            {scenarioIsFavorite ? '♥' : '♡'} 遊びたい
-          </button>
-          <button type="button" onClick={handlePlayedClick} disabled={isCheckingPlayed || isTogglingPlayed} aria-pressed={isPlayed} className={isPlayed ? 'font-bold text-green-700' : undefined}>
-            ✓ 遊んだ
-          </button>
-          <button type="button" onClick={handleShare}>↗ 共有</button>
-          {scenario.official_site_url && (
-            <a href={scenario.official_site_url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">公式サイト</a>
-          )}
+          {/* タイトル・基本情報 */}
+          <div className="md:col-span-8 space-y-2">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs opacity-80">{scenario.author}</p>
+                <div className="flex items-center gap-2">
+                  {/* 体験済みボタン */}
+                  <button
+                    onClick={handlePlayedClick}
+                    disabled={isCheckingPlayed || isTogglingPlayed}
+                    className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-white/10 rounded"
+                    title={isPlayed ? '体験済み（クリックで解除）' : '体験済みに登録'}
+                  >
+                    <CheckCheck className={`w-4 h-4 ${isPlayed ? 'text-green-400' : 'text-white/40 hover:text-white/60'}`} />
+                    <span className="text-xs text-white/70">
+                      {isPlayed ? '体験済み' : '体験した'}
+                    </span>
+                  </button>
+                  {/* お気に入りボタン */}
+                  <button
+                    onClick={handleFavoriteClick}
+                    className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-white/10 rounded"
+                    title={scenarioIsFavorite ? 'お気に入りから削除' : 'お気に入りに追加'}
+                  >
+                    <Heart className={`w-4 h-4 fill-current text-red-400 ${scenarioIsFavorite ? 'opacity-100' : 'opacity-40 hover:opacity-60'}`} />
+                    <span className="text-xs text-white/70">
+                      {scenarioIsFavorite ? '登録済み' : '遊びたい'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+              <h1 className="text-lg md:text-xl font-bold mb-2">{scenario.scenario_title}</h1>
+
+              {/* 基本情報（テキストベース） */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/80">
+                <span className="flex items-center gap-1">
+                  <Users className="w-4 h-4" />
+                  {formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  {formatDuration(scenario.duration, 'minutes')}
+                </span>
+                <span className="font-medium text-white">
+                  {scenario.participation_fee ? `¥${referenceMinFee(scenario.participation_fee, scenario.participation_costs).toLocaleString()}〜` : '¥3,000〜'}
+                </span>
+                {/* 難易度は一旦非表示
+                {scenario.difficulty && DIFFICULTY_LABELS[scenario.difficulty] && (
+                  <span className="flex items-center gap-1">
+                    <Star className="w-4 h-4" />
+                    {DIFFICULTY_LABELS[scenario.difficulty].label}
+                  </span>
+                )}
+                */}
+              </div>
+            </div>
+
+              {/* 公演可能店舗 */}
+            {availableStoreNames.length > 0 && (
+              <div className="flex items-start gap-1.5 text-xs text-white/70">
+                <Building2 className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                <span>
+                  <span className="text-white/50">公演可能店舗</span>
+                  <span className="mx-1 text-white/40">:</span>
+                  {availableStoreNames.join('・')}
+                </span>
+              </div>
+            )}
+
+            {/* 男女比 */}
+            {hasGenderRatio && (
+              <div className="flex items-center gap-1.5 text-xs text-white/70">
+                <UserCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>{genderRatioText}</span>
+              </div>
+            )}
+
+            {/* ジャンルタグ */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {scenario.genre.map((g, i) => (
+                <span key={i} className="text-xs text-white/70 border border-white/20 px-1.5 py-0.5">
+                  {g}
+                </span>
+              ))}
+            </div>
+
+            {/* アクションボタン */}
+            <div className="flex gap-2 flex-wrap">
+              {scenario.official_site_url && (
+                <button
+                  className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white transition-colors"
+                  onClick={() => window.open(scenario.official_site_url, '_blank')}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  公式サイト
+                </button>
+              )}
+              <button
+                className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white transition-colors"
+                onClick={() => {
+                  const url = window.location.href
+                  const text = scenario.scenario_title
+                  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank', 'width=550,height=420')
+                }}
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                シェア
+              </button>
+              {showPrivateBookingCta && (
+                <button
+                  className="flex items-center gap-1.5 text-xs text-purple-300 hover:text-purple-200 transition-colors"
+                  onClick={handleCreateGroup}
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  貸切リクエストを作成
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

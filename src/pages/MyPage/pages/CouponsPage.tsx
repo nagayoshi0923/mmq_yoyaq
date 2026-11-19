@@ -154,9 +154,19 @@ export function CouponsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="border border-gray-200 bg-white p-4">
-        <h2 className="text-lg font-bold">使えるクーポン（{totalAvailableCount}枚）</h2>
-        <p className="mt-1 text-xs text-muted-foreground">予約内容の確認画面で選ぶと、料金から引かれます。来店時は下の券を押して店舗に見せてください。</p>
+      <div className="bg-white shadow-sm p-6 border border-gray-200 rounded-none">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-bold text-gray-900 flex items-center gap-2">
+            <Ticket className="w-5 h-5 text-mypage-primary" />
+            クーポン
+          </h2>
+          <span className="text-2xl font-bold text-mypage-primary">
+            {totalAvailableCount}枚
+          </span>
+        </div>
+        <p className="ts-muted">
+          利用条件を確認して、対象の予約に使用できます
+        </p>
       </div>
 
       {usagesFailed && (
@@ -177,32 +187,43 @@ export function CouponsPage() {
 
       {expandedActiveCoupons.length > 0 && (
         <div>
-          <h3 className="mb-2 text-sm font-bold">利用可能なクーポン</h3>
+          <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+            <span className="w-1 h-5 rounded-full bg-mypage-primary"></span>
+            利用可能なクーポン
+          </h3>
           <div className="space-y-3">
             {expandedActiveCoupons.map(({ coupon, index }) => {
               const campaign = coupon.coupon_campaigns
               if (!campaign) return null
               const discountLabel = campaign.discount_type === 'fixed'
-                ? `${campaign.discount_amount.toLocaleString()}円引`
-                : `${campaign.discount_amount}%引`
+                ? `¥${campaign.discount_amount.toLocaleString()} OFF`
+                : `${campaign.discount_amount}% OFF`
 
-              // 見本: 左に色の付いた割引の札、右に名前・期限・使える店舗（券の形）
               return (
                 <div
                   key={`${coupon.id}-${index}`}
-                  className="flex bg-white border border-gray-200 overflow-hidden cursor-pointer active:scale-[0.99] rounded-none"
+                  className="bg-white border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98] rounded-none"
                   onClick={() => handleCouponTap(coupon, index)}
                 >
-                  <div className="flex w-24 shrink-0 flex-col items-center justify-center gap-1 bg-mypage-primary px-2 py-3 text-white">
-                    <span className="text-xl font-bold leading-tight text-center">{discountLabel}</span>
-                    <span className="flex items-center gap-1 text-2xs font-bold">
-                      <Scissors className="w-3 h-3" aria-hidden="true" />
-                      タップして使う
-                    </span>
+                  <div
+                    className="px-4 py-3 flex items-center justify-between bg-mypage-primary-light"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Ticket className="w-5 h-5 text-mypage-primary" />
+                      <span className="text-lg font-bold text-mypage-primary">
+                        {discountLabel}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs px-2 py-1 bg-orange-100 text-orange-700 font-bold flex items-center gap-1">
+                        <Scissors className="w-3 h-3" />
+                        タップして使う
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="min-w-0 flex-1 px-4 py-3">
-                    <h4 className="text-base font-bold">{campaign.name}</h4>
+                  <div className="px-4 py-3">
+                    <h4 className="font-medium text-gray-900 text-sm">{campaign.name}</h4>
                     {campaign.description && (
                       <p className="ts-muted mt-1">{campaign.description}</p>
                     )}
@@ -245,7 +266,10 @@ export function CouponsPage() {
 
       {usedCoupons.length > 0 && (
         <div>
-          <h3 className="mb-2 text-sm font-bold">使ったクーポン・期限切れ</h3>
+          <h3 className="text-sm font-bold text-gray-500 mb-3 flex items-center gap-2">
+            <span className="w-1 h-5 rounded-full bg-gray-300"></span>
+            使用済み・期限切れ
+          </h3>
           <div className="space-y-2">
             {usedCoupons.map(coupon => {
               const campaign = coupon.coupon_campaigns
@@ -254,8 +278,8 @@ export function CouponsPage() {
               const StatusIcon = status.icon
 
               const discountLabel = campaign.discount_type === 'fixed'
-                ? `${campaign.discount_amount.toLocaleString()}円引`
-                : `${campaign.discount_amount}%引`
+                ? `¥${campaign.discount_amount.toLocaleString()} OFF`
+                : `${campaign.discount_amount}% OFF`
 
               const lastUsedAt = getLastCouponUsedAt(coupon)
               const usedAt = lastUsedAt ? formatJstDateTime(lastUsedAt) : null
@@ -309,7 +333,7 @@ export function CouponsPage() {
       )}
 
       {coupons.length === 0 && (
-        <div className="bg-white p-8 text-center border border-gray-200 rounded-none">
+        <div className="bg-white shadow-sm p-8 text-center border border-gray-200 rounded-none">
           <div
             className="w-16 h-16 flex items-center justify-center mx-auto mb-4 bg-mypage-primary-light rounded-none"
           >

@@ -20,7 +20,7 @@ export function PushPromptCard({ kind, busy, onAccept, onDismiss }: PushPromptCa
   if (kind === 'blocked') return <PushBlockedCard onDismiss={onDismiss} />
   return (
     <div className="fixed inset-x-3 bottom-24 z-40 lg:inset-x-auto lg:right-6 lg:bottom-6 lg:w-96" role="dialog" aria-label="通知の受け取り" data-testid="push-prompt-card" data-kind={kind}>
-      <div className="bg-card border border-gray-200 shadow-lg p-3.5">
+      <div className="bg-card border border-border rounded-lg shadow-lg p-3.5">
         <div className="flex items-start gap-2.5">
           <span className="mt-0.5 w-8 h-8 shrink-0 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center">
             <Bell className="w-4 h-4" aria-hidden="true" />
@@ -62,7 +62,7 @@ function PushBlockedCard({ onDismiss }: { onDismiss: () => void }) {
   const [device, setDevice] = useState<PushHelpDevice>(detected)
   return (
     <div className="fixed inset-x-3 bottom-24 z-40 lg:inset-x-auto lg:right-6 lg:bottom-6 lg:w-96" role="dialog" aria-label="通知の許可の手順" data-testid="push-prompt-card" data-kind="blocked">
-      <div className="bg-card border border-gray-200 shadow-lg p-3.5">
+      <div className="bg-card border border-border rounded-lg shadow-lg p-3.5">
         <div className="flex items-start gap-2.5">
           <span className="mt-0.5 w-8 h-8 shrink-0 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
             <Bell className="w-4 h-4" aria-hidden="true" />

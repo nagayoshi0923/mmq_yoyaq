@@ -5,7 +5,6 @@ import React, { Suspense, useMemo } from 'react'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import { Button } from '@/components/ui/button'
 import { Calendar, Trophy, Sparkles, Heart, Camera, Settings, Pencil, Ticket, EyeOff, Eye, MoreVertical, Star, Drama, UserRound } from 'lucide-react'
-import { PageBar } from '@/components/renewal/PageBar'
 import { AddPlayHistoryDialog } from './components/AddPlayHistoryDialog'
 import { EditPlayHistoryDialog } from './components/EditPlayHistoryDialog'
 import { ConfirmDialog } from '@/components/patterns/modal'
@@ -150,7 +149,7 @@ export function MyPageContent({
     return (
       <div
         key={playedScenarioAlbumKey(scenario)}
-        className={`overflow-hidden bg-white border border-gray-200 group relative rounded-none ${isHidden || isDeleted || isOverridden ? 'opacity-50' : ''}`}
+        className={`overflow-hidden bg-white shadow-sm hover:shadow-lg border border-gray-200 hover:border-gray-300 group relative rounded-none ${isHidden || isDeleted || isOverridden ? 'opacity-50' : ''}`}
       >
         {/* ステータスバッジ（未体験＞削除済み＞非表示 の優先） */}
         {(isOverridden || isHidden || isDeleted) && (
@@ -160,7 +159,7 @@ export function MyPageContent({
         )}
         {/* 画像部分 */}
         <div
-          className="aspect-[3/4] relative bg-gray-100 cursor-pointer"
+          className="aspect-[4/3] relative bg-gray-100 cursor-pointer"
           onClick={() => {
             if (scenario.scenario_id) {
               const scenarioSlug = scenario.scenario_slug || scenario.scenario_id
@@ -477,10 +476,9 @@ export function MyPageContent({
   return (
     <div className="min-h-screen mypage-shell bg-mypage-background">
       {/* プロフィールヘッダー */}
-      <PageBar title="マイページ" onBack={() => (window.history.length > 1 ? window.history.back() : navigate('/'))} />
       <div className="bg-white border-b">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          <div className="flex items-center gap-4">
             {/* アバター（クリックで画像変更） */}
             <div className="relative group">
               <input
@@ -494,7 +492,7 @@ export function MyPageContent({
                 type="button"
                 onClick={handleAvatarClick}
                 aria-label="プロフィール画像を変更"
-                className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg overflow-hidden transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${avatarUrl ? '' : 'mypage-avatar-gradient'}`}
+                className={`w-20 h-20 rounded-full flex items-center justify-center shadow-lg overflow-hidden transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${avatarUrl ? '' : 'mypage-avatar-gradient'}`}
               >
                 {avatarUrl ? (
                   <img 
@@ -509,7 +507,7 @@ export function MyPageContent({
               {/* 編集アイコン */}
               <div 
                 aria-hidden="true"
-                className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full flex items-center justify-center shadow-md cursor-pointer bg-mypage-primary"
+                className="absolute bottom-0 right-0 w-7 h-7 rounded-full flex items-center justify-center shadow-md cursor-pointer bg-mypage-primary"
                 onClick={handleAvatarClick}
               >
                 <Pencil className="w-3.5 h-3.5 text-white" />
@@ -518,10 +516,10 @@ export function MyPageContent({
             
             {/* ユーザー情報 */}
             <div className="flex-1">
-              <p className="text-lg font-bold text-gray-900">
+              <h1 className="text-xl font-bold text-gray-900">
                 {displayName} さん
-              </p>
-              <div className="flex items-center gap-3 mt-0.5">
+              </h1>
+              <div className="flex items-center gap-3 mt-2">
                 <div className="flex items-center gap-1 ts-muted text-gray-600">
                   <Trophy className="w-4 h-4 text-mypage-primary" />
                   <span>体験済み {experiencedCount}作品</span>
@@ -539,6 +537,7 @@ export function MyPageContent({
         <div className="max-w-4xl mx-auto">
           <div className="flex" role="tablist" aria-label="マイページのメニュー">
             {menuItems.map((item) => {
+              const Icon = item.icon
               const isActive = activeTab === item.id
               const count = counts[item.id as keyof typeof counts]
               return (
@@ -549,19 +548,20 @@ export function MyPageContent({
                   aria-selected={isActive}
                   aria-label={count !== null && count > 0 && COUNT_MEANINGS[item.id] ? `${item.label}（${COUNT_MEANINGS[item.id](count)}）` : item.label}
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex-1 flex items-center justify-center gap-1 min-h-12 py-3 text-sm transition-all relative ${
+                  className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 min-h-14 py-2 sm:py-4 text-xs sm:text-sm font-medium transition-all relative ${
                     isActive 
-                      ? 'font-bold text-gray-900' 
+                      ? 'text-mypage-primary' 
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
+                  <Icon className="w-5 h-5" aria-hidden="true" />
                   {/* スマホでもアイコンの下に文字を出す（点検 40） */}
                   <span>{item.label}</span>
                   {count !== null && count > 0 && (
                     <span 
                       aria-hidden="true"
-                      className={`absolute top-1 right-0.5 sm:static text-2xs leading-none px-1.5 py-0.5 rounded-full ${
-                        isActive ? 'text-white bg-gray-900' : 'bg-gray-200 text-gray-600'
+                      className={`absolute top-1 right-1 sm:static text-xs px-1.5 py-0.5 rounded-full ${
+                        isActive ? 'text-white bg-mypage-primary' : 'bg-gray-200 text-gray-600'
                       }`}
                     >
                       {count}
@@ -569,7 +569,7 @@ export function MyPageContent({
                   )}
                   {isActive && (
                     <div 
-                      className="absolute bottom-0 left-0 right-0 h-[3px] bg-gray-900" 
+                      className="absolute bottom-0 left-0 right-0 h-[3px] rounded-t-full bg-mypage-primary" 
                     />
                   )}
                 </button>
@@ -580,7 +580,7 @@ export function MyPageContent({
       </div>
 
       {/* メインコンテンツ */}
-      <div className="max-w-4xl mx-auto px-3 py-4 pb-24">
+      <div className="max-w-4xl mx-auto px-4 py-6 pb-24">
         {loading && (activeTab === 'reservations' || activeTab === 'album') ? (
           <div className="text-center py-12 text-gray-500">読み込み中...</div>
         ) : (
@@ -611,13 +611,16 @@ export function MyPageContent({
             )}
 
             {activeTab === 'album' && (
-              <div className="space-y-3">
+              <div className="space-y-6">
                 {/* 踏破率 - シャープデザイン */}
-                <div className="border border-gray-200 bg-white p-4">
-                  <h2 className="text-lg font-bold">遊んだ作品（{experiencedCount}作品）</h2>
-                  <div className="mt-2 flex items-center justify-between gap-2">
-                    <p className="text-xs text-muted-foreground">
-                      ほかの店舗で遊んだ作品も記録できます
+                <div className="bg-white shadow-sm p-6 border border-gray-200 rounded-none">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="font-bold text-gray-900">体験済みシナリオ</h2>
+                    <span className="text-2xl font-bold text-mypage-primary">{experiencedCount}作品</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="ts-muted">
+                      これまでに参加したマーダーミステリーの記録です
                     </p>
                     <AddPlayHistoryDialog
                       isAddDialogOpen={isAddDialogOpen}
@@ -641,7 +644,10 @@ export function MyPageContent({
                 {playedScenarios.length > 0 ? (
                   <div>
                     <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-                      <h2 className="text-base font-bold">遊んだ作品の一覧</h2>
+                      <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                        <span className="w-1 h-6 rounded-full bg-mypage-primary"></span>
+                        体験済みシナリオ
+                      </h2>
                       <div className="flex items-center gap-2">
                         {/* ソート */}
                         <select
@@ -663,14 +669,14 @@ export function MyPageContent({
                         return <p className="ts-muted text-gray-400 py-6 text-center">表示中の体験済みシナリオはありません</p>
                       }
                       return (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                           {shown.sort(albumComparator).map(renderAlbumCard)}
                         </div>
                       )
                     })()}
                   </div>
                 ) : (
-                  <div className="bg-white p-8 text-center border border-gray-200 rounded-none">
+                  <div className="bg-white shadow-sm p-8 text-center border border-gray-200 rounded-none">
                     <div 
                       className="w-16 h-16 flex items-center justify-center mx-auto mb-4 bg-mypage-primary-light rounded-none"
                     >
