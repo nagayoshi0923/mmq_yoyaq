@@ -45,11 +45,16 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.clearAllMocks(); vi.useRealTimers() })
 
 describe('作品ページの貸切受付中（表示中の組織で判定）', () => {
-  it('受付可でも枠は出さない（すぐ下の「貸切で遊ぶ」タブと同じ内容のため。2026-11-19）', async () => {
+  it('受付可なら「貸切受付中」と、空きの保証でない旨と、日程相談（貸切リクエストのタブ）へのボタン', async () => {
     expect(await statusOf(scenario())).toBe('accepting')
     expect(api.period).toHaveBeenCalledWith('org-a', 'm1')
     expect(api.deadline).toHaveBeenCalledWith({ scenarioId: 'm1', organizationId: 'org-a', organizationSlug: null })
-    expect(host.querySelector('[data-testid="private-booking-status"]')).toBeNull()
+    const note = host.querySelector('[data-testid="private-booking-status"]')
+    expect(note?.textContent).toContain('貸切受付中')
+    expect(note?.textContent).toContain('公演予定はありませんが')
+    expect(note?.textContent).toContain('日程はご相談のうえ決まります')
+    await act(async () => (note?.querySelector('button') as HTMLButtonElement).click())
+    expect(onOpen).toHaveBeenCalledTimes(1)
   })
   it('貸切受付 OFF・出張限定は何も出さない', async () => {
     expect(await statusOf(scenario({ accepts_private_booking: false }))).toBe('not_accepting')

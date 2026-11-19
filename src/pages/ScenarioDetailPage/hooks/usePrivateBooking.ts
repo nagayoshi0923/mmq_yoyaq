@@ -3,10 +3,9 @@
 import { useState, useCallback, useMemo } from 'react'
 import { showToast } from '@/utils/toast'
 import { usePrivateBookingStorePreference, useStoreFilterPreference } from '@/hooks/useUserPreference'
-import { prefetchCandidateSlotAvailability, prefetchCandidateSlotStores, useCandidateSlotAvailability, useCandidateSlotStores } from '@/hooks/useCandidateSlotAvailability'
+import { useCandidateSlotAvailability } from '@/hooks/useCandidateSlotAvailability'
 import { availableSlotsForDate } from '@/lib/candidateSlotAvailability'
 import { isStorePlayableForScenario } from '@/lib/scenarioStoreHint'
-import { defaultPrivateBookingStoreIds } from '../utils/defaultPrivateBookingStoreIds'
 import type { TimeSlot } from '../utils/types'
 import { useEffect } from 'react'
 import { privateBookingHorizonMaxYmd, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
@@ -57,10 +56,9 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     if (stores.length > 0 && !hasInitialized) {
       setHasInitialized(true)
 
-      // フランチャイズ店（埼玉大宮店）は最初は外す（2026-11-14 社長指示。#1310 を新しい画面へ移した）
-      const defaultIds = defaultPrivateBookingStoreIds(playableStores(stores, scenario, organizationId))
-      setSelectedStoreIdsInternal(defaultIds)
-      setSavedStoreIds(defaultIds)
+      const allValidIds = playableStores(stores, scenario, organizationId).map(s => s.id)
+      setSelectedStoreIdsInternal(allValidIds)
+      setSavedStoreIds(allValidIds)
     }
   }, [stores, savedStoreIds, storeFilterIds, hasInitialized, setSavedStoreIds, scenario, organizationId])
 
@@ -71,7 +69,6 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
   const horizonDays = horizon.days
   const horizonMaxYmd = privateBookingHorizonMaxYmd(horizonDays)
 
-  // 表示中の月（今日より前・申し込める範囲より先は除く）。月送りで1か月ずつ見る（2026-11-18 えいきち「月送り消えてるけど」で戻した）
   const generatePrivateDates = useCallback(() => {
     const dates: string[] = []
     const year = currentMonth.getFullYear()
@@ -103,25 +100,7 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     ready: canRevalidate,
     error: availabilityError,
     reload: reloadAvailability,
-  } = useCandidateSlotAvailability(availabilityTarget, monthDates, { cache: true })
-  // 枠ごとに空いている店舗（「19:00 馬場・大久保」と出すため。店舗が1つなら読まない）
-  const multiStoreTarget = availabilityTarget && availabilityTarget.storeIds.length > 1 ? availabilityTarget : null
-  const slotStoreIds = useCandidateSlotStores(multiStoreTarget, monthDates)
-
-  // 表示中の月を読み終えたら、次の月も先に読んでおく（「次の月 ›」で待たせない）
-  useEffect(() => {
-    if (!canRevalidate || !availabilityTarget) return
-    const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
-    const todayYmd = toJstYmd(new Date())
-    const dates: string[] = []
-    const last = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()
-    for (let day = 1; day <= last; day++) {
-      const d = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-      if (d >= todayYmd && d <= horizonMaxYmd) dates.push(d)
-    }
-    prefetchCandidateSlotAvailability(availabilityTarget, dates)
-    prefetchCandidateSlotStores(availabilityTarget, dates)
-  }, [canRevalidate, availabilityTarget, currentMonth, horizonMaxYmd])
+  } = useCandidateSlotAvailability(availabilityTarget, monthDates)
 
   const getTimeSlotsForDate = useCallback((date: string): TimeSlot[] => (
     availableSlotsForDate(slotAvailability, date).map(s => ({ label: s.label, startTime: s.startTime, endTime: s.endTime }))
@@ -202,8 +181,6 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     /** 受付範囲（今日から何日先まで）。days が null の間は日付を出さず、確認中・再試行を出す */
     horizon,
     slotAvailability,
-    /** `${date}-${label}` → その枠が空いている店舗 id（店舗が2つ以上のときだけ。1つならその店舗） */
-    slotStoreIds,
     monthDates,
     showMonthOf,
     setSelectedStoreIds,

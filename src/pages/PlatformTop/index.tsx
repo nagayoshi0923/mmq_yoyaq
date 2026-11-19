@@ -12,7 +12,7 @@
  * 2026-10-23（QW-20261023-001）: 残りわずかの直後に「新作一覧」、上の帯に「カタログ」（全体カタログ /scenario）。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
@@ -22,12 +22,18 @@ import { DEFAULT_DESCRIPTION, DEFAULT_TITLE, buildWebsiteJsonLd } from '@/lib/se
 import { BOOKING_THEME } from '@/lib/theme'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
+import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top/InfoSections'
+import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
+import { NewArrivalsSection, type NewArrivalItem } from '@/components/public-top/NewArrivalsSection'
 import { buildPlatformBrowseScenarios, platformNewArrivalPicks } from '@/components/public-top/newArrivalsSource'
 import { newArrivalsPath } from '@/pages/NewArrivals/paths'
-import type { BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
+import { fetchPrivateBookingData, fetchPrivateBookingDays, isPrivateBookingCandidate, platformPrivateBookingPath } from '@/components/public-top/privateBookingStatus'
+import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
 import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
 import { indexUpcoming, withFirstEventPath, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
-import { usePerformanceSearchParams, type PerformanceSearchState } from '@/components/public-top/usePerformanceSearchParams'
+import { TopHero } from '@/components/public-top/TopHero'
+import { TopSection } from '@/components/public-top/TopSection'
+import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
 import {
   datePresetRange,
   datesWithOpenings,
@@ -44,14 +50,14 @@ import { extraMonthsToLoad, uniqueById } from '@/pages/PublicBookingTop/utils/bo
 import { useExtraPlatformMonths } from './hooks/useExtraPlatformMonths'
 import { usePlatformNewArrivalNext } from './hooks/usePlatformNewArrivalNext'
 import { newArrivalPerformances } from '@/components/public-top/newArrivalNextEvents'
+import { nextEventsNote } from '@/components/public-top/newArrivalNextNote'
 import { addJstDays } from '@/utils/jstDate'
 import { fetchPlatformTopData, PLATFORM_RANGE_DAYS } from './hooks/platformTopData'
 import { PlatformSearchSection } from './components/PlatformSearchSection'
 import { OrganizationDirectory } from './components/OrganizationDirectory'
 import { PRIVATE_BOOKING_START_PATH } from '@/pages/PrivateBookingStart/paths'
-import { RenewalHero } from '@/components/renewal/RenewalHero'
-import { shortPrefecture } from '@/lib/publicStoreName'
-import { BottomLinks, NearlyFullRow, NewArrivalsRow, PrivateBookingBlock, ThemeChips, type RenewalNewArrival } from '@/components/renewal/TopSections'
+
+const HERO_COLOR = '#1f2a2e'
 
 export function PlatformTop() {
   const navigate = useNavigate()
@@ -73,7 +79,7 @@ export function PlatformTop() {
 
   const performances = useMemo(() => data?.performances ?? [], [data])
   const organizations = useMemo(() => data?.organizations ?? [], [data])
-  const prefectures = useMemo(() => data?.prefectures ?? [], [data])
+  const prefectures = data?.prefectures ?? []
   const { state: search, update: updateSearch } = usePerformanceSearchParams()
   // 「もっと見る」の回数 + 1（今日から windows × 30 日。URL の ?more= に持ち、戻ったときも同じ期間）
   const cardWindows = search.windows
@@ -111,9 +117,14 @@ export function PlatformTop() {
     search.area ? performances.filter((p) => p.prefecture === search.area) : performances, nowMs,
   ), [performances, search.area, nowMs])
 
-  // 参加店舗数（店舗トップと同じ数え方）
+  // 数字は 1 つの計算元から: 参加店舗数（店舗トップと同じ数え方）・今後 2 週間の公演数（予約を受け付けている公演）
   const storeCount = useMemo(() => organizations.reduce((sum, o) => sum + o.store_count, 0), [organizations])
-  // 地域・組織から探すの「今月 N 公演に空き」: 今日〜月末で数える
+  const upcomingCount = useMemo(() => {
+    const until = addJstDays(today, 13)
+    return performances.filter((p) => p.date <= until && isBookableNow(p, nowMs)).length
+  }, [performances, today, nowMs])
+  // 参加店舗の「今月 N 公演に空きあり」: 「今月」のチップと同じ範囲（今日〜月末）で数える。
+  // 見出しが「今月」なので、一覧のような「来月」への切り替えはしない
   const monthOpenings = useMemo(() => {
     const map = new Map<string, number>()
     searchPerformances(performances, { range: datePresetRange('month', today), onlyAvailable: true }, nowMs)
@@ -143,26 +154,32 @@ export function PlatformTop() {
       .map((b) => [b.id, withFirstEventPath(b.card, list)]))
   }, [newArrivalIds, performances, isFetchedAfterMount, isError, newArrivalNext, nowMs, data, today])
 
-  // 新作: 作品を公開している組織の名前（「クインズワルツ ほか2組織」）
-  const newArrivals = useMemo<RenewalNewArrival[]>(() => {
-    const nameById = new Map(organizations.map((o) => [o.id, o.name]))
-    return newArrivalPicks.map(({ item, date }) => {
-      const names = item.scenario.organizations.map((o) => nameById.get(o.organization_id)).filter((n): n is string => !!n)
-      return {
-        // 新作は MMQ 全体の作品紹介（/scenario/{slug}）へ（遊べる組織・エリアを選ぶ画面）
-        card: { ...(newArrivalCards.get(item.id) ?? item.card), path: item.card.path },
-        date,
-        sub: names.length === 0 ? '' : names.length === 1 ? names[0] : `${names[0]} ほか${names.length - 1}組織`,
-      }
-    })
-  }, [newArrivalPicks, newArrivalCards, organizations])
-
-  // テーマで探す: 公開作品に多いカテゴリの上位（「新作」は新作の区画があるので外す）
-  const themes = useMemo(() => {
-    const count = new Map<string, number>()
-    for (const sc of data?.scenarios ?? []) for (const g of sc.genres ?? []) if (g && g !== '新作') count.set(g, (count.get(g) ?? 0) + 1)
-    return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, THEME_LIMIT).map(([g]) => g)
-  }, [data])
+  // 新作一覧のカードの「貸切受付中」（その作品を公開している組織ごとに、日程の相談を始められるかを既存の判定で決める。読めない間は出さない）
+  const orgIds = useMemo(() => organizations.map((o) => o.id), [organizations])
+  const storeIds = useMemo(() => (data?.stores ?? []).map((s) => s.id), [data])
+  const { data: privateData } = useQuery({
+    queryKey: ['platform-top-private-booking', orgIds.join(','), storeIds.join(',')],
+    enabled: orgIds.length > 0,
+    queryFn: () => fetchPrivateBookingData(orgIds, storeIds),
+    staleTime: 5 * 60_000,
+  })
+  const dayPairs = useMemo(() => newArrivalPicks.flatMap(({ item }) => item.scenario.organizations
+    .filter((o) => isPrivateBookingCandidate(privateData, o.organization_id, item.id, o, today))
+    .map((o) => ({ organizationId: o.organization_id, scenarioId: item.id }))), [newArrivalPicks, privateData, today])
+  const { data: privateDays } = useQuery({
+    // 組織・作品・今日で分ける（組織トップと同じ形のキー）
+    queryKey: ['private-booking-days', today, dayPairs.map((p) => `${p.organizationId}:${p.scenarioId}`).join(',')],
+    enabled: dayPairs.length > 0,
+    queryFn: () => fetchPrivateBookingDays(dayPairs),
+    staleTime: 5 * 60_000,
+  })
+  const newArrivals = useMemo<NewArrivalItem[]>(() => {
+    const slugById = new Map(organizations.map((o) => [o.id, o.slug]))
+    return newArrivalPicks.map(({ item, date }) => ({
+      card: { ...(newArrivalCards.get(item.id) ?? item.card), private_booking_path: platformPrivateBookingPath(privateData, privateDays, item.scenario, slugById, data?.stores ?? null, today) },
+      date,
+    })).map((it) => ({ ...it, ...nextEventsNote(it.card, newArrivalNextQuery.stateOf(it.card.scenario_id), () => newArrivalNextQuery.retry(it.card.scenario_id)) }))
+  }, [newArrivalPicks, newArrivalCards, newArrivalNextQuery, organizations, privateData, privateDays, data, today])
 
   const openCard = useCallback((card: ScenarioCardData) => {
     saveScrollPositionForCurrentUrl()
@@ -171,49 +188,34 @@ export function PlatformTop() {
 
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
-  const openPath = useCallback((path: string) => {
-    saveScrollPositionForCurrentUrl()
-    navigate(path)
-  }, [navigate])
-
-  // 上の帯の「どこで」「いつ」は、下の「空いている公演を探す」の条件そのもの
-  const whereOptions = useMemo(() => [{ value: '', label: '全国' }, ...prefectures.map((p) => ({ value: p, label: shortPrefecture(p) }))], [prefectures])
-  const whenValue = search.preset === 'week' || search.preset === 'nextweek' ? search.preset : 'upcoming'
-
   return (
-    <div className="booking-shell min-h-screen bg-[#f7f6f3]">
+    <div className="booking-shell min-h-screen bg-muted/40">
       <JsonLd data={buildWebsiteJsonLd()} />
       <Header />
 
-      <RenewalHero
-        headline={['今夜、だれかの', '物語の中へ。']}
-        lead={`全国${isLoading && !data ? '' : storeCount}店舗のマーダーミステリー公演から、空いている席を探して予約できます。`}
-        where={{ value: search.area ?? '', options: whereOptions, onChange: (v) => updateSearch({ area: v || null, storeIds: [] }) }}
-        when={{ value: whenValue, options: WHEN_OPTIONS, onChange: (v) => updateSearch({ preset: v as PerformanceSearchState['preset'] }) }}
-        onSearch={() => scrollTo('results')}
-        links={[
-          { label: 'はじめての方へ', to: '/guide' },
-          { label: '貸切で遊ぶ', onClick: () => scrollTo('private-booking') },
-          { label: '作品一覧', to: '/scenario' },
-        ]}
+      <TopHero
+        name="全国のマーダーミステリー公演を、ここから予約"
+        tagline={isLoading && !data ? '' : `参加店舗 ${storeCount} ・ 公演 ${upcomingCount} 件（今後 2 週間）`}
+        accessLabel="参加店舗"
+        backgroundColor={HERO_COLOR}
+        headerImageUrl={null}
+        onFirstTime={() => navigate('/guide')}
+        onAccess={() => scrollTo('organizations')}
+        onPrivate={() => scrollTo('private-booking')}
+        catalogPath="/scenario"
       />
 
-      <main>
-        <ThemeChips genres={themes} catalogPath="/scenario" />
-        <NewArrivalsRow items={newArrivals} allPath={newArrivalsPath()} lead="全国の店舗で、新しく遊べるようになった作品" onOpen={openPath} />
-        <NearlyFullRow
-          performances={nearlyFull}
-          lead="あと少しで人数がそろう回・残りわずかの回です（日付の早い順）"
-          placeOf={(p) => `${p.organization_name}・${p.store_short_name ?? p.store_name}`}
-          onOpen={openPath}
+      <main className="mx-auto max-w-4xl space-y-3 px-3.5 py-3 sm:px-4 md:py-5">
+        <NearlyFullStrip performances={nearlyFull} source={cardSource} marks={marks} aside="全店舗・日付順" onOpen={openCard} />
+
+        <NewArrivalsSection items={newArrivals} lead="全国の公開作品から、新しい物語を見つけよう" allPath={newArrivalsPath()} marks={marks} onOpen={openCard} />
+
+        <PrivateBookingSection
+          text="4〜8 人集まれば、好きな作品を好きな日に。候補日を出して、メンバーの都合を聞いて、店舗に申し込むまでサイトで完結します。貸切は店舗ごとなので、まず店舗を選び、その店舗で貸切できる作品から選びます。"
+          chooseStorePath={PRIVATE_BOOKING_START_PATH}
+          primaryColor={primaryColor}
         />
-        <OrganizationDirectory
-          organizations={organizations}
-          prefectures={prefectures}
-          area={search.area}
-          monthOpenings={monthOpenings}
-          onAreaChange={(area) => updateSearch({ area, storeIds: [] })}
-        />
+
         <PlatformSearchSection
           performances={performances}
           results={results}
@@ -234,11 +236,38 @@ export function PlatformTop() {
           extraState={search.preset === DEFAULT_DATE_PRESET ? extra.state : 'ready'}
           onRetryExtra={extra.retry}
         />
-        <PrivateBookingBlock to={PRIVATE_BOOKING_START_PATH} />
-        <BottomLinks links={[
-          { label: 'はじめての方へ：遊び方と予約の流れ', to: '/guide' },
-          { label: '店舗の方へ：MMQで予約受付をはじめる', to: '/contact?type=partnership' },
-        ]} />
+
+        {browseScenarios.length > 0 && (
+          <ScenarioBrowseSection
+            scenarios={browseScenarios}
+            catalogPath="/scenario"
+            allLabel={(n) => `すべての作品（全国 ${n}）›`}
+            footnote="作品を押すと、上演している店舗と次の公演が見られます。"
+            searchPath={(q) => `/scenario?q=${encodeURIComponent(q)}`}
+            marks={marks}
+            primaryColor={primaryColor}
+            allButtonLabel="カタログを見る"
+            onOpen={openCard}
+          />
+        )}
+
+        <OrganizationDirectory
+          organizations={organizations}
+          prefectures={prefectures}
+          area={search.area}
+          monthOpenings={monthOpenings}
+          primaryColor={primaryColor}
+          onAreaChange={(area) => updateSearch({ area })}
+        />
+
+        <FirstTimeSection faqPath="/faq" extraText="予約から当日までの流れを 3 分で。" />
+
+        <TopSection id="for-stores" title="店舗の方へ">
+          <p className="text-sm text-muted-foreground">MMQ に参加して公演の予約を受け付けませんか。</p>
+          <Link to="/contact?type=partnership" className="mt-2 inline-flex rounded-md border border-input bg-white px-3 py-1.5 text-sm font-medium hover:bg-muted">
+            参加について問い合わせる
+          </Link>
+        </TopSection>
       </main>
 
       <Footer />
@@ -247,9 +276,3 @@ export function PlatformTop() {
   )
 }
 
-const THEME_LIMIT = 8
-const WHEN_OPTIONS = [
-  { value: 'upcoming', label: 'これから30日' },
-  { value: 'week', label: '今週' },
-  { value: 'nextweek', label: '来週' },
-]

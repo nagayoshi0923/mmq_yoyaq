@@ -814,8 +814,6 @@ export function PrivateGroupInvite() {
       perPersonPrice={perPersonPrice}
       discountAmount={discountAmount}
       finalAmount={finalAmount}
-      responses={responses}
-      setResponses={setResponses}
       setExistingMemberId={setExistingMemberId}
       setGuestName={setGuestName}
       setGuestEmail={setGuestEmail}

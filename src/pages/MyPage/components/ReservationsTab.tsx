@@ -71,8 +71,9 @@ export function ReservationsTab({
   return (
               <div className="space-y-4">
                 {/* 予約タブ内サブタブ */}
-                <div className="flex flex-wrap gap-2 bg-white p-3 border border-gray-200" role="tablist" aria-label="予約の種類">
-                  {subTabs.map((tab) => {
+                <div className="flex border border-border overflow-hidden bg-card rounded-none" role="tablist" aria-label="予約の種類">
+                  {subTabs.map((tab, i) => {
+                    const Icon = tab.icon
                     const selected = reservationsSubTab === tab.id
                     return (
                       <button
@@ -82,15 +83,16 @@ export function ReservationsTab({
                         aria-selected={selected}
                         aria-label={`${tab.label}（${tab.count}件）`}
                         onClick={() => setReservationsSubTab(tab.id)}
-                        className={`h-10 rounded-full border px-4 text-sm transition-colors flex items-center justify-center gap-1 ${
-                          selected ? 'border-[#111] bg-[#111] font-bold text-white' : 'border-gray-300 bg-white text-foreground hover:bg-gray-50'
+                        className={`flex-1 py-3 px-1 text-sm font-semibold transition-colors flex items-center justify-center gap-1 ${i > 0 ? 'border-l border-border' : ''} ${
+                          selected ? 'text-white bg-mypage-primary' : 'text-muted-foreground hover:bg-muted'
                         }`}
                       >
+                        <Icon className="w-4 h-4 shrink-0 hidden min-[400px]:block" aria-hidden="true" />
                         <span className="whitespace-nowrap hidden sm:inline">{tab.label}</span>
                         <span className="whitespace-nowrap sm:hidden">{tab.shortLabel}</span>
                         {tab.count > 0 && (
                           <span
-                            className={`text-xs tabular-nums px-1.5 py-0.5 rounded-sm ${selected ? 'bg-white/20' : 'bg-gray-100 text-foreground'}`}
+                            className={`text-xs tabular-nums px-1.5 py-0.5 rounded-sm ${selected ? 'bg-white/20' : 'bg-muted text-foreground'}`}
                             aria-hidden="true"
                           >
                             {tab.count}
@@ -128,7 +130,7 @@ export function ReservationsTab({
                           {/* カウントダウンバー（各予約・公演日までの日数） */}
                           {daysUntil >= 0 && (
                             <div 
-                              className="px-3 py-1.5 text-white text-sm font-bold flex items-center gap-2 bg-gray-900"
+                              className="px-3 py-1.5 text-white text-sm font-bold flex items-center gap-2 bg-mypage-primary"
                             >
                               <Sparkles className="w-4 h-4" />
                               {daysUntil === 0 ? '本日公演' : `あと${daysUntil}日`}
@@ -172,7 +174,7 @@ export function ReservationsTab({
                               </h3>
                               
                               {/* 公演日時 */}
-                              <p className="text-sm font-bold mt-1">
+                              <p className="text-sm font-bold mt-1 text-mypage-primary">
                                 {shortDate} {perf.time ? perf.time.slice(0, 5) : ''}
                               </p>
                               

@@ -366,7 +366,7 @@ export function ScenarioMasterEdit() {
   if (!isLicenseAdmin) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header variant="admin" />
+        <Header />
         <div className="max-w-4xl mx-auto px-4 py-16">
           <Card>
             <CardContent className="py-6">
@@ -385,7 +385,7 @@ export function ScenarioMasterEdit() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header variant="admin" />
+        <Header />
         <div className="flex items-center justify-center py-20">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
         </div>
@@ -396,7 +396,7 @@ export function ScenarioMasterEdit() {
   if (!master) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header variant="admin" />
+        <Header />
         <div className="max-w-4xl mx-auto px-4 py-16">
           <Card>
             <CardContent className="py-6">
@@ -413,7 +413,7 @@ export function ScenarioMasterEdit() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Header variant="admin" />
+      <Header />
       <div className="flex flex-1">
         <AdminSidebar />
         <div className="flex-1 max-w-5xl mx-auto px-4 py-8">

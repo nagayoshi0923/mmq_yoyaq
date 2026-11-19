@@ -5,14 +5,13 @@
  * - PIN の画面: 新規参加の「参加する」は出さない。PIN 欄の例は薄く「例:」付き。
  * 見出しと入力欄は htmlFor / id で結び、読み上げで例の文字が欄の名前にならないようにする。
  */
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { ChevronDown, KeyRound, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PinResetRequest } from './PinResetRequest'
-import { PRIVATE_PURPLE } from '@/components/renewal/fonts'
 
 export type GuestJoinMode = 'new' | 'returning' | 'pin'
 
@@ -37,12 +36,6 @@ interface GuestJoinPanelProps {
   onClosePin: () => void
   onLogin: () => void
   onSignup: () => void
-  /** 新規参加の見出し（見本: 「2. お名前」）。既定は「お名前とメールアドレス」 */
-  heading?: string
-  /** 送るボタンの文言（既定「参加する」。見本: 候補日に答えるときは「この内容で答える」） */
-  submitLabel?: string
-  /** 送るボタンの上に入れる欄（参加費と支払い方法など） */
-  beforeSubmit?: ReactNode
 }
 
 const field = 'h-10 text-sm placeholder:text-muted-foreground/60'
@@ -98,50 +91,48 @@ export function GuestJoinPanel(props: GuestJoinPanelProps) {
   return (
     <div className="space-y-3 mb-6" data-testid="guest-join-new">
       <NewGuestCard {...props} />
-      <button type="button" className="block w-full py-1 text-center text-sm underline underline-offset-4" style={{ color: PRIVATE_PURPLE }} onClick={onOpenPin} data-testid="guest-open-pin">
-        すでに参加した方は PIN で入る（答えを直す）
-      </button>
+      <Button type="button" variant="outline" className="w-full h-11 border-purple-300 text-purple-800 bg-background hover:bg-purple-50 gap-2" onClick={onOpenPin} data-testid="guest-open-pin">
+        <KeyRound className="w-4 h-4" aria-hidden="true" />すでに参加した方は PIN で入る
+      </Button>
       {memberLinks}
     </div>
   )
 }
 
-function NewGuestCard({ guestName, guestEmail, setGuestName, setGuestEmail, actionLoading, isGroupFull, inviteMemberCap, onSubmit, heading, submitLabel, beforeSubmit }: GuestJoinPanelProps) {
+function NewGuestCard({ guestName, guestEmail, setGuestName, setGuestEmail, actionLoading, isGroupFull, inviteMemberCap, onSubmit }: GuestJoinPanelProps) {
   return (
-    <div className="space-y-3" data-testid="guest-new-form">
-      <section className="border border-gray-200 bg-white p-4 space-y-4">
+    <Card className="border-purple-200" data-testid="guest-new-form">
+      <CardContent className="p-4 space-y-4">
         <div>
-          <h2 className="text-lg font-bold">{heading ?? 'お名前とメールアドレス'}</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">お名前とメールアドレスで参加できます。アカウント登録は不要です。</p>
+          <h2 className="text-base font-bold">お名前とメールアドレスで参加できます</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">アカウント登録は不要です。</p>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="guest-name" className="text-sm font-bold block">お名前 <span className="text-xs font-normal text-red-700">必須</span></Label>
+          <Label htmlFor="guest-name" className="text-sm font-medium block">お名前 <span className="text-xs font-normal text-red-700">必須</span></Label>
           <Input id="guest-name" value={guestName} onChange={e => setGuestName(e.target.value)} placeholder="例: たろう" autoComplete="nickname" aria-describedby="guest-name-note" className={field} />
           <p id="guest-name-note" className="text-xs text-muted-foreground">ほかのメンバーに表示されます（ニックネームでも可）</p>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="guest-email" className="text-sm font-bold block">メールアドレス <span className="text-xs font-normal text-red-700">必須</span></Label>
+          <Label htmlFor="guest-email" className="text-sm font-medium block">メールアドレス <span className="text-xs font-normal text-red-700">必須</span></Label>
           <Input id="guest-email" type="email" value={guestEmail} onChange={e => setGuestEmail(e.target.value)} placeholder="例: name@example.com" autoComplete="email" aria-describedby="guest-email-note" className={field} />
           <p id="guest-email-note" className="text-xs text-muted-foreground">次に入るときの PIN と、日程が決まったお知らせを送ります。ほかのメンバーには表示されません。</p>
         </div>
-      </section>
-      {beforeSubmit}
-      {isGroupFull && (
-        <div className="border border-amber-200 bg-amber-50 p-3 text-center text-sm text-amber-800">
-          参加人数が上限（{inviteMemberCap}名）に達しています
-        </div>
-      )}
-      <button
-        type="button"
-        onClick={onSubmit}
-        disabled={actionLoading || isGroupFull}
-        className="flex h-12 w-full items-center justify-center text-base font-bold text-white disabled:opacity-50"
-        style={{ backgroundColor: PRIVATE_PURPLE }}
-        data-testid="guest-join-submit"
-      >
-        {actionLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />送信中...</> : isGroupFull ? '参加人数上限に達しています' : (submitLabel ?? '参加する')}
-      </button>
-    </div>
+        {isGroupFull && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm text-center">
+            参加人数が上限（{inviteMemberCap}名）に達しています
+          </div>
+        )}
+        <Button
+          type="button"
+          onClick={onSubmit}
+          disabled={actionLoading || isGroupFull}
+          className="w-full h-11 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 font-bold"
+          data-testid="guest-join-submit"
+        >
+          {actionLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />送信中...</> : isGroupFull ? '参加人数上限に達しています' : '参加する'}
+        </Button>
+      </CardContent>
+    </Card>
   )
 }
 

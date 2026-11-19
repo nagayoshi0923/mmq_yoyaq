@@ -7,8 +7,9 @@
  */
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { StepBar } from '@/components/renewal/StepBar'
-import { PRIVATE_PURPLE } from '@/components/renewal/fonts'
+import { Check, CheckCircle2, Copy, Users } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { logger } from '@/utils/logger'
@@ -48,53 +49,66 @@ export function PrivateBookingRequestSuccess({ bookingBasePath, scenarioTitle, c
   }
 
   return (
-    <div className="booking-shell min-h-screen overflow-x-clip bg-white">
+    <div className="booking-shell min-h-screen bg-background overflow-x-clip">
       <Header />
       <NavigationBar currentPage={bookingBasePath} />
-      <div className="mx-auto max-w-4xl px-4 pt-3">
-        <p className="text-xs text-muted-foreground">{scenarioTitle}の貸切</p>
-        <h1 className="mt-1 text-lg font-bold">申込の完了</h1>
-      </div>
-      <StepBar steps={['候補日を選ぶ', '内容の確認', '完了']} current={2} color={PRIVATE_PURPLE} />
 
-      <div className="mx-auto max-w-4xl space-y-3 bg-gray-50 px-3 py-4" data-testid="private-request-success">
-        <section className="border border-gray-200 bg-white p-4">
-          <p className="text-xs font-bold text-green-700">✓ 申込を受け付けました</p>
-          <h2 className="mt-1 text-xl font-bold">店舗の返事を待っています</h2>
-          <p className="mt-2 text-sm leading-relaxed">
-            店舗が候補の中から日時と会場を決めると、メールとマイページでお知らせします。ふだんは<span className="font-bold">2〜3日以内</span>に返事があります。
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {confirmationEmailAccepted
-              ? `確認メールを送りました（${customerEmail}）`
-              : '確認メールの送信を確認できませんでした。受付内容はマイページで確認できます。もう一度申し込む必要はありません。'}
-          </p>
-        </section>
+      <div className="container mx-auto max-w-3xl px-4 py-8 space-y-4" data-testid="private-request-success">
+        <Card className="border-2 border-purple-200 bg-purple-50">
+          <CardContent className="p-6 text-center space-y-3">
+            <CheckCircle2 className="w-14 h-14 text-purple-600 mx-auto" aria-hidden="true" />
+            <h2 className="text-lg text-purple-800">貸切リクエストを受け付けました</h2>
+            <p className="text-sm text-purple-800 leading-relaxed">
+              店舗から通常 <span className="font-bold">2〜3 日以内</span>にお返事します。日程が決まると、メールとマイページでお知らせします。
+            </p>
+            <p className="text-xs text-purple-700 leading-relaxed">
+              {confirmationEmailAccepted
+                ? `確認メールの送信を受け付けました（${customerEmail}）。`
+                : '確認メールの送信を確認できませんでした。受付内容はマイページで確認できます。再申込は不要です。'}
+            </p>
+          </CardContent>
+        </Card>
 
         {inviteCode && (
-          <section className="border border-gray-200 bg-white p-4" data-testid="private-request-invite">
-            <h2 className="text-lg font-bold">次にやること</h2>
-            <p className="mt-1 text-sm leading-relaxed">一緒に行く人をグループに招待しておくと、日程が決まったときにみんなに知らせられます。招待された人はログインしなくても参加できます。</p>
-            <p className="mt-3 break-all border border-gray-200 bg-gray-50 px-3 py-2 text-xs" data-testid="private-request-invite-url">{inviteUrlOf(inviteCode)}</p>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <button type="button" onClick={shareLine} className="h-11 bg-[#06C755] text-sm font-bold text-white">LINEで送る</button>
-              <button type="button" onClick={() => void copyInvite()} className="h-11 border border-gray-300 text-sm font-bold">{copied ? 'コピーしました' : 'リンクをコピー'}</button>
-            </div>
-            <button type="button" onClick={() => navigate(`/group/invite/${inviteCode}`)} className="mt-2 h-12 w-full text-base font-bold text-white" style={{ backgroundColor: PRIVATE_PURPLE }}>
-              グループを開いて友だちを招待
-            </button>
-          </section>
+          <Card data-testid="private-request-invite">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-purple-600" aria-hidden="true" />
+                <h3 className="text-base font-semibold">次に、一緒に遊ぶメンバーを招待しましょう</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                招待リンクを送ると、メンバーはログインしなくても、お名前とメールアドレスでグループに参加でき、チャットで連絡を取り合えます。
+              </p>
+              <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs break-all" data-testid="private-request-invite-url">
+                {inviteUrlOf(inviteCode)}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button type="button" variant="outline" className="gap-1.5" onClick={() => void copyInvite()}>
+                  {copied ? <Check className="w-4 h-4" aria-hidden="true" /> : <Copy className="w-4 h-4" aria-hidden="true" />}
+                  {copied ? 'コピーしました' : 'リンクをコピー'}
+                </Button>
+                <Button type="button" className="bg-green-600 hover:bg-green-700 text-white" onClick={shareLine}>
+                  LINE で送る
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
-        <p className="border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900" data-testid="private-request-cancel-notice">
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 leading-relaxed" data-testid="private-request-cancel-notice">
           <span className="font-bold">取消について: </span>{privateCancelNoticeText()}
         </p>
 
-        <button type="button" onClick={() => navigate('/mypage')} className="h-12 w-full border bg-white text-base font-bold" style={{ borderColor: PRIVATE_PURPLE, color: PRIVATE_PURPLE }}>
-          申込の内容を見る
-        </button>
-        <p className="text-xs text-muted-foreground">マイページの予約一覧からも見られます。</p>
-        <button type="button" onClick={() => navigate(bookingBasePath || '/')} className="h-11 w-full text-sm underline underline-offset-4">予約サイトのトップに戻る</button>
+        <div className="flex flex-col gap-3">
+          {inviteCode && (
+            <Button onClick={() => navigate(`/group/invite/${inviteCode}`)} className="bg-purple-600 hover:bg-purple-700">
+              グループを開く
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => navigate(bookingBasePath || '/')}>
+            予約サイトトップに戻る
+          </Button>
+        </div>
       </div>
     </div>
   )
