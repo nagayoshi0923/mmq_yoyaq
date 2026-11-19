@@ -1,4 +1,8 @@
 -- 正本（#714）
+-- #1321: reference_id は NULL にする。discord_notification_queue には古い一意制約
+--   (organization_id, notification_type, reference_id, webhook_url) があり、同じ公演・同じ GM へ
+--   2回目のお知らせ（一度外して戻した GM を再び外す・削除・中止）を積むと一意制約違反になり、
+--   公演の削除・中止・GM 変更そのものが失敗していた。公演IDは dedupe_key の先頭に残る。
 -- #714: スタッフの操作で担当が外れた GM へ Discord で知らせる（社長判断 2026-10-04）。
 -- 対象: スタッフが公演を中止したとき（中止日時が入る。自動の中止判定は中止日時を入れず、別の通知で GM に知らせている）、
 --       公演を削除したとき、GM を外した・差し替えたとき。
@@ -25,7 +29,7 @@ BEGIN
   LOOP
     INSERT INTO public.discord_notification_queue
       (organization_id,notification_type,reference_id,dedupe_key,webhook_url,message_payload,max_retries)
-    VALUES (p_event.organization_id,'gm_assignment_released',p_event.id,
+    VALUES (p_event.organization_id,'gm_assignment_released',NULL,
       p_event.id::text||':'||p_kind||':'||s.id::text||':'||txid_current()::text,
       'https://discord.com/api/v10/channels/'||btrim(s.discord_channel_id)||'/messages',
       jsonb_build_object('content',v_body,'allowed_mentions',jsonb_build_object('parse','[]'::jsonb)),3)
