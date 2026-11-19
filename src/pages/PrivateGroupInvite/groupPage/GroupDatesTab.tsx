@@ -66,7 +66,7 @@ export function GroupDatesTab(props: GroupDatesTabProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <section className="bg-card border border-gray-200 p-3" aria-label="候補日と回答">
+      <section className="bg-card border border-border rounded-lg p-3" aria-label="候補日と回答">
         <h2 className="mb-2 flex items-center justify-between gap-2 text-sm font-bold">
           {history ? (group.confirmed_performance ? '申込時の候補日（履歴）' : '候補日と回答（店舗の返事待ち）') : '候補日と回答'}
           {!history && isMember && table.rows.length > 0 && <span className="text-xs font-normal text-muted-foreground">自分の列を押して回答</span>}
@@ -150,7 +150,7 @@ export function GroupDatesTab(props: GroupDatesTabProps) {
         </CandidateDatesDialog>
       )}
 
-      <section className="bg-card border border-gray-200 p-3" aria-label="希望店舗">
+      <section className="bg-card border border-border rounded-lg p-3" aria-label="希望店舗">
         <h2 className="mb-1 flex items-center justify-between text-sm font-bold">
           希望店舗
           {isOrganizer && canMutateSchedule && (

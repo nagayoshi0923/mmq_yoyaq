@@ -233,8 +233,11 @@ describe('api/scenarios.ts 統計の出力（分割前の現状を固定）', ()
   })
   it('stats: 予約は confirmed / gm_confirmed / checked_in を数える（売上側と同じ規則。#787）', async () => {
     await call({ type: 'stats', scenarioId: MASTER })
-    const resQuery = mock.issued.find(i => i.table === 'reservations' && i.ops.some(o => o.startsWith('in("status"')))
-    expect(resQuery?.ops.find(o => o.startsWith('in("status"'))).toMatchInlineSnapshot(`"in("status", ["confirmed","gm_confirmed","checked_in"])"`)
+    // 過去の公演に紐づく予約の取得（日程未確定の件数・これからの公演の予約とは別のクエリ）
+    const statuses = mock.issued
+      .filter(i => i.table === 'reservations' && i.ops.some(o => o.startsWith('in("schedule_event_id"')))
+      .map(i => i.ops.find(o => o.startsWith('in("status"')))
+    expect(statuses).toContain('in("status", ["confirmed","gm_confirmed","checked_in"])')
   })
   it('stats: 来店済み（checked_in）の予約も参加者に数える（#787。以前は数えず、確定 1 名 + 来店済み 2 名が 1 名になっていた）', async () => {
     mock.tables.reservations = [res_('e-normal', { participant_count: 1 }), res_('e-normal', { participant_count: 2, status: 'checked_in' })]

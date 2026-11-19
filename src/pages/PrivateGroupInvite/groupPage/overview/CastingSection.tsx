@@ -53,7 +53,7 @@ export function CastingSection(props: CastingSectionProps) {
             {members.map(m => {
               const c = characters.find(x => x.id === assignments[m.memberId])
               return (
-                <div key={m.memberId} className="flex items-center gap-2 border border-gray-200 p-1.5">
+                <div key={m.memberId} className="flex items-center gap-2 rounded-lg border border-border p-1.5">
                   {c ? <CharacterImage c={c} className="h-10 w-10 shrink-0 rounded-md" /> : <div className="h-10 w-10 shrink-0 rounded-md bg-muted" aria-hidden="true" />}
                   <div className="min-w-0">
                     <div className="truncate text-xs text-muted-foreground">{rowName(m)}</div>

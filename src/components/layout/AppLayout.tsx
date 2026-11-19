@@ -37,7 +37,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     return (
       // w-screen + overflow-hidden でページ横スクロールを完全に封じる
       <div className="h-screen w-screen flex flex-col bg-background overflow-hidden">
-        <Header variant="admin" />
+        <Header />
         <div className="flex flex-1 min-h-0 min-w-0">
           <AdminSidebar />
           <div className={`flex-1 flex min-h-0 min-w-0 ${className}`}>
@@ -59,7 +59,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      <Header variant="admin" />
+      <Header />
       <div className="flex flex-1 min-h-0 min-w-0">
         <AdminSidebar />
         <div className={`flex flex-1 min-h-0 min-w-0 ${className}`}>

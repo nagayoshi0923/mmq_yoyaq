@@ -22,14 +22,19 @@ import { usePageMeta } from '@/hooks/usePageMeta'
 import { orgBookingDescription, orgBookingTitle } from '@/lib/seo'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
-import { autoOrganizationTagline, countPublicStores, storeAreaLabel } from '@/lib/publicStoreName'
+import { autoOrganizationTagline } from '@/lib/publicStoreName'
 import { DEFAULT_DATE_PRESET, nearlyFullPerformances, todayJst, upcomingRange } from '@/lib/publicPerformanceSearch'
+import { FirstTimeSection, PrivateBookingSection } from '@/components/public-top/InfoSections'
 import { privateGuidePath } from '@/pages/static/guide/privateGuidePath'
 import { usePerformanceSearchParams } from '@/components/public-top/usePerformanceSearchParams'
+import { NearlyFullStrip } from '@/components/public-top/NearlyFullStrip'
+import { NewArrivalsSection, type NewArrivalItem } from '@/components/public-top/NewArrivalsSection'
 import { buildOrgBrowseScenarios, orgNewArrivalPicks } from '@/components/public-top/newArrivalsSource'
 import { newArrivalsPath } from '@/pages/NewArrivals/paths'
+import { fetchPrivateBookingData, fetchPrivateBookingDays, isPrivateBookingCandidate, orgPrivateBookingPath } from '@/components/public-top/privateBookingStatus'
+import { TopHero } from '@/components/public-top/TopHero'
+import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
 import { FeatureBannerSection } from '@/components/public-top/FeatureBannerSection'
-import type { BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
 import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
 import { indexUpcoming, withFirstEventPath, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
 import { useBookingData } from './hooks/useBookingData'
@@ -38,11 +43,8 @@ import { browseLimits, defaultBookingRangeEnd, extraMonthsToLoad, monthLoadStatu
 import { useStoreTopPerformances } from './hooks/useStoreTopPerformances'
 import { useNewArrivalNextEvents } from './hooks/useNewArrivalNextEvents'
 import { newArrivalPerformances } from '@/components/public-top/newArrivalNextEvents'
-import { ScheduleSection } from './components/top/ScheduleSection'
-import { scheduleUntil } from './components/top/scheduleRange'
-import { StoreAccessSection } from './components/top/StoreAccessSection'
-import { OrgHero } from '@/components/renewal/OrgHero'
-import { BottomLinks, NearlyFullRow, NewArrivalsRow, PrivateBookingBlock, ThemeChips, type RenewalNewArrival } from '@/components/renewal/TopSections'
+import { nextEventsNote } from '@/components/public-top/newArrivalNextNote'
+import { StoreSearchSection } from './components/top/StoreSearchSection'
 
 const DEFAULT_HERO_COLOR = '#1f2a2e'
 
@@ -210,29 +212,31 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
       .map((b) => [b.id, withFirstEventPath(b.card, list)]))
   }, [newArrivalIds, performances, fetchedThisVisit, loadedUntil, newArrivalNext, nowMs, scenarios, slug, organizationId, nextDates])
 
-  // 新作: 次の公演の店舗（「馬場」）を人数・時間の前に
-  const newArrivals = useMemo<RenewalNewArrival[]>(() => newArrivalPicks.map(({ item, date }) => {
-    const card = newArrivalCards.get(item.id) ?? item.card
-    return { card, date, sub: card.events[0]?.store_name ?? '' }
-  }), [newArrivalPicks, newArrivalCards])
-
-  // テーマで探す: この組織の公開作品に多いカテゴリの上位（「新作」は新作の区画があるので外す）
-  const themes = useMemo(() => {
-    const count = new Map<string, number>()
-    for (const sc of scenarios) for (const g of sc.genre ?? []) if (g && g !== '新作') count.set(g, (count.get(g) ?? 0) + 1)
-    return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([g]) => g)
-  }, [scenarios])
-
-  const openPath = useCallback((path: string) => {
-    saveScrollPositionForCurrentUrl()
-    navigate(path)
-  }, [navigate])
-  const scheduleEnd = scheduleUntil(today, cardWindows)
-  const areaLabel = useMemo(() => {
-    const count = countPublicStores(stores)
-    const area = storeAreaLabel(stores)
-    return count > 0 ? `${area ? `${area} ` : ''}${count}店舗` : ''
-  }, [stores])
+  // 新作一覧のカードの「貸切受付中」（この組織で日程の相談を始められるか。既存の判定・値だけ。読めない間は出さない）
+  const storeIdsKey = stores.map((s) => s.id).join(',')
+  const { data: privateData } = useQuery({
+    queryKey: ['public-top-private-booking', organizationId, storeIdsKey],
+    enabled: Boolean(organizationId) && !isLoading,
+    queryFn: () => fetchPrivateBookingData([organizationId!], storeIdsKey ? storeIdsKey.split(',') : []),
+    staleTime: 5 * 60_000,
+  })
+  const dayPairs = useMemo(() => (organizationId ? newArrivalPicks
+    .filter(({ item }) => isPrivateBookingCandidate(privateData, organizationId, item.id, item.scenario, today))
+    .map(({ item }) => ({ organizationId, scenarioId: item.id })) : []), [newArrivalPicks, privateData, organizationId, today])
+  const { data: privateDays } = useQuery({
+    // 組織・作品・今日で分ける（同じ作品 ID でも組織ごとに日数が違う。Codex 指摘 2026-10-24）
+    queryKey: ['private-booking-days', today, dayPairs.map((p) => `${p.organizationId}:${p.scenarioId}`).join(',')],
+    enabled: dayPairs.length > 0,
+    queryFn: () => fetchPrivateBookingDays(dayPairs),
+    staleTime: 5 * 60_000,
+  })
+  const newArrivals = useMemo<NewArrivalItem[]>(() => newArrivalPicks.map(({ item, date }) => {
+    const path = organizationId && slug
+      ? orgPrivateBookingPath(privateData, privateDays, { id: organizationId, slug }, { id: item.id, slug: item.scenario.scenario_slug, available_from: item.scenario.available_from, available_until: item.scenario.available_until }, isLoading ? null : stores, today)
+      : null
+    const card = { ...(newArrivalCards.get(item.id) ?? item.card), private_booking_path: path }
+    return { card, date, ...nextEventsNote(card, newArrivalNextQuery.stateOf(item.id), () => newArrivalNextQuery.retry(item.id)) }
+  }), [newArrivalPicks, newArrivalCards, newArrivalNextQuery, privateData, privateDays, organizationId, slug, stores, isLoading, today])
 
   if (organizationNotFound) {
     return (
@@ -250,60 +254,85 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
   }
 
   return (
-    <div className="booking-shell min-h-screen bg-[#f7f6f3]">
+    <div className="booking-shell min-h-screen bg-muted/40">
       <Header />
       {isStaff && <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />}
 
-      <OrgHero
-        area={areaLabel}
+      <TopHero
         name={organizationName || (isLoading ? '' : 'MMQ')}
-        tagline={isLoading && stores.length === 0 ? '' : (organizationPublicBookingHeroDescription?.trim() || '物語の登場人物になる、数時間の体験を。')}
-        imageUrl={organizationHeaderImageUrl}
-        color={organizationThemeColor || DEFAULT_HERO_COLOR}
-        onSearch={() => scrollTo('results')}
-        links={[
-          { label: 'はじめての方へ', to: '/guide' },
-          { label: '貸切で遊ぶ', onClick: () => scrollTo('private-booking') },
-          { label: '店舗とアクセス', onClick: () => scrollTo('store-access') },
-        ]}
+        tagline={isLoading && stores.length === 0 ? '' : tagline}
+        backgroundColor={organizationThemeColor || DEFAULT_HERO_COLOR}
+        headerImageUrl={organizationHeaderImageUrl}
+        onFirstTime={() => navigate('/guide')}
+        onAccess={() => scrollTo('store-access')}
+        onPrivate={() => scrollTo('private-booking')}
+        catalogPath={slug ? `/${slug}/catalog` : '/scenario'}
       />
 
-      <main>
+      <main className="mx-auto max-w-4xl space-y-3 px-3.5 py-3 sm:px-4 md:py-5">
         <FeatureBannerSection organizationSlug={slug || null} />
-        <ThemeChips genres={themes} catalogPath={slug ? `/${slug}/catalog` : '/scenario'} />
-        <NearlyFullRow
-          performances={nearlyFull}
-          lead="あと少しで人数がそろう回・残りわずかの回です"
-          placeOf={(p) => cardSource.meta(p.scenario_id)?.author ?? ''}
-          onOpen={openPath}
+        <NearlyFullStrip performances={nearlyFull} source={cardSource} marks={marks} onOpen={openCard} />
+        <NewArrivalsSection
+          items={newArrivals}
+          lead="この組織で遊べる、新しく掲載された作品"
+          allPath={newArrivalsPath(slug || null)}
+          marks={marks}
+          onOpen={openCard}
         />
-        <NewArrivalsRow items={newArrivals} allPath={newArrivalsPath(slug || null)} lead="この組織で遊べる、新しく掲載された作品" onOpen={openPath} />
-        <ScheduleSection
-          organizationName={organizationName ?? ''}
+        <PrivateBookingSection
+          text="4〜8 人集まれば、好きな作品を好きな日に。候補日を出して、メンバーの都合を聞いて、店舗に申し込むまでサイトで完結します。"
+          scenariosPath={`/${slug}/private-booking-select`}
+          guidePath={privateGuidePath(slug)}
+          primaryColor={primaryColor}
+        />
+        <StoreSearchSection
           performances={performances}
           isLoading={isLoading}
+          state={search}
+          onChange={updateSearch}
           storeOptions={storeOptions}
-          storeIds={search.storeIds}
-          onStoreIdsChange={(storeIds) => updateSearch({ storeIds })}
           today={today}
           nowMs={nowMs}
-          until={scheduleEnd}
-          onMore={limits.moreUntil && scheduleEnd < limits.moreUntil ? () => updateSearch({ windows: cardWindows + 1 }) : undefined}
-          extraState={cardsExtraState}
+          primaryColor={primaryColor}
+          source={cardSource}
+          marks={marks}
+          onOpen={openCard}
+          windows={cardWindows}
+          onMore={() => updateSearch({ windows: cardWindows + 1 })}
+          moreUntil={limits.moreUntil}
+          extraState={search.view === 'cards' ? cardsExtraState : 'ready'}
           onRetryExtra={() => extraMonths.forEach((m) => { if (extra.status.get(m) === 'error') extra.retry(m) })}
-          privatePath={`/${slug}/private-booking-select`}
-          privateGuidePath={privateGuidePath(slug)}
-          onOpen={openPath}
+          classic={{
+            organizationId,
+            allEvents: mergedEvents,
+            blockedSlots: mergedBlocked,
+            stores,
+            scenarios,
+            organizationSlug: slug,
+            organizationName,
+            privateBookingDeadlineDays,
+            onCardClick: openScenario,
+            lastMonth: lastMonthDate,
+            limitReady: limitState === 'ready',
+            onVisibleMonthChange,
+            monthStatus,
+            onRetryMonth,
+          }}
         />
-        <PrivateBookingBlock to={`/${slug}/private-booking-select`} label="貸切できる作品を見る" />
-        <StoreAccessSection stores={stores} contactPath={`/org/${slug}/contact`} />
-        <BottomLinks links={[
-          { label: 'はじめての方へ：遊び方と予約の流れ', to: '/guide' },
-          { label: 'ほかの地域の公演は MMQ で全国から探す', to: '/' },
-        ]} />
+        {scenarios.length > 0 && (
+          <ScenarioBrowseSection
+            scenarios={browseScenarios}
+            catalogPath={`/${slug}/catalog`}
+            searchPath={(q) => `/${slug}/catalog?q=${encodeURIComponent(q)}`}
+            marks={marks}
+            primaryColor={primaryColor}
+            onOpen={openCard}
+          />
+        )}
+        <FirstTimeSection faqPath={slug ? `/${slug}/faq` : '/faq'} />
       </main>
 
-      <Footer organizationSlug={organizationSlug} organizationName={organizationName ?? undefined} stores={[]} />
+      <Footer organizationSlug={organizationSlug} organizationName={organizationName ?? undefined} stores={stores} />
       {marksDialog}
     </div>
   )

@@ -30,7 +30,7 @@ export function GroupHeaderMenu({ memberCount, pinnedCount, onMembers, onPhotos,
     <div className="relative shrink-0">
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
-          <button type="button" className="w-9 h-9 flex items-center justify-center border border-white/30 text-white hover:bg-white/10" aria-label="グループのメニュー" title="グループのメニュー" data-testid="group-settings">
+          <button type="button" className="w-9 h-9 flex items-center justify-center rounded-md border border-zinc-300 bg-background hover:bg-muted" aria-label="グループのメニュー" title="グループのメニュー" data-testid="group-settings">
             <MoreVertical className="w-4 h-4" aria-hidden="true" />
           </button>
         </DropdownMenuTrigger>
