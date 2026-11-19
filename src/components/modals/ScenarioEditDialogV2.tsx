@@ -103,6 +103,8 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
   const [isScenarioLoaded, setIsScenarioLoaded] = useState<boolean>(!scenarioId) // 新規はloaded扱い
 
   const { data: scenarios = [], isPending: scenariosQueryPending } = useScenariosQuery()
+  const scenariosPendingRef = useRef(scenariosQueryPending)
+  scenariosPendingRef.current = scenariosQueryPending
 
   const scenariosFingerprint = useMemo(
     () => scenarios.map(s => `${s.id}:${s.scenario_master_id ?? ''}`).join('|'),
@@ -163,10 +165,21 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
   // 組織名・予約サイト上のシナリオ詳細URL用 slug（所属組織を優先）
   const { organizationName, publicBookingOrgSlug } = useScenarioOrganizationNames(isOpen, scenarioId, currentScenario?.organization_id ?? formData.organization_id ?? null)
 
+  // マスターの取得をこのダイアログ内で共有する（相違検出と組織設定の読み込みで同じマスターを何度も取りに行かない）
+  const masterRequests = useRef(new Map<string, Promise<ScenarioMaster | null>>())
+  const getMasterShared = (masterId: string) => {
+    const pending = masterRequests.current.get(masterId)
+    if (pending) return pending
+    const request = scenarioMasterApi.getById(masterId)
+    masterRequests.current.set(masterId, request)
+    request.catch(() => masterRequests.current.delete(masterId))
+    return request
+  }
+
   // マスターデータを取得（相違検出用）
   useEffect(() => {
     const fetchMaster = async () => {
-      const masterId = currentScenario?.scenario_master_id || formData.scenario_master_id
+      const masterId = currentMasterId
       if (!masterId || !isOpen) {
         setMasterData(null)
         return
@@ -174,7 +187,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
       
       try {
         setLoadingMaster(true)
-        const data = await scenarioMasterApi.getById(masterId)
+        const data = await getMasterShared(masterId)
         setMasterData(data)
       } catch (error) {
         logger.error('マスターデータ取得エラー:', error)
@@ -185,7 +198,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
     }
     
     fetchMaster()
-  }, [isOpen, scenarioId, currentScenario?.scenario_master_id, formData.scenario_master_id])
+  }, [isOpen, scenarioId, currentMasterId])
 
   // マスターとの相違を検出
   const masterDiffs = useMemo(() => computeMasterDiffs(masterData, formData), [masterData, formData])
@@ -230,6 +243,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
       
       // マスターデータを再取得
       const updatedMaster = await scenarioMasterApi.getById(currentMasterId)
+      masterRequests.current.set(currentMasterId, Promise.resolve(updatedMaster))
       setMasterData(updatedMaster)
       
       showToast.success('マスターに反映しました')
@@ -404,8 +418,6 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
       return
     }
 
-    if (scenariosQueryPending && scenarios.length === 0) return
-
     const hydrateFromScenario = (scenario: Scenario) => {
       setIsScenarioLoaded(true)
       formLoadedKeyRef.current = loadKey
@@ -417,7 +429,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
           void loadOrgScenarioSettings({
             scenario, masterId: scenario.scenario_master_id, loadGeneration: settingsLoadGeneration.current,
             isCurrent: (generation) => generation === settingsLoadGeneration.current,
-            setFormData, setSurveySnapshot, setSourceState,
+            setFormData, setSurveySnapshot, setSourceState, getMaster: getMasterShared,
           })
         }
     }
@@ -431,6 +443,8 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
       return
     }
 
+    // 一覧（全作品＋全作品の担当GM）の取得を待たず、この作品 1 件だけを取りに行く。
+    // 一覧が先に届けば、この効果が再実行されて一覧の値で開く（この取得は破棄）。
     let cancelled = false
     void (async () => {
       try {
@@ -438,6 +452,9 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
         if (cancelled) return
         if (fetched) {
           hydrateFromScenario(fetched)
+        } else if (scenariosPendingRef.current) {
+          // 一覧の取得がまだなら、届いた時点で一覧から探し直す（この効果が再実行される）
+          return
         } else {
           setIsScenarioLoaded(false)
           showToast.error(
@@ -447,7 +464,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
         }
       } catch (e) {
         logger.error('シナリオ単体取得エラー:', e)
-        if (!cancelled) {
+        if (!cancelled && !scenariosPendingRef.current) {
           setIsScenarioLoaded(false)
           showToast.error(
             'シナリオの読み込みに失敗しました',
