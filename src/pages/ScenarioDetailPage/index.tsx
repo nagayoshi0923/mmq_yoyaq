@@ -251,6 +251,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
   /** ?stores= の希望店舗を反映済みか（作品と店舗の組で 1 回だけ） */
   const appliedPreferredStoresRef = useRef('')
+  /** ?tab=private で来たとき、貸切の日程まで送ったか（作品ごとに 1 回だけ。読み込みのたびに戻されないように） */
+  const scrolledToPrivateRef = useRef('')
   useEffect(() => {
     // URLパラメータを処理
     const urlParams = new URLSearchParams(window.location.search)
@@ -264,6 +266,11 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     
     if (tabParam === 'private' && acceptsPrivateBooking) {
       setActiveTab('private')
+      // 「空きを見る」などから来たときは、大きな作品画像の下の貸切の日程まで送る（画像だけの画面で止まらないように）
+      if (!dateParam && scrolledToPrivateRef.current !== scenarioId) {
+        scrolledToPrivateRef.current = scenarioId ?? ''
+        window.setTimeout(() => tabsRef.current?.scrollIntoView?.({ block: 'start' }), 300)
+      }
 
       const slotKeys: PrivateBookingUrlSlotKey[] = ['morning', 'afternoon', 'evening']
       // 日付・店舗・枠キーが揃っている場合は店舗だけ即時反映し、実時刻は getTimeSlotsForDate で後段適用

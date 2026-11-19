@@ -33,6 +33,8 @@ export interface PlatformOrganization {
 export interface PlatformOrganizationStore {
   id: string
   name: string
+  /** 都道府県（分からなければ null）。貸切を始めるページで、作品を遊べる店舗だけの地域を出すのに使う */
+  prefecture?: string | null
 }
 
 /** 全国の公開作品（作品マスタ単位。複数の組織で公開していても 1 件） */
@@ -222,7 +224,7 @@ export function buildPlatformOrganizations(
       if (p && !prefectures.includes(p)) prefectures.push(p)
       if (p) prefectureCount.set(p, (prefectureCount.get(p) ?? 0) + 1)
     })
-    const named = regular.map((s) => ({ id: s.id, name: storeDisplayName(s, { organizationName: org.name }) }))
+    const named = regular.map((s) => ({ id: s.id, name: storeDisplayName(s, { organizationName: org.name }), prefecture: storePrefecture(s) }))
     organizations.push({
       id: org.id,
       slug: org.slug,

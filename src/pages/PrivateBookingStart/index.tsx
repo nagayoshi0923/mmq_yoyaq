@@ -52,7 +52,7 @@ export interface PrivateWork {
   player_count_max: number
   key_visual_url: string | null
   is_recommended: boolean
-  offers: Array<{ org: PlatformOrganization; scenario: { id: string; slug?: string | null }; storeNames: string[] }>
+  offers: Array<{ org: PlatformOrganization; scenario: { id: string; slug?: string | null }; storeNames: string[]; prefectures: string[] }>
 }
 
 /** 何も検索していないときに出す作品の数（見本は人気の作品を数件） */
@@ -97,7 +97,10 @@ export function buildPrivateWorks(
       }
       work.is_recommended = work.is_recommended || !!s.is_recommended
       if (!work.key_visual_url && s.key_visual_url) work.key_visual_url = s.key_visual_url
-      work.offers.push({ org, scenario: { id: s.id, slug: s.slug }, storeNames: stores.map((st) => st.name) })
+      // 地域は、この作品を遊べる店舗の都道府県だけ（組織全体の地域を出すと、遊べない県まで並ぶ）
+      const prefectures: string[] = []
+      stores.forEach((st) => { if (st.prefecture && !prefectures.includes(st.prefecture)) prefectures.push(st.prefecture) })
+      work.offers.push({ org, scenario: { id: s.id, slug: s.slug }, storeNames: stores.map((st) => st.name), prefectures: prefectures.length > 0 ? prefectures : org.prefectures })
       works.set(s.id, work)
     }
   }
@@ -166,10 +169,10 @@ export function PrivateBookingStart({ organizationSlug }: PrivateBookingStartPro
   const areas = useMemo(() => {
     if (!selected) return []
     const list: string[] = []
-    selected.offers.forEach((o) => o.org.prefectures.forEach((p) => { if (!list.includes(p)) list.push(p) }))
+    selected.offers.forEach((o) => o.prefectures.forEach((p) => { if (!list.includes(p)) list.push(p) }))
     return list
   }, [selected])
-  const offers = selected ? selected.offers.filter((o) => !area || o.org.prefectures.includes(area)) : []
+  const offers = selected ? selected.offers.filter((o) => !area || o.prefectures.includes(area)) : []
 
   const setParam = (key: string, value: string | null) => {
     setParams((prev) => {
@@ -191,7 +194,7 @@ export function PrivateBookingStart({ organizationSlug }: PrivateBookingStartPro
       <main className="mx-auto w-full max-w-2xl space-y-3 px-3 py-3">
         <section className="border border-gray-200 bg-white p-4" data-testid="private-start-works">
           <h2 className="text-lg font-bold">1. 遊びたい作品を選ぶ</h2>
-          <p className="mt-1 text-sm text-muted-foreground">人気の作品です。ほかの作品は名前で探せます。</p>
+          <p className="mt-1 text-sm text-muted-foreground">貸切できる作品です（おすすめが先、あとは名前順）。名前でも探せます。</p>
           <input
             type="search"
             value={query}
@@ -268,7 +271,7 @@ export function PrivateBookingStart({ organizationSlug }: PrivateBookingStartPro
                       <div className="min-w-0 flex-1">
                         <p className="text-base font-bold">{o.org.name}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          {[...o.org.prefectures.map(areaLabel), `${o.storeNames.length}店舗（${o.storeNames.map(shortStoreName).join('・')}）`].join('・')}
+                          {[...o.prefectures.map(areaLabel), `${o.storeNames.length}店舗（${o.storeNames.map(shortStoreName).join('・')}）`].join('・')}
                         </p>
                       </div>
                       <span className="shrink-0 text-sm font-bold" style={{ color: PRIVATE_PURPLE }}>空きを見る ›</span>
