@@ -70,7 +70,6 @@ export function BookingCancellationTerms({ state, agreed, onAgreedChange, eventI
         </Card>
       )}
       <div>
-        <h3 className="text-sm font-medium text-muted-foreground mb-1">キャンセルについて</h3>
         <Card>
           <CardContent className="p-3 space-y-1 text-xs">
             <div className="flex items-start gap-2">
