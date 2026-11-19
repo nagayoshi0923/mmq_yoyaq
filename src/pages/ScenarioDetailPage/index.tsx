@@ -471,7 +471,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       {navBar}
       <PageBar title="作品ページ" onBack={goBack} />
 
-      <ScenarioHero scenario={scenario} stores={stores} />
+      <ScenarioHero scenario={scenario} stores={stores} events={events} />
 
 
       <div className="mx-auto max-w-4xl">

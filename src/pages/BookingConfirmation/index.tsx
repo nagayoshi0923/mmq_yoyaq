@@ -33,7 +33,7 @@ import { AddToCalendarButton, OpenMapButton, absolutePageUrl } from '@/component
 import { PageBar } from '@/components/renewal/PageBar'
 import { StepBar } from '@/components/renewal/StepBar'
 import { useOrgThemePreset } from '@/hooks/useOrgThemePreset'
-import { isFewSeats, seatCountText } from '@/lib/seatLabel'
+import { seatsLabel } from '@/components/renewal/labels'
 
 export function BookingConfirmation({
   eventId,
@@ -459,7 +459,7 @@ export function BookingConfirmation({
           <p className="mt-1 text-xl font-bold">{startLabel}</p>
           <p className="mt-0.5 text-sm" style={storeColor ? { color: storeColor } : undefined}>{storeName}</p>
           <p className="text-xs text-muted-foreground">
-            終了予定 {formatTime(endTime)}・{seatCountText(currentParticipants, maxParticipants)}{isFewSeats(availableSeats) && <span className="ml-1 font-bold text-orange-600">残りわずか</span>}
+            終了予定 {formatTime(endTime)}・{seatsLabel(availableSeats)}
           </p>
           {storeAddress && (
             <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeAddress)}`} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs text-muted-foreground underline">

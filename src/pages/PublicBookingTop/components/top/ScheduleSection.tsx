@@ -30,7 +30,12 @@ interface ScheduleSectionProps {
   privatePath: string
   privateGuidePath: string
   onOpen: (path: string) => void
+  /** 「公演に参加する／貸切で遊ぶ」の選択を親で持つとき（貸切の区画と同じ案内を2回出さないため） */
+  tab?: ScheduleTab
+  onTabChange?: (tab: ScheduleTab) => void
 }
+
+export type ScheduleTab = 'public' | 'private'
 
 /** 店舗のチップに直接並べる数（残りは「ほか」の中） */
 const STORE_CHIPS = 3
@@ -43,8 +48,11 @@ const STORE_CHIPS = 3
 export function ScheduleSection({
   organizationName, performances, isLoading, storeOptions, storeIds, onStoreIdsChange, today, nowMs, until,
   onMore, extraState = 'ready', onRetryExtra, privatePath, privateGuidePath, onOpen,
+  tab: tabProp, onTabChange,
 }: ScheduleSectionProps) {
-  const [tab, setTab] = useState<'public' | 'private'>('public')
+  const [tabState, setTabState] = useState<ScheduleTab>('public')
+  const tab = tabProp ?? tabState
+  const setTab = (next: ScheduleTab) => { setTabState(next); onTabChange?.(next) }
   const [onlyAvailable, setOnlyAvailable] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const shownStores = storeOptions.slice(0, STORE_CHIPS)
