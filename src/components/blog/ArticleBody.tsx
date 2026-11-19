@@ -12,6 +12,7 @@ import { KeyVisualThumb } from '@/components/public-top/KeyVisualThumb'
 import { privateScenarioTabPath } from '@/pages/PrivateBookingStart/paths'
 import { formatJstMonthDay } from '@/utils/jstDate'
 import { storeDisplayName } from '@/lib/publicStoreName'
+import { characterImageStyle } from '@/components/scenario/scenarioFacts'
 import type { FeatureCharacter, FeatureScenario } from '@/types'
 
 const PRIVATE_COLOR = '#6B21D6'
@@ -103,7 +104,7 @@ function CharacterCard({ scenario, character }: { scenario: FeatureScenario; cha
             alt={character.name ?? ''}
             loading="lazy"
             className="h-full w-full object-cover"
-            style={character.image_position ? { objectPosition: character.image_position } : undefined}
+            style={characterImageStyle(character.image_position, character.image_scale)}
           />
         )}
       </div>

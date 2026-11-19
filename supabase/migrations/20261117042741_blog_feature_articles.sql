@@ -98,6 +98,7 @@ AS $$
                     'id', c->>'id', 'name', c->>'name', 'age', c->>'age', 'gender', c->>'gender',
                     'occupation', c->>'occupation', 'description', c->>'description',
                     'image_url', c->>'image_url', 'image_position', c->>'image_position',
+                    'image_scale', CASE WHEN jsonb_typeof(c->'image_scale') = 'number' THEN (c->>'image_scale')::numeric END,
                     'background_color', c->>'background_color', 'is_npc', coalesce((c->>'is_npc')::boolean, false)))
            FROM jsonb_array_elements(CASE WHEN jsonb_typeof(os.characters) = 'array' THEN os.characters ELSE '[]'::jsonb END) c
          ), '[]'::jsonb),

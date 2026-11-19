@@ -46,6 +46,8 @@ export function FeatureBannerSection({ organizationSlug }: { organizationSlug?: 
     queryKey: ['feature-banners', organizationSlug ?? '__platform__'],
     queryFn: () => fetchFeatureBanners(organizationSlug),
     staleTime: 5 * 60_000,
+    // 管理画面でバナーを出し入れしたらトップに戻ったときに反映する（アプリ全体は refetchOnMount: false）
+    refetchOnMount: 'always',
   })
   if (!data || data.length === 0) return null
   return (

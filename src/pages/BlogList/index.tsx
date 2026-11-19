@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import { usePageMeta } from '@/hooks/usePageMeta'
+import { STATIC_PUBLIC_META } from '@/lib/seo'
 import { fetchPublicBlogPosts } from '@/lib/blogPublicFetch'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
 import { formatJstDateJa } from '@/utils/jstDate'
@@ -57,8 +58,8 @@ export function BlogList() {
   const type = isPostType(typeParam) ? typeParam : null
 
   usePageMeta({
-    title: 'キャンペーン・特集 | MMQ',
-    description: 'MMQ のキャンペーン、キャラ特集、カテゴリ特集、お知らせの一覧です。',
+    title: STATIC_PUBLIC_META['feature-list'].title,
+    description: STATIC_PUBLIC_META['feature-list'].description,
     canonicalPath: BLOG_LIST_PATH,
   })
 
@@ -66,6 +67,8 @@ export function BlogList() {
     queryKey: ['public-blog-posts', org ?? '__all__', type ?? '__all__'],
     queryFn: () => fetchPublicBlogPosts({ organizationSlug: org, postType: type }),
     staleTime: 5 * 60_000,
+    // 公開・非公開の切り替えをすぐ反映する（アプリ全体は refetchOnMount: false）
+    refetchOnMount: 'always',
   })
 
   const setType = (t: BlogPostType | null) => {

@@ -80,6 +80,8 @@ export interface FeatureCharacter {
   description: string | null
   image_url: string | null
   image_position: string | null
+  /** 拡大率（%）。100 または null で等倍 */
+  image_scale: number | null
   background_color: string | null
   is_npc: boolean
 }

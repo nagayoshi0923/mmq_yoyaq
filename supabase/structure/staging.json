@@ -30063,7 +30063,7 @@
     "service_role=X/postgres"
    ],
    "returns": "TABLE(scenario_master_id uuid, slug text, title text, author text, key_visual_url text, player_count_min integer, player_count_max integer, duration integer, genre text[], release_date date, organization_slug text, organization_name text, characters jsonb, next_events jsonb, accepts_private_booking boolean)",
-   "body_md5": "e2dcb69cbf8d00364f1f45d595349016",
+   "body_md5": "7809bd721c835ea69db3d1902d1021cc",
    "language": "sql",
    "security_definer": true
   }

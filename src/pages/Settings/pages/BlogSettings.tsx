@@ -3,6 +3,7 @@
  * @path /settings (blog タブ)
  */
 import { useState, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -49,7 +50,17 @@ function storagePathFromBlogCoverPublicUrl(url: string): string | null {
   return path || null
 }
 
+/** 公開側（トップのバナー・特集一覧・記事内の作品）のキャッシュ */
+const PUBLIC_BLOG_QUERY_KEYS = ['feature-banners', 'public-blog-posts', 'feature-article-scenarios']
+
 export function BlogSettings() {
+  const queryClient = useQueryClient()
+  const refreshAfterChange = () => {
+    fetchPosts()
+    void queryClient.invalidateQueries({
+      predicate: (query) => PUBLIC_BLOG_QUERY_KEYS.includes(String(query.queryKey[0])),
+    })
+  }
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null)
@@ -279,7 +290,7 @@ export function BlogSettings() {
       }
 
       setIsDialogOpen(false)
-      fetchPosts()
+      refreshAfterChange()
     } catch (err) {
       logger.error('記事保存エラー:', err)
       if (getErrorCode(err) === '23505') {
@@ -303,7 +314,7 @@ export function BlogSettings() {
 
       if (error) throw error
       toast.success('記事を削除しました')
-      fetchPosts()
+      refreshAfterChange()
     } catch (err) {
       logger.error('記事削除エラー:', err)
       toast.error('記事の削除に失敗しました')
@@ -320,7 +331,7 @@ export function BlogSettings() {
 
       if (error) throw error
       toast.success(newStatus ? '公開しました' : '非公開にしました')
-      fetchPosts()
+      refreshAfterChange()
     } catch (err) {
       logger.error('公開状態更新エラー:', err)
       toast.error('更新に失敗しました')
