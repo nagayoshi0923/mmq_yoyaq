@@ -9,7 +9,7 @@ on:
 jobs:
   e2e:
     name: Playwright E2E Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright 1.57 は ubuntu 26.04（2026-11-18 から ubuntu-latest）に未対応
     timeout-minutes: 30
 
     steps:
