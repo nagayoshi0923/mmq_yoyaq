@@ -4,6 +4,9 @@
   "devCommand": "npm run dev",
   "installCommand": "npm ci --no-audit --no-fund",
   "framework": "vite",
+  "regions": [
+    "hnd1"
+  ],
   "cleanUrls": false,
   "trailingSlash": false,
   "rewrites": [
