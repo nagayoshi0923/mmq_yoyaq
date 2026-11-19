@@ -45,7 +45,7 @@ test('期限切れを利用可能に出さず、併用の案内を実際の条�
   // fixture は updated_at=2000-01-01（付与から大幅に経過）かつ expires_at は昨日
   await page.goto('/e2e/fixtures/coupon-rules.html?customer=1&expired=1')
   await expect(page.getByText('タップして使う', {exact:true})).toHaveCount(0)
-  await expect(page.getByText('使用済み・期限切れ', {exact:true})).toBeVisible()
+  await expect(page.getByText('使ったクーポン・期限切れ', {exact:true})).toBeVisible()
   await expect(page.getByText('期限切れ', {exact:true})).toBeVisible()
   await page.goto('/e2e/fixtures/coupon-rules.html?customer=1')
   await expect(page.getByText('他のクーポンと併用可（相手のクーポンも併用可の場合）', {exact:true})).toBeVisible()
