@@ -46,6 +46,7 @@ export function getOrganizationSlugFromPath(): string | null {
       'company',
       'about',
       'blog',
+      'features',
       'partner-report',
     ]
     if (!adminPaths.includes(match[1])) {

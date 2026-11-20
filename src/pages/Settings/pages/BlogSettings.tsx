@@ -3,6 +3,7 @@
  * @path /settings (blog タブ)
  */
 import { useState, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -29,7 +30,10 @@ import {
   X,
 } from 'lucide-react'
 import { uploadBlogCoverImage, deleteBlogCoverImage, validateImageFile } from '@/lib/uploadImage'
-import type { BlogPost } from '@/types'
+import { BLOG_POST_TYPE_LABELS, BLOG_POST_TYPES, type BlogPost, type BlogPostType } from '@/types'
+import { BlogPartPicker, type BlogPartKind } from './BlogPartPicker'
+import { insertLineAt } from '@/lib/blogArticle'
+import { toJstYmd } from '@/utils/jstDate'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { SectionTitle } from '@/components/settings/SectionTitle'
 import { formatJstDateJa } from '@/utils/jstDate'
@@ -46,7 +50,17 @@ function storagePathFromBlogCoverPublicUrl(url: string): string | null {
   return path || null
 }
 
+/** 公開側（トップのバナー・特集一覧・記事内の作品）のキャッシュ */
+const PUBLIC_BLOG_QUERY_KEYS = ['feature-banners', 'public-blog-posts', 'feature-article-scenarios']
+
 export function BlogSettings() {
+  const queryClient = useQueryClient()
+  const refreshAfterChange = () => {
+    fetchPosts()
+    void queryClient.invalidateQueries({
+      predicate: (query) => PUBLIC_BLOG_QUERY_KEYS.includes(String(query.queryKey[0])),
+    })
+  }
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null)
@@ -56,6 +70,9 @@ export function BlogSettings() {
   const [isUploadingCover, setIsUploadingCover] = useState(false)
   const coverFileInputRef = useRef<HTMLInputElement>(null)
   const [deleteTarget, setDeleteTarget] = useState<BlogPost | null>(null)
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
+  const [pickerKind, setPickerKind] = useState<BlogPartKind | null>(null)
+  const contentRef = useRef<HTMLTextAreaElement>(null)
 
   // フォーム状態
   const [formData, setFormData] = useState({
@@ -64,7 +81,11 @@ export function BlogSettings() {
     excerpt: '',
     content: '',
     cover_image_url: '',
-    is_published: false
+    is_published: false,
+    post_type: 'news' as BlogPostType,
+    show_in_top_banner: false,
+    banner_order: 0,
+    display_until: '',
   })
 
   useEffect(() => {
@@ -76,6 +97,7 @@ export function BlogSettings() {
       try {
         const org = await getCurrentOrganization()
         setOrganizationSlug(org?.slug ?? null)
+        setOrganizationId(org?.id ?? null)
       } catch {
         setOrganizationSlug(null)
       }
@@ -113,7 +135,11 @@ export function BlogSettings() {
       excerpt: '',
       content: '',
       cover_image_url: '',
-      is_published: false
+      is_published: false,
+      post_type: 'category_feature',
+      show_in_top_banner: false,
+      banner_order: 0,
+      display_until: '',
     })
     setIsDialogOpen(true)
   }
@@ -126,7 +152,11 @@ export function BlogSettings() {
       excerpt: post.excerpt || '',
       content: post.content,
       cover_image_url: post.cover_image_url || '',
-      is_published: post.is_published
+      is_published: post.is_published,
+      post_type: post.post_type ?? 'news',
+      show_in_top_banner: post.show_in_top_banner ?? false,
+      banner_order: post.banner_order ?? 0,
+      display_until: post.display_until ? toJstYmd(post.display_until) : '',
     })
     setIsDialogOpen(true)
   }
@@ -198,6 +228,19 @@ export function BlogSettings() {
     }))
   }
 
+  /** 本文のカーソル位置に部品（作品カード・タグの一覧・キャラ・画像・見出し）を 1 行で入れる */
+  const insertIntoContent = (line: string) => {
+    const el = contentRef.current
+    const pos = el ? el.selectionStart : formData.content.length
+    const { content, cursor } = insertLineAt(formData.content, pos, line)
+    setFormData((prev) => ({ ...prev, content }))
+    requestAnimationFrame(() => {
+      if (!contentRef.current) return
+      contentRef.current.focus()
+      contentRef.current.setSelectionRange(cursor, cursor)
+    })
+  }
+
   const handleSave = async () => {
     if (!formData.title.trim()) {
       toast.error('タイトルを入力してください')
@@ -224,7 +267,14 @@ export function BlogSettings() {
         content: formData.content.trim(),
         cover_image_url: formData.cover_image_url.trim() || null,
         is_published: formData.is_published,
-        published_at: formData.is_published ? new Date().toISOString() : null
+        published_at: formData.is_published
+          ? (editingPost?.is_published && editingPost.published_at ? editingPost.published_at : new Date().toISOString())
+          : null,
+        post_type: formData.post_type,
+        show_in_top_banner: formData.show_in_top_banner,
+        banner_order: Number.isFinite(formData.banner_order) ? formData.banner_order : 0,
+        // 表示終了日はその日の終わり（日本時間）まで出す
+        display_until: formData.display_until ? `${formData.display_until}T23:59:59+09:00` : null,
       }
 
       if (editingPost) {
@@ -240,7 +290,7 @@ export function BlogSettings() {
       }
 
       setIsDialogOpen(false)
-      fetchPosts()
+      refreshAfterChange()
     } catch (err) {
       logger.error('記事保存エラー:', err)
       if (getErrorCode(err) === '23505') {
@@ -264,7 +314,7 @@ export function BlogSettings() {
 
       if (error) throw error
       toast.success('記事を削除しました')
-      fetchPosts()
+      refreshAfterChange()
     } catch (err) {
       logger.error('記事削除エラー:', err)
       toast.error('記事の削除に失敗しました')
@@ -281,7 +331,7 @@ export function BlogSettings() {
 
       if (error) throw error
       toast.success(newStatus ? '公開しました' : '非公開にしました')
-      fetchPosts()
+      refreshAfterChange()
     } catch (err) {
       logger.error('公開状態更新エラー:', err)
       toast.error('更新に失敗しました')
@@ -295,7 +345,7 @@ export function BlogSettings() {
 
   return (
     <div className="space-y-6 max-w-4xl pb-12">
-      <PageHeader title="ブログ・お知らせ" description="予約サイトのお知らせページ（/{slug}/blog）に公開する記事を管理します" />
+      <PageHeader title="ブログ・特集・お知らせ" description="特集記事・キャンペーン・お知らせを書いて公開します。「TOPのバナーに出す」にした記事は、トップの「キャンペーン・特集」に並びます。" />
 
       <section className="bg-white rounded-xl border p-6">
         <div className="flex items-start justify-between mb-2">
@@ -335,6 +385,8 @@ export function BlogSettings() {
                     <Badge variant={post.is_published ? 'default' : 'secondary'}>
                       {post.is_published ? '公開中' : '下書き'}
                     </Badge>
+                    <Badge variant="outline">{BLOG_POST_TYPE_LABELS[post.post_type ?? 'news']}</Badge>
+                    {post.show_in_top_banner && <Badge variant="outline">TOPバナー</Badge>}
                   </div>
                   <div className="flex items-center gap-4 text-sm text-gray-500">
                     <span className="flex items-center gap-1">
@@ -414,6 +466,23 @@ export function BlogSettings() {
             </div>
 
             <div>
+              <label className="block text-sm font-medium mb-1">記事の種類</label>
+              <div className="flex flex-wrap gap-2">
+                {BLOG_POST_TYPES.map((t) => (
+                  <Button
+                    key={t}
+                    type="button"
+                    size="sm"
+                    variant={formData.post_type === t ? 'default' : 'outline'}
+                    onClick={() => setFormData((prev) => ({ ...prev, post_type: t }))}
+                  >
+                    {BLOG_POST_TYPE_LABELS[t]}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium mb-1">
                 スラッグ（URL）
               </label>
@@ -448,15 +517,24 @@ export function BlogSettings() {
               <label className="block text-sm font-medium mb-1">
                 本文 <span className="text-red-500">*</span>
               </label>
+              <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                <span className="text-xs text-muted-foreground">＋ 入れる：</span>
+                <Button type="button" variant="outline" size="sm" onClick={() => insertIntoContent('## 見出し')}>見出し</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setPickerKind('image')}>画像</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setPickerKind('work')}>作品カード</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setPickerKind('tag')}>タグの作品一覧</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setPickerKind('character')}>キャラ紹介</Button>
+              </div>
               <Textarea
+                ref={contentRef}
                 value={formData.content}
                 onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
                 placeholder="記事の本文を入力..."
-                rows={10}
+                rows={14}
                 className="font-mono text-sm"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Markdown記法が使えます
+              <p className="text-xs text-muted-foreground mt-1">
+                「## 」で始まる行は見出しになり、見出しが2つ以上あると目次が出ます。[[作品:…]] などの行は、記事では作品カード・作品の一覧・キャラ紹介として表示されます（次の公演と空席はいつも最新）。
               </p>
             </div>
 
@@ -519,6 +597,40 @@ export function BlogSettings() {
               />
             </div>
 
+            <div className="space-y-3 rounded-md border p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-sm font-medium">TOPのバナーに出す</label>
+                  <p className="text-xs text-muted-foreground">MMQトップと自社トップの「キャンペーン・特集」に、カバー画像つきで並びます。</p>
+                </div>
+                <Switch
+                  checked={formData.show_in_top_banner}
+                  onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, show_in_top_banner: checked }))}
+                />
+              </div>
+              {formData.show_in_top_banner && (
+                <div>
+                  <label className="block text-xs font-medium mb-1">バナーの並び順（小さい数ほど先）</label>
+                  <Input
+                    type="number"
+                    value={formData.banner_order}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, banner_order: Number(e.target.value) || 0 }))}
+                    className="w-32"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-medium mb-1">表示を終える日（空欄ならずっと）</label>
+                <Input
+                  type="date"
+                  value={formData.display_until}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, display_until: e.target.value }))}
+                  className="w-48"
+                />
+                <p className="text-xs text-muted-foreground mt-1">この日を過ぎると、バナーと特集の一覧から外れます（記事のページは開けます）。</p>
+              </div>
+            </div>
+
             <div className="flex items-center justify-between pt-2">
               <label className="text-sm font-medium">
                 公開する
@@ -547,6 +659,13 @@ export function BlogSettings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <BlogPartPicker
+        kind={pickerKind}
+        organizationId={organizationId}
+        onClose={() => setPickerKind(null)}
+        onInsert={insertIntoContent}
+      />
 
       {/* 削除確認ダイアログ */}
       <ConfirmDialog

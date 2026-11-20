@@ -82,6 +82,11 @@ export function parsePath(pathname: string): { page: string, scenarioId: string 
     return { page: 'private-booking-start', scenarioId: null, organizationSlug: null }
   }
 
+  // /features - キャンペーン・特集の一覧（QW-20261116-001。/blog は管理画面と重なるため別の名前）
+  if (segments.length === 1 && segments[0] === 'features') {
+    return { page: 'feature-list', scenarioId: null, organizationSlug: null }
+  }
+
   // 特殊ページのチェック（組織スラッグなし）
   const specialPages = ['login', 'signup', 'reset-password', 'set-password', 'complete-profile', 'coupon-present', 'register', 'start', 'about',
     'accept-invitation', 'author-dashboard', 'author-login', 'mypage', 'my-page', 'scenario',
