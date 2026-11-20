@@ -27724,6 +27724,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "report_inventory_consistency()": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "eaf9414c20cf33413129ba0802200c45",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "run_inventory_consistency_check(p_organization_id uuid)": {
    "acl": [
     "postgres=X/postgres",
