@@ -69,6 +69,7 @@
 | `scenario_recruitment_setting_history.sql` | scenario_recruitment_setting_history | |
 | `schedule_event_staff_assignments.sql` | schedule_event_staff_assignments | |
 | `schedule_events.sql` | schedule_events | 空き判定の根幹 |
+| `schedule_slot_rules.sql` | schedule_slot_rules | 店舗×曜日×時間帯の固定枠（下書き自動作成） |
 | `scheduled_reminder_deliveries.sql` | scheduled_reminder_deliveries | |
 | `staff.sql` | staff | スタッフ管理 |
 | `staff_account_access.sql` | staff_account_access | |

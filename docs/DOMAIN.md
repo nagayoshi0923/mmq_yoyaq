@@ -30,6 +30,7 @@ organizations（テナント境界・最上位）
 - GM = `gms`（staff id 配列）+ `gm_roles`（JSONB: main/sub/staff）
 - **重複禁止**: UNIQUE (date, store_id, time_slot, organization_id) WHERE is_cancelled=false
 - 60分インターバル: 貸切は<60分ハードブロック。60がハードコード4箇所（負債）
+- **固定枠** `schedule_slot_rules`: 店舗×曜日（0=日…6=土、7=祝日）×時間帯の「開ける/開けない」。公演の下書き自動作成が使う（行なし=未設定）。設計は `docs/design/schedule-auto-draft.md`
 
 ### 予約（reservations）
 - status: `pending → confirmed → checked_in → completed` ＋ `cancelled` / `no_show` / `gm_confirmed`
