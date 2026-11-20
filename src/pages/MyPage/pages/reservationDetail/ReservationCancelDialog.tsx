@@ -27,7 +27,8 @@ interface Props {
 export function ReservationCancelDialog({ open, onOpenChange, summary, isPending, onConfirm }: Props) {
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!isPending) onOpenChange(next) }}>
-      <DialogContent fixedSize="confirm" size="sm" data-testid="reservation-cancel-dialog">
+      {/* 公演の内容を6行出すので「確認」の高さ（240px）では本文が下のボタンに隠れる。小さい入力の大きさにする */}
+      <DialogContent fixedSize="form-sm" size="sm" data-testid="reservation-cancel-dialog">
         <DialogHeader>
           <DialogTitle className="text-base">この予約をキャンセルしますか？</DialogTitle>
           <DialogDescription className="text-sm pt-1">キャンセルは元に戻せません。キャンセルの確認メールをお送りします。</DialogDescription>

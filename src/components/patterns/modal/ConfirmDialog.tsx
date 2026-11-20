@@ -2,6 +2,7 @@ import { memo, ReactNode, useState } from 'react'
 import { logger } from '@/utils/logger'
 import { Loader2 } from 'lucide-react'
 import {
+  type DialogFixedSize,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -27,6 +28,8 @@ interface ConfirmDialogProps {
   isLoading?: boolean
   disabled?: boolean
   children?: ReactNode
+  /** PC での固定サイズ。選択肢などを中に入れるときは 'form-sm' にする（既定 'confirm' = 384×240 では切れる） */
+  fixedSize?: DialogFixedSize
 }
 
 export const ConfirmDialog = memo(function ConfirmDialog({
@@ -43,6 +46,7 @@ export const ConfirmDialog = memo(function ConfirmDialog({
   isLoading = false,
   disabled = false,
   children,
+  fixedSize = 'confirm',
 }: ConfirmDialogProps) {
   const [internalLoading, setInternalLoading] = useState(false)
   const loading = isLoading || internalLoading
@@ -81,7 +85,7 @@ export const ConfirmDialog = memo(function ConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent fixedSize="confirm" size="sm">
+      <DialogContent fixedSize={fixedSize} size="sm">
         <DialogHeader>
           <DialogTitle className="text-base">{title}</DialogTitle>
           {description && (
