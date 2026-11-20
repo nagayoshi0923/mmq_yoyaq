@@ -267,9 +267,13 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     if (tabParam === 'private' && acceptsPrivateBooking) {
       setActiveTab('private')
       // 「空きを見る」などから来たときは、大きな作品画像の下の貸切の日程まで送る（画像だけの画面で止まらないように）
-      if (!dateParam && scrolledToPrivateRef.current !== scenarioId) {
-        scrolledToPrivateRef.current = scenarioId ?? ''
-        window.setTimeout(() => tabsRef.current?.scrollIntoView?.({ block: 'start' }), 300)
+      // 読み込み中は切り替えの帯がまだ無いので、作品が出てから送り、送れたときだけ済みにする（読み込みのたびに再実行される）
+      if (!dateParam && scenario && scrolledToPrivateRef.current !== scenarioId) {
+        window.setTimeout(() => {
+          if (!tabsRef.current || scrolledToPrivateRef.current === scenarioId) return
+          scrolledToPrivateRef.current = scenarioId ?? ''
+          tabsRef.current.scrollIntoView?.({ block: 'start' })
+        }, 300)
       }
 
       const slotKeys: PrivateBookingUrlSlotKey[] = ['morning', 'afternoon', 'evening']
@@ -324,7 +328,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       }
       }
     }
-  }, [scenarioId, stores, events, setSelectedStoreIds, setSelectedTimeSlots, setSelectedEventId, acceptsPrivateBooking, availableStores])
+  }, [scenarioId, scenario, stores, events, setSelectedStoreIds, setSelectedTimeSlots, setSelectedEventId, acceptsPrivateBooking, availableStores])
 
   // URL の slot=morning|afternoon|evening を、カレンダーと同じ getTimeSlotsForDate の実時刻に変換して反映
   useEffect(() => {
