@@ -40,10 +40,11 @@ export function GroupStatusBox({ view, onAction, compact = false, onOpenDetail, 
         <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${tone.chip}`} data-testid="group-status-chip">{view.chip}</span>
         {view.sub && <span className="text-xs text-muted-foreground">{view.sub}</span>}
       </div>
-      <div className="p-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
-        <p className="text-sm text-foreground leading-snug lg:flex-1" data-testid="group-status-body">{view.body}</p>
+      {/* 本文は常にボタンの上に置く（PC の左の列は狭く、横並びだと本文が細い列に押し込まれるため） */}
+      <div className="p-3 flex flex-col gap-2">
+        <p className="text-sm text-foreground leading-snug" data-testid="group-status-body">{view.body}</p>
         {(view.primary || view.secondary.length > 0 || extra) && (
-          <div className="flex flex-col gap-2 lg:flex-row lg:shrink-0">
+          <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap">
             {view.primary && (
               <Button
                 type="button"
