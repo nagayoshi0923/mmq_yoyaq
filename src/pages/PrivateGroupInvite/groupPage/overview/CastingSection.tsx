@@ -132,7 +132,7 @@ export function CastingSection(props: CastingSectionProps) {
       <OverviewSection
         label="配役"
         testId="overview-casting"
-        title={<>配役{method === 'self' ? <Tag>自分たちで決める</Tag> : <Tag tone="gray">主催者が決めます</Tag>}</>}
+        title={<>配役{method === 'self' ? <Tag>自分たちで決める</Tag> : <Tag tone="gray">{isOrganizer ? 'まだ選んでいません' : '主催者が選びます'}</Tag>}</>}
         aside={changeMethod}
       >
         {method === 'self' ? (

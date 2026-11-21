@@ -11,7 +11,7 @@ import { AlertCircle, Check, ClipboardList, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
-import { isPastPerformanceDate, isSurveyQuestionShown, SURVEY_CHARACTER_ANY, SURVEY_SECOND_CHOICE_KEY, toggleCharacterPick, type CharacterPicks } from '@/lib/surveyCompletion'
+import { isPastPerformanceDate, isSurveyQuestionShown, primaryCharacterQuestionId, SURVEY_CHARACTER_ANY, SURVEY_SECOND_CHOICE_KEY, toggleCharacterPick, type CharacterPicks } from '@/lib/surveyCompletion'
 import { formatJstMonthDay } from '@/utils/jstDate'
 import type { SurveyQuestion } from '@/types'
 import { CharacterImage } from '../groupPage/casting/CharacterImage'
@@ -54,7 +54,8 @@ export function SurveyResponseForm(props: SurveyResponseFormProps) {
 
   const pastPerformance = isPastPerformanceDate(performanceDate)
   const pastDeadline = Boolean(s.deadlineDate && new Date() > s.deadlineDate)
-  const visible = s.questions.filter(q => isSurveyQuestionShown(q, s.hideChar))
+  const primaryCharId = primaryCharacterQuestionId(s.questions)
+  const visible = s.questions.filter(q => isSurveyQuestionShown(q, s.hideChar, primaryCharId))
   const charQ = visible.find(q => q.question_type === 'character_selection')
   // キャラクターの設問を先頭（1.）に、店舗の設問を 2. 以降に
   const ordered = charQ ? [charQ, ...visible.filter(q => q !== charQ)] : visible

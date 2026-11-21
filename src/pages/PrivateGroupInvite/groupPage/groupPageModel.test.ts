@@ -126,6 +126,12 @@ describe('いまの状態の箱（マイページのカードと同じラベル�
     expect(v.body).toContain('事前配役アンケートは回答済みです（2/4 名が回答）')
     expect(v.secondary).toEqual([{ kind: 'survey', label: '回答を変更する' }])
   })
+  it('配役が確定した後は「回答を変更する」を出さない', () => {
+    const v = buildGroupStatus(base({ status: 'confirmed', phase: 'confirmed', confirmed: { date: '2026-11-07', start_time: '14:00:00', store_name: '高田馬場店' }, surveyPending: false, surveyAnswered: { answered: 1, total: 1 }, casting: { method: 'survey', needsChoice: true, confirmed: true, myPicked: true, picked: 1, total: 1 }, canMutateSchedule: false }))
+    expect(v.action).toBe('upcoming')
+    expect(v.body).not.toContain('回答済み')
+    expect(v.secondary).toEqual([])
+  })
   it('公演後は灰色・本文のみ', () => {
     const v = buildGroupStatus(base({ status: 'confirmed', phase: 'confirmed', confirmed: { date: '2026-10-01', start_time: '14:00', store_name: null }, canMutateSchedule: false }))
     expect(v.chip).toBe('終了')
