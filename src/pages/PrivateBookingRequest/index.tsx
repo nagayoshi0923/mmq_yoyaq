@@ -48,6 +48,8 @@ import { buildAuthUrl, currentPathWithSearch } from '@/lib/authReturn'
 import { savePrivateRequestLoginDraft, takePrivateRequestLoginDraft } from './utils/loginDraft'
 import { PRIVATE_BOOKING_HORIZON_CHECKING_TEXT, privateBookingHorizonMaxYmd, privateBookingTooFarText, usePrivateBookingHorizonDays } from '@/lib/privateBookingHorizon'
 import { PrivateBookingHorizonNotice } from '@/components/private-booking/PrivateBookingHorizonNotice'
+import { announceNextGroup } from '@/lib/privateGroupChat'
+import { clearNextGroupSource, loadNextGroupSource } from '@/lib/nextPrivateGroup'
 
 const MAX_TIME_SLOTS = 6
 
@@ -475,6 +477,21 @@ export function PrivateBookingRequest({
         groupIdToUse = group.id
         setCreatedGroupId(group.id)
         setCreatedInviteCode(group.invite_code)
+        // 「同じメンバーで次の貸切」から来たとき: 新しいグループの招待をもとのグループのチャットに流す
+        // （以前は /group/create だけが行っていて、作品ページの貸切から申し込むと流れなかった。2026-11-22 点検）
+        const nextSource = loadNextGroupSource()
+        if (nextSource) {
+          clearNextGroupSource()
+          if (nextSource.organizationId === slotOrganizationId) {
+            try {
+              await announceNextGroup(nextSource.groupId, nextSource.memberId, group.id)
+              toast.success(`「${nextSource.title}」のグループのチャットに招待を送りました`)
+            } catch (err) {
+              logger.error('次の貸切の招待をチャットに流せませんでした', err)
+              toast.error('前のグループのチャットに招待を送れませんでした。招待リンクを直接送ってください')
+            }
+          }
+        }
       } else {
         logger.log('[貸切リクエスト] グループ作成スキップ', { reason: groupIdToUse ? '既存グループあり' : 'scenarioIdなし' })
       }

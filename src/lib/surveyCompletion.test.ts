@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { characterAnswerLabel, isPastPerformanceDate, missingRequiredSurveyQuestions, stripHiddenSurveyAnswers, toggleCharacterPick } from './surveyCompletion'
+import { characterAnswerLabel, isPastPerformanceDate, isSurveyQuestionShown, missingRequiredSurveyQuestions, primaryCharacterQuestionId, stripHiddenSurveyAnswers, toggleCharacterPick } from './surveyCompletion'
 
 const charQ = { id: 'c', question_type: 'character_selection' as const, is_required: true }
 const textQ = { id: 't', question_type: 'text' as const, is_required: true }
@@ -53,5 +53,24 @@ describe('第 2 希望（character_second_choice）', () => {
     expect(stripHiddenSurveyAnswers([charQ, textQ], { c: 'a', character_second_choice: 'b', t: 'x' }, true)).toEqual({ t: 'x' })
     expect(stripHiddenSurveyAnswers([charQ, textQ], { character_second_choice: 'b' }, false)).toEqual({})
     expect(stripHiddenSurveyAnswers([charQ, textQ], { c: 'おまかせ', character_second_choice: 'b' }, false)).toEqual({ c: 'おまかせ' })
+  })
+})
+
+describe('店舗がキャラクターの設問を 2 つ作っているとき（第一希望・第二希望）', () => {
+  const first = { id: 'c1', question_type: 'character_selection' as const, is_required: true }
+  const second = { id: 'c2', question_type: 'character_selection' as const, is_required: true }
+  const textQ = { id: 't', question_type: 'text' as const, is_required: false }
+
+  it('画面には 1 問だけ出す', () => {
+    expect(isSurveyQuestionShown(first, false, primaryCharacterQuestionId([first, second]))).toBe(true)
+    expect(isSurveyQuestionShown(second, false, primaryCharacterQuestionId([first, second]))).toBe(false)
+  })
+  it('2 問目は必須でも未回答に数えない', () => {
+    expect(missingRequiredSurveyQuestions([first, second, textQ], { c1: 'a' }, false)).toEqual([])
+  })
+  it('送るとき 2 問目に第 2 希望を入れる。無ければ「おまかせ」', () => {
+    expect(stripHiddenSurveyAnswers([first, second, textQ], { c1: 'a', character_second_choice: 'b' }, false)).toEqual({ c1: 'a', character_second_choice: 'b', c2: 'b' })
+    expect(stripHiddenSurveyAnswers([first, second, textQ], { c1: 'a' }, false)).toEqual({ c1: 'a', c2: 'おまかせ' })
+    expect(stripHiddenSurveyAnswers([first, second, textQ], { c1: 'おまかせ', character_second_choice: 'b' }, false)).toEqual({ c1: 'おまかせ', c2: 'おまかせ' })
   })
 })

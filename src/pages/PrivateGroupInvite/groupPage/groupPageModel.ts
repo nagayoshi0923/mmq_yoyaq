@@ -480,7 +480,8 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
       break
     case 'upcoming':
       oneLine = `${chip}・${description}`
-      if (input.surveyAnswered) {
+      // 配役が確定した後は「回答済み・回答を変更する」を出さない（2026-11-22 点検: 確定後も回答の変更を勧めていた）
+      if (input.surveyAnswered && !input.casting?.confirmed) {
         // 送ったあとの見え方（見本 SurveySheet.dc.html）: 回答済みの 1 文と「回答を変更する」
         const { answered, total } = input.surveyAnswered
         highlight = `${description}。事前配役アンケートは回答済みです${total > 0 ? `（${answered}/${total} 名が回答）` : ''}。`

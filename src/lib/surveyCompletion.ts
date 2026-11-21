@@ -2,9 +2,24 @@ import type { SurveyQuestion } from '@/types'
 
 type SurveyAnswers = Record<string, string | string[] | undefined>
 
-/** 画面に出す質問か。配役方法が「アンケート」でない間はキャラクター選択を出さない（#911） */
-export function isSurveyQuestionShown(question: Pick<SurveyQuestion, 'question_type'>, hideCharacterSelection: boolean): boolean {
-  return !(hideCharacterSelection && question.question_type === 'character_selection')
+/**
+ * 画面に出す質問か。配役方法が「アンケート」でない間はキャラクター選択を出さない（#911）。
+ * 店舗がキャラクターの設問を 2 つ以上（第一希望・第二希望など）作っていても、画面は 1 問（第 1・第 2 希望を一緒に選ぶ）にまとめる。
+ * 2 問目以降は出さず、送るときに第 2 希望を入れる（2026-11-22 点検: 同じ設問が 2 回出ていた）。
+ */
+export function isSurveyQuestionShown(
+  question: Pick<SurveyQuestion, 'question_type'> & { id?: string },
+  hideCharacterSelection: boolean,
+  primaryCharacterQuestionId?: string | null,
+): boolean {
+  if (question.question_type !== 'character_selection') return true
+  if (hideCharacterSelection) return false
+  return !primaryCharacterQuestionId || question.id === primaryCharacterQuestionId
+}
+
+/** 画面に出すキャラクターの設問（最初の 1 問）の id */
+export function primaryCharacterQuestionId(questions: ReadonlyArray<Pick<SurveyQuestion, 'id' | 'question_type'>>): string | null {
+  return questions.find(q => q.question_type === 'character_selection')?.id ?? null
 }
 
 function isAnswered(value: string | string[] | undefined): boolean {
@@ -15,7 +30,8 @@ function isAnswered(value: string | string[] | undefined): boolean {
 export function missingRequiredSurveyQuestions<Q extends Pick<SurveyQuestion, 'id' | 'question_type' | 'is_required'>>(
   questions: Q[], answers: SurveyAnswers | undefined, hideCharacterSelection: boolean,
 ): Q[] {
-  return questions.filter(q => q.is_required && isSurveyQuestionShown(q, hideCharacterSelection) && !isAnswered(answers?.[q.id]))
+  const primary = primaryCharacterQuestionId(questions)
+  return questions.filter(q => q.is_required && isSurveyQuestionShown(q, hideCharacterSelection, primary) && !isAnswered(answers?.[q.id]))
 }
 
 /** 送信する回答から、画面に出していない質問の回答を除く（配役方法の変更で消えた回答を復活させない。#915） */
@@ -27,7 +43,16 @@ export function stripHiddenSurveyAnswers<T extends string | string[]>(
   const charQ = questions.find(q => q.question_type === 'character_selection')
   const first = charQ ? answers[charQ.id] : undefined
   if (!charQ || hiddenIds.has(charQ.id) || typeof first !== 'string' || !first || first === SURVEY_CHARACTER_ANY) hiddenIds.add(SURVEY_SECOND_CHOICE_KEY)
-  return Object.fromEntries(Object.entries(answers).filter(([id]) => !hiddenIds.has(id)))
+  const kept: Record<string, T> = Object.fromEntries(Object.entries(answers).filter(([id]) => !hiddenIds.has(id)))
+  // 店舗が作った 2 問目以降のキャラクターの設問（第二希望など）には第 2 希望を入れる。無ければ「おまかせ」
+  if (charQ && !hiddenIds.has(charQ.id) && typeof first === 'string' && first) {
+    const second = kept[SURVEY_SECOND_CHOICE_KEY]
+    const fill = (typeof second === 'string' && second ? second : SURVEY_CHARACTER_ANY) as T
+    for (const q of questions) {
+      if (q.question_type === 'character_selection' && q.id !== charQ.id) kept[q.id] = fill
+    }
+  }
+  return kept
 }
 
 /** 公演日（日本時間）の終わりを過ぎたか */

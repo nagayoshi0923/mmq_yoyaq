@@ -661,8 +661,10 @@ export function PrivateGroupInvite() {
         characters={scenarioCharacters}
         onSubmitted={() => {
           // 状態の箱（未回答か）・概要の配役欄（回答済み N/M 名）・グループを読み直す
-          void queryClient.invalidateQueries({ queryKey: ['group-survey-settings', group.id] })
-          void queryClient.invalidateQueries({ queryKey: ['group-casting-status', group.id] })
+          // アンケートの画面を開いている間はグループの画面が外れていて、ただ無効にするだけでは戻ったときに読み直さない
+          // （既定で refetchOnMount: false）。外れている問い合わせも今すぐ読み直す（2026-11-22 点検「回答済み 0/1 名」）
+          void queryClient.invalidateQueries({ queryKey: ['group-survey-settings', group.id], refetchType: 'all' })
+          void queryClient.invalidateQueries({ queryKey: ['group-casting-status', group.id], refetchType: 'all' })
           void refetch()
         }}
         onBack={() => (activeSheet === 'survey' ? closeSheet() : setActiveTab(isScheduleConfirmedUi ? 'overview' : 'dates'))}
