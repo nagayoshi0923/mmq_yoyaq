@@ -41,6 +41,7 @@ import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
 import { useOrganization } from '@/hooks/useOrganization'
 import { timeSlotEnToSchedule } from '@/lib/timeSlot'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { generateReservationNumber } from '@/utils/reservationNumber'
 
 interface PerformanceModalProps {
   isOpen: boolean
@@ -622,9 +623,7 @@ export function PerformanceModal({
               const unitPrice = isStaffPay ? 0 : baseFee
               const total = unitPrice * p.count
               const now = new Date()
-              const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
-              const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
-              const reservationNumber = `${dateStr}-${randomStr}`
+              const reservationNumber = generateReservationNumber(now)
               return reservationApi.insertDirect({
                 reservation_number: reservationNumber,
                 schedule_event_id: targetEventId,

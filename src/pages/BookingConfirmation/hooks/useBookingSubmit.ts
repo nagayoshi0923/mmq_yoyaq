@@ -14,6 +14,7 @@ import { notificationOutcome, type NotificationOutcome } from '@/lib/notificatio
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { upsertOwnCustomer } from '@/lib/api/customerApi'
 import { trackPendingNotification } from '@/lib/pendingNotifications'
+import { generateReservationNumber } from '@/utils/reservationNumber'
 
 /**
  * 参加費を計算する関数
@@ -370,9 +371,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       // 冪等性: 予約番号（YYMMDD-XXXX）を1回だけ生成してリトライでも固定
       if (!reservationNumberRef.current) {
         const now = new Date()
-        const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
-        const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
-        reservationNumberRef.current = `${dateStr}-${randomStr}`
+        reservationNumberRef.current = generateReservationNumber(now)
       }
 
       setProgress('saving')
