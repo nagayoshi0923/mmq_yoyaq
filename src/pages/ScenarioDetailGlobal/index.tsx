@@ -1,4 +1,5 @@
 import { PageBar } from '@/components/renewal/PageBar'
+import { todayJst } from '@/lib/publicPerformanceSearch'
 import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
 import { storeDisplayName } from '@/lib/publicStoreName'
 import { registerPlayedScenario } from '@/lib/registerPlayedScenario'
@@ -206,7 +207,8 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
   }
 
   // 公演取得
-  const today = new Date().toISOString().split('T')[0]
+  // 日本時間の今日（UTC だと 0〜9 時に前日の公演が「次の公演」に出る）
+  const today = todayJst()
   const { data: eventData, error: eventError } = await scenarioDetailGlobalReadApi.listUpcomingPublicEvents(masterId, today)
   if (eventError) logger.error('Failed to fetch events:', eventError)
 
@@ -376,7 +378,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       if (!unmarkPlayedMutation.isPending) unmarkPlayedMutation.mutate()
       return
     }
-    setPlayedDate(new Date().toISOString().split('T')[0])
+    setPlayedDate(todayJst())
     setIsPlayedDialogOpen(true)
   }
 

@@ -475,7 +475,8 @@ export function ReservationDetailPage() {
               scenarioTitle={scenario.title} scenarioId={scenario.id} scenarioSlug={scenario.slug}
               eventDate={reservation?.schedule_events?.date ? formatJstDateJa(reservation.schedule_events.date) : undefined}
               eventTime={reservation?.schedule_events?.start_time || undefined}
-              storeName={store?.name} organizationSlug={organization?.slug} reservationId={reservation?.id} className="w-full"
+              storeName={store?.name} organizationSlug={organization?.slug} reservationId={reservation?.id}
+              eventId={reservation?.schedule_event_id ?? undefined} className="w-full"
             />
           </div>
         )}

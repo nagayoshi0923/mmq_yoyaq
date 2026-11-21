@@ -1,7 +1,7 @@
 import { useMemo, useState, type MouseEvent } from 'react'
 import { Heart } from 'lucide-react'
 import { ScenarioCardImage } from '@/components/public-top/ScenarioCardImage'
-import { NEW_ARRIVAL_CHIP } from '@/components/public-top/newArrivals'
+import { NEW_ARRIVAL_CHIP, isBeginnerChip } from '@/components/public-top/newArrivals'
 import { cn } from '@/lib/utils'
 import { durationLabel, playersLabel } from './labels'
 
@@ -74,7 +74,7 @@ export function CatalogView({
   const [unplayedOnly, setUnplayedOnly] = useState(false)
 
   const isNewMode = selectedCategories.includes(NEW_ARRIVAL_CHIP)
-  const beginnerGenre = genres.find((g) => g.includes('初心者')) ?? null
+  const beginnerGenre = genres.find(isBeginnerChip) ?? null
   const themeGenres = genres.filter((g) => g !== NEW_ARRIVAL_CHIP && g !== beginnerGenre)
   const mode = unplayedOnly ? 'unplayed' : isNewMode ? 'new' : beginnerGenre && selectedCategories.includes(beginnerGenre) ? 'beginner' : 'all'
 
@@ -96,7 +96,7 @@ export function CatalogView({
   const toggleTheme = (g: string) => onCategoriesChange(selectedCategories.includes(g) ? selectedCategories.filter((x) => x !== g) : [...selectedCategories, g])
 
   const countLabel = mode === 'new'
-    ? `${scopeLabel}新作 ${listed.length}作品（公演開始が新しい順）`
+    ? `${scopeLabel}新作 ${listed.length}作品（${sortOrder === 'name' ? '名前順' : '公演開始が新しい順'}）`
     : `${scopeLabel}${mode === 'beginner' ? '初心者向けの' : mode === 'unplayed' ? 'まだ遊んでいない' : ''}作品 ${listed.length}作品`
 
   return (

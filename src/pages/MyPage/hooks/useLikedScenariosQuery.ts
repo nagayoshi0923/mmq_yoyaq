@@ -13,6 +13,8 @@ export function useLikedScenariosQuery(userId: string | undefined) {
   return useQuery({
     queryKey: likedScenariosKeys.all(userId ?? ''),
     enabled: !!userId,
+    // 作品ページで「遊びたい」「遊んだ」を押してからマイページへ来たときに古い一覧が出ないよう、開くたびに読み直す
+    refetchOnMount: 'always',
     queryFn: async () => {
       const { data: customer, error: customerError } = await myPageLikesReadApi.findCustomerIdByUserId(userId!)
       if (customerError) throw customerError

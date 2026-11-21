@@ -33,16 +33,11 @@ const formatDate = (date: string) => {
   return formatJstDateJa(date)
 }
 
-const getDifficultyLabel = (difficulty: number) => {
-  switch (difficulty) {
-    case 1: return '初級'
-    case 2: return '中級'
-    case 3: return '上級'
-    case 4: return '最上級'
-    case 5: return '超上級'
-    default: return '不明'
-  }
-}
+const DIFFICULTY_LABELS: Record<number, string> = { 1: '初級', 2: '中級', 3: '上級', 4: '最上級', 5: '超上級' }
+
+/** 難易度の表示。DB では文字列（"3"）で入っていることがあるので数に直す。1〜5 以外は出さない */
+const difficultyText = (difficulty: number | string | null | undefined): string | null =>
+  DIFFICULTY_LABELS[Number(difficulty)] ?? null
 
 /** 作品ごとの「次の公演」1 件。押すと作品ページの公演選択へ */
 function NextEventLine({ next, loading, onOpen }: { next: WishlistNextEvent | undefined; loading: boolean; onOpen: (href: string) => void }) {
@@ -144,7 +139,7 @@ export function WantToPlayPage() {
               <div className="min-w-0 flex-1">
                 <h3 className="text-base font-bold leading-snug line-clamp-2">{item.scenario.title}</h3>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {[playersLabel(item.scenario.player_count_min, item.scenario.player_count_max), durationLabel(item.scenario.duration), item.scenario.difficulty >= 1 && item.scenario.difficulty <= 5 ? getDifficultyLabel(item.scenario.difficulty) : null].filter(Boolean).join('・')}
+                  {[playersLabel(item.scenario.player_count_min, item.scenario.player_count_max), durationLabel(item.scenario.duration), difficultyText(item.scenario.difficulty)].filter(Boolean).join('・')}
                 </p>
                 <NextEventLine next={nextEvents?.[item.scenario.id]} loading={nextLoading} onOpen={href => navigate(href)} />
                 <p className="mt-1 text-2xs text-muted-foreground">追加日: {formatDate(item.created_at)}</p>

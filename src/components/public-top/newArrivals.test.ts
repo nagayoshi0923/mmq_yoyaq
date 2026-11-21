@@ -112,8 +112,14 @@ describe('カタログの「新作」チップ（トップと同じ判定）', (
     expect(matchesCategoryChips(['SF'], [], false)).toBe(true)
     expect(matchesCategoryChips(['新作'], ['新作'], false)).toBe(false)
     expect(matchesCategoryChips([], ['新作'], true)).toBe(true)
-    expect(matchesCategoryChips(['3時間以内'], ['新作', '3時間以内'], false)).toBe(true)
-    expect(matchesCategoryChips(['SF'], ['新作', '3時間以内'], false)).toBe(false)
+    // 新作は上の段の切り替え: テーマと一緒に選んだら「新作 かつ テーマ」
+    expect(matchesCategoryChips(['3時間以内'], ['新作', '3時間以内'], false)).toBe(false)
+    expect(matchesCategoryChips(['3時間以内'], ['新作', '3時間以内'], true)).toBe(true)
+    expect(matchesCategoryChips(['SF'], ['新作', '3時間以内'], true)).toBe(false)
+    // 初心者向けも同じ。テーマ同士はどれか 1 つ
+    expect(matchesCategoryChips(['SF'], ['初心者におすすめ', 'SF'], false)).toBe(false)
+    expect(matchesCategoryChips(['初心者におすすめ', 'SF'], ['初心者におすすめ', 'SF', 'ホラー'], false)).toBe(true)
+    expect(matchesCategoryChips(['ホラー'], ['SF', 'ホラー'], false)).toBe(true)
   })
   it('「新作」を選んでいるときだけ、新作をトップと同じ並びで先に、残りは元の並び', () => {
     const list = [{ title: 'い' }, { title: '古' }, { title: 'あ' }, { title: '新' }]

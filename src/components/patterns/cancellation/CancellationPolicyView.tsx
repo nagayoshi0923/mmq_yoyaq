@@ -72,15 +72,16 @@ export function PolicyTypeSection({
   performanceType,
 }: PolicyTypeSectionProps) {
   const sortedFees = [...fees].sort((a, b) => b.hours_before - a.hours_before)
+  const filledItems = items.filter(item => item.content?.trim())
   return (
     <section className="space-y-3">
       <h3 className="border-b pb-2">{title}</h3>
 
-      {(items.length > 0 || note) && (
+      {(filledItems.length > 0 || note) && (
         <div className="space-y-2 ts-body text-muted-foreground">
-          {items.length > 0 && (
+          {filledItems.length > 0 && (
             <ul className="list-disc pl-5 space-y-1">
-              {items.map(item => <li key={item.id}>{item.content}</li>)}
+              {filledItems.map(item => <li key={item.id}>{item.content}</li>)}
             </ul>
           )}
           {note?.split('\n').map((line, index) => <p key={index}>{line}</p>)}
@@ -146,6 +147,8 @@ export function CancellationPolicyView({
   storeNames,
 }: CancellationPolicyViewProps) {
   const names = storeNames && storeNames.length > 0 ? storeNames : [policy.store_name]
+  // 設定で空のまま保存された行は「・」だけが出るので外す
+  const organizerReasons = policy.organizer_cancel_reasons.filter(reason => reason.content?.trim())
   const heading = names.join('、')
   const headingLabel = names.length > 1 ? `対象店舗（${names.length}店舗）` : '対象店舗'
 
@@ -220,12 +223,12 @@ export function CancellationPolicyView({
         performanceType="private"
       />
 
-      {(policy.organizer_cancel_reasons.length > 0 || policy.organizer_cancel_refund_note) && (
+      {(organizerReasons.length > 0 || policy.organizer_cancel_refund_note) && (
         <section className="space-y-3">
           <h3 className="border-b pb-2">店舗都合によるキャンセル</h3>
-          {policy.organizer_cancel_reasons.length > 0 && (
+          {organizerReasons.length > 0 && (
             <ul className="list-disc pl-5 space-y-1 ts-body text-muted-foreground">
-              {policy.organizer_cancel_reasons.map(reason => <li key={reason.id}>{reason.content}</li>)}
+              {organizerReasons.map(reason => <li key={reason.id}>{reason.content}</li>)}
             </ul>
           )}
           {policy.organizer_cancel_refund_note && <p className="ts-body">{policy.organizer_cancel_refund_note}</p>}

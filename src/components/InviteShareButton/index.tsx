@@ -21,6 +21,8 @@ interface InviteShareButtonProps {
   storeName?: string
   organizationSlug?: string
   reservationId?: string
+  /** 公演の回。渡すと共有リンクがその回を選んだ状態で開く（友だちが同じ回をそのまま予約できる） */
+  eventId?: string
   showPrivateInvite?: boolean
   className?: string
 }
@@ -34,6 +36,7 @@ export function InviteShareButton({
   storeName,
   organizationSlug,
   reservationId,
+  eventId,
   showPrivateInvite = true,
   className = '',
 }: InviteShareButtonProps) {
@@ -42,9 +45,11 @@ export function InviteShareButton({
   const [copied, setCopied] = useState(false)
 
   const baseUrl = window.location.origin
-  const scenarioUrl = organizationSlug
+  const scenarioPageUrl = organizationSlug
     ? `${baseUrl}/${organizationSlug}/scenario/${scenarioSlug || scenarioId}`
     : `${baseUrl}/scenario/${scenarioSlug || scenarioId}`
+  // 回の指定は組織の作品ページだけが読む（全体の作品紹介ページには日程の選択がない）
+  const scenarioUrl = eventId && organizationSlug ? `${scenarioPageUrl}?event=${encodeURIComponent(eventId)}` : scenarioPageUrl
 
   const shareText = eventInviteShareText({ scenarioTitle, eventDate, eventTime, storeName })
 
