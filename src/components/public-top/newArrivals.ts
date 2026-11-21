@@ -160,12 +160,23 @@ export function newArrivalDateIfTarget(
 export const NEW_ARRIVAL_CHIP = '新作'
 
 /**
- * カタログのカテゴリのチップの絞り込み（既存の規則のまま: 複数選べて、どれか 1 つに当てはまれば出す）。
+ * カタログのカテゴリのチップの絞り込み。
+ * 「新作」「初心者向け」は上の段の切り替え（表示する作品）なので、選んでいれば必ず当てはまる必要がある。
+ * テーマのチップは複数選べて、どれか 1 つに当てはまれば出す。
  * 「新作」のチップだけは作品のジャンルの「新作」ではなく、上の 90 日の判定（isNew）で当てはめる。
  */
 export function matchesCategoryChips(genres: readonly string[] | null | undefined, selected: readonly string[], isNew: boolean): boolean {
   if (selected.length === 0) return true
-  return selected.some((cat) => (cat === NEW_ARRIVAL_CHIP ? isNew : !!genres?.includes(cat)))
+  if (selected.includes(NEW_ARRIVAL_CHIP) && !isNew) return false
+  const beginner = selected.filter(isBeginnerChip)
+  if (beginner.length > 0 && !beginner.some((cat) => !!genres?.includes(cat))) return false
+  const themes = selected.filter((cat) => cat !== NEW_ARRIVAL_CHIP && !isBeginnerChip(cat))
+  return themes.length === 0 || themes.some((cat) => !!genres?.includes(cat))
+}
+
+/** 「初心者向け」系のカテゴリ（作品一覧の上の段の切り替え。CatalogView と同じ判定） */
+export function isBeginnerChip(cat: string): boolean {
+  return cat.includes('初心者')
 }
 
 /**

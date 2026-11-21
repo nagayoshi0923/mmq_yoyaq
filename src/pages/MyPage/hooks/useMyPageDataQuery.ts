@@ -73,6 +73,8 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
   return useQuery({
     queryKey: myPageKeys.data(userId ?? '', email ?? ''),
     enabled: !!(userId || email),
+    // 作品ページで「遊びたい」「遊んだ」を押してからマイページへ来たときに古い一覧が出ないよう、開くたびに読み直す
+    refetchOnMount: 'always',
     queryFn: async (): Promise<MyPageData> => {
       let customer = null
       // user_id 未紐付けの自分の顧客行を SECURITY DEFINER RPC で安全に紐付ける／重複行を統合する。

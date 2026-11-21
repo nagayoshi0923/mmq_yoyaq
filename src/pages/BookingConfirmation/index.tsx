@@ -416,6 +416,7 @@ export function BookingConfirmation({
                 eventTime={formatTime(startTime)}
                 storeName={storeName}
                 organizationSlug={organizationSlug}
+                eventId={eventId}
                 className="w-full"
               />
             </div>

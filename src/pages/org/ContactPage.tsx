@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase'
 import { publicPageReadApi } from '@/lib/api/publicPageReadApi'
 import { logger } from '@/utils/logger'
 import { useAuth } from '@/contexts/AuthContext'
+import { useCustomerData } from '@/pages/BookingConfirmation/hooks/useCustomerData'
 
 const INQUIRY_TYPES = [
   { value: 'booking', label: '予約について' },
@@ -62,11 +63,18 @@ export function OrganizationContactPage() {
     if (user) {
       setFormData(prev => ({
         ...prev,
-        name: prev.name || user.name || '',
+        // お客様の user.name はメールの @ より前なので、お名前は下で登録済みの情報から入れる
+        name: prev.name || (user.role === 'customer' ? '' : user.name || ''),
         email: prev.email || user.email || '',
       }))
     }
   }, [user])
+
+  // お客様は登録済みのお名前を入れる（入力済みなら上書きしない）
+  const { customerName: registeredName } = useCustomerData({ userId: user?.role === 'customer' ? user.id : undefined, userEmail: user?.role === 'customer' ? user.email : undefined })
+  useEffect(() => {
+    if (registeredName) setFormData(prev => (prev.name ? prev : { ...prev, name: registeredName }))
+  }, [registeredName])
 
   // 組織情報を取得
   useEffect(() => {

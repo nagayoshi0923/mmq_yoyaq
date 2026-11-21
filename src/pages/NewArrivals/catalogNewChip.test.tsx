@@ -154,12 +154,12 @@ describe('全体のカタログ（/scenario）の「新作」チップ', () => {
     expect(catalogTitles()).toHaveLength(ALL.length)
   })
 
-  it('ほかのチップとの組み合わせは既存の規則（どれか 1 つに当てはまれば出す）。新作が先、残りは元の並び', async () => {
+  it('新作を選んだままテーマを足すと「新作 かつ テーマ」に絞る。新作を外すとテーマだけ', async () => {
     await mount('/scenario?genre=新作')
     await click(chip('3時間以内'))
     expect(where()).toBe('/scenario?genre=3時間以内&genre=新作')
     expect(selectedChips()).toEqual(['新作', '3時間以内'])
-    expect(catalogTitles()).toEqual([...EXPECTED_NEW, '古い短時間'])
+    expect(catalogTitles()).toEqual(['新作短時間'])
     await click(chip('新作'))
     expect(new Set(catalogTitles())).toEqual(new Set(['新作短時間', '古い短時間']))
   })
