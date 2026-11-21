@@ -22,6 +22,7 @@ import { findMatchingStaff } from '@/utils/staffUtils'
 import type { Staff as StaffType, Scenario, Store, Reservation } from '@/types'
 import type { ScheduleEvent, EventFormData } from '@/types/schedule'
 import type { NewParticipant } from './newParticipant'
+import { generateReservationNumber } from '@/utils/reservationNumber'
 
 interface AddParticipantSectionProps {
   event: ScheduleEvent | null
@@ -83,9 +84,7 @@ export function AddParticipantSection({
                       
                       // 予約番号を生成
                       const now = new Date()
-                      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
-                      const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
-                      const reservationNumber = `${dateStr}-${randomStr}`
+                      const reservationNumber = generateReservationNumber(now)
                       
                       // シナリオ情報を取得
                       const scenarioObj = scenarios.find(s => s.title === currentEventData.scenario)

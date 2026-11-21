@@ -14,6 +14,8 @@ export interface ReservationCancelSummary {
   reservationNumber: string | null
   /** 例「10/27(火) 19:00」。無料期間内だけマイページから取消できる */
   freeDeadlineLabel: string | null
+  /** 使ったクーポンの割引額（円）。キャンセルするとクーポンは戻る（2026-11-22 えいきち判断） */
+  couponDiscount?: number | null
 }
 
 interface Props {
@@ -45,6 +47,12 @@ export function ReservationCancelDialog({ open, onOpenChange, summary, isPending
               かかりません{summary.freeDeadlineLabel ? `（${summary.freeDeadlineLabel} までは無料）` : ''}
             </dd>
           </div>
+          {!!summary.couponDiscount && summary.couponDiscount > 0 && (
+            <div className="flex gap-2" data-testid="reservation-cancel-coupon">
+              <dt className="w-16 shrink-0 text-muted-foreground">クーポン</dt>
+              <dd>使ったクーポン（{summary.couponDiscount.toLocaleString()}円引き）はお返しします</dd>
+            </div>
+          )}
         </dl>
         <div data-dialog-footer="" className="flex flex-col gap-2 sm:flex-row sm:justify-end">
           <Button variant="outline" className="h-11 text-sm sm:min-w-28" onClick={() => onOpenChange(false)} disabled={isPending}>

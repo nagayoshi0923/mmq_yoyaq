@@ -27,6 +27,7 @@ import { timeStrToMinutes } from '@/lib/privateBookingSlotAvailability'
 import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
 import { upsertOwnCustomer } from '@/lib/api/customerApi'
 import { privateBookingErrorText } from '@/lib/privateBookingErrors'
+import { generateReservationNumber } from '@/utils/reservationNumber'
 
 
 interface UsePrivateBookingSubmitProps {
@@ -188,9 +189,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         props.selectedTimeSlots.map((slot) => [slot.date, slot.slot.label, slot.slot.startTime, slot.slot.endTime]), props.selectedStoreIds])
       if (operation.current?.fingerprint !== fingerprint) {
         const now = new Date()
-        const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
-        const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
-        operation.current = { fingerprint, reservationNumber: `${dateStr}-${randomStr}` }
+        operation.current = { fingerprint, reservationNumber: generateReservationNumber(now) }
       }
       const baseReservationNumber = operation.current.reservationNumber
       

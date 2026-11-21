@@ -492,6 +492,7 @@ export function ReservationDetailPage() {
           participantCount: reservation.participant_count,
           reservationNumber: reservation.reservation_number ?? null,
           freeDeadlineLabel: freeCancelDeadlineLabel,
+          couponDiscount: reservation.discount_amount ?? null,
         }}
         isPending={cancelMutation.isPending}
         onConfirm={() => {

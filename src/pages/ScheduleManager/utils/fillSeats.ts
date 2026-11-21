@@ -2,6 +2,7 @@
  * 「満席にする」（デモ参加者で埋める）の計算。一括と単体の両方で同じ規則を使う（画面から切り出した純粋な関数）。
  */
 import { RESERVATION_SOURCE } from '@/lib/constants'
+import { generateReservationNumber as generateReservationNumberJst } from '@/utils/reservationNumber'
 
 export interface FillSeatsEvent {
   id: string
@@ -41,9 +42,7 @@ export function hasDemoParticipant(reservations: ReservationLike[]): boolean {
 
 /** 予約番号（YYMMDD-ランダム4文字） */
 export function demoReservationNumber(now: Date = new Date(), random: () => number = Math.random): string {
-  const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
-  const randomStr = random().toString(36).substring(2, 6).toUpperCase()
-  return `${dateStr}-${randomStr}`
+  return generateReservationNumberJst(now, random)
 }
 
 /** デモ参加者の予約（当日精算・支払い済み・確定） */

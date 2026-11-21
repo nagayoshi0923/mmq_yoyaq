@@ -8,6 +8,7 @@ import { getPrivateBookingCandidateBlockedState, type PrivateBookingBlockedSlotR
 import { timeStrToMinutes } from '@/lib/privateBookingSlotAvailability'
 import type { ScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
 import { privateBookingErrorText } from '@/lib/privateBookingErrors'
+import { generateReservationNumber as generateReservationNumberJst } from '@/utils/reservationNumber'
 
 export interface BookingCandidate {
   id: string
@@ -86,9 +87,7 @@ export function findUnavailableCandidates<T extends BookingCandidate>(
 
 /** 予約番号（YYMMDD-ランダム4文字） */
 export function generateReservationNumber(now: Date = new Date(), random: () => number = Math.random): string {
-  const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
-  const randomStr = random().toString(36).substring(2, 6).toUpperCase()
-  return `${dateStr}-${randomStr}`
+  return generateReservationNumberJst(now, random)
 }
 
 /**

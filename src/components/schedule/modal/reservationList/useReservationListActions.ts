@@ -26,6 +26,7 @@ import { sumActiveParticipants } from './participants'
 import { EMPTY_CANCELLATION_EMAIL_STATE, type ReservationCancellationEmailState } from './cancellationEmailState'
 import type { NewParticipant } from './newParticipant'
 import { scheduleApi } from '@/lib/api/scheduleApi'
+import { generateReservationNumber } from '@/utils/reservationNumber'
 
 interface UseReservationListActionsDeps {
   event: ScheduleEvent | null
@@ -678,9 +679,7 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
       
       // 予約番号を生成
       const now = new Date()
-      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
-      const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
-      const reservationNumber = `${dateStr}-${randomStr}`
+      const reservationNumber = generateReservationNumber(now)
 
       const finalPaymentMethod = participantName === 'デモ参加者' ? 'onsite' : paymentMethod
       const finalPaymentStatus = (participantName === 'デモ参加者' || paymentMethod === 'online') ? 'paid' : (paymentMethod === 'staff' ? 'paid' : 'pending')
