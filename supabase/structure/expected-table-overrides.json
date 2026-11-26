@@ -4843,5 +4843,215 @@
     "type": "p"
    }
   ]
+ },
+ "blog_posts": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "title",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "slug",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "excerpt",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "content",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "cover_image_url",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "is_published",
+    "type": "boolean",
+    "default": "false",
+    "not_null": true
+   },
+   {
+    "name": "published_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "author_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "view_count",
+    "type": "integer",
+    "default": "0",
+    "not_null": false
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "post_type",
+    "type": "text",
+    "default": "'news'::text",
+    "not_null": true
+   },
+   {
+    "name": "show_in_top_banner",
+    "type": "boolean",
+    "default": "false",
+    "not_null": true
+   },
+   {
+    "name": "banner_order",
+    "type": "integer",
+    "default": "0",
+    "not_null": true
+   },
+   {
+    "name": "display_until",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE UNIQUE INDEX blog_posts_organization_id_slug_key ON public.blog_posts USING btree (organization_id, slug)",
+    "name": "blog_posts_organization_id_slug_key"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX blog_posts_pkey ON public.blog_posts USING btree (id)",
+    "name": "blog_posts_pkey"
+   },
+   {
+    "def": "CREATE INDEX idx_blog_posts_banner ON public.blog_posts USING btree (banner_order, published_at DESC) WHERE ((is_published = true) AND (show_in_top_banner = true))",
+    "name": "idx_blog_posts_banner"
+   },
+   {
+    "def": "CREATE INDEX idx_blog_posts_org ON public.blog_posts USING btree (organization_id)",
+    "name": "idx_blog_posts_org"
+   },
+   {
+    "def": "CREATE INDEX idx_blog_posts_published ON public.blog_posts USING btree (is_published, published_at DESC) WHERE (is_published = true)",
+    "name": "idx_blog_posts_published"
+   },
+   {
+    "def": "CREATE INDEX idx_blog_posts_slug ON public.blog_posts USING btree (slug)",
+    "name": "idx_blog_posts_slug"
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "d",
+    "name": "blog_posts_delete_admin",
+    "check": null,
+    "roles": null,
+    "using": "((organization_id = get_user_organization_id()) AND is_org_admin())",
+    "permissive": true
+   },
+   {
+    "cmd": "a",
+    "name": "blog_posts_insert_admin",
+    "check": "((organization_id = get_user_organization_id()) AND is_org_admin())",
+    "roles": null,
+    "using": null,
+    "permissive": true
+   },
+   {
+    "cmd": "r",
+    "name": "blog_posts_select_published",
+    "check": null,
+    "roles": null,
+    "using": "((is_published = true) OR (organization_id = get_user_organization_id()))",
+    "permissive": true
+   },
+   {
+    "cmd": "w",
+    "name": "blog_posts_update_admin",
+    "check": null,
+    "roles": null,
+    "using": "((organization_id = get_user_organization_id()) AND is_org_admin())",
+    "permissive": true
+   },
+   {
+    "cmd": "*",
+    "name": "org_scope_restrict",
+    "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+    "roles": [
+     "authenticated"
+    ],
+    "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+    "permissive": false
+   }
+  ],
+  "triggers": [
+   {
+    "def": "CREATE TRIGGER trg_blog_posts_updated_at BEFORE UPDATE ON public.blog_posts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "name": "trg_blog_posts_updated_at"
+   }
+  ],
+  "constraints": [
+   {
+    "def": "FOREIGN KEY (author_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+    "name": "blog_posts_author_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+    "name": "blog_posts_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "UNIQUE (organization_id, slug)",
+    "name": "blog_posts_organization_id_slug_key",
+    "type": "u"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "blog_posts_pkey",
+    "type": "p"
+   },
+   {
+    "def": "CHECK ((post_type = ANY (ARRAY['news'::text, 'campaign'::text, 'character_feature'::text, 'category_feature'::text])))",
+    "name": "blog_posts_post_type_check",
+    "type": "c"
+   }
+  ]
  }
 }

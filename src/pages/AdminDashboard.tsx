@@ -36,7 +36,7 @@ import {
   ForBusinessPage, AuthorDashboard, AuthorLogin, ExternalReportForm, RentalReportForm,
   LicensePartnerReportForm, PlatformScenarioSearch, PlatformTop, DesignPreview, ComponentGallery, ProjectGuide,
   LearnFromThisSystem, NotFoundPage, PrivateBookingStart, PrivateGroupCreate, PrivateGroupInvite, PrivateGroupManage,
-  CouponManagement, BlogDetailPage, BlogManagement, TermsPage, PrivacyPage, SecurityPage, LegalPage,
+  CouponManagement, BlogDetailPage, BlogList, BlogManagement, TermsPage, PrivacyPage, SecurityPage, LegalPage,
   ContactPage, OrganizationContactPage, FAQPage, GuidePage, PrivateGuidePage, CancelPolicyPage, StoreListPage, AboutPage,
   PricingPage, GettingStartedPage,
 } from './adminDashboardPages'
@@ -315,6 +315,15 @@ export function AdminDashboard() {
         </Suspense>
       )
     }
+  }
+
+  // キャンペーン・特集の一覧（QW-20261116-001）
+  if (currentPage === 'feature-list') {
+    return (
+      <Suspense fallback={<LoadingScreen message="特集を読み込み中..." />}>
+        <BlogList />
+      </Suspense>
+    )
   }
 
   // ブログ記事詳細ページ

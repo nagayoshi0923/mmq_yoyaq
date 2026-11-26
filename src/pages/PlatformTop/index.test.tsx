@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PlatformTopData } from './hooks/platformTopData'
 
 const mocks = vi.hoisted(() => ({ fetch: vi.fn(), getPublic: vi.fn(), pauses: vi.fn(), deadline: vi.fn(), horizon: vi.fn() }))
+vi.mock('@/components/public-top/FeatureBannerSection', () => ({ FeatureBannerSection: () => null }))
 vi.mock('@/lib/api/scheduleHookReadApi', () => ({ privateBookingSlotReadApi: { getEffectiveDeadlineDays: mocks.deadline, getEffectiveHorizonDays: mocks.horizon } }))
 vi.mock('@/lib/api', () => ({ scenarioApi: { getPublic: mocks.getPublic } }))
 vi.mock('@/lib/api/publicBookingReadApi', () => ({ publicBookingReadApi: { listPrivatePauses: mocks.pauses } }))

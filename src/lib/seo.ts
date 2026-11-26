@@ -143,6 +143,11 @@ export const STATIC_PUBLIC_META: Record<string, { title: string; description: st
     description: 'MMQで遊べるマーダーミステリー作品の一覧です。全国の店舗から探せます。',
     path: '/scenario',
   },
+  'feature-list': {
+    title: 'キャンペーン・特集 | MMQ',
+    description: 'MMQ のキャンペーン、キャラ特集、カテゴリ特集、お知らせの一覧です。',
+    path: '/features',
+  },
   about: {
     title: '運営会社 | MMQ',
     description: 'マーダーミステリー公演予約サービス MMQ の運営会社情報です。',

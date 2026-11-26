@@ -34,6 +34,7 @@ import { newArrivalsPath } from '@/pages/NewArrivals/paths'
 import { fetchPrivateBookingData, fetchPrivateBookingDays, isPrivateBookingCandidate, orgPrivateBookingPath } from '@/components/public-top/privateBookingStatus'
 import { TopHero } from '@/components/public-top/TopHero'
 import { ScenarioBrowseSection, type BrowseScenario } from '@/components/public-top/ScenarioBrowseSection'
+import { FeatureBannerSection } from '@/components/public-top/FeatureBannerSection'
 import { useScenarioMarks } from '@/components/public-top/useScenarioMarks'
 import { indexUpcoming, withFirstEventPath, type ScenarioCardData, type ScenarioCardMeta, type ScenarioCardSource } from '@/components/public-top/scenarioCards'
 import { useBookingData } from './hooks/useBookingData'
@@ -269,6 +270,7 @@ export function PublicBookingTop({ organizationSlug }: PublicBookingTopProps) {
       />
 
       <main className="mx-auto max-w-4xl space-y-3 px-3.5 py-3 sm:px-4 md:py-5">
+        <FeatureBannerSection organizationSlug={slug || null} />
         <NearlyFullStrip performances={nearlyFull} source={cardSource} marks={marks} onOpen={openCard} />
         <NewArrivalsSection
           items={newArrivals}

@@ -1446,6 +1446,42 @@
     "language": "plpgsql",
     "security_definer": true
   },
+  "get_public_feature_banners(p_org_slug text)": {
+    "acl": [
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "TABLE(id uuid, title text, slug text, excerpt text, cover_image_url text, post_type text, banner_order integer, published_at timestamp with time zone, organization_slug text, organization_name text)",
+    "body_md5": "4c067848faaf7b4248f6f49188e41f50",
+    "language": "sql",
+    "security_definer": true
+  },
+  "get_public_blog_posts(p_org_slug text, p_post_type text)": {
+    "acl": [
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "TABLE(id uuid, title text, slug text, excerpt text, cover_image_url text, post_type text, published_at timestamp with time zone, organization_slug text, organization_name text)",
+    "body_md5": "1f96a7847d9553f710a19329034ef644",
+    "language": "sql",
+    "security_definer": true
+  },
+  "get_public_feature_scenarios(p_organization_id uuid, p_scenario_ids uuid[], p_tags text[])": {
+    "acl": [
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "TABLE(scenario_master_id uuid, slug text, title text, author text, key_visual_url text, player_count_min integer, player_count_max integer, duration integer, genre text[], release_date date, organization_slug text, organization_name text, characters jsonb, next_events jsonb, accepts_private_booking boolean)",
+    "body_md5": "7809bd721c835ea69db3d1902d1021cc",
+    "language": "sql",
+    "security_definer": true
+  },
   "report_inventory_consistency()": {
     "acl": [
       "postgres=X/postgres",

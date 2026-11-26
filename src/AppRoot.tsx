@@ -146,6 +146,7 @@ const BOOKING_SHELL_GLOBAL_FIRST_SEGMENT = new Set([
   'getting-started',
   'lp',
   'blog',
+  'features',
   'org',
   'group',
   'partner-report',

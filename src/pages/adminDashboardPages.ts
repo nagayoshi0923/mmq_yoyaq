@@ -61,6 +61,7 @@ export const PrivateGroupInvite = lazyWithRetry(() => import('./PrivateGroupInvi
 export const PrivateGroupManage = lazyWithRetry(() => import('./PrivateGroupManage').then(m => ({ default: m.PrivateGroupManage })))
 export const CouponManagement = lazyWithRetry(() => import('./CouponManagement').then(m => ({ default: m.CouponManagement })))
 export const BlogDetailPage = lazyWithRetry(() => import('./BlogDetailPage').then(m => ({ default: m.BlogDetailPage })))
+export const BlogList = lazyWithRetry(() => import('./BlogList').then(m => ({ default: m.BlogList })))
 export const BlogManagement = lazyWithRetry(() => import('./BlogManagement').then(m => ({ default: m.BlogManagement })))
 export const TermsPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.TermsPage })))
 export const PrivacyPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.PrivacyPage })))

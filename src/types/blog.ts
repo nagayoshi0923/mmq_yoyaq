@@ -16,4 +16,87 @@ export interface BlogPost {
   view_count: number
   created_at: string
   updated_at: string
+  /** 記事の種類（お知らせ・キャンペーン・キャラ特集・カテゴリ特集） */
+  post_type: BlogPostType
+  /** トップの「キャンペーン・特集」バナーに出す */
+  show_in_top_banner: boolean
+  /** バナーの並び順（小さいほど先） */
+  banner_order: number
+  /** この日時を過ぎたらバナーと記事一覧から外す（null=ずっと） */
+  display_until?: string | null
+}
+
+export type BlogPostType = 'news' | 'campaign' | 'character_feature' | 'category_feature'
+
+export const BLOG_POST_TYPE_LABELS: Record<BlogPostType, string> = {
+  news: 'お知らせ',
+  campaign: 'キャンペーン',
+  character_feature: 'キャラ特集',
+  category_feature: 'カテゴリ特集',
+}
+
+export const BLOG_POST_TYPES: BlogPostType[] = ['category_feature', 'character_feature', 'campaign', 'news']
+
+/** バナー・記事一覧に出す公開記事（RPC の最小列） */
+export interface PublicBlogPostSummary {
+  id: string
+  title: string
+  slug: string
+  excerpt: string | null
+  cover_image_url: string | null
+  post_type: BlogPostType
+  published_at: string | null
+  organization_slug: string
+  organization_name: string
+  banner_order?: number
+}
+
+/** 記事に差し込む作品の公開情報（get_public_feature_scenarios） */
+export interface FeatureScenario {
+  scenario_master_id: string
+  slug: string | null
+  title: string
+  author: string | null
+  key_visual_url: string | null
+  player_count_min: number | null
+  player_count_max: number | null
+  duration: number | null
+  genre: string[] | null
+  release_date: string | null
+  organization_slug: string
+  organization_name: string
+  characters: FeatureCharacter[]
+  next_events: FeatureNextEvent[]
+  /** 貸切を受け付ける作品か（OFF・出張限定は false） */
+  accepts_private_booking: boolean
+}
+
+export interface FeatureCharacter {
+  id: string | null
+  name: string | null
+  age: string | null
+  gender: string | null
+  occupation: string | null
+  description: string | null
+  image_url: string | null
+  image_position: string | null
+  /** 拡大率（%）。100 または null で等倍 */
+  image_scale: number | null
+  background_color: string | null
+  is_npc: boolean
+}
+
+export interface FeatureNextEvent {
+  id: string
+  date: string
+  start_time: string
+  /** 店舗の生の名前。お客様に見せる名前は storeDisplayName で作る */
+  store_name: string | null
+  store_short_name: string | null
+  store_public_name: string | null
+  store_is_temporary: boolean
+  /** 臨時会場のその日の名前 */
+  store_venue_name: string | null
+  venue: string | null
+  available_seats: number
 }

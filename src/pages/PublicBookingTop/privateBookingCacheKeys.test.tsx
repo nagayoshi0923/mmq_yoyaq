@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const m = vi.hoisted(() => ({ booking: {} as Record<string, unknown>, platform: vi.fn(), getPublic: vi.fn(), pauses: vi.fn(), deadline: vi.fn(), horizon: vi.fn() }))
+vi.mock('@/components/public-top/FeatureBannerSection', () => ({ FeatureBannerSection: () => null }))
 vi.mock('./hooks/useNewArrivalNextEvents', () => ({ useNewArrivalNextEvents: () => ({ events: [], stateOf: () => 'ready', retry: () => {} }) }))
 vi.mock('@/pages/PlatformTop/hooks/usePlatformNewArrivalNext', () => ({ usePlatformNewArrivalNext: () => ({ performances: [], stateOf: () => 'ready', retry: () => {} }) }))
 vi.mock('./hooks/useBookingData', () => ({ useBookingData: () => m.booking }))
