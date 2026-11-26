@@ -155,7 +155,9 @@ export const BookingRequestCard = ({
 
   const elapsedDays = getElapsedDays(request.created_at)
   const elapsedTimeColor = elapsedDays >= 3 ? 'text-red-600 font-medium' : 'text-purple-600'
-  const isWaitingStatus = ['pending', 'pending_gm', 'pending_store'].includes(request.status)
+  // 承認前の申込（GM確認中・店舗承認待ち）。店舗承認待ちタブの gm_confirmed も含める（#1256）。
+  // タブ分け（utils/requestList.ts の awaitingApproval）と同じ状態にそろえる。
+  const isWaitingStatus = ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(request.status)
   // 申込中にお客様自身が取り下げたもの。却下メールは送らないので送信状況も出さない。
   const withdrawnByCustomer = isPrivateRequestWithdrawnByCustomer(request)
 
