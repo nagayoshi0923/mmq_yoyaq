@@ -29082,7 +29082,7 @@
     "service_role=X/postgres"
    ],
    "returns": "void",
-   "body_md5": "a13d7360bfbe2a148a4ebecc92362838",
+   "body_md5": "a9e5f03642e2ad6ae5d56b171d84dfc3",
    "language": "plpgsql",
    "security_definer": true
   },
