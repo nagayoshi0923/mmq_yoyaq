@@ -6,7 +6,14 @@ import { characterImageStyle } from '@/components/scenario/scenarioFacts'
 import type { PublicCharacter } from '../overviewModel'
 import { OverviewSection } from './OverviewSection'
 
-export function CharactersSection({ characters }: { characters: PublicCharacter[] }) {
+/** 事前読み込みありの作品は配役を公演前に決める（当日発表ではない。2026-11-26 銀世界のアシアトの問い合わせ） */
+export function castingNote(hasPreReading: boolean): string {
+  return hasPreReading
+    ? '配役は公演前に決めます（参加者同士で決めるか、事前配役アンケートの回答をもとに店舗が決めます）。'
+    : '配役は当日、または事前配役アンケートで決まります。'
+}
+
+export function CharactersSection({ characters, hasPreReading = false }: { characters: PublicCharacter[]; hasPreReading?: boolean }) {
   if (characters.length === 0) return null
   return (
     <OverviewSection label="登場人物" testId="overview-characters" title="登場人物" aside={<span className="text-muted-foreground">{characters.length}人</span>}>
@@ -23,7 +30,7 @@ export function CharactersSection({ characters }: { characters: PublicCharacter[
           </li>
         ))}
       </ul>
-      <p className="mt-1.5 text-xs text-muted-foreground">配役は当日、または事前配役アンケートで決まります。ネタバレになる情報は出していません。</p>
+      <p className="mt-1.5 text-xs text-muted-foreground">{castingNote(hasPreReading)}ネタバレになる情報は出していません。</p>
     </OverviewSection>
   )
 }
