@@ -833,7 +833,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                         />
                       )}
                       <PrivateBookingPanel
-                        participationFee={privateCandidateFees.length ? Math.min(...privateCandidateFees) : scenario.participation_fee}
+                        participationFee={privateCandidateFees.length ? Math.min(...privateCandidateFees) : referenceMinFee(scenario.participation_fee, scenario.participation_costs)}
                         maxParticipationFee={privateCandidateFees.length ? Math.max(...privateCandidateFees) : undefined}
                         feeUnknownText={knownPrivateFees ? null : feePendingText}
                         maxParticipants={scenario.player_count_max}
