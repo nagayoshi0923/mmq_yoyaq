@@ -78,7 +78,7 @@ export function GroupOverviewTab(props: GroupOverviewTabProps) {
   return (
     <div className="flex flex-col gap-3" data-testid="group-overview-tab">
       <ScenarioAboutSection title={title} imageUrl={imageUrl} playerRange={playerRange} info={info} scenarioUrl={scenarioUrl} />
-      <CharactersSection characters={publicCharacters(info ? info.characters : group.scenario_masters?.characters)} />
+      <CharactersSection characters={publicCharacters(info ? info.characters : group.scenario_masters?.characters)} hasPreReading={info?.hasPreReading ?? false} />
       <ScheduleVenueSection
         phase={phase}
         table={table}
