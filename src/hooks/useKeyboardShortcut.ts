@@ -34,7 +34,8 @@ export function useKeyboardShortcut(
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // input 系にフォーカスがある場合は無視
-      if (ignoreInputs) {
+      // （画面上部の検索ボタンは document へ keydown を送るので、target が要素でないことがある）
+      if (ignoreInputs && e.target instanceof Element) {
         const target = e.target as HTMLElement
         const tag = target.tagName
         if (
