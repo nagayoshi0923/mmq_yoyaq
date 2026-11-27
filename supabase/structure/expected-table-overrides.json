@@ -4843,5 +4843,143 @@
     "type": "p"
    }
   ]
+ },
+ "schedule_slot_rules": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "store_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "weekday",
+    "type": "smallint",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "time_slot",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "is_open",
+    "type": "boolean",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE UNIQUE INDEX schedule_slot_rules_pkey ON public.schedule_slot_rules USING btree (id)",
+    "name": "schedule_slot_rules_pkey"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX schedule_slot_rules_slot_key ON public.schedule_slot_rules USING btree (organization_id, store_id, weekday, time_slot)",
+    "name": "schedule_slot_rules_slot_key"
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "d",
+    "name": "schedule_slot_rules_delete_admin",
+    "check": null,
+    "roles": [
+     "authenticated"
+    ],
+    "using": "(is_org_admin() AND (organization_id = get_user_organization_id()))",
+    "permissive": true
+   },
+   {
+    "cmd": "a",
+    "name": "schedule_slot_rules_insert_admin",
+    "check": "(is_org_admin() AND (organization_id = get_user_organization_id()) AND (store_id IN ( SELECT s.id\n   FROM stores s\n  WHERE (s.organization_id = get_user_organization_id()))))",
+    "roles": [
+     "authenticated"
+    ],
+    "using": null,
+    "permissive": true
+   },
+   {
+    "cmd": "r",
+    "name": "schedule_slot_rules_select_staff",
+    "check": null,
+    "roles": [
+     "authenticated"
+    ],
+    "using": "(organization_id = get_user_organization_id())",
+    "permissive": true
+   },
+   {
+    "cmd": "w",
+    "name": "schedule_slot_rules_update_admin",
+    "check": "(is_org_admin() AND (organization_id = get_user_organization_id()) AND (store_id IN ( SELECT s.id\n   FROM stores s\n  WHERE (s.organization_id = get_user_organization_id()))))",
+    "roles": [
+     "authenticated"
+    ],
+    "using": "(is_org_admin() AND (organization_id = get_user_organization_id()))",
+    "permissive": true
+   }
+  ],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+    "name": "schedule_slot_rules_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "schedule_slot_rules_pkey",
+    "type": "p"
+   },
+   {
+    "def": "UNIQUE (organization_id, store_id, weekday, time_slot)",
+    "name": "schedule_slot_rules_slot_key",
+    "type": "u"
+   },
+   {
+    "def": "FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE",
+    "name": "schedule_slot_rules_store_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((time_slot = ANY (ARRAY['morning'::text, 'afternoon'::text, 'evening'::text])))",
+    "name": "schedule_slot_rules_time_slot_check",
+    "type": "c"
+   },
+   {
+    "def": "CHECK (((weekday >= 0) AND (weekday <= 7)))",
+    "name": "schedule_slot_rules_weekday_check",
+    "type": "c"
+   }
+  ]
  }
 }
