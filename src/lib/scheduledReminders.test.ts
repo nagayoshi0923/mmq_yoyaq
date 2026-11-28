@@ -19,7 +19,7 @@ function fixture(overrides: {
     ...overrides.event,
   }
   const reservation = {
-    id: 'reservation', organization_id: 'org', customer_email: 'fixture@example.invalid',
+    id: 'reservation', organization_id: 'org', customer_email: 'fixture@mmq.game',
     customer_name: '仮', participant_count: 1, total_price: 3000,
     final_price: overrides.finalPrice ?? 0, discount_amount: 3000 - (overrides.finalPrice ?? 0),
     reservation_number: 'fixture', status: 'confirmed', schedule_event_id: 'event',
@@ -99,6 +99,13 @@ describe('自動リマインド実行', () => {
     expect(await runScheduledReminders(db, now)).toMatchObject({ sent: 0, failures: 1 })
     expect(writes).toContainEqual({ status: 'failed' })
     spy.mockRestore()
+  })
+  it.each(['demo@example.com', 'qa@example.invalid'])('届かない宛先（%s）は送信の記録も作らずに飛ばす', async (email) => {
+    const { db, writes } = fixture({ reservation: { customer_email: email } })
+    expect(await runScheduledReminders(db, now)).toMatchObject({ sent: 0, skipped: 1, failures: 0 })
+    expect(db.rpc).not.toHaveBeenCalled()
+    expect(vi.mocked(sendScheduledReminder)).not.toHaveBeenCalled()
+    expect(writes).toEqual([])
   })
   it('実効設定の読取り失敗時は既定日程で送らない', async () => {
     const { db } = fixture(); load.mockRejectedValue(new Error('settings unavailable'))
