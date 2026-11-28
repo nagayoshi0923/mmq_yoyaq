@@ -5,6 +5,7 @@ import { dueReminderSchedules } from './reminder-schedule.ts'
 import { isScheduledReminderCurrent } from './reminder-send-guard.ts'
 import { sendScheduledReminder } from './send-scheduled-reminder.ts'
 import { customerStoreName } from './customer-store-name.ts'
+import { isUndeliverableEmail } from './undeliverable-email.ts'
 
 async function readPages(makeQuery) {
   const rows = []
@@ -47,7 +48,10 @@ export async function runScheduledReminders(db, now = new Date(), send = sendSch
           .select('id,organization_id,customer_email,customer_name,participant_count,total_price,final_price,discount_amount,reservation_number')
           .eq('organization_id', event.organization_id).eq('schedule_event_id', event.id)
           .in('status', ['confirmed', 'pending', 'gm_confirmed']).not('customer_email', 'is', null).order('id'))
-        for (const schedule of due) for (const reservation of reservations) {
+        // デモ参加者（demo@example.com）など届かない宛先は、送信の記録も作らずに飛ばす。
+        const deliverable = reservations.filter(reservation => !isUndeliverableEmail(reservation.customer_email))
+        skipped += (reservations.length - deliverable.length) * due.length
+        for (const schedule of due) for (const reservation of deliverable) {
           const { data: claims, error: claimError } = await db.rpc('claim_scheduled_reminder', {
             p_organization_id: event.organization_id, p_reservation_id: reservation.id, p_event_id: event.id,
             p_event_date: event.date, p_days_before: schedule.days_before, p_send_time: schedule.time,
